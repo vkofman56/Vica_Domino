@@ -343,6 +343,14 @@ class VicaDominoGame {
         this.nextTurn();
     }
 
+    closeBank() {
+        const bank = document.getElementById('bank');
+        bank.classList.add('closed');
+        setTimeout(() => {
+            bank.classList.remove('closed');
+        }, 2000);
+    }
+
     drawFromBank() {
         // Handle drawForDouble phase - everyone draws one card
         if (this.gamePhase === 'drawForDouble') {
@@ -353,6 +361,13 @@ class VicaDominoGame {
         if (this.gamePhase !== 'playing') return;
         if (this.bank.length === 0) {
             this.updateStatus('Bank is empty!', 'warning');
+            return;
+        }
+
+        // Check if player has a playable card - block bank access!
+        if (this.canCurrentPlayerPlay()) {
+            this.closeBank();
+            this.updateStatus('Look around! Find your card!', 'warning');
             return;
         }
 
@@ -475,6 +490,54 @@ class VicaDominoGame {
         return ordinals[n - 1] || `${n}th`;
     }
 
+    showWinnerCelebration(winner, ordinal) {
+        // Show winner banner
+        const banner = document.getElementById('winner-banner');
+        document.getElementById('winner-ordinal').textContent = ordinal;
+        document.getElementById('banner-winner-name').textContent = winner.name;
+        banner.style.display = 'block';
+
+        // Create sparkles
+        this.createSparkles();
+
+        // Hide banner after 2.5 seconds
+        setTimeout(() => {
+            banner.style.display = 'none';
+        }, 2500);
+    }
+
+    createSparkles() {
+        const container = document.getElementById('winner-celebration');
+        container.innerHTML = '';
+
+        // Create 30 sparkles around the screen
+        for (let i = 0; i < 30; i++) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+
+            // Random position around the edges and center
+            const angle = (i / 30) * Math.PI * 2;
+            const radius = 150 + Math.random() * 200;
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+
+            sparkle.style.left = (centerX + Math.cos(angle) * radius) + 'px';
+            sparkle.style.top = (centerY + Math.sin(angle) * radius) + 'px';
+            sparkle.style.animationDelay = (Math.random() * 0.5) + 's';
+
+            // Random colors for sparkles
+            const colors = ['#ffd700', '#ffaa00', '#ff6b6b', '#4ecdc4', '#45b7d1'];
+            sparkle.style.background = colors[Math.floor(Math.random() * colors.length)];
+
+            container.appendChild(sparkle);
+        }
+
+        // Clear sparkles after animation
+        setTimeout(() => {
+            container.innerHTML = '';
+        }, 2500);
+    }
+
     endGame(winner) {
         // Player completed their hand - mark as winner but CONTINUE the game!
         winner.isWinner = true;
@@ -484,16 +547,19 @@ class VicaDominoGame {
         this.updateStatus(`Here is the ${ordinal} winner: ${winner.name}!`, 'success');
         this.render();
 
+        // Show celebration with sparkles
+        this.showWinnerCelebration(winner, ordinal);
+
         // Check if ALL players have finished
         const activePlayers = this.players.filter(p => !p.isWinner);
         if (activePlayers.length === 0) {
             // Everyone has won!
-            setTimeout(() => this.showFinalResult(), 1500);
+            setTimeout(() => this.showFinalResult(), 3000);
             return;
         }
 
         // Continue with next player (skip winners)
-        setTimeout(() => this.nextTurn(), 1500);
+        setTimeout(() => this.nextTurn(), 3000);
     }
 
     checkGameOver() {
@@ -796,8 +862,9 @@ class VicaDominoGame {
         const activePlayers = this.players.filter(p => !p.isWinner);
         const isLastPlayer = activePlayers.length === 1;
 
-        // Draw button: disabled if last player, or player can play, or already drew, or bank empty
-        drawBtn.disabled = isLastPlayer || canPlay || this.hasDrawnThisTurn || this.bank.length === 0;
+        // Draw button: always enabled (green) unless last player, already drew, or bank empty
+        // If player has a card, clicking will show "Look around! Find your card"
+        drawBtn.disabled = isLastPlayer || this.hasDrawnThisTurn || this.bank.length === 0;
 
         // Pass button: enabled if player has drawn and still can't play, OR bank is empty and can't play
         passBtn.disabled = canPlay || (!this.hasDrawnThisTurn && this.bank.length > 0 && !isLastPlayer);

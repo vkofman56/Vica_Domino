@@ -558,6 +558,12 @@ class VicaDominoGame {
             return;
         }
 
+        // If we have 2+ winners and only 1 player left, show Circle of Winners
+        if (this.winners.length >= 2 && activePlayers.length === 1) {
+            setTimeout(() => this.showFinalResult(), 3000);
+            return;
+        }
+
         // Continue with next player (skip winners)
         setTimeout(() => this.nextTurn(), 3000);
     }
@@ -787,18 +793,28 @@ class VicaDominoGame {
             boardEl.appendChild(leftZone);
         }
 
-        // Board cards - highlight the ends
+        // Board cards - highlight the ends with arrows
         this.board.forEach((item, index) => {
             const isVertical = item.isDouble;
             const dominoEl = createDominoElement(item.card, isVertical, true);
 
             // Highlight left end (first card) and right end (last card)
             if (this.gamePhase === 'playing') {
+                // Left end arrow
                 if (index === 0) {
-                    dominoEl.classList.add('end-card', 'left-end-card');
+                    dominoEl.classList.add('end-card');
+                    const leftArrow = document.createElement('span');
+                    leftArrow.className = 'end-arrow left-arrow';
+                    leftArrow.textContent = `← ${this.leftEnd}`;
+                    dominoEl.appendChild(leftArrow);
                 }
+                // Right end arrow
                 if (index === this.board.length - 1) {
-                    dominoEl.classList.add('end-card', 'right-end-card');
+                    dominoEl.classList.add('end-card');
+                    const rightArrow = document.createElement('span');
+                    rightArrow.className = 'end-arrow right-arrow';
+                    rightArrow.textContent = `${this.rightEnd} →`;
+                    dominoEl.appendChild(rightArrow);
                 }
             }
 

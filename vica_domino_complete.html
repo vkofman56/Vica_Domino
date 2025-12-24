@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vica Domino - Math Domino Game</title>
+    <style>
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #fff;
+}
+
+.game-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.screen {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+#start-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+}
+
+#start-screen h1 {
+    font-size: 4rem;
+    margin-bottom: 10px;
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+}
+
+.subtitle {
+    font-size: 1.5rem;
+    opacity: 0.9;
+    margin-bottom: 40px;
+}
+
+.setup-panel {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 40px;
+    min-width: 400px;
+}
+
+.setup-panel h3 {
+    margin-bottom: 20px;
+    font-size: 1.3rem;
+}
+
+.player-select {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.player-btn {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    border: 3px solid white;
+    background: transparent;
+    color: white;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.player-btn:hover, .player-btn.selected {
+    background: white;
+    color: #764ba2;
+}
+
+.player-names {
+    margin-top: 20px;
+}
+
+#name-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+#name-inputs input {
+    padding: 12px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.9);
+    color: #333;
+}
+
+#name-inputs input:focus {
+    outline: 3px solid #ffd700;
+}
+
+.btn {
+    padding: 12px 30px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background: linear-gradient(145deg, #ffd700, #ffaa00);
+    color: #333;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+}
+
+.btn-secondary {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 2px solid rgba(255,255,255,0.5);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255,255,255,0.3);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-draw {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    color: white;
+    padding: 15px 40px;
+    font-size: 1.1rem;
+}
+
+.btn-draw:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.btn-draw:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 15px;
+    margin-bottom: 20px;
+}
+
+header h1 {
+    font-size: 1.8rem;
+}
+
+.turn-indicator {
+    font-size: 1.3rem;
+    background: rgba(255,215,0,0.3);
+    padding: 10px 25px;
+    border-radius: 25px;
+    border: 2px solid #ffd700;
+}
+
+#current-player-name {
+    font-weight: bold;
+    color: #ffd700;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.board-container {
+    background: linear-gradient(145deg, #2d5a27, #1e3d1a);
+    border-radius: 20px;
+    padding: 30px;
+    min-height: 180px;
+    border: 4px solid #4a7c43;
+    box-shadow: inset 0 5px 20px rgba(0,0,0,0.3);
+    overflow-x: auto;
+}
+
+.board {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    gap: 0;
+}
+
+.board-placeholder {
+    color: rgba(255,255,255,0.4);
+    font-size: 1.5rem;
+}
+
+.domino {
+    display: flex;
+    background: linear-gradient(145deg, #fffef5, #f5f0e0);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 2px solid #d4c4a0;
+    flex-shrink: 0;
+}
+
+.domino.horizontal {
+    flex-direction: row;
+    width: 100px;
+    height: 50px;
+}
+
+.domino.vertical {
+    flex-direction: column;
+    width: 50px;
+    height: 100px;
+}
+
+.domino:hover:not(.on-board):not(.disabled) {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.4);
+}
+
+.domino.selected {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(255,215,0,0.5), 0 0 0 4px #ffd700;
+}
+
+.domino.playable {
+    animation: glow 1.5s infinite;
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 4px 8px rgba(0,0,0,0.3), 0 0 0 0 rgba(76,175,80,0.5); }
+    50% { box-shadow: 0 4px 8px rgba(0,0,0,0.3), 0 0 0 6px rgba(76,175,80,0.3); }
+}
+
+.domino.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.domino.on-board {
+    cursor: default;
+}
+
+.domino.on-board:hover {
+    transform: none;
+}
+
+.domino.double::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: #ffd700;
+    border-radius: 50%;
+    z-index: 5;
+}
+
+.domino-half {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333;
+    position: relative;
+}
+
+.domino.horizontal .domino-half:first-child {
+    border-right: 2px solid #c4b48a;
+}
+
+.domino.vertical .domino-half:first-child {
+    border-bottom: 2px solid #c4b48a;
+}
+
+.value-display {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #444;
+}
+
+.value-A { color: #e74c3c; }
+.value-B { color: #3498db; }
+.value-C { color: #27ae60; }
+.value-D { color: #9b59b6; }
+.value-E { color: #f39c12; }
+
+.players-area {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.player-hand {
+    background: rgba(255,255,255,0.1);
+    border-radius: 15px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.player-hand.active {
+    background: rgba(255,215,0,0.2);
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+
+.player-hand.inactive {
+    opacity: 0.7;
+}
+
+.player-hand h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-hand h3 .card-count {
+    background: rgba(255,255,255,0.2);
+    padding: 3px 12px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+}
+
+.hand-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 60px;
+}
+
+.bank-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    padding: 20px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 15px;
+}
+
+.bank {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.bank-cards {
+    display: flex;
+    margin-left: 10px;
+}
+
+.bank-card {
+    width: 40px;
+    height: 60px;
+    background: linear-gradient(145deg, #2c3e50, #1a252f);
+    border-radius: 6px;
+    border: 2px solid #4a6278;
+    margin-left: -25px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+}
+
+.bank-card:first-child {
+    margin-left: 0;
+}
+
+.bank-info {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+#bank-count {
+    color: #ffd700;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.status {
+    text-align: center;
+    padding: 15px 30px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 15px;
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+.status.highlight {
+    background: rgba(255,215,0,0.3);
+    border: 2px solid #ffd700;
+}
+
+.status.warning {
+    background: rgba(231,76,60,0.3);
+    border: 2px solid #e74c3c;
+}
+
+.status.success {
+    background: rgba(39,174,96,0.3);
+    border: 2px solid #27ae60;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: linear-gradient(145deg, #667eea, #764ba2);
+    padding: 50px 80px;
+    border-radius: 25px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-content h2 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.modal-content p {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+}
+
+.placement-zone {
+    width: 110px;
+    height: 60px;
+    border: 3px dashed rgba(255,215,0,0.6);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin: 0 5px;
+}
+
+.placement-zone:hover {
+    background: rgba(255,215,0,0.2);
+    border-color: #ffd700;
+}
+
+.placement-zone.left {
+    order: -1;
+}
+
+.placement-zone.right {
+    order: 999;
+}
+
+.placement-zone span {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.9rem;
+}
+
+.winner-speech {
+    font-size: 2rem;
+    color: #ffd700;
+    animation: pulse-text 1s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.we-won-animation {
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.we-won-text {
+    font-size: 2.5rem;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    opacity: 0;
+}
+
+.we-won-text.animate {
+    animation: weWonPop 1.2s ease-in-out;
+}
+
+@keyframes weWonPop {
+    0% { opacity: 0; transform: scale(0.5); }
+    20% { opacity: 1; transform: scale(1.3); }
+    40% { transform: scale(1); }
+    80% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.8); }
+}
+
+#winners-names {
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+}
+
+.player-hand.winner {
+    background: rgba(255, 215, 0, 0.3);
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+}
+
+.player-hand.winner h3 {
+    color: #ffd700;
+}
+
+.player-hand.winner::before {
+    content: '🏆';
+    position: absolute;
+    top: -15px;
+    right: 10px;
+    font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+    #start-screen h1 { font-size: 2.5rem; }
+    .setup-panel { min-width: auto; width: 90%; padding: 25px; }
+    .player-select { flex-direction: column; }
+    .domino.horizontal { width: 80px; height: 40px; }
+    .domino.vertical { width: 40px; height: 80px; }
+    .value-display { font-size: 1.1rem; }
+    .players-area { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 15px; }
+    .controls { flex-direction: column; align-items: center; }
+    .btn { width: 200px; }
+    .bank-area { flex-direction: column; }
+}
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="screen" id="start-screen">
+            <h1>Vica Domino</h1>
+            <p class="subtitle">Math Domino Game for Kids</p>
+            <div class="setup-panel">
+                <h3>How many players?</h3>
+                <div class="player-select">
+                    <button class="player-btn" data-players="2">2 Players</button>
+                    <button class="player-btn" data-players="3">3 Players</button>
+                    <button class="player-btn" data-players="4">4 Players</button>
+                </div>
+                <div class="player-names" id="player-names" style="display: none;">
+                    <h3>Enter player names:</h3>
+                    <div id="name-inputs"></div>
+                    <button class="btn btn-primary" id="start-game-btn">Start Game</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="screen" id="game-screen" style="display: none;">
+            <header>
+                <h1>Vica Domino</h1>
+                <div class="turn-indicator">
+                    <span id="current-player-name">Player 1</span>'s turn
+                </div>
+            </header>
+            <main>
+                <div class="board-container">
+                    <div class="board" id="game-board">
+                        <div class="board-placeholder">Waiting for highest double...</div>
+                    </div>
+                </div>
+                <div class="players-area" id="players-area"></div>
+                <div class="bank-area">
+                    <div class="bank" id="bank">
+                        <div class="bank-cards"></div>
+                        <div class="bank-info">Bank: <span id="bank-count">0</span> cards</div>
+                    </div>
+                    <button class="btn btn-draw" id="draw-btn" disabled>Draw from Bank</button>
+                </div>
+            </main>
+            <div class="controls">
+                <button class="btn btn-secondary" id="pass-btn" disabled>Skip Turn</button>
+                <button class="btn btn-secondary" id="new-game-btn">New Game</button>
+            </div>
+            <div class="status" id="status-message">Select the highest double to start!</div>
+        </div>
+
+        <div class="modal" id="winner-modal">
+            <div class="modal-content">
+                <div id="single-winner-content">
+                    <h2>🎉 Winner! 🎉</h2>
+                    <p id="winner-name">Player 1 wins!</p>
+                    <p id="winner-says" class="winner-speech">"I Won!"</p>
+                </div>
+                <div id="circle-winners-content" style="display: none;">
+                    <h2>🎉 Circle of Winners! 🎉</h2>
+                    <p id="winners-names">Players win together!</p>
+                    <div class="we-won-animation" id="we-won-animation">
+                        <span class="we-won-text">"We Won!"</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="play-again-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// Domino Card Definitions
+const VALUE_RANK = { 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5 };
+const DOMINO_CARDS = [
+    { id: 1,  left: 'A1', right: 'A2', leftValue: 'A', rightValue: 'A' },
+    { id: 2,  left: 'A3', right: 'B1', leftValue: 'A', rightValue: 'B' },
+    { id: 3,  left: 'A4', right: 'C1', leftValue: 'A', rightValue: 'C' },
+    { id: 4,  left: 'A5', right: 'D1', leftValue: 'A', rightValue: 'D' },
+    { id: 5,  left: 'A6', right: 'E1', leftValue: 'A', rightValue: 'E' },
+    { id: 6,  left: 'B2', right: 'B3', leftValue: 'B', rightValue: 'B' },
+    { id: 7,  left: 'B4', right: 'C2', leftValue: 'B', rightValue: 'C' },
+    { id: 8,  left: 'B5', right: 'D2', leftValue: 'B', rightValue: 'D' },
+    { id: 9,  left: 'B6', right: 'E2', leftValue: 'B', rightValue: 'E' },
+    { id: 10, left: 'C3', right: 'C4', leftValue: 'C', rightValue: 'C' },
+    { id: 11, left: 'C5', right: 'D3', leftValue: 'C', rightValue: 'D' },
+    { id: 12, left: 'C6', right: 'E3', leftValue: 'C', rightValue: 'E' },
+    { id: 13, left: 'D4', right: 'D5', leftValue: 'D', rightValue: 'D' },
+    { id: 14, left: 'D6', right: 'E4', leftValue: 'D', rightValue: 'E' },
+    { id: 15, left: 'E5', right: 'E6', leftValue: 'E', rightValue: 'E' },
+];
+
+let customAssignments = {};
+
+function getDisplayText(code) {
+    return customAssignments[code] || code.charAt(0);
+}
+
+function isDouble(card) {
+    return card.leftValue === card.rightValue;
+}
+
+function getDoubleRank(card) {
+    return isDouble(card) ? VALUE_RANK[card.leftValue] : 0;
+}
+
+function findHighestDouble(cards) {
+    const doubles = cards.filter(isDouble);
+    if (doubles.length === 0) return null;
+    return doubles.reduce((highest, card) =>
+        getDoubleRank(card) > getDoubleRank(highest) ? card : highest, doubles[0]);
+}
+
+function canPlayOn(card, endValue) {
+    return card.leftValue === endValue || card.rightValue === endValue;
+}
+
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+function getShuffledDeck() {
+    return shuffleArray(DOMINO_CARDS.map(c => ({ ...c })));
+}
+
+function createDominoElement(card, isVertical = false, isOnBoard = false) {
+    const domino = document.createElement('div');
+    domino.className = `domino ${isVertical ? 'vertical' : 'horizontal'}`;
+    domino.dataset.cardId = card.id;
+    if (isDouble(card)) domino.classList.add('double');
+    if (isOnBoard) domino.classList.add('on-board');
+
+    const leftHalf = document.createElement('div');
+    leftHalf.className = 'domino-half';
+    const leftDisplay = document.createElement('span');
+    leftDisplay.className = `value-display value-${card.leftValue}`;
+    leftDisplay.textContent = getDisplayText(card.left);
+    leftHalf.appendChild(leftDisplay);
+
+    const rightHalf = document.createElement('div');
+    rightHalf.className = 'domino-half';
+    const rightDisplay = document.createElement('span');
+    rightDisplay.className = `value-display value-${card.rightValue}`;
+    rightDisplay.textContent = getDisplayText(card.right);
+    rightHalf.appendChild(rightDisplay);
+
+    domino.appendChild(leftHalf);
+    domino.appendChild(rightHalf);
+    return domino;
+}
+
+// Game Logic
+class VicaDominoGame {
+    constructor() {
+        this.players = [];
+        this.currentPlayerIndex = 0;
+        this.bank = [];
+        this.board = [];
+        this.leftEnd = null;
+        this.rightEnd = null;
+        this.gamePhase = 'setup';
+        this.selectedCard = null;
+        this.hasDrawnThisTurn = false;
+        this.winners = [];
+        this.firstWinner = null;
+        this.initEventListeners();
+    }
+
+    initEventListeners() {
+        document.querySelectorAll('.player-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.selectPlayerCount(e));
+        });
+        document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
+        document.getElementById('draw-btn').addEventListener('click', () => this.drawFromBank());
+        document.getElementById('pass-btn').addEventListener('click', () => this.passTurn());
+        document.getElementById('new-game-btn').addEventListener('click', () => this.resetToSetup());
+        document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
+    }
+
+    selectPlayerCount(e) {
+        const count = parseInt(e.target.dataset.players);
+        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
+        e.target.classList.add('selected');
+        const nameInputs = document.getElementById('name-inputs');
+        document.getElementById('player-names').style.display = 'block';
+        nameInputs.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = `Player ${i + 1} name`;
+            input.value = `Player ${i + 1}`;
+            nameInputs.appendChild(input);
+        }
+    }
+
+    startGame() {
+        const inputs = document.querySelectorAll('#name-inputs input');
+        if (inputs.length === 0) { alert('Please select number of players!'); return; }
+
+        this.players = [];
+        inputs.forEach((input, i) => {
+            this.players.push({ id: i, name: input.value || `Player ${i + 1}`, hand: [] });
+        });
+
+        const deck = getShuffledDeck();
+        for (let i = 0; i < 3; i++) {
+            for (let player of this.players) player.hand.push(deck.pop());
+        }
+        this.bank = deck;
+        this.board = [];
+        this.leftEnd = null;
+        this.rightEnd = null;
+        this.selectedCard = null;
+        this.hasDrawnThisTurn = false;
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        this.gamePhase = 'findDouble';
+        this.findAndPlayHighestDouble();
+    }
+
+    findAndPlayHighestDouble() {
+        let allCards = [];
+        this.players.forEach((player, playerIndex) => {
+            player.hand.forEach(card => allCards.push({ card, playerIndex }));
+        });
+
+        const highestDouble = findHighestDouble(allCards.map(c => c.card));
+        if (highestDouble) {
+            const holder = allCards.find(c => c.card.id === highestDouble.id);
+            this.currentPlayerIndex = holder.playerIndex;
+            const player = this.players[holder.playerIndex];
+            const cardIndex = player.hand.findIndex(c => c.id === highestDouble.id);
+            player.hand.splice(cardIndex, 1);
+            this.board.push({ card: highestDouble, isDouble: true });
+            this.leftEnd = highestDouble.leftValue;
+            this.rightEnd = highestDouble.rightValue;
+            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+            this.gamePhase = 'playing';
+            this.updateStatus(`${player.name} played highest double. ${this.getCurrentPlayer().name}'s turn!`);
+        } else {
+            this.updateStatus('No doubles! Drawing cards...', 'warning');
+            for (let player of this.players) {
+                if (this.bank.length > 0) player.hand.push(this.bank.pop());
+            }
+            setTimeout(() => this.findAndPlayHighestDouble(), 1000);
+        }
+        this.render();
+    }
+
+    getCurrentPlayer() { return this.players[this.currentPlayerIndex]; }
+
+    canCurrentPlayerPlay() {
+        return this.getCurrentPlayer().hand.some(card =>
+            canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd));
+    }
+
+    selectCard(card, playerIndex) {
+        if (this.gamePhase !== 'playing') return;
+        if (playerIndex !== this.currentPlayerIndex) {
+            this.updateStatus(`It's ${this.getCurrentPlayer().name}'s turn!`, 'warning');
+            return;
+        }
+
+        const canPlay = canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd);
+        if (!canPlay) {
+            this.updateStatus('Cannot play this card!', 'warning');
+            return;
+        }
+
+        this.selectedCard = card;
+        this.render();
+        const canPlayLeft = canPlayOn(card, this.leftEnd);
+        const canPlayRight = canPlayOn(card, this.rightEnd);
+
+        if (canPlayLeft && canPlayRight && this.leftEnd !== this.rightEnd) {
+            this.updateStatus('Click LEFT or RIGHT to place!', 'highlight');
+            this.renderBoard(true, true);
+        } else if (canPlayLeft) {
+            this.playCard(card, 'left');
+        } else {
+            this.playCard(card, 'right');
+        }
+    }
+
+    playCard(card, side) {
+        const player = this.getCurrentPlayer();
+        const cardIndex = player.hand.findIndex(c => c.id === card.id);
+        if (cardIndex === -1) return;
+        player.hand.splice(cardIndex, 1);
+
+        const isDoubleCard = isDouble(card);
+        let flipped = false;
+
+        if (side === 'left') {
+            flipped = card.rightValue !== this.leftEnd;
+            const newCard = flipped ?
+                { card: { ...card, left: card.right, right: card.left, leftValue: card.rightValue, rightValue: card.leftValue }, isDouble: isDoubleCard } :
+                { card, isDouble: isDoubleCard };
+            this.board.unshift(newCard);
+            this.leftEnd = flipped ? card.rightValue : card.leftValue;
+        } else {
+            flipped = card.leftValue !== this.rightEnd;
+            const newCard = flipped ?
+                { card: { ...card, left: card.right, right: card.left, leftValue: card.rightValue, rightValue: card.leftValue }, isDouble: isDoubleCard } :
+                { card, isDouble: isDoubleCard };
+            this.board.push(newCard);
+            this.rightEnd = flipped ? card.leftValue : card.rightValue;
+        }
+
+        this.selectedCard = null;
+        this.hasDrawnThisTurn = false;
+
+        if (player.hand.length === 0) {
+            this.endGame(player);
+            return;
+        }
+        this.nextTurn();
+    }
+
+    drawFromBank() {
+        if (this.gamePhase !== 'playing' || this.bank.length === 0 || this.hasDrawnThisTurn) return;
+        const player = this.getCurrentPlayer();
+        player.hand.push(this.bank.pop());
+        this.hasDrawnThisTurn = true;
+        this.updateStatus(`${player.name} drew a card.`);
+        document.getElementById('draw-btn').disabled = true;
+        document.getElementById('pass-btn').disabled = false;
+        this.render();
+    }
+
+    passTurn() {
+        if (this.gamePhase !== 'playing') return;
+        if (this.canCurrentPlayerPlay()) {
+            this.updateStatus('You have a playable card!', 'warning');
+            return;
+        }
+        this.updateStatus(`${this.getCurrentPlayer().name} passed.`);
+        this.hasDrawnThisTurn = false;
+        this.nextTurn();
+    }
+
+    nextTurn() {
+        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+        this.hasDrawnThisTurn = false;
+        this.selectedCard = null;
+
+        if (this.isGameBlocked()) { this.endGameBlocked(); return; }
+
+        const player = this.getCurrentPlayer();
+        const canPlay = this.canCurrentPlayerPlay();
+        if (canPlay) {
+            this.updateStatus(`${player.name}'s turn. Select a card!`, 'highlight');
+        } else if (this.bank.length > 0) {
+            this.updateStatus(`${player.name}'s turn. Draw from bank!`);
+        } else {
+            this.updateStatus(`${player.name} must skip.`, 'warning');
+        }
+        this.render();
+    }
+
+    isGameBlocked() {
+        if (this.bank.length > 0) return false;
+        return !this.players.some(player =>
+            player.hand.some(card => canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd)));
+    }
+
+    endGame(winner) {
+        this.firstWinner = winner;
+        this.winners = [winner];
+        winner.isWinner = true;
+        this.updateStatus(`${winner.name} says: "I Won!"`, 'success');
+        this.render();
+        this.gamePhase = 'checkingWinners';
+        setTimeout(() => this.checkOtherWinners(), 1500);
+    }
+
+    canPlayerWinWithoutDrawing(player) {
+        if (player.hand.length === 0 || player.isWinner) return true;
+        let simulatedHand = [...player.hand];
+        let simLeft = this.leftEnd, simRight = this.rightEnd;
+        let changed = true;
+        while (changed && simulatedHand.length > 0) {
+            changed = false;
+            for (let i = 0; i < simulatedHand.length; i++) {
+                const card = simulatedHand[i];
+                if (card.leftValue === simLeft || card.rightValue === simLeft) {
+                    simLeft = card.rightValue === simLeft ? card.leftValue : card.rightValue;
+                    simulatedHand.splice(i, 1);
+                    changed = true;
+                    break;
+                }
+                if (card.leftValue === simRight || card.rightValue === simRight) {
+                    simRight = card.leftValue === simRight ? card.rightValue : card.leftValue;
+                    simulatedHand.splice(i, 1);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        return simulatedHand.length === 0;
+    }
+
+    checkOtherWinners() {
+        const potentialWinners = this.players.filter(p => !p.isWinner && this.canPlayerWinWithoutDrawing(p));
+        potentialWinners.forEach(p => { p.isWinner = true; this.winners.push(p); });
+        this.showFinalResult();
+    }
+
+    showFinalResult() {
+        this.gamePhase = 'ended';
+        const single = document.getElementById('single-winner-content');
+        const circle = document.getElementById('circle-winners-content');
+
+        if (this.winners.length === 1) {
+            single.style.display = 'block';
+            circle.style.display = 'none';
+            document.getElementById('winner-name').textContent = `${this.winners[0].name} wins!`;
+        } else {
+            single.style.display = 'none';
+            circle.style.display = 'block';
+            document.getElementById('winners-names').textContent =
+                `${this.winners.map(w => w.name).join(' & ')} form the Circle of Winners!`;
+            this.animateWeWon();
+        }
+        document.getElementById('winner-modal').classList.add('show');
+        this.render();
+    }
+
+    animateWeWon() {
+        const weWonText = document.querySelector('.we-won-text');
+        let count = 0;
+        const animate = () => {
+            if (count >= 3) return;
+            weWonText.classList.remove('animate');
+            void weWonText.offsetWidth;
+            weWonText.classList.add('animate');
+            count++;
+            if (count < 3) setTimeout(animate, 1300);
+        };
+        setTimeout(animate, 500);
+    }
+
+    endGameBlocked() {
+        this.gamePhase = 'ended';
+        let minCards = Infinity, winners = [];
+        this.players.forEach(player => {
+            if (player.hand.length < minCards) { minCards = player.hand.length; winners = [player]; }
+            else if (player.hand.length === minCards) winners.push(player);
+        });
+        this.winners = winners;
+        winners.forEach(w => w.isWinner = true);
+
+        const single = document.getElementById('single-winner-content');
+        const circle = document.getElementById('circle-winners-content');
+
+        if (winners.length === 1) {
+            single.style.display = 'block';
+            circle.style.display = 'none';
+            document.getElementById('winner-name').textContent = `${winners[0].name} wins!`;
+        } else {
+            single.style.display = 'none';
+            circle.style.display = 'block';
+            document.getElementById('winners-names').textContent =
+                `Tie! ${winners.map(w => w.name).join(' & ')} share victory!`;
+            this.animateWeWon();
+        }
+        document.getElementById('winner-modal').classList.add('show');
+        this.render();
+    }
+
+    resetToSetup() {
+        document.getElementById('winner-modal').classList.remove('show');
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('start-screen').style.display = 'flex';
+        document.getElementById('player-names').style.display = 'none';
+        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('single-winner-content').style.display = 'block';
+        document.getElementById('circle-winners-content').style.display = 'none';
+        this.players = [];
+        this.bank = [];
+        this.board = [];
+        this.winners = [];
+        this.firstWinner = null;
+        this.gamePhase = 'setup';
+    }
+
+    updateStatus(message, type = '') {
+        const status = document.getElementById('status-message');
+        status.textContent = message;
+        status.className = 'status';
+        if (type) status.classList.add(type);
+    }
+
+    render() {
+        this.renderPlayers();
+        this.renderBoard(false, false);
+        this.renderBank();
+        this.updateControls();
+        document.getElementById('current-player-name').textContent =
+            this.gamePhase === 'playing' || this.gamePhase === 'findDouble' ? this.getCurrentPlayer().name : '';
+    }
+
+    renderPlayers() {
+        const area = document.getElementById('players-area');
+        area.innerHTML = '';
+        this.players.forEach((player, index) => {
+            const isActive = index === this.currentPlayerIndex && this.gamePhase === 'playing';
+            const div = document.createElement('div');
+            div.className = `player-hand ${isActive ? 'active' : 'inactive'} ${player.isWinner ? 'winner' : ''}`;
+            div.style.position = 'relative';
+
+            const header = document.createElement('h3');
+            header.innerHTML = `<span>${player.name}</span><span class="card-count">${player.hand.length} cards</span>`;
+            div.appendChild(header);
+
+            const tiles = document.createElement('div');
+            tiles.className = 'hand-tiles';
+
+            player.hand.forEach(card => {
+                const el = createDominoElement(card, false, false);
+                if (isActive && this.gamePhase === 'playing') {
+                    const canPlay = canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd);
+                    el.classList.add(canPlay ? 'playable' : 'disabled');
+                }
+                if (this.selectedCard && this.selectedCard.id === card.id) el.classList.add('selected');
+                el.addEventListener('click', () => this.selectCard(card, index));
+                tiles.appendChild(el);
+            });
+            div.appendChild(tiles);
+            area.appendChild(div);
+        });
+    }
+
+    renderBoard(showLeft = false, showRight = false) {
+        const board = document.getElementById('game-board');
+        board.innerHTML = '';
+        if (this.board.length === 0) {
+            board.innerHTML = '<div class="board-placeholder">Waiting for highest double...</div>';
+            return;
+        }
+
+        if (showLeft) {
+            const zone = document.createElement('div');
+            zone.className = 'placement-zone left';
+            zone.innerHTML = `<span>LEFT (${this.leftEnd})</span>`;
+            zone.addEventListener('click', () => { if (this.selectedCard) this.playCard(this.selectedCard, 'left'); });
+            board.appendChild(zone);
+        }
+
+        this.board.forEach(item => {
+            board.appendChild(createDominoElement(item.card, item.isDouble, true));
+        });
+
+        if (showRight) {
+            const zone = document.createElement('div');
+            zone.className = 'placement-zone right';
+            zone.innerHTML = `<span>RIGHT (${this.rightEnd})</span>`;
+            zone.addEventListener('click', () => { if (this.selectedCard) this.playCard(this.selectedCard, 'right'); });
+            board.appendChild(zone);
+        }
+    }
+
+    renderBank() {
+        const bankCards = document.querySelector('.bank-cards');
+        bankCards.innerHTML = '';
+        for (let i = 0; i < Math.min(this.bank.length, 5); i++) {
+            const card = document.createElement('div');
+            card.className = 'bank-card';
+            bankCards.appendChild(card);
+        }
+        document.getElementById('bank-count').textContent = this.bank.length;
+    }
+
+    updateControls() {
+        const drawBtn = document.getElementById('draw-btn');
+        const passBtn = document.getElementById('pass-btn');
+        if (this.gamePhase !== 'playing') {
+            drawBtn.disabled = true;
+            passBtn.disabled = true;
+            return;
+        }
+        const canPlay = this.canCurrentPlayerPlay();
+        drawBtn.disabled = canPlay || this.hasDrawnThisTurn || this.bank.length === 0;
+        passBtn.disabled = canPlay || (!this.hasDrawnThisTurn && this.bank.length > 0);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => { window.game = new VicaDominoGame(); });
+    </script>
+</body>
+</html>

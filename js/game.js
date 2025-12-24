@@ -83,11 +83,13 @@ class VicaDominoGame {
 
         // Create players
         this.players = [];
+        this.winners = []; // Reset winners list
         inputs.forEach((input, index) => {
             this.players.push({
                 id: index,
                 name: input.value || `Player ${index + 1}`,
-                hand: []
+                hand: [],
+                isWinner: false // Initialize winner status
             });
         });
 
@@ -159,20 +161,8 @@ class VicaDominoGame {
         const highestDouble = findHighestDouble(allDoubles.map(d => d.card));
 
         if (card.id !== highestDouble.id) {
-            // Not the highest double - warn but allow (players decide)
-            const clickedRank = getDoubleRank(card);
-            const highestRank = getDoubleRank(highestDouble);
-            const rankNames = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E' };
-            this.updateStatus(`Are you sure? There is a higher double (${rankNames[highestRank]}:${rankNames[highestRank]}). Click again to confirm, or click the correct one.`, 'warning');
-
-            // Mark as pending confirmation
-            if (this.pendingStartCard && this.pendingStartCard.id === card.id) {
-                // Second click - confirm start with this card
-                this.startWithDouble(card, playerIndex);
-            } else {
-                this.pendingStartCard = card;
-                this.pendingStartPlayer = playerIndex;
-            }
+            // Not the highest double - DO NOT allow to continue!
+            this.updateStatus('No, no, no - it is not the highest double! Find and click the HIGHEST double (E > D > C > B > A).', 'warning');
             return;
         }
 
@@ -413,11 +403,25 @@ class VicaDominoGame {
     }
 
     nextTurn() {
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
         this.hasDrawnThisTurn = false;
         this.selectedCard = null;
 
-        // Check for game blocked (no one can play and bank is empty)
+        // Find the next active (non-winner) player
+        let attempts = 0;
+        do {
+            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+            attempts++;
+            // Safety check to prevent infinite loop
+            if (attempts > this.players.length) break;
+        } while (this.getCurrentPlayer().isWinner);
+
+        // Check if game should end (all finished or blocked)
+        if (this.checkGameOver()) {
+            this.showFinalResult();
+            return;
+        }
+
+        // Check for game blocked (no active player can play and bank is empty)
         if (this.isGameBlocked()) {
             this.endGameBlocked();
             return;
@@ -440,8 +444,9 @@ class VicaDominoGame {
     isGameBlocked() {
         if (this.bank.length > 0) return false;
 
-        // Check if any player can play
-        return !this.players.some(player =>
+        // Check if any ACTIVE (non-winner) player can play
+        const activePlayers = this.players.filter(p => !p.isWinner);
+        return !activePlayers.some(player =>
             player.hand.some(card =>
                 canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd)
             )
@@ -449,84 +454,47 @@ class VicaDominoGame {
     }
 
     endGame(winner) {
-        // First winner completed their hand
-        this.firstWinner = winner;
-        this.winners = [winner];
+        // Player completed their hand - mark as winner but CONTINUE the game!
         winner.isWinner = true;
+        this.winners.push(winner);
 
-        this.updateStatus(`${winner.name} says: "I Won!" - Checking if others can also win...`, 'success');
+        this.updateStatus(`${winner.name} says: "I Won!" Game continues for other players...`, 'success');
         this.render();
 
-        // Check if other players can complete WITHOUT drawing from bank
-        this.gamePhase = 'checkingWinners';
-
-        // Give a moment to show the first winner, then check others
-        setTimeout(() => this.checkOtherWinners(), 1500);
-    }
-
-    // Check if a player can empty their hand without drawing (simulated play)
-    canPlayerWinWithoutDrawing(player) {
-        if (player.hand.length === 0) return true;
-        if (player.isWinner) return true;
-
-        // Simulate: can this player play all their cards?
-        // We need to simulate the game state for this player
-        let simulatedHand = [...player.hand];
-        let simulatedLeftEnd = this.leftEnd;
-        let simulatedRightEnd = this.rightEnd;
-
-        let changed = true;
-        while (changed && simulatedHand.length > 0) {
-            changed = false;
-
-            for (let i = 0; i < simulatedHand.length; i++) {
-                const card = simulatedHand[i];
-
-                // Check if card can be played on left
-                if (card.leftValue === simulatedLeftEnd || card.rightValue === simulatedLeftEnd) {
-                    // Play on left
-                    if (card.rightValue === simulatedLeftEnd) {
-                        simulatedLeftEnd = card.leftValue;
-                    } else {
-                        simulatedLeftEnd = card.rightValue;
-                    }
-                    simulatedHand.splice(i, 1);
-                    changed = true;
-                    break;
-                }
-
-                // Check if card can be played on right
-                if (card.leftValue === simulatedRightEnd || card.rightValue === simulatedRightEnd) {
-                    // Play on right
-                    if (card.leftValue === simulatedRightEnd) {
-                        simulatedRightEnd = card.rightValue;
-                    } else {
-                        simulatedRightEnd = card.leftValue;
-                    }
-                    simulatedHand.splice(i, 1);
-                    changed = true;
-                    break;
-                }
-            }
+        // Check if ALL players have finished
+        const activePlayers = this.players.filter(p => !p.isWinner);
+        if (activePlayers.length === 0) {
+            // Everyone has won!
+            setTimeout(() => this.showFinalResult(), 1500);
+            return;
         }
 
-        return simulatedHand.length === 0;
+        // Continue with next player (skip winners)
+        setTimeout(() => this.nextTurn(), 1500);
     }
 
-    checkOtherWinners() {
-        // Check each player (except first winner) if they can complete without drawing
-        const potentialWinners = this.players.filter(p => !p.isWinner && this.canPlayerWinWithoutDrawing(p));
+    checkGameOver() {
+        // Check if game should end
+        const activePlayers = this.players.filter(p => !p.isWinner);
 
-        if (potentialWinners.length > 0) {
-            // Add them to winners
-            potentialWinners.forEach(p => {
-                p.isWinner = true;
-                this.winners.push(p);
-            });
+        // All players finished
+        if (activePlayers.length === 0) {
+            return true;
         }
 
-        // Now show the final result
-        this.showFinalResult();
+        // Check if remaining players can play
+        const canAnyonePlay = activePlayers.some(player =>
+            player.hand.some(card =>
+                canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd)
+            )
+        );
+
+        // If no one can play and bank is empty, game is over
+        if (!canAnyonePlay && this.bank.length === 0) {
+            return true;
+        }
+
+        return false;
     }
 
     showFinalResult() {
@@ -582,34 +550,44 @@ class VicaDominoGame {
     endGameBlocked() {
         this.gamePhase = 'ended';
 
-        // Find player with fewest cards
-        let minCards = Infinity;
-        let winners = [];
+        // Get remaining active players (those who haven't won yet)
+        const activePlayers = this.players.filter(p => !p.isWinner);
 
-        this.players.forEach(player => {
+        // Find player with fewest cards among active players
+        let minCards = Infinity;
+        let blockedWinners = [];
+
+        activePlayers.forEach(player => {
             if (player.hand.length < minCards) {
                 minCards = player.hand.length;
-                winners = [player];
+                blockedWinners = [player];
             } else if (player.hand.length === minCards) {
-                winners.push(player);
+                blockedWinners.push(player);
             }
         });
 
-        this.winners = winners;
-        winners.forEach(w => w.isWinner = true);
+        // Add blocked winners to the winners list
+        blockedWinners.forEach(w => {
+            w.isWinner = true;
+            if (!this.winners.includes(w)) {
+                this.winners.push(w);
+            }
+        });
 
         const singleWinnerContent = document.getElementById('single-winner-content');
         const circleWinnersContent = document.getElementById('circle-winners-content');
 
-        if (winners.length === 1) {
+        if (this.winners.length === 1) {
             singleWinnerContent.style.display = 'block';
             circleWinnersContent.style.display = 'none';
-            document.getElementById('winner-name').textContent = `${winners[0].name} wins with fewest cards!`;
+            document.getElementById('winner-name').textContent = `${this.winners[0].name} wins!`;
         } else {
+            // Multiple winners - show Circle of Winners
             singleWinnerContent.style.display = 'none';
             circleWinnersContent.style.display = 'block';
+            const winnerNames = this.winners.map(w => w.name).join(' & ');
             document.getElementById('winners-names').textContent =
-                `It's a tie! ${winners.map(w => w.name).join(' & ')} share the victory!`;
+                `${winnerNames} form the Circle of Winners!`;
             this.animateWeWon();
         }
 
@@ -681,33 +659,8 @@ class VicaDominoGame {
             player.hand.forEach(card => {
                 const dominoEl = createDominoElement(card, false, false);
 
-                // During showDoubles phase - highlight doubles
-                if (isShowingDoubles) {
-                    if (isDouble(card)) {
-                        dominoEl.classList.add('playable'); // Highlight doubles
-                        // Check if this is the pending confirmation card
-                        if (this.pendingStartCard && this.pendingStartCard.id === card.id) {
-                            dominoEl.classList.add('selected');
-                        }
-                    } else {
-                        dominoEl.classList.add('disabled'); // Dim non-doubles
-                    }
-                }
-                // During noDoubles phase - all cards are playable
-                else if (isNoDoubles) {
-                    dominoEl.classList.add('playable');
-                }
-                // Normal playing phase - mark playable cards
-                else if (isActive && this.gamePhase === 'playing') {
-                    const canPlay = canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd);
-                    if (canPlay) {
-                        dominoEl.classList.add('playable');
-                    } else {
-                        dominoEl.classList.add('disabled');
-                    }
-                }
-
-                // Mark selected card
+                // NO automatic highlighting - players choose themselves!
+                // Only mark selected card when player clicks it
                 if (this.selectedCard && this.selectedCard.id === card.id) {
                     dominoEl.classList.add('selected');
                 }
@@ -745,10 +698,21 @@ class VicaDominoGame {
             boardEl.appendChild(leftZone);
         }
 
-        // Board cards
+        // Board cards - highlight the ends
         this.board.forEach((item, index) => {
             const isVertical = item.isDouble;
             const dominoEl = createDominoElement(item.card, isVertical, true);
+
+            // Highlight left end (first card) and right end (last card)
+            if (this.gamePhase === 'playing') {
+                if (index === 0) {
+                    dominoEl.classList.add('end-card', 'left-end-card');
+                }
+                if (index === this.board.length - 1) {
+                    dominoEl.classList.add('end-card', 'right-end-card');
+                }
+            }
+
             boardEl.appendChild(dominoEl);
         });
 

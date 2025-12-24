@@ -355,6 +355,15 @@ class VicaDominoGame {
             this.updateStatus('Bank is empty!', 'warning');
             return;
         }
+
+        // Last player cannot draw from bank - game ends if they can't play
+        const activePlayers = this.players.filter(p => !p.isWinner);
+        if (activePlayers.length === 1) {
+            this.updateStatus('Last player cannot draw from bank! Game over.', 'warning');
+            setTimeout(() => this.showFinalResult(), 1500);
+            return;
+        }
+
         if (this.hasDrawnThisTurn) {
             this.updateStatus('You already drew this turn! Play a card or skip.', 'warning');
             return;
@@ -429,10 +438,18 @@ class VicaDominoGame {
 
         const player = this.getCurrentPlayer();
         const canPlay = this.canCurrentPlayerPlay();
+        const activePlayers = this.players.filter(p => !p.isWinner);
+
+        // If only one player left and they can't play, game is over
+        if (activePlayers.length === 1 && !canPlay) {
+            this.updateStatus(`${player.name} cannot make a move. Game over!`, 'warning');
+            setTimeout(() => this.showFinalResult(), 1500);
+            return;
+        }
 
         if (canPlay) {
             this.updateStatus(`${player.name}'s turn. Select a card to play!`, 'highlight');
-        } else if (this.bank.length > 0) {
+        } else if (activePlayers.length > 1 && this.bank.length > 0) {
             this.updateStatus(`${player.name}'s turn. No matching cards - draw from bank!`);
         } else {
             this.updateStatus(`${player.name}'s turn. No matching cards and bank is empty - skip turn!`, 'warning');
@@ -453,12 +470,18 @@ class VicaDominoGame {
         );
     }
 
+    getOrdinal(n) {
+        const ordinals = ['first', 'second', 'third', 'fourth'];
+        return ordinals[n - 1] || `${n}th`;
+    }
+
     endGame(winner) {
         // Player completed their hand - mark as winner but CONTINUE the game!
         winner.isWinner = true;
         this.winners.push(winner);
 
-        this.updateStatus(`${winner.name} says: "I Won!" Game continues for other players...`, 'success');
+        const ordinal = this.getOrdinal(this.winners.length);
+        this.updateStatus(`Here is the ${ordinal} winner: ${winner.name}!`, 'success');
         this.render();
 
         // Check if ALL players have finished
@@ -770,12 +793,14 @@ class VicaDominoGame {
         }
 
         const canPlay = this.canCurrentPlayerPlay();
+        const activePlayers = this.players.filter(p => !p.isWinner);
+        const isLastPlayer = activePlayers.length === 1;
 
-        // Draw button: enabled if player can't play and hasn't drawn yet and bank has cards
-        drawBtn.disabled = canPlay || this.hasDrawnThisTurn || this.bank.length === 0;
+        // Draw button: disabled if last player, or player can play, or already drew, or bank empty
+        drawBtn.disabled = isLastPlayer || canPlay || this.hasDrawnThisTurn || this.bank.length === 0;
 
         // Pass button: enabled if player has drawn and still can't play, OR bank is empty and can't play
-        passBtn.disabled = canPlay || (!this.hasDrawnThisTurn && this.bank.length > 0);
+        passBtn.disabled = canPlay || (!this.hasDrawnThisTurn && this.bank.length > 0 && !isLastPlayer);
     }
 
     updateTurnIndicator() {

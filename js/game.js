@@ -116,70 +116,120 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
-        // Start finding highest double phase
-        this.gamePhase = 'findDouble';
-        this.findAndPlayHighestDouble();
+        // Phase 1: Show doubles - players decide who starts
+        this.gamePhase = 'showDoubles';
+        this.promptForDoubles();
     }
 
-    findAndPlayHighestDouble() {
-        // Collect all cards from all players
-        let allCards = [];
-        this.players.forEach((player, playerIndex) => {
-            player.hand.forEach(card => {
-                allCards.push({ card, playerIndex });
+    promptForDoubles() {
+        // Check if any player has doubles
+        const hasAnyDouble = this.players.some(player =>
+            player.hand.some(card => isDouble(card))
+        );
+
+        if (hasAnyDouble) {
+            this.updateStatus('Players, push forward your DOUBLES! Then click the HIGHEST double (E > D > C > B > A) to start!', 'highlight');
+        } else {
+            // No doubles - need to draw
+            this.gamePhase = 'drawForDouble';
+            this.updateStatus('No doubles! Click "Draw from Bank" - each player draws one card.', 'warning');
+        }
+        this.render();
+    }
+
+    handleDoubleClick(card, playerIndex) {
+        // Called when a player clicks a double during showDoubles phase
+        if (this.gamePhase !== 'showDoubles') return;
+
+        if (!isDouble(card)) {
+            this.updateStatus('That is not a double! Click on a DOUBLE card (same value on both sides).', 'warning');
+            return;
+        }
+
+        // Check if this is actually the highest double
+        let allDoubles = [];
+        this.players.forEach((player, pIndex) => {
+            player.hand.forEach(c => {
+                if (isDouble(c)) {
+                    allDoubles.push({ card: c, playerIndex: pIndex });
+                }
             });
         });
 
-        // Find highest double
-        const highestDouble = findHighestDouble(allCards.map(c => c.card));
+        const highestDouble = findHighestDouble(allDoubles.map(d => d.card));
 
-        if (highestDouble) {
-            // Find which player has it
-            const holder = allCards.find(c => c.card.id === highestDouble.id);
-            this.currentPlayerIndex = holder.playerIndex;
+        if (card.id !== highestDouble.id) {
+            // Not the highest double - warn but allow (players decide)
+            const clickedRank = getDoubleRank(card);
+            const highestRank = getDoubleRank(highestDouble);
+            const rankNames = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E' };
+            this.updateStatus(`Are you sure? There is a higher double (${rankNames[highestRank]}:${rankNames[highestRank]}). Click again to confirm, or click the correct one.`, 'warning');
 
-            // Remove from player's hand and place on board
-            const player = this.players[holder.playerIndex];
-            const cardIndex = player.hand.findIndex(c => c.id === highestDouble.id);
-            player.hand.splice(cardIndex, 1);
-
-            // Place on board (doubles are vertical)
-            this.board.push({
-                card: highestDouble,
-                isDouble: true
-            });
-            this.leftEnd = highestDouble.leftValue;
-            this.rightEnd = highestDouble.rightValue;
-
-            // Move to next player
-            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
-            this.gamePhase = 'playing';
-
-            this.updateStatus(`${player.name} played the highest double (${highestDouble.leftValue}:${highestDouble.rightValue}). ${this.getCurrentPlayer().name}'s turn!`);
-        } else {
-            // No doubles - each player draws until someone gets a double
-            this.updateStatus('No doubles! Each player draws a card...', 'warning');
-
-            // Draw for each player
-            let foundDouble = false;
-            for (let player of this.players) {
-                if (this.bank.length > 0) {
-                    const drawnCard = this.bank.pop();
-                    player.hand.push(drawnCard);
-                    if (isDouble(drawnCard)) {
-                        foundDouble = true;
-                    }
-                }
-            }
-
-            if (foundDouble || this.bank.length === 0) {
-                // Try again to find highest double
-                setTimeout(() => this.findAndPlayHighestDouble(), 1000);
+            // Mark as pending confirmation
+            if (this.pendingStartCard && this.pendingStartCard.id === card.id) {
+                // Second click - confirm start with this card
+                this.startWithDouble(card, playerIndex);
             } else {
-                setTimeout(() => this.findAndPlayHighestDouble(), 500);
+                this.pendingStartCard = card;
+                this.pendingStartPlayer = playerIndex;
+            }
+            return;
+        }
+
+        // This is the highest double - start the game
+        this.startWithDouble(card, playerIndex);
+    }
+
+    startWithDouble(card, playerIndex) {
+        const player = this.players[playerIndex];
+
+        // Remove card from player's hand
+        const cardIndex = player.hand.findIndex(c => c.id === card.id);
+        player.hand.splice(cardIndex, 1);
+
+        // Place on board (doubles are vertical)
+        this.board.push({
+            card: card,
+            isDouble: true
+        });
+        this.leftEnd = card.leftValue;
+        this.rightEnd = card.rightValue;
+
+        // Next player's turn (player after the one who started)
+        this.currentPlayerIndex = (playerIndex + 1) % this.players.length;
+        this.gamePhase = 'playing';
+        this.pendingStartCard = null;
+        this.pendingStartPlayer = null;
+
+        this.updateStatus(`${player.name} started with ${card.leftValue}:${card.rightValue}. ${this.getCurrentPlayer().name}'s turn!`, 'success');
+        this.render();
+    }
+
+    drawForDoublePhase() {
+        // Each player draws one card when no doubles exist
+        if (this.gamePhase !== 'drawForDouble') return;
+
+        let drewDouble = false;
+        for (let player of this.players) {
+            if (this.bank.length > 0) {
+                const drawnCard = this.bank.pop();
+                player.hand.push(drawnCard);
+                if (isDouble(drawnCard)) {
+                    drewDouble = true;
+                }
             }
         }
 
+        if (drewDouble) {
+            this.gamePhase = 'showDoubles';
+            this.updateStatus('Doubles found! Players, click the HIGHEST double to start!', 'highlight');
+        } else if (this.bank.length > 0) {
+            this.updateStatus('Still no doubles! Click "Draw from Bank" again.', 'warning');
+        } else {
+            // Bank is empty and no doubles - start with any card
+            this.gamePhase = 'noDoubles';
+            this.updateStatus('No doubles and bank is empty! Click any card to start.', 'warning');
+        }
         this.render();
     }
 
@@ -201,6 +251,19 @@ class VicaDominoGame {
     }
 
     selectCard(card, playerIndex) {
+        // Handle showDoubles phase - player clicks on a double to start
+        if (this.gamePhase === 'showDoubles') {
+            this.handleDoubleClick(card, playerIndex);
+            return;
+        }
+
+        // Handle noDoubles phase - any card can start
+        if (this.gamePhase === 'noDoubles') {
+            this.startWithDouble(card, playerIndex); // Works for any card
+            return;
+        }
+
+        // Normal playing phase
         if (this.gamePhase !== 'playing') return;
         if (playerIndex !== this.currentPlayerIndex) {
             this.updateStatus(`It's ${this.getCurrentPlayer().name}'s turn!`, 'warning');
@@ -291,6 +354,12 @@ class VicaDominoGame {
     }
 
     drawFromBank() {
+        // Handle drawForDouble phase - everyone draws one card
+        if (this.gamePhase === 'drawForDouble') {
+            this.drawForDoublePhase();
+            return;
+        }
+
         if (this.gamePhase !== 'playing') return;
         if (this.bank.length === 0) {
             this.updateStatus('Bank is empty!', 'warning');
@@ -589,9 +658,13 @@ class VicaDominoGame {
         this.players.forEach((player, index) => {
             const isActive = index === this.currentPlayerIndex && this.gamePhase === 'playing';
             const isWinner = player.isWinner;
+            const isShowingDoubles = this.gamePhase === 'showDoubles' || this.gamePhase === 'drawForDouble';
+            const isNoDoubles = this.gamePhase === 'noDoubles';
 
             const playerDiv = document.createElement('div');
-            playerDiv.className = `player-hand ${isActive ? 'active' : 'inactive'} ${isWinner ? 'winner' : ''}`;
+            // During showDoubles phase, all players are "active" (can click)
+            const activeClass = isShowingDoubles || isNoDoubles ? 'active' : (isActive ? 'active' : 'inactive');
+            playerDiv.className = `player-hand ${activeClass} ${isWinner ? 'winner' : ''}`;
             playerDiv.dataset.playerId = index;
             playerDiv.style.position = 'relative';
 
@@ -608,8 +681,24 @@ class VicaDominoGame {
             player.hand.forEach(card => {
                 const dominoEl = createDominoElement(card, false, false);
 
-                // Mark playable cards
-                if (isActive && this.gamePhase === 'playing') {
+                // During showDoubles phase - highlight doubles
+                if (isShowingDoubles) {
+                    if (isDouble(card)) {
+                        dominoEl.classList.add('playable'); // Highlight doubles
+                        // Check if this is the pending confirmation card
+                        if (this.pendingStartCard && this.pendingStartCard.id === card.id) {
+                            dominoEl.classList.add('selected');
+                        }
+                    } else {
+                        dominoEl.classList.add('disabled'); // Dim non-doubles
+                    }
+                }
+                // During noDoubles phase - all cards are playable
+                else if (isNoDoubles) {
+                    dominoEl.classList.add('playable');
+                }
+                // Normal playing phase - mark playable cards
+                else if (isActive && this.gamePhase === 'playing') {
                     const canPlay = canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd);
                     if (canPlay) {
                         dominoEl.classList.add('playable');
@@ -696,6 +785,20 @@ class VicaDominoGame {
         const drawBtn = document.getElementById('draw-btn');
         const passBtn = document.getElementById('pass-btn');
 
+        // During drawForDouble phase - enable draw button
+        if (this.gamePhase === 'drawForDouble') {
+            drawBtn.disabled = this.bank.length === 0;
+            passBtn.disabled = true;
+            return;
+        }
+
+        // During showDoubles or noDoubles phase
+        if (this.gamePhase === 'showDoubles' || this.gamePhase === 'noDoubles') {
+            drawBtn.disabled = true;
+            passBtn.disabled = true;
+            return;
+        }
+
         if (this.gamePhase !== 'playing') {
             drawBtn.disabled = true;
             passBtn.disabled = true;
@@ -713,7 +816,9 @@ class VicaDominoGame {
 
     updateTurnIndicator() {
         const indicator = document.getElementById('current-player-name');
-        if (this.gamePhase === 'playing' || this.gamePhase === 'findDouble') {
+        if (this.gamePhase === 'showDoubles' || this.gamePhase === 'drawForDouble' || this.gamePhase === 'noDoubles') {
+            indicator.textContent = 'All Players';
+        } else if (this.gamePhase === 'playing') {
             indicator.textContent = this.getCurrentPlayer().name;
         }
     }

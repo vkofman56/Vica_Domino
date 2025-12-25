@@ -840,17 +840,7 @@ class VicaDominoGame {
     }
 
     renderBank() {
-        const bankCards = document.querySelector('.bank-cards');
         const bankCount = document.getElementById('bank-count');
-
-        bankCards.innerHTML = '';
-        const displayCount = Math.min(this.bank.length, 5);
-        for (let i = 0; i < displayCount; i++) {
-            const card = document.createElement('div');
-            card.className = 'bank-card';
-            bankCards.appendChild(card);
-        }
-
         bankCount.textContent = this.bank.length;
     }
 

@@ -269,18 +269,9 @@ class VicaDominoGame {
         this.selectedCard = card;
         this.render();
 
-        // Check which sides this card can be played on
-        const canPlayLeft = canPlayOn(card, this.leftEnd);
-        const canPlayRight = canPlayOn(card, this.rightEnd);
-
-        if (canPlayLeft && canPlayRight && this.leftEnd !== this.rightEnd) {
-            this.updateStatus('Click LEFT or RIGHT on the board to place your card!', 'highlight');
-            this.showPlacementZones(true, true);
-        } else if (canPlayLeft) {
-            this.playCard(card, 'left');
-        } else {
-            this.playCard(card, 'right');
-        }
+        // Always show both placement options - player must choose
+        this.updateStatus('Click LEFT or RIGHT on the board to place your card!', 'highlight');
+        this.showPlacementZones(true, true);
     }
 
     showPlacementZones(showLeft, showRight) {
@@ -292,6 +283,19 @@ class VicaDominoGame {
         const cardIndex = player.hand.findIndex(c => c.id === card.id);
 
         if (cardIndex === -1) return;
+
+        // Validate the chosen side
+        const canPlayLeft = canPlayOn(card, this.leftEnd);
+        const canPlayRight = canPlayOn(card, this.rightEnd);
+
+        if (side === 'left' && !canPlayLeft) {
+            this.updateStatus(`Cannot play on left side! The left end needs ${this.leftEnd}.`, 'warning');
+            return;
+        }
+        if (side === 'right' && !canPlayRight) {
+            this.updateStatus(`Cannot play on right side! The right end needs ${this.rightEnd}.`, 'warning');
+            return;
+        }
 
         // Remove card from hand
         player.hand.splice(cardIndex, 1);

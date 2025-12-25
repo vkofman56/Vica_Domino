@@ -375,11 +375,12 @@ class VicaDominoGame {
             return;
         }
 
-        // Last player cannot draw from bank - game ends if they can't play
+        // Last player cannot draw from bank - game ends
         const activePlayers = this.players.filter(p => !p.isWinner);
         if (activePlayers.length === 1) {
-            this.updateStatus('Last player cannot draw from bank! Game over.', 'warning');
-            setTimeout(() => this.showFinalResult(), 1500);
+            this.updateStatus('Last player cannot draw from bank!', 'warning');
+            // Let player see the field for 2 seconds, then show "No more winners"
+            setTimeout(() => this.showNoMoreWinners(), 2000);
             return;
         }
 
@@ -443,9 +444,10 @@ class VicaDominoGame {
             if (attempts > this.players.length) break;
         } while (this.getCurrentPlayer().isWinner);
 
-        // Check if game should end (all finished or blocked)
-        if (this.checkGameOver()) {
-            this.showFinalResult();
+        // Check if ALL players have finished (empty hands) - Circle of Winners
+        const activePlayers = this.players.filter(p => !p.isWinner);
+        if (activePlayers.length === 0) {
+            this.showCircleOfWinners();
             return;
         }
 
@@ -457,12 +459,13 @@ class VicaDominoGame {
 
         const player = this.getCurrentPlayer();
         const canPlay = this.canCurrentPlayerPlay();
-        const activePlayers = this.players.filter(p => !p.isWinner);
 
-        // If only one player left and they can't play, game is over
+        // If only one player left and they can't play, show field for 2 seconds then end
         if (activePlayers.length === 1 && !canPlay) {
-            this.updateStatus(`${player.name} cannot make a move. Game over!`, 'warning');
-            setTimeout(() => this.showFinalResult(), 1500);
+            this.updateStatus(`${player.name} cannot make a move...`, 'warning');
+            this.render();
+            // Let player see the field for 2 seconds, then show "No more winners"
+            setTimeout(() => this.showNoMoreWinners(), 2000);
             return;
         }
 
@@ -554,22 +557,58 @@ class VicaDominoGame {
         // Show celebration with sparkles
         this.showWinnerCelebration(winner, ordinal);
 
-        // Check if ALL players have finished
+        // Check if ALL players have finished (empty hands)
         const activePlayers = this.players.filter(p => !p.isWinner);
         if (activePlayers.length === 0) {
-            // Everyone has won!
-            setTimeout(() => this.showFinalResult(), 3000);
-            return;
-        }
-
-        // If we have 2+ winners and only 1 player left, show Circle of Winners
-        if (this.winners.length >= 2 && activePlayers.length === 1) {
-            setTimeout(() => this.showFinalResult(), 3000);
+            // Everyone completed - Circle of Winners!
+            setTimeout(() => this.showCircleOfWinners(), 3000);
             return;
         }
 
         // Continue with next player (skip winners)
         setTimeout(() => this.nextTurn(), 3000);
+    }
+
+    showCircleOfWinners() {
+        this.gamePhase = 'ended';
+
+        const singleWinnerContent = document.getElementById('single-winner-content');
+        const circleWinnersContent = document.getElementById('circle-winners-content');
+
+        if (this.winners.length === 1) {
+            singleWinnerContent.style.display = 'block';
+            circleWinnersContent.style.display = 'none';
+            document.getElementById('winner-name').textContent = `${this.winners[0].name} wins!`;
+        } else {
+            // ALL players completed - Circle of Winners!
+            singleWinnerContent.style.display = 'none';
+            circleWinnersContent.style.display = 'block';
+            const winnerNames = this.winners.map(w => w.name).join(' & ');
+            document.getElementById('winners-names').textContent =
+                `${winnerNames} form the Circle of Winners!`;
+            this.animateWeWon();
+        }
+
+        document.getElementById('winner-modal').classList.add('show');
+        this.render();
+    }
+
+    showNoMoreWinners() {
+        this.gamePhase = 'ended';
+
+        const singleWinnerContent = document.getElementById('single-winner-content');
+        const circleWinnersContent = document.getElementById('circle-winners-content');
+
+        singleWinnerContent.style.display = 'block';
+        circleWinnersContent.style.display = 'none';
+
+        // Show who won
+        const winnerNames = this.winners.map(w => w.name).join(' & ');
+        document.getElementById('winner-name').textContent = `${winnerNames} won!`;
+        document.getElementById('winner-says').textContent = 'No more winners! Play again!';
+
+        document.getElementById('winner-modal').classList.add('show');
+        this.render();
     }
 
     checkGameOver() {
@@ -647,51 +686,9 @@ class VicaDominoGame {
     }
 
     endGameBlocked() {
-        this.gamePhase = 'ended';
-
-        // Get remaining active players (those who haven't won yet)
-        const activePlayers = this.players.filter(p => !p.isWinner);
-
-        // Find player with fewest cards among active players
-        let minCards = Infinity;
-        let blockedWinners = [];
-
-        activePlayers.forEach(player => {
-            if (player.hand.length < minCards) {
-                minCards = player.hand.length;
-                blockedWinners = [player];
-            } else if (player.hand.length === minCards) {
-                blockedWinners.push(player);
-            }
-        });
-
-        // Add blocked winners to the winners list
-        blockedWinners.forEach(w => {
-            w.isWinner = true;
-            if (!this.winners.includes(w)) {
-                this.winners.push(w);
-            }
-        });
-
-        const singleWinnerContent = document.getElementById('single-winner-content');
-        const circleWinnersContent = document.getElementById('circle-winners-content');
-
-        if (this.winners.length === 1) {
-            singleWinnerContent.style.display = 'block';
-            circleWinnersContent.style.display = 'none';
-            document.getElementById('winner-name').textContent = `${this.winners[0].name} wins!`;
-        } else {
-            // Multiple winners - show Circle of Winners
-            singleWinnerContent.style.display = 'none';
-            circleWinnersContent.style.display = 'block';
-            const winnerNames = this.winners.map(w => w.name).join(' & ');
-            document.getElementById('winners-names').textContent =
-                `${winnerNames} form the Circle of Winners!`;
-            this.animateWeWon();
-        }
-
-        document.getElementById('winner-modal').classList.add('show');
-        this.render();
+        // Game is blocked - no one can play and bank is empty
+        // Show "No more winners" since not everyone completed with empty hands
+        this.showNoMoreWinners();
     }
 
     resetToSetup() {

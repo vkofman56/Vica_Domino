@@ -602,10 +602,9 @@ class VicaDominoGame {
         singleWinnerContent.style.display = 'block';
         circleWinnersContent.style.display = 'none';
 
-        // Show who won
-        const winnerNames = this.winners.map(w => w.name).join(' & ');
-        document.getElementById('winner-name').textContent = `${winnerNames} won!`;
-        document.getElementById('winner-says').textContent = 'No more winners! Play again!';
+        // Only show "No more winners! Play again!" - don't list winners
+        document.getElementById('winner-name').textContent = 'No more winners!';
+        document.getElementById('winner-says').textContent = 'Play again!';
 
         document.getElementById('winner-modal').classList.add('show');
         this.render();

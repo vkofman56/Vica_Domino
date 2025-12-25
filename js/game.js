@@ -578,7 +578,9 @@ class VicaDominoGame {
         if (this.winners.length === 1) {
             singleWinnerContent.style.display = 'block';
             circleWinnersContent.style.display = 'none';
+            document.getElementById('winner-heading').style.display = 'block';
             document.getElementById('winner-name').textContent = `${this.winners[0].name} wins!`;
+            document.getElementById('winner-says').textContent = '"I Won!"';
         } else {
             // ALL players completed - Circle of Winners!
             singleWinnerContent.style.display = 'none';
@@ -602,7 +604,8 @@ class VicaDominoGame {
         singleWinnerContent.style.display = 'block';
         circleWinnersContent.style.display = 'none';
 
-        // Only show "No more winners! Play again!" - don't list winners
+        // Hide "Winner!" heading and show "No more winners! Play again!"
+        document.getElementById('winner-heading').style.display = 'none';
         document.getElementById('winner-name').textContent = 'No more winners!';
         document.getElementById('winner-says').textContent = 'Play again!';
 
@@ -700,6 +703,7 @@ class VicaDominoGame {
         // Reset modal content display
         document.getElementById('single-winner-content').style.display = 'block';
         document.getElementById('circle-winners-content').style.display = 'none';
+        document.getElementById('winner-heading').style.display = 'block';
 
         this.players = [];
         this.bank = [];

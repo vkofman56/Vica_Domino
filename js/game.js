@@ -218,7 +218,7 @@ class VicaDominoGame {
                 if (this.gamePhase === 'showDoubles') {
                     this.handleDoubleClick(highestDoubleInfo.card, highestDoubleInfo.playerIndex);
                 }
-            }, 2000);
+            }, 2500);
         }
     }
 
@@ -280,7 +280,7 @@ class VicaDominoGame {
 
         // If next player is computer (Xeno), auto-play after a delay
         if (nextPlayer.isComputer) {
-            setTimeout(() => this.xenoPlay(), 1500);
+            setTimeout(() => this.xenoPlay(), 2500);
         }
     }
 
@@ -571,7 +571,7 @@ class VicaDominoGame {
         // If current player is computer (Xeno), auto-play after a delay
         if (player.isComputer && !player.isWinner) {
             console.log('Triggering Xeno play for:', player.name, 'isComputer:', player.isComputer);
-            setTimeout(() => this.xenoPlay(), 1500);
+            setTimeout(() => this.xenoPlay(), 2500);
         } else {
             console.log('Not triggering Xeno. Player:', player.name, 'isComputer:', player.isComputer, 'isWinner:', player.isWinner);
         }
@@ -629,7 +629,7 @@ class VicaDominoGame {
                 } else {
                     this.passTurn();
                 }
-            }, 1000);
+            }, 1500);
         } else {
             console.log('Xeno passing turn');
             // Can't play, pass turn

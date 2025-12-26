@@ -68,8 +68,28 @@ class VicaDominoGame {
             const input = document.createElement('input');
             input.type = 'text';
             input.placeholder = `Player ${i + 1} name`;
-            input.value = `Player ${i + 1}`;
+            input.value = '';
             input.dataset.playerIndex = i;
+            input.dataset.prefix = `${i + 1}.  `;
+
+            input.addEventListener('input', (e) => {
+                const prefix = e.target.dataset.prefix;
+                let value = e.target.value;
+
+                // If value doesn't start with prefix and has content
+                if (value.length > 0 && !value.startsWith(prefix)) {
+                    // Remove any existing prefix pattern at start
+                    value = value.replace(/^\d+\.\s*/, '');
+                    e.target.value = prefix + value;
+                }
+                // If value is just the prefix or less, clear it
+                if (value === prefix || value.length < prefix.length) {
+                    if (value.length === 0) {
+                        e.target.value = '';
+                    }
+                }
+            });
+
             nameInputs.appendChild(input);
         }
     }
@@ -85,9 +105,18 @@ class VicaDominoGame {
         this.players = [];
         this.winners = []; // Reset winners list
         inputs.forEach((input, index) => {
+            let name = input.value;
+            const prefix = input.dataset.prefix;
+            // Remove prefix if present to get just the name
+            if (name.startsWith(prefix)) {
+                name = name.substring(prefix.length);
+            }
+            // Use default name if empty
+            name = name.trim() || `Player ${index + 1}`;
+
             this.players.push({
                 id: index,
-                name: input.value || `Player ${index + 1}`,
+                name: name,
                 hand: [],
                 isWinner: false // Initialize winner status
             });

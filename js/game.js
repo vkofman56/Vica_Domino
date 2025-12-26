@@ -53,6 +53,8 @@ class VicaDominoGame {
 
     selectPlayerCount(e) {
         const count = parseInt(e.target.dataset.players);
+        const includeXeno = e.target.dataset.xeno === 'true';
+        this.includeXeno = includeXeno;
 
         // Update button states
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
@@ -92,6 +94,16 @@ class VicaDominoGame {
 
             nameInputs.appendChild(input);
         }
+
+        // Show Xeno indicator if selected
+        if (includeXeno) {
+            const xenoInfo = document.createElement('div');
+            xenoInfo.className = 'xeno-info';
+            xenoInfo.innerHTML = `<span style="color: #FF69B4; font-weight: bold;">+ Xeno (Computer Player)</span>`;
+            xenoInfo.style.marginTop = '10px';
+            xenoInfo.style.textAlign = 'center';
+            nameInputs.appendChild(xenoInfo);
+        }
     }
 
     startGame() {
@@ -118,9 +130,21 @@ class VicaDominoGame {
                 id: index,
                 name: name,
                 hand: [],
-                isWinner: false // Initialize winner status
+                isWinner: false,
+                isComputer: false
             });
         });
+
+        // Add Xeno as computer player if selected
+        if (this.includeXeno) {
+            this.players.push({
+                id: this.players.length,
+                name: 'Xeno',
+                hand: [],
+                isWinner: false,
+                isComputer: true
+            });
+        }
 
         // Initialize deck and deal
         const deck = getShuffledDeck();
@@ -160,12 +184,42 @@ class VicaDominoGame {
 
         if (hasAnyDouble) {
             this.updateStatus('Players, push forward your DOUBLES! Then click the HIGHEST double (E > D > C > B > A) to start!', 'highlight');
+            this.render();
+
+            // Check if Xeno has the highest double and should auto-play
+            this.checkXenoHighestDouble();
         } else {
             // No doubles - need to draw
             this.gamePhase = 'drawForDouble';
             this.updateStatus('No doubles! Click "Draw from Bank" - each player draws one card.', 'warning');
+            this.render();
         }
-        this.render();
+    }
+
+    checkXenoHighestDouble() {
+        // Find all doubles and the highest one
+        let allDoubles = [];
+        this.players.forEach((player, pIndex) => {
+            player.hand.forEach(c => {
+                if (isDouble(c)) {
+                    allDoubles.push({ card: c, playerIndex: pIndex, player: player });
+                }
+            });
+        });
+
+        if (allDoubles.length === 0) return;
+
+        const highestDouble = findHighestDouble(allDoubles.map(d => d.card));
+        const highestDoubleInfo = allDoubles.find(d => d.card.id === highestDouble.id);
+
+        // If Xeno has the highest double, auto-play it after a delay
+        if (highestDoubleInfo && highestDoubleInfo.player.isComputer) {
+            setTimeout(() => {
+                if (this.gamePhase === 'showDoubles') {
+                    this.handleDoubleClick(highestDoubleInfo.card, highestDoubleInfo.playerIndex);
+                }
+            }, 2000);
+        }
     }
 
     handleDoubleClick(card, playerIndex) {
@@ -507,6 +561,57 @@ class VicaDominoGame {
         }
 
         this.render();
+
+        // If current player is computer (Xeno), auto-play after a delay
+        if (player.isComputer && !player.isWinner) {
+            setTimeout(() => this.xenoPlay(), 1500);
+        }
+    }
+
+    // Xeno AI - computer player logic
+    xenoPlay() {
+        const player = this.getCurrentPlayer();
+        if (!player.isComputer || player.isWinner) return;
+
+        // Check if we can play any card
+        const playableCards = player.hand.filter(card =>
+            canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd)
+        );
+
+        if (playableCards.length > 0) {
+            // Pick the best card to play (prefer doubles, then highest value)
+            let bestCard = playableCards[0];
+            for (const card of playableCards) {
+                if (card.leftValue === card.rightValue) {
+                    bestCard = card; // Prefer doubles
+                    break;
+                }
+            }
+
+            // Determine which side to play on
+            const canLeft = canPlayOn(bestCard, this.leftEnd);
+            const canRight = canPlayOn(bestCard, this.rightEnd);
+            const side = canLeft ? 'left' : 'right';
+
+            // Play the card
+            this.selectedCard = { card: bestCard, playerIndex: this.currentPlayerIndex };
+            this.placeCard(side);
+        } else if (this.bank.length > 0 && !this.hasDrawnThisTurn) {
+            // Draw from bank
+            this.drawFromBank();
+            // After drawing, try to play again
+            setTimeout(() => {
+                const canPlayNow = this.canCurrentPlayerPlay();
+                if (canPlayNow) {
+                    this.xenoPlay();
+                } else {
+                    this.passTurn();
+                }
+            }, 1000);
+        } else {
+            // Can't play, pass turn
+            this.passTurn();
+        }
     }
 
     isGameBlocked() {
@@ -770,13 +875,40 @@ class VicaDominoGame {
             const playerDiv = document.createElement('div');
             // During showDoubles phase, all players are "active" (can click)
             const activeClass = isShowingDoubles || isNoDoubles ? 'active' : (isActive ? 'active' : 'inactive');
-            playerDiv.className = `player-hand ${activeClass} ${isWinner ? 'winner' : ''}`;
+            const xenoClass = player.isComputer ? 'xeno-player' : '';
+            playerDiv.className = `player-hand ${activeClass} ${isWinner ? 'winner' : ''} ${xenoClass}`;
             playerDiv.dataset.playerId = index;
             playerDiv.style.position = 'relative';
 
             const header = document.createElement('h3');
+            // Show Xeno icon for computer player
+            const xenoIconHtml = player.isComputer ?
+                `<svg class="xeno-icon" viewBox="0 0 100 100">
+                    <defs>
+                        <linearGradient id="xenoGrad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#FF69B4"/>
+                            <stop offset="100%" style="stop-color:#FF1493"/>
+                        </linearGradient>
+                    </defs>
+                    <ellipse cx="50" cy="45" rx="20" ry="25" fill="url(#xenoGrad${index})"/>
+                    <ellipse cx="50" cy="18" rx="15" ry="12" fill="url(#xenoGrad${index})"/>
+                    <ellipse cx="44" cy="16" rx="5" ry="6" fill="white"/>
+                    <ellipse cx="56" cy="16" rx="5" ry="6" fill="white"/>
+                    <circle cx="44" cy="16" r="2.5" fill="black"/>
+                    <circle cx="56" cy="16" r="2.5" fill="black"/>
+                    <line x1="42" y1="8" x2="35" y2="0" stroke="#FF69B4" stroke-width="2"/>
+                    <circle cx="35" cy="0" r="3" fill="#FF1493"/>
+                    <line x1="58" y1="8" x2="65" y2="0" stroke="#FF69B4" stroke-width="2"/>
+                    <circle cx="65" cy="0" r="3" fill="#FF1493"/>
+                    <path d="M30 35 Q15 30 10 40" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
+                    <path d="M70 35 Q85 30 90 40" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
+                    <path d="M32 50 Q15 55 8 50" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
+                    <path d="M68 50 Q85 55 92 50" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
+                    <path d="M50 70 Q55 80 45 90 Q40 95 50 98" stroke="url(#xenoGrad${index})" stroke-width="6" fill="none"/>
+                    <path d="M43 22 Q50 28 57 22" stroke="#FF1493" stroke-width="2" fill="none"/>
+                </svg>` : '';
             header.innerHTML = `
-                <span>${player.name}</span>
+                <span class="player-name-with-icon">${xenoIconHtml}${player.name}</span>
                 <span class="card-count">${player.hand.length} cards</span>
             `;
             playerDiv.appendChild(header);

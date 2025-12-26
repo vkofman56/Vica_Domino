@@ -570,19 +570,29 @@ class VicaDominoGame {
 
         // If current player is computer (Xeno), auto-play after a delay
         if (player.isComputer && !player.isWinner) {
+            console.log('Triggering Xeno play for:', player.name, 'isComputer:', player.isComputer);
             setTimeout(() => this.xenoPlay(), 1500);
+        } else {
+            console.log('Not triggering Xeno. Player:', player.name, 'isComputer:', player.isComputer, 'isWinner:', player.isWinner);
         }
     }
 
     // Xeno AI - computer player logic
     xenoPlay() {
+        // Ensure game is still in playing phase
+        if (this.gamePhase !== 'playing') return;
+
         const player = this.getCurrentPlayer();
-        if (!player.isComputer || player.isWinner) return;
+        if (!player || !player.isComputer || player.isWinner) return;
+
+        console.log('Xeno is playing...', player.name, player.hand);
 
         // Check if we can play any card
         const playableCards = player.hand.filter(card =>
             canPlayOn(card, this.leftEnd) || canPlayOn(card, this.rightEnd)
         );
+
+        console.log('Playable cards:', playableCards.length);
 
         if (playableCards.length > 0) {
             // Pick the best card to play (prefer doubles, then highest value)
@@ -599,13 +609,20 @@ class VicaDominoGame {
             const canRight = canPlayOn(bestCard, this.rightEnd);
             const side = canLeft ? 'left' : 'right';
 
+            console.log('Xeno playing card:', bestCard, 'on side:', side);
+
             // Play the card
             this.playCard(bestCard, side);
         } else if (this.bank.length > 0 && !this.hasDrawnThisTurn) {
+            console.log('Xeno drawing from bank');
             // Draw from bank
             this.drawFromBank();
             // After drawing, try to play again
             setTimeout(() => {
+                if (this.gamePhase !== 'playing') return;
+                const currentPlayer = this.getCurrentPlayer();
+                if (!currentPlayer || !currentPlayer.isComputer) return;
+
                 const canPlayNow = this.canCurrentPlayerPlay();
                 if (canPlayNow) {
                     this.xenoPlay();
@@ -614,6 +631,7 @@ class VicaDominoGame {
                 }
             }, 1000);
         } else {
+            console.log('Xeno passing turn');
             // Can't play, pass turn
             this.passTurn();
         }

@@ -65,6 +65,10 @@ class VicaDominoGame {
         const playerNamesDiv = document.getElementById('player-names');
         playerNamesDiv.style.display = 'block';
 
+        // Update heading based on number of human players
+        const heading = playerNamesDiv.querySelector('h3');
+        heading.textContent = count === 1 ? "Enter player's name:" : "Enter player names:";
+
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
             const input = document.createElement('input');

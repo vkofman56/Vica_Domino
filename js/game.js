@@ -274,8 +274,14 @@ class VicaDominoGame {
         this.pendingStartCard = null;
         this.pendingStartPlayer = null;
 
-        this.updateStatus(`${player.name} started with ${card.leftValue}:${card.rightValue}. ${this.getCurrentPlayer().name}'s turn!`, 'success');
+        const nextPlayer = this.getCurrentPlayer();
+        this.updateStatus(`${player.name} started with ${card.leftValue}:${card.rightValue}. ${nextPlayer.name}'s turn!`, 'success');
         this.render();
+
+        // If next player is computer (Xeno), auto-play after a delay
+        if (nextPlayer.isComputer) {
+            setTimeout(() => this.xenoPlay(), 1500);
+        }
     }
 
     drawForDoublePhase() {
@@ -594,8 +600,7 @@ class VicaDominoGame {
             const side = canLeft ? 'left' : 'right';
 
             // Play the card
-            this.selectedCard = { card: bestCard, playerIndex: this.currentPlayerIndex };
-            this.placeCard(side);
+            this.playCard(bestCard, side);
         } else if (this.bank.length > 0 && !this.hasDrawnThisTurn) {
             // Draw from bank
             this.drawFromBank();

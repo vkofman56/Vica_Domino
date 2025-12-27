@@ -222,7 +222,7 @@ class VicaDominoGame {
                 if (this.gamePhase === 'showDoubles') {
                     this.handleDoubleClick(highestDoubleInfo.card, highestDoubleInfo.playerIndex);
                 }
-            }, 2500);
+            }, 3000);
         }
     }
 
@@ -284,7 +284,7 @@ class VicaDominoGame {
 
         // If next player is computer (Xeno), auto-play after a delay
         if (nextPlayer.isComputer) {
-            setTimeout(() => this.xenoPlay(), 2500);
+            setTimeout(() => this.xenoPlay(), 3000);
         }
     }
 
@@ -430,14 +430,59 @@ class VicaDominoGame {
         this.selectedCard = null;
         this.hasDrawnThisTurn = false;
 
-        // Check for winner
-        if (player.hand.length === 0) {
-            this.endGame(player);
-            return;
+        // Render board to show the new card
+        this.render();
+
+        // Show matching highlight for 1 second
+        this.showMatchingHighlight(side);
+
+        // Check for winner after highlight delay
+        setTimeout(() => {
+            if (player.hand.length === 0) {
+                this.endGame(player);
+                return;
+            }
+
+            // Next player's turn
+            this.nextTurn();
+        }, 1000);
+    }
+
+    showMatchingHighlight(side) {
+        // Find the matching domino halves on the board
+        const boardEl = document.getElementById('game-board');
+        const dominoes = boardEl.querySelectorAll('.domino.on-board');
+
+        if (side === 'left' && dominoes.length >= 2) {
+            // New card is first (index 0), highlight its right half and the next card's left half
+            const newCard = dominoes[0];
+            const adjacentCard = dominoes[1];
+
+            const newCardHalves = newCard.querySelectorAll('.domino-half');
+            const adjacentCardHalves = adjacentCard.querySelectorAll('.domino-half');
+
+            // For horizontal cards: first half is left, second is right
+            // New card's right half matches adjacent card's left half
+            if (newCardHalves[1]) newCardHalves[1].classList.add('matching');
+            if (adjacentCardHalves[0]) adjacentCardHalves[0].classList.add('matching');
+
+        } else if (side === 'right' && dominoes.length >= 2) {
+            // New card is last, highlight its left half and the previous card's right half
+            const newCard = dominoes[dominoes.length - 1];
+            const adjacentCard = dominoes[dominoes.length - 2];
+
+            const newCardHalves = newCard.querySelectorAll('.domino-half');
+            const adjacentCardHalves = adjacentCard.querySelectorAll('.domino-half');
+
+            // New card's left half matches adjacent card's right half
+            if (newCardHalves[0]) newCardHalves[0].classList.add('matching');
+            if (adjacentCardHalves[1]) adjacentCardHalves[1].classList.add('matching');
         }
 
-        // Next player's turn
-        this.nextTurn();
+        // Remove matching class after animation completes
+        setTimeout(() => {
+            boardEl.querySelectorAll('.matching').forEach(el => el.classList.remove('matching'));
+        }, 1000);
     }
 
     closeBank() {
@@ -575,7 +620,7 @@ class VicaDominoGame {
         // If current player is computer (Xeno), auto-play after a delay
         if (player.isComputer && !player.isWinner) {
             console.log('Triggering Xeno play for:', player.name, 'isComputer:', player.isComputer);
-            setTimeout(() => this.xenoPlay(), 2500);
+            setTimeout(() => this.xenoPlay(), 3000);
         } else {
             console.log('Not triggering Xeno. Player:', player.name, 'isComputer:', player.isComputer, 'isWinner:', player.isWinner);
         }
@@ -633,7 +678,7 @@ class VicaDominoGame {
                 } else {
                     this.passTurn();
                 }
-            }, 1500);
+            }, 2000);
         } else {
             console.log('Xeno passing turn');
             // Can't play, pass turn
@@ -671,7 +716,7 @@ class VicaDominoGame {
         // Hide banner after 2.5 seconds
         setTimeout(() => {
             banner.style.display = 'none';
-        }, 2500);
+        }, 3000);
     }
 
     createSparkles() {
@@ -703,7 +748,7 @@ class VicaDominoGame {
         // Clear sparkles after animation
         setTimeout(() => {
             container.innerHTML = '';
-        }, 2500);
+        }, 3000);
     }
 
     endGame(winner) {

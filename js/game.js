@@ -108,7 +108,7 @@ class VicaDominoGame {
             xenoInput.value = `${xenoNumber}.  Xeno`;
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
-            xenoInput.style.backgroundColor = 'rgba(255, 105, 180, 0.3)';
+            xenoInput.style.border = '2px solid #FF69B4';
             xenoInput.style.color = '#FF69B4';
             xenoInput.style.fontWeight = 'bold';
             xenoInput.style.cursor = 'not-allowed';

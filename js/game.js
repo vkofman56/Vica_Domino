@@ -102,6 +102,7 @@ class VicaDominoGame {
         // Show Xeno indicator if selected
         if (includeXeno) {
             const xenoNumber = count + 1;
+            console.log('Creating Xeno input with number:', xenoNumber);
             const xenoInput = document.createElement('input');
             xenoInput.type = 'text';
             xenoInput.value = `${xenoNumber}.  Xeno`;
@@ -112,6 +113,7 @@ class VicaDominoGame {
             xenoInput.style.fontWeight = 'bold';
             xenoInput.style.cursor = 'not-allowed';
             nameInputs.appendChild(xenoInput);
+            console.log('Xeno input appended to nameInputs');
         }
     }
 
@@ -463,6 +465,8 @@ class VicaDominoGame {
         const boardEl = document.getElementById('game-board');
         const dominoes = boardEl.querySelectorAll('.domino.on-board');
 
+        console.log('showMatchingHighlight called, side:', side, 'dominoes found:', dominoes.length);
+
         if (side === 'left' && dominoes.length >= 2) {
             // New card is first (index 0), highlight its right half and the next card's left half
             const newCard = dominoes[0];
@@ -473,8 +477,14 @@ class VicaDominoGame {
 
             // For horizontal cards: first half is left, second is right
             // New card's right half matches adjacent card's left half
-            if (newCardHalves[1]) newCardHalves[1].classList.add('matching');
-            if (adjacentCardHalves[0]) adjacentCardHalves[0].classList.add('matching');
+            if (newCardHalves[1]) {
+                newCardHalves[1].classList.add('matching');
+                console.log('Added matching to new card right half');
+            }
+            if (adjacentCardHalves[0]) {
+                adjacentCardHalves[0].classList.add('matching');
+                console.log('Added matching to adjacent card left half');
+            }
 
         } else if (side === 'right' && dominoes.length >= 2) {
             // New card is last, highlight its left half and the previous card's right half
@@ -485,8 +495,14 @@ class VicaDominoGame {
             const adjacentCardHalves = adjacentCard.querySelectorAll('.domino-half');
 
             // New card's left half matches adjacent card's right half
-            if (newCardHalves[0]) newCardHalves[0].classList.add('matching');
-            if (adjacentCardHalves[1]) adjacentCardHalves[1].classList.add('matching');
+            if (newCardHalves[0]) {
+                newCardHalves[0].classList.add('matching');
+                console.log('Added matching to new card left half');
+            }
+            if (adjacentCardHalves[1]) {
+                adjacentCardHalves[1].classList.add('matching');
+                console.log('Added matching to adjacent card right half');
+            }
         }
 
         // Remove matching class after animation completes

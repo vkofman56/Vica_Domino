@@ -101,12 +101,17 @@ class VicaDominoGame {
 
         // Show Xeno indicator if selected
         if (includeXeno) {
-            const xenoInfo = document.createElement('div');
-            xenoInfo.className = 'xeno-info';
-            xenoInfo.innerHTML = `<span style="color: #FF69B4; font-weight: bold;">+ Xeno (Computer Player)</span>`;
-            xenoInfo.style.marginTop = '10px';
-            xenoInfo.style.textAlign = 'center';
-            nameInputs.appendChild(xenoInfo);
+            const xenoNumber = count + 1;
+            const xenoInput = document.createElement('input');
+            xenoInput.type = 'text';
+            xenoInput.value = `${xenoNumber}.  Xeno`;
+            xenoInput.disabled = true;
+            xenoInput.className = 'xeno-input';
+            xenoInput.style.backgroundColor = 'rgba(255, 105, 180, 0.3)';
+            xenoInput.style.color = '#FF69B4';
+            xenoInput.style.fontWeight = 'bold';
+            xenoInput.style.cursor = 'not-allowed';
+            nameInputs.appendChild(xenoInput);
         }
     }
 
@@ -117,10 +122,14 @@ class VicaDominoGame {
             return;
         }
 
-        // Create players
+        // Create players (skip disabled Xeno input)
         this.players = [];
         this.winners = []; // Reset winners list
-        inputs.forEach((input, index) => {
+        let playerIndex = 0;
+        inputs.forEach((input) => {
+            // Skip the Xeno input (disabled)
+            if (input.disabled) return;
+
             let name = input.value;
             const prefix = input.dataset.prefix;
             // Remove prefix if present to get just the name
@@ -128,15 +137,16 @@ class VicaDominoGame {
                 name = name.substring(prefix.length);
             }
             // Use default name if empty
-            name = name.trim() || `Player ${index + 1}`;
+            name = name.trim() || `Player ${playerIndex + 1}`;
 
             this.players.push({
-                id: index,
+                id: playerIndex,
                 name: name,
                 hand: [],
                 isWinner: false,
                 isComputer: false
             });
+            playerIndex++;
         });
 
         // Add Xeno as computer player if selected

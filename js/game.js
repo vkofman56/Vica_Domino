@@ -108,12 +108,21 @@ class VicaDominoGame {
             xenoInput.value = `${xenoNumber}.  Xeno`;
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
-            xenoInput.style.border = '2px solid #FF69B4';
-            xenoInput.style.color = '#FF69B4';
-            xenoInput.style.fontWeight = 'bold';
-            xenoInput.style.cursor = 'not-allowed';
+            // Same styling as other inputs, but with pink border and pink text
+            xenoInput.style.cssText = `
+                padding: 12px 20px;
+                font-size: 1rem;
+                border: 2px solid #FF69B4;
+                border-radius: 10px;
+                background: rgba(255,255,255,0.9);
+                color: #FF69B4;
+                font-weight: bold;
+                cursor: not-allowed;
+                width: 100%;
+                box-sizing: border-box;
+            `;
             nameInputs.appendChild(xenoInput);
-            console.log('Xeno input appended to nameInputs');
+            console.log('Xeno input appended to nameInputs, element:', xenoInput);
         }
     }
 

@@ -73,7 +73,7 @@ class VicaDominoGame {
         for (let i = 0; i < count; i++) {
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = `Player ${i + 1} name`;
+            input.placeholder = `${i + 1}. Player ${i + 1} name`;
             input.value = '';
             input.dataset.playerIndex = i;
             input.dataset.prefix = `${i + 1}.  `;

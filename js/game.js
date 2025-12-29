@@ -12,6 +12,111 @@
  * - First to empty hand wins!
  */
 
+// Character icons for players (5 fun characters)
+const CHARACTER_ICONS = {
+    star: {
+        name: 'Star',
+        color: '#FFD700',
+        svg: `<svg viewBox="0 0 100 100">
+            <polygon points="50,5 61,35 95,35 68,57 79,91 50,70 21,91 32,57 5,35 39,35" fill="#FFD700" stroke="#FFA500" stroke-width="2"/>
+            <circle cx="38" cy="42" r="5" fill="#333"/>
+            <circle cx="62" cy="42" r="5" fill="#333"/>
+            <path d="M35 58 Q50 72 65 58" stroke="#333" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </svg>`
+    },
+    cat: {
+        name: 'Cat',
+        color: '#FF8C00',
+        svg: `<svg viewBox="0 0 100 100">
+            <ellipse cx="50" cy="55" rx="35" ry="30" fill="#FF8C00"/>
+            <polygon points="20,35 15,5 35,25" fill="#FF8C00" stroke="#E07000" stroke-width="2"/>
+            <polygon points="80,35 85,5 65,25" fill="#FF8C00" stroke="#E07000" stroke-width="2"/>
+            <ellipse cx="35" cy="50" rx="8" ry="10" fill="white"/>
+            <ellipse cx="65" cy="50" rx="8" ry="10" fill="white"/>
+            <circle cx="35" cy="52" r="5" fill="#333"/>
+            <circle cx="65" cy="52" r="5" fill="#333"/>
+            <ellipse cx="50" cy="65" rx="6" ry="4" fill="#FF69B4"/>
+            <line x1="15" y1="55" x2="30" y2="58" stroke="#333" stroke-width="2"/>
+            <line x1="15" y1="62" x2="30" y2="62" stroke="#333" stroke-width="2"/>
+            <line x1="70" y1="58" x2="85" y2="55" stroke="#333" stroke-width="2"/>
+            <line x1="70" y1="62" x2="85" y2="62" stroke="#333" stroke-width="2"/>
+        </svg>`
+    },
+    robot: {
+        name: 'Robot',
+        color: '#4169E1',
+        svg: `<svg viewBox="0 0 100 100">
+            <rect x="25" y="30" width="50" height="55" rx="8" fill="#4169E1" stroke="#2849C1" stroke-width="2"/>
+            <rect x="35" y="15" width="30" height="20" rx="5" fill="#4169E1" stroke="#2849C1" stroke-width="2"/>
+            <line x1="50" y1="5" x2="50" y2="15" stroke="#2849C1" stroke-width="3"/>
+            <circle cx="50" cy="5" r="5" fill="#FF4444"/>
+            <rect x="32" y="40" width="15" height="12" rx="2" fill="#00FFFF"/>
+            <rect x="53" y="40" width="15" height="12" rx="2" fill="#00FFFF"/>
+            <rect x="38" y="65" width="24" height="8" rx="2" fill="#333"/>
+            <rect x="40" y="67" width="4" height="4" fill="#00FF00"/>
+            <rect x="48" y="67" width="4" height="4" fill="#00FF00"/>
+            <rect x="56" y="67" width="4" height="4" fill="#00FF00"/>
+            <rect x="15" y="45" width="10" height="25" rx="3" fill="#4169E1"/>
+            <rect x="75" y="45" width="10" height="25" rx="3" fill="#4169E1"/>
+        </svg>`
+    },
+    dino: {
+        name: 'Dino',
+        color: '#32CD32',
+        svg: `<svg viewBox="0 0 100 100">
+            <ellipse cx="50" cy="55" rx="35" ry="30" fill="#32CD32"/>
+            <ellipse cx="50" cy="35" rx="25" ry="20" fill="#32CD32"/>
+            <circle cx="38" cy="32" r="8" fill="white"/>
+            <circle cx="58" cy="32" r="8" fill="white"/>
+            <circle cx="40" cy="33" r="4" fill="#333"/>
+            <circle cx="60" cy="33" r="4" fill="#333"/>
+            <ellipse cx="50" cy="48" rx="15" ry="8" fill="#228B22"/>
+            <circle cx="44" cy="46" r="2" fill="#333"/>
+            <circle cx="56" cy="46" r="2" fill="#333"/>
+            <path d="M30 15 L35 25 L40 15 L45 25 L50 15 L55 25 L60 15 L65 25 L70 15" stroke="#32CD32" stroke-width="6" fill="none" stroke-linecap="round"/>
+        </svg>`
+    },
+    unicorn: {
+        name: 'Unicorn',
+        color: '#9370DB',
+        svg: `<svg viewBox="0 0 100 100">
+            <ellipse cx="50" cy="60" rx="30" ry="25" fill="#9370DB"/>
+            <ellipse cx="50" cy="40" rx="22" ry="18" fill="#9370DB"/>
+            <polygon points="50,5 45,35 55,35" fill="#FFD700" stroke="#FFA500" stroke-width="1"/>
+            <circle cx="40" cy="38" r="6" fill="white"/>
+            <circle cx="56" cy="38" r="6" fill="white"/>
+            <circle cx="41" cy="39" r="3" fill="#333"/>
+            <circle cx="57" cy="39" r="3" fill="#333"/>
+            <ellipse cx="48" cy="52" rx="4" ry="2" fill="#FF69B4"/>
+            <path d="M20 45 Q10 35 15 50 Q10 60 20 55" fill="#FF69B4"/>
+            <path d="M80 45 Q90 35 85 50 Q90 60 80 55" fill="#FF69B4"/>
+            <path d="M30 70 Q20 80 25 90" stroke="#FF69B4" stroke-width="4" fill="none"/>
+            <path d="M40 75 Q35 85 38 95" stroke="#87CEEB" stroke-width="4" fill="none"/>
+            <path d="M50 78 Q50 88 52 98" stroke="#98FB98" stroke-width="4" fill="none"/>
+        </svg>`
+    }
+};
+
+// Xeno icon SVG
+const XENO_ICON_SVG = `<svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="45" rx="20" ry="25" fill="#FF69B4"/>
+    <ellipse cx="50" cy="18" rx="15" ry="12" fill="#FF69B4"/>
+    <ellipse cx="44" cy="16" rx="5" ry="6" fill="white"/>
+    <ellipse cx="56" cy="16" rx="5" ry="6" fill="white"/>
+    <circle cx="44" cy="16" r="2.5" fill="black"/>
+    <circle cx="56" cy="16" r="2.5" fill="black"/>
+    <line x1="42" y1="8" x2="35" y2="0" stroke="#FF69B4" stroke-width="2"/>
+    <circle cx="35" cy="0" r="3" fill="#FF1493"/>
+    <line x1="58" y1="8" x2="65" y2="0" stroke="#FF69B4" stroke-width="2"/>
+    <circle cx="65" cy="0" r="3" fill="#FF1493"/>
+    <path d="M30 35 Q15 30 10 40" stroke="#FF69B4" stroke-width="5" fill="none"/>
+    <path d="M70 35 Q85 30 90 40" stroke="#FF69B4" stroke-width="5" fill="none"/>
+    <path d="M32 50 Q15 55 8 50" stroke="#FF69B4" stroke-width="5" fill="none"/>
+    <path d="M68 50 Q85 55 92 50" stroke="#FF69B4" stroke-width="5" fill="none"/>
+    <path d="M50 70 Q55 80 45 90 Q40 95 50 98" stroke="#FF69B4" stroke-width="6" fill="none"/>
+    <path d="M43 22 Q50 28 57 22" stroke="#FF1493" stroke-width="2" fill="none"/>
+</svg>`;
+
 class VicaDominoGame {
     constructor() {
         this.players = [];
@@ -25,6 +130,7 @@ class VicaDominoGame {
         this.hasDrawnThisTurn = false;
         this.winners = []; // Track multiple winners
         this.firstWinner = null; // The first player to finish
+        this.playerIcons = {}; // Track selected icons for each player
 
         this.initEventListeners();
     }
@@ -51,10 +157,47 @@ class VicaDominoGame {
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
     }
 
+    createIconSelector(playerIndex) {
+        const iconKeys = Object.keys(CHARACTER_ICONS);
+        const container = document.createElement('div');
+        container.className = 'icon-selector';
+        container.dataset.playerIndex = playerIndex;
+
+        iconKeys.forEach((key, idx) => {
+            const icon = CHARACTER_ICONS[key];
+            const iconBtn = document.createElement('button');
+            iconBtn.type = 'button';
+            iconBtn.className = 'icon-btn';
+            iconBtn.dataset.icon = key;
+            iconBtn.innerHTML = icon.svg;
+            iconBtn.title = icon.name;
+
+            // Select first icon by default for each player (different for each)
+            const defaultIcon = iconKeys[playerIndex % iconKeys.length];
+            if (key === defaultIcon) {
+                iconBtn.classList.add('selected');
+                this.playerIcons[playerIndex] = key;
+            }
+
+            iconBtn.addEventListener('click', () => {
+                // Deselect all icons in this selector
+                container.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('selected'));
+                // Select this icon
+                iconBtn.classList.add('selected');
+                this.playerIcons[playerIndex] = key;
+            });
+
+            container.appendChild(iconBtn);
+        });
+
+        return container;
+    }
+
     selectPlayerCount(e) {
         const count = parseInt(e.target.dataset.players);
         const includeXeno = e.target.dataset.xeno === 'true';
         this.includeXeno = includeXeno;
+        this.playerIcons = {}; // Reset icon selections
 
         // Update button states
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
@@ -67,10 +210,19 @@ class VicaDominoGame {
 
         // Update heading based on number of human players
         const heading = playerNamesDiv.querySelector('h3');
-        heading.textContent = count === 1 ? "Enter player's name:" : "Enter player names:";
+        heading.textContent = count === 1 ? "Choose icon and enter name:" : "Choose icons and enter names:";
 
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
+            // Create player row container
+            const playerRow = document.createElement('div');
+            playerRow.className = 'player-input-row';
+
+            // Create icon selector
+            const iconSelector = this.createIconSelector(i);
+            playerRow.appendChild(iconSelector);
+
+            // Create name input
             const input = document.createElement('input');
             input.type = 'text';
             input.placeholder = `${i + 1}. Player ${i + 1} name`;
@@ -96,19 +248,28 @@ class VicaDominoGame {
                 }
             });
 
-            nameInputs.appendChild(input);
+            playerRow.appendChild(input);
+            nameInputs.appendChild(playerRow);
         }
 
         // Show Xeno indicator if selected
         if (includeXeno) {
             const xenoNumber = count + 1;
-            console.log('Creating Xeno input with number:', xenoNumber);
+            const xenoRow = document.createElement('div');
+            xenoRow.className = 'player-input-row xeno-row';
+
+            // Xeno icon (not selectable)
+            const xenoIconContainer = document.createElement('div');
+            xenoIconContainer.className = 'xeno-icon-container';
+            xenoIconContainer.innerHTML = XENO_ICON_SVG;
+            xenoRow.appendChild(xenoIconContainer);
+
+            // Xeno name input (disabled)
             const xenoInput = document.createElement('input');
             xenoInput.type = 'text';
             xenoInput.value = `${xenoNumber}.  Xeno`;
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
-            // Same styling as other inputs, but with pink border and pink text
             xenoInput.style.cssText = `
                 padding: 12px 20px;
                 font-size: 1rem;
@@ -118,11 +279,11 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 100%;
+                flex: 1;
                 box-sizing: border-box;
             `;
-            nameInputs.appendChild(xenoInput);
-            console.log('Xeno input appended to nameInputs, element:', xenoInput);
+            xenoRow.appendChild(xenoInput);
+            nameInputs.appendChild(xenoRow);
         }
     }
 
@@ -150,9 +311,13 @@ class VicaDominoGame {
             // Use default name if empty
             name = name.trim() || `Player ${playerIndex + 1}`;
 
+            // Get selected icon for this player
+            const iconKey = this.playerIcons[playerIndex] || 'star';
+
             this.players.push({
                 id: playerIndex,
                 name: name,
+                icon: iconKey,
                 hand: [],
                 isWinner: false,
                 isComputer: false
@@ -165,6 +330,7 @@ class VicaDominoGame {
             this.players.push({
                 id: this.players.length,
                 name: 'Xeno',
+                icon: 'xeno',
                 hand: [],
                 isWinner: false,
                 isComputer: true
@@ -988,34 +1154,36 @@ class VicaDominoGame {
             playerDiv.style.position = 'relative';
 
             const header = document.createElement('h3');
-            // Show Xeno icon for computer player
-            const xenoIconHtml = player.isComputer ?
-                `<svg class="xeno-icon" viewBox="0 0 100 100">
-                    <defs>
-                        <linearGradient id="xenoGrad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#FF69B4"/>
-                            <stop offset="100%" style="stop-color:#FF1493"/>
-                        </linearGradient>
-                    </defs>
-                    <ellipse cx="50" cy="45" rx="20" ry="25" fill="url(#xenoGrad${index})"/>
-                    <ellipse cx="50" cy="18" rx="15" ry="12" fill="url(#xenoGrad${index})"/>
-                    <ellipse cx="44" cy="16" rx="5" ry="6" fill="white"/>
-                    <ellipse cx="56" cy="16" rx="5" ry="6" fill="white"/>
-                    <circle cx="44" cy="16" r="2.5" fill="black"/>
-                    <circle cx="56" cy="16" r="2.5" fill="black"/>
-                    <line x1="42" y1="8" x2="35" y2="0" stroke="#FF69B4" stroke-width="2"/>
-                    <circle cx="35" cy="0" r="3" fill="#FF1493"/>
-                    <line x1="58" y1="8" x2="65" y2="0" stroke="#FF69B4" stroke-width="2"/>
-                    <circle cx="65" cy="0" r="3" fill="#FF1493"/>
-                    <path d="M30 35 Q15 30 10 40" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
-                    <path d="M70 35 Q85 30 90 40" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
-                    <path d="M32 50 Q15 55 8 50" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
-                    <path d="M68 50 Q85 55 92 50" stroke="url(#xenoGrad${index})" stroke-width="5" fill="none"/>
-                    <path d="M50 70 Q55 80 45 90 Q40 95 50 98" stroke="url(#xenoGrad${index})" stroke-width="6" fill="none"/>
-                    <path d="M43 22 Q50 28 57 22" stroke="#FF1493" stroke-width="2" fill="none"/>
-                </svg>` : '';
+            // Get player icon HTML
+            let playerIconHtml = '';
+            if (player.isComputer) {
+                // Xeno icon with light gray background
+                playerIconHtml = `<div class="player-icon-display xeno-bg">
+                    <svg viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="45" rx="20" ry="25" fill="#FF69B4"/>
+                        <ellipse cx="50" cy="18" rx="15" ry="12" fill="#FF69B4"/>
+                        <ellipse cx="44" cy="16" rx="5" ry="6" fill="white"/>
+                        <ellipse cx="56" cy="16" rx="5" ry="6" fill="white"/>
+                        <circle cx="44" cy="16" r="2.5" fill="black"/>
+                        <circle cx="56" cy="16" r="2.5" fill="black"/>
+                        <line x1="42" y1="8" x2="35" y2="0" stroke="#FF69B4" stroke-width="2"/>
+                        <circle cx="35" cy="0" r="3" fill="#FF1493"/>
+                        <line x1="58" y1="8" x2="65" y2="0" stroke="#FF69B4" stroke-width="2"/>
+                        <circle cx="65" cy="0" r="3" fill="#FF1493"/>
+                        <path d="M30 35 Q15 30 10 40" stroke="#FF69B4" stroke-width="5" fill="none"/>
+                        <path d="M70 35 Q85 30 90 40" stroke="#FF69B4" stroke-width="5" fill="none"/>
+                        <path d="M32 50 Q15 55 8 50" stroke="#FF69B4" stroke-width="5" fill="none"/>
+                        <path d="M68 50 Q85 55 92 50" stroke="#FF69B4" stroke-width="5" fill="none"/>
+                        <path d="M50 70 Q55 80 45 90 Q40 95 50 98" stroke="#FF69B4" stroke-width="6" fill="none"/>
+                        <path d="M43 22 Q50 28 57 22" stroke="#FF1493" stroke-width="2" fill="none"/>
+                    </svg>
+                </div>`;
+            } else if (player.icon && CHARACTER_ICONS[player.icon]) {
+                // Human player icon
+                playerIconHtml = `<div class="player-icon-display">${CHARACTER_ICONS[player.icon].svg}</div>`;
+            }
             header.innerHTML = `
-                <span class="player-name-with-icon">${xenoIconHtml}${player.name}</span>
+                <span class="player-name-with-icon">${playerIconHtml}${player.name}</span>
                 <span class="card-count">${player.hand.length} cards</span>
             `;
             playerDiv.appendChild(header);

@@ -208,9 +208,9 @@ class VicaDominoGame {
         const playerNamesDiv = document.getElementById('player-names');
         playerNamesDiv.style.display = 'block';
 
-        // Update heading based on number of human players
+        // Hide the old heading - we'll use inline labels instead
         const heading = playerNamesDiv.querySelector('h3');
-        heading.textContent = count === 1 ? "Choose icon and enter name:" : "Choose icons and enter names:";
+        heading.style.display = 'none';
 
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
@@ -218,9 +218,24 @@ class VicaDominoGame {
             const playerRow = document.createElement('div');
             playerRow.className = 'player-input-row';
 
-            // Create icon selector
+            // Create icon section with label
+            const iconSection = document.createElement('div');
+            iconSection.className = 'input-section';
+            const iconLabel = document.createElement('div');
+            iconLabel.className = 'input-label';
+            iconLabel.textContent = 'Choose the icon';
+            iconSection.appendChild(iconLabel);
             const iconSelector = this.createIconSelector(i);
-            playerRow.appendChild(iconSelector);
+            iconSection.appendChild(iconSelector);
+            playerRow.appendChild(iconSection);
+
+            // Create name section with label
+            const nameSection = document.createElement('div');
+            nameSection.className = 'input-section name-section';
+            const nameLabel = document.createElement('div');
+            nameLabel.className = 'input-label';
+            nameLabel.textContent = 'Type your name';
+            nameSection.appendChild(nameLabel);
 
             // Create name input
             const input = document.createElement('input');
@@ -229,6 +244,18 @@ class VicaDominoGame {
             input.value = '';
             input.dataset.playerIndex = i;
             input.dataset.prefix = `${i + 1}.  `;
+
+            // On focus, set the prefix and place cursor after it
+            input.addEventListener('focus', (e) => {
+                const prefix = e.target.dataset.prefix;
+                if (e.target.value === '' || !e.target.value.startsWith(prefix)) {
+                    e.target.value = prefix;
+                }
+                // Place cursor at the end (after prefix)
+                setTimeout(() => {
+                    e.target.setSelectionRange(prefix.length, prefix.length);
+                }, 0);
+            });
 
             input.addEventListener('input', (e) => {
                 const prefix = e.target.dataset.prefix;
@@ -248,7 +275,8 @@ class VicaDominoGame {
                 }
             });
 
-            playerRow.appendChild(input);
+            nameSection.appendChild(input);
+            playerRow.appendChild(nameSection);
             nameInputs.appendChild(playerRow);
         }
 
@@ -258,11 +286,26 @@ class VicaDominoGame {
             const xenoRow = document.createElement('div');
             xenoRow.className = 'player-input-row xeno-row';
 
-            // Xeno icon (not selectable)
+            // Xeno icon section with label
+            const xenoIconSection = document.createElement('div');
+            xenoIconSection.className = 'input-section';
+            const xenoIconLabel = document.createElement('div');
+            xenoIconLabel.className = 'input-label';
+            xenoIconLabel.textContent = ' '; // Empty label for alignment
+            xenoIconSection.appendChild(xenoIconLabel);
             const xenoIconContainer = document.createElement('div');
             xenoIconContainer.className = 'xeno-icon-container';
             xenoIconContainer.innerHTML = XENO_ICON_SVG;
-            xenoRow.appendChild(xenoIconContainer);
+            xenoIconSection.appendChild(xenoIconContainer);
+            xenoRow.appendChild(xenoIconSection);
+
+            // Xeno name section with label
+            const xenoNameSection = document.createElement('div');
+            xenoNameSection.className = 'input-section name-section';
+            const xenoNameLabel = document.createElement('div');
+            xenoNameLabel.className = 'input-label';
+            xenoNameLabel.textContent = ' '; // Empty label for alignment
+            xenoNameSection.appendChild(xenoNameLabel);
 
             // Xeno name input (disabled)
             const xenoInput = document.createElement('input');
@@ -279,10 +322,11 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                flex: 1;
+                width: 100%;
                 box-sizing: border-box;
             `;
-            xenoRow.appendChild(xenoInput);
+            xenoNameSection.appendChild(xenoInput);
+            xenoRow.appendChild(xenoNameSection);
             nameInputs.appendChild(xenoRow);
         }
     }

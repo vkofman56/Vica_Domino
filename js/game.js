@@ -240,7 +240,9 @@ class VicaDominoGame {
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = `${i + 1}. Player ${i + 1} name`;
+            // Use "Player's Name" for single player with Xeno, otherwise "Player X name"
+            const placeholderName = (count === 1 && includeXeno) ? "Player's Name" : `Player ${i + 1} name`;
+            input.placeholder = `${i + 1}. ${placeholderName}`;
             input.value = '';
             input.dataset.playerIndex = i;
             input.dataset.prefix = `${i + 1}.  `;

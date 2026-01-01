@@ -246,6 +246,8 @@ class VicaDominoGame {
             input.value = '';
             input.dataset.playerIndex = i;
             input.dataset.prefix = `${i + 1}.  `;
+            input.style.marginTop = '20px';
+            input.style.border = '3px solid red';
 
             // On focus, set the prefix and place cursor after it
             input.addEventListener('focus', (e) => {

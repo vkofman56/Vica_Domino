@@ -246,8 +246,6 @@ class VicaDominoGame {
             input.value = '';
             input.dataset.playerIndex = i;
             input.dataset.prefix = `${i + 1}.  `;
-            input.style.marginTop = '20px';
-            input.style.border = '3px solid red';
 
             // On focus, set the prefix and place cursor after it
             input.addEventListener('focus', (e) => {
@@ -318,7 +316,8 @@ class VicaDominoGame {
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
             xenoInput.style.cssText = `
-                padding: 12px 20px;
+                height: 42px;
+                padding: 0 20px;
                 font-size: 1rem;
                 border: 2px solid #FF69B4;
                 border-radius: 10px;

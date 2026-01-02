@@ -158,10 +158,21 @@ class VicaDominoGame {
     }
 
     createIconSelector(playerIndex) {
-        const iconKeys = Object.keys(CHARACTER_ICONS);
+        let iconKeys = Object.keys(CHARACTER_ICONS);
         const container = document.createElement('div');
         container.className = 'icon-selector';
         container.dataset.playerIndex = playerIndex;
+
+        // For Player 2 (index 1), swap Star and Cat positions
+        if (playerIndex === 1) {
+            iconKeys = [...iconKeys];
+            const starIdx = iconKeys.indexOf('star');
+            const catIdx = iconKeys.indexOf('cat');
+            if (starIdx !== -1 && catIdx !== -1) {
+                iconKeys[starIdx] = 'cat';
+                iconKeys[catIdx] = 'star';
+            }
+        }
 
         iconKeys.forEach((key, idx) => {
             const icon = CHARACTER_ICONS[key];
@@ -172,9 +183,8 @@ class VicaDominoGame {
             iconBtn.innerHTML = icon.svg;
             iconBtn.title = icon.name;
 
-            // Select first icon by default for each player (different for each)
-            const defaultIcon = iconKeys[playerIndex % iconKeys.length];
-            if (key === defaultIcon) {
+            // Select first icon by default for each player
+            if (idx === 0) {
                 iconBtn.classList.add('selected');
                 this.playerIcons[playerIndex] = key;
             }

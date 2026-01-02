@@ -195,6 +195,12 @@ class VicaDominoGame {
                 // Select this icon
                 iconBtn.classList.add('selected');
                 this.playerIcons[playerIndex] = key;
+
+                // Swap clicked icon with the first icon
+                const firstBtn = container.querySelector('.icon-btn');
+                if (firstBtn && firstBtn !== iconBtn) {
+                    container.insertBefore(iconBtn, firstBtn);
+                }
             });
 
             container.appendChild(iconBtn);

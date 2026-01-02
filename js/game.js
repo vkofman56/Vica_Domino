@@ -329,6 +329,7 @@ class VicaDominoGame {
                 cursor: not-allowed;
                 width: 100%;
                 box-sizing: border-box;
+                margin-left: 4px;
             `;
             xenoNameSection.appendChild(xenoInput);
             xenoRow.appendChild(xenoNameSection);

@@ -316,9 +316,9 @@ class VicaDominoGame {
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
             xenoInput.style.cssText = `
-                height: 40px;
-                min-height: 40px;
-                line-height: 40px;
+                height: 36px;
+                min-height: 36px;
+                line-height: 36px;
                 padding: 0 20px;
                 font-size: 1rem;
                 border: 2px solid #FF69B4;

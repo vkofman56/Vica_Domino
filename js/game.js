@@ -190,6 +190,11 @@ class VicaDominoGame {
             }
 
             iconBtn.addEventListener('click', () => {
+                // Don't allow selecting disabled icons
+                if (iconBtn.classList.contains('icon-taken')) {
+                    return;
+                }
+
                 // Deselect all icons in this selector
                 container.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('selected'));
                 // Select this icon
@@ -201,12 +206,44 @@ class VicaDominoGame {
                 if (firstBtn && firstBtn !== iconBtn) {
                     container.insertBefore(iconBtn, firstBtn);
                 }
+
+                // Update icon availability across all selectors
+                this.updateIconAvailability();
             });
 
             container.appendChild(iconBtn);
         });
 
         return container;
+    }
+
+    updateIconAvailability() {
+        // Get all icon selectors
+        const allSelectors = document.querySelectorAll('.icon-selector');
+
+        allSelectors.forEach(selector => {
+            const currentPlayerIndex = parseInt(selector.dataset.playerIndex);
+            const buttons = selector.querySelectorAll('.icon-btn');
+
+            buttons.forEach(btn => {
+                const iconKey = btn.dataset.icon;
+
+                // Check if this icon is taken by another player
+                let takenByOther = false;
+                for (const [playerIdx, selectedIcon] of Object.entries(this.playerIcons)) {
+                    if (parseInt(playerIdx) !== currentPlayerIndex && selectedIcon === iconKey) {
+                        takenByOther = true;
+                        break;
+                    }
+                }
+
+                if (takenByOther) {
+                    btn.classList.add('icon-taken');
+                } else {
+                    btn.classList.remove('icon-taken');
+                }
+            });
+        });
     }
 
     selectPlayerCount(e) {
@@ -297,6 +334,9 @@ class VicaDominoGame {
             playerRow.appendChild(nameSection);
             nameInputs.appendChild(playerRow);
         }
+
+        // Update icon availability after all selectors are created
+        this.updateIconAvailability();
 
         // Show Xeno indicator if selected
         if (includeXeno) {

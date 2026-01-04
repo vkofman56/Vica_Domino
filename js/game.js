@@ -131,8 +131,10 @@ class VicaDominoGame {
         this.winners = []; // Track multiple winners
         this.firstWinner = null; // The first player to finish
         this.playerIcons = {}; // Track selected icons for each player
+        this.selectedLevel = localStorage.getItem('vicaSelectedLevel') || 'circle';
 
         this.initEventListeners();
+        this.initGameLevelSelector();
     }
 
     initEventListeners() {
@@ -155,6 +157,31 @@ class VicaDominoGame {
 
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
+    }
+
+    initGameLevelSelector() {
+        const levelBtns = document.querySelectorAll('.level-btn');
+
+        // Set initial selection from localStorage
+        levelBtns.forEach(btn => {
+            btn.classList.remove('selected');
+            if (btn.dataset.level === this.selectedLevel) {
+                btn.classList.add('selected');
+            }
+        });
+
+        // Add click handlers
+        levelBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove selected from all
+                levelBtns.forEach(b => b.classList.remove('selected'));
+                // Add selected to clicked
+                btn.classList.add('selected');
+                // Save selection
+                this.selectedLevel = btn.dataset.level;
+                localStorage.setItem('vicaSelectedLevel', this.selectedLevel);
+            });
+        });
     }
 
     createIconSelector(playerIndex) {

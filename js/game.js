@@ -727,7 +727,7 @@ class VicaDominoGame {
         // Animate the board
         const boardEl = document.getElementById('game-board');
         boardEl.innerHTML = '';
-        const dominoEl = this.createDominoElement(card, true); // vertical double
+        const dominoEl = createDominoElement(card, true); // vertical double
         dominoEl.classList.add('winning-domino');
         boardEl.appendChild(dominoEl);
     }
@@ -748,7 +748,7 @@ class VicaDominoGame {
         // Show the card on board
         const boardEl = document.getElementById('game-board');
         boardEl.innerHTML = '';
-        const dominoEl = this.createDominoElement(card, false);
+        const dominoEl = createDominoElement(card, false);
         dominoEl.classList.add('wrong-domino');
         dominoEl.style.border = '4px solid #FF9800';
         boardEl.appendChild(dominoEl);
@@ -780,7 +780,7 @@ class VicaDominoGame {
             tilesEl.className = 'hand-tiles';
 
             player.hand.forEach((card, cardIndex) => {
-                const dominoEl = this.createDominoElement(card, false);
+                const dominoEl = createDominoElement(card, false);
 
                 // Add click handler for Sun level
                 if (this.gamePhase === 'sunLevel') {

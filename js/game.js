@@ -459,8 +459,8 @@ class VicaDominoGame {
             playerIndex++;
         });
 
-        // Add Xeno as computer player if selected
-        if (this.includeXeno) {
+        // Add Xeno as computer player if selected (not in Sun level - Xeno is timer owner)
+        if (this.includeXeno && this.selectedLevel !== 'circle') {
             this.players.push({
                 id: this.players.length,
                 name: 'Xeno',
@@ -496,10 +496,327 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
-        // Phase 1: Show doubles - players decide who starts
-        this.gamePhase = 'showDoubles';
-        this.promptForDoubles();
+        // Check if Sun level (circle) is selected
+        if (this.selectedLevel === 'circle') {
+            this.startSunLevelGame();
+        } else {
+            // Phase 1: Show doubles - players decide who starts
+            this.gamePhase = 'showDoubles';
+            this.promptForDoubles();
+        }
     }
+
+    // ==================== SUN LEVEL GAME ====================
+    startSunLevelGame() {
+        this.gamePhase = 'sunLevel';
+        this.sunLevelTimer = null;
+        this.sunLevelTimeLeft = 5;
+        this.sunLevelDuration = 5;
+
+        // Re-deal cards for Sun level: 2 cards per player, one must be double
+        this.dealSunLevelCards();
+
+        // Hide bank area for Sun level
+        document.querySelector('.bank-area').style.display = 'none';
+
+        // Hide controls except New Game
+        document.getElementById('pass-btn').style.display = 'none';
+        document.getElementById('draw-btn').style.display = 'none';
+
+        // Add sun-level class to board container
+        document.querySelector('.board-container').classList.add('sun-level');
+
+        // Show timer
+        document.getElementById('game-timer').style.display = 'block';
+
+        // Update header to not show turn indicator for single player
+        if (this.players.length === 1) {
+            document.querySelector('.turn-indicator').innerHTML = 'Find the Double!';
+        }
+
+        // Set up timer display
+        this.setupTimerTicks();
+
+        // Update status
+        this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
+
+        // Render player hands
+        this.renderSunLevel();
+
+        // Start the timer
+        this.startSunLevelTimer();
+    }
+
+    dealSunLevelCards() {
+        // Get all doubles and non-doubles from deck
+        const allCards = getShuffledDeck();
+        const doubles = allCards.filter(card => isDouble(card));
+        const nonDoubles = allCards.filter(card => !isDouble(card));
+
+        // Shuffle them
+        this.shuffleArray(doubles);
+        this.shuffleArray(nonDoubles);
+
+        // Deal to each player: 1 double + 1 non-double
+        this.players.forEach(player => {
+            player.hand = [];
+            if (doubles.length > 0) {
+                player.hand.push(doubles.pop());
+            }
+            if (nonDoubles.length > 0) {
+                player.hand.push(nonDoubles.pop());
+            }
+            // Shuffle the hand so double isn't always first
+            this.shuffleArray(player.hand);
+        });
+
+        // No bank in Sun level
+        this.bank = [];
+    }
+
+    shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    setupTimerTicks() {
+        const ticksContainer = document.getElementById('timer-ticks');
+        ticksContainer.innerHTML = '';
+
+        const n = this.sunLevelDuration;
+        for (let i = 0; i <= n; i++) {
+            const angle = (i / n) * 360 - 90; // Start from top
+            const radian = angle * (Math.PI / 180);
+            const x = 60 + 42 * Math.cos(radian);
+            const y = 60 + 42 * Math.sin(radian);
+
+            // Tick mark
+            const tick = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            tick.setAttribute('cx', x);
+            tick.setAttribute('cy', y);
+            tick.setAttribute('r', 3);
+            tick.setAttribute('class', 'timer-tick');
+            ticksContainer.appendChild(tick);
+
+            // Label
+            const labelX = 60 + 35 * Math.cos(radian);
+            const labelY = 60 + 35 * Math.sin(radian) + 3;
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', labelX);
+            label.setAttribute('y', labelY);
+            label.setAttribute('class', 'timer-tick-label');
+            label.textContent = i === 0 ? n : n - i;
+            ticksContainer.appendChild(label);
+        }
+
+        // Set initial display
+        document.getElementById('timer-display').textContent = this.sunLevelDuration;
+    }
+
+    startSunLevelTimer() {
+        const progressCircle = document.querySelector('.timer-progress');
+        const circumference = 2 * Math.PI * 50; // 2πr where r=50
+        progressCircle.style.strokeDasharray = circumference;
+        progressCircle.style.strokeDashoffset = 0;
+
+        const startTime = Date.now();
+        const duration = this.sunLevelDuration * 1000;
+
+        this.sunLevelTimer = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, duration - elapsed);
+            const secondsLeft = Math.ceil(remaining / 1000);
+
+            // Update display
+            document.getElementById('timer-display').textContent = secondsLeft;
+
+            // Update progress circle
+            const progress = elapsed / duration;
+            progressCircle.style.strokeDashoffset = circumference * progress;
+
+            // Change color as time runs out
+            if (secondsLeft <= 2) {
+                progressCircle.style.stroke = '#F44336';
+            } else if (secondsLeft <= 3) {
+                progressCircle.style.stroke = '#FF9800';
+            }
+
+            // Time's up!
+            if (remaining <= 0) {
+                this.sunLevelTimeUp();
+            }
+        }, 100);
+    }
+
+    stopSunLevelTimer() {
+        if (this.sunLevelTimer) {
+            clearInterval(this.sunLevelTimer);
+            this.sunLevelTimer = null;
+        }
+    }
+
+    sunLevelTimeUp() {
+        this.stopSunLevelTimer();
+        this.gamePhase = 'sunLevelEnded';
+        this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
+
+        // Disable clicking on cards
+        document.querySelectorAll('.domino').forEach(d => {
+            d.style.pointerEvents = 'none';
+            d.style.opacity = '0.5';
+        });
+
+        // Show which was the double
+        this.highlightDoubleCard();
+    }
+
+    highlightDoubleCard() {
+        // Find and highlight the double in each hand
+        this.players.forEach(player => {
+            player.hand.forEach((card, idx) => {
+                if (isDouble(card)) {
+                    const handEl = document.querySelector(`[data-player-id="${player.id}"] .hand-tiles`);
+                    if (handEl) {
+                        const dominoEls = handEl.querySelectorAll('.domino');
+                        if (dominoEls[idx]) {
+                            dominoEls[idx].style.border = '4px solid #FFD700';
+                            dominoEls[idx].style.boxShadow = '0 0 20px #FFD700';
+                            dominoEls[idx].style.opacity = '1';
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    handleSunLevelCardClick(card, playerIndex, cardIndex) {
+        if (this.gamePhase !== 'sunLevel') return;
+
+        const player = this.players[playerIndex];
+
+        if (isDouble(card)) {
+            // WIN!
+            this.sunLevelWin(card, player, cardIndex);
+        } else {
+            // Wrong card
+            this.sunLevelWrongCard(card, player, cardIndex);
+        }
+    }
+
+    sunLevelWin(card, player, cardIndex) {
+        this.stopSunLevelTimer();
+        this.gamePhase = 'sunLevelWon';
+
+        // Remove card from hand
+        player.hand.splice(cardIndex, 1);
+
+        // Place card on board
+        this.board = [{ card: card, orientation: 'vertical', flipped: false }];
+
+        // Show celebration
+        document.getElementById('celebration-area').style.display = 'flex';
+
+        // Update status
+        this.updateStatus('🎉 You Won! You found the double!', 'win');
+
+        // Re-render
+        this.renderSunLevel();
+
+        // Animate the board
+        const boardEl = document.getElementById('game-board');
+        boardEl.innerHTML = '';
+        const dominoEl = this.createDominoElement(card, true); // vertical double
+        dominoEl.classList.add('winning-domino');
+        boardEl.appendChild(dominoEl);
+    }
+
+    sunLevelWrongCard(card, player, cardIndex) {
+        // Remove card from hand
+        player.hand.splice(cardIndex, 1);
+
+        // Place wrong card on board (show it was wrong)
+        this.board = [{ card: card, orientation: 'horizontal', flipped: false }];
+
+        // Update status - timer continues
+        this.updateStatus('❌ Try again! Two sides of this domino are not equal.', 'wrong');
+
+        // Re-render
+        this.renderSunLevel();
+
+        // Show the card on board
+        const boardEl = document.getElementById('game-board');
+        boardEl.innerHTML = '';
+        const dominoEl = this.createDominoElement(card, false);
+        dominoEl.classList.add('wrong-domino');
+        dominoEl.style.border = '4px solid #FF9800';
+        boardEl.appendChild(dominoEl);
+    }
+
+    renderSunLevel() {
+        const playersArea = document.getElementById('players-area');
+        playersArea.innerHTML = '';
+
+        this.players.forEach((player, playerIndex) => {
+            const handEl = document.createElement('div');
+            handEl.className = 'player-hand active';
+            handEl.dataset.playerId = player.id;
+
+            // Player header with icon
+            const headerEl = document.createElement('h3');
+            const icon = CHARACTER_ICONS[player.icon];
+            headerEl.innerHTML = `
+                <span class="player-name-with-icon">
+                    <span class="player-icon-display">${icon ? icon.svg : ''}</span>
+                    ${player.name}
+                </span>
+                <span class="card-count">${player.hand.length} cards</span>
+            `;
+            handEl.appendChild(headerEl);
+
+            // Player's dominos
+            const tilesEl = document.createElement('div');
+            tilesEl.className = 'hand-tiles';
+
+            player.hand.forEach((card, cardIndex) => {
+                const dominoEl = this.createDominoElement(card, false);
+
+                // Add click handler for Sun level
+                if (this.gamePhase === 'sunLevel') {
+                    dominoEl.addEventListener('click', () => {
+                        this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                    });
+                }
+
+                tilesEl.appendChild(dominoEl);
+            });
+
+            handEl.appendChild(tilesEl);
+            playersArea.appendChild(handEl);
+        });
+
+        // Update bank count (hidden in Sun level but just in case)
+        document.getElementById('bank-count').textContent = this.bank.length;
+    }
+
+    // Reset game for Sun level
+    resetSunLevel() {
+        this.stopSunLevelTimer();
+        document.getElementById('game-timer').style.display = 'none';
+        document.getElementById('celebration-area').style.display = 'none';
+        document.querySelector('.board-container').classList.remove('sun-level');
+        document.querySelector('.bank-area').style.display = '';
+        document.getElementById('pass-btn').style.display = '';
+        document.getElementById('draw-btn').style.display = '';
+
+        // Reset timer progress color
+        const progressCircle = document.querySelector('.timer-progress');
+        if (progressCircle) {
+            progressCircle.style.stroke = '#4CAF50';
+        }
+    }
+    // ==================== END SUN LEVEL GAME ====================
 
     promptForDoubles() {
         // Check if any player has doubles
@@ -1235,6 +1552,9 @@ class VicaDominoGame {
     }
 
     resetToSetup() {
+        // Clean up Sun level if it was active
+        this.resetSunLevel();
+
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';
         document.getElementById('start-screen').style.display = 'flex';

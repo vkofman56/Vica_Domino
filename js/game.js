@@ -523,27 +523,29 @@ class VicaDominoGame {
         document.getElementById('pass-btn').style.display = 'none';
         document.getElementById('draw-btn').style.display = 'none';
 
-        // Add sun-level class to board container
-        document.querySelector('.board-container').classList.add('sun-level');
-
-        // Show timer
-        document.getElementById('game-timer').style.display = 'block';
-
         // Update header to not show turn indicator for single player
         if (this.players.length === 1) {
             document.querySelector('.turn-indicator').innerHTML = 'Find the Double!';
         }
 
-        // Set up timer display
-        this.setupTimerTicks();
-
         // Update status
         this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
 
-        // Render player hands
+        // Render player hands first
         this.renderSunLevel();
 
-        // Start the timer
+        // Show Xeno timer box with Xeno icon
+        const xenoTimerBox = document.getElementById('xeno-timer-box');
+        xenoTimerBox.style.display = 'block';
+
+        // Add Xeno icon
+        const xenoIconEl = document.getElementById('xeno-timer-icon');
+        xenoIconEl.innerHTML = XENO_ICON_SVG;
+
+        // Set up timer display
+        this.setupTimerTicks();
+
+        // Start the timer AFTER dominoes are visible
         this.startSunLevelTimer();
     }
 
@@ -803,9 +805,8 @@ class VicaDominoGame {
     // Reset game for Sun level
     resetSunLevel() {
         this.stopSunLevelTimer();
-        document.getElementById('game-timer').style.display = 'none';
+        document.getElementById('xeno-timer-box').style.display = 'none';
         document.getElementById('celebration-area').style.display = 'none';
-        document.querySelector('.board-container').classList.remove('sun-level');
         document.querySelector('.bank-area').style.display = '';
         document.getElementById('pass-btn').style.display = '';
         document.getElementById('draw-btn').style.display = '';
@@ -814,6 +815,7 @@ class VicaDominoGame {
         const progressCircle = document.querySelector('.timer-progress');
         if (progressCircle) {
             progressCircle.style.stroke = '#4CAF50';
+            progressCircle.style.strokeDashoffset = '0';
         }
     }
     // ==================== END SUN LEVEL GAME ====================

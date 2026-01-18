@@ -797,9 +797,6 @@ class VicaDominoGame {
         // Place card on board
         this.board = [{ card: card, orientation: 'vertical', flipped: false }];
 
-        // Show celebration
-        document.getElementById('celebration-area').style.display = 'flex';
-
         // Update status
         this.updateStatus('🎉 You Won! You found the double!', 'win');
 
@@ -845,21 +842,19 @@ class VicaDominoGame {
             handEl.className = 'player-hand active';
             handEl.dataset.playerId = player.id;
 
-            // Player header with icon
-            const headerEl = document.createElement('h3');
-            const icon = CHARACTER_ICONS[player.icon];
-            headerEl.innerHTML = `
-                <span class="player-name-with-icon">
-                    <span class="player-icon-display">${icon ? icon.svg : ''}</span>
-                    ${player.name}
-                </span>
-                <span class="card-count">${player.hand.length} cards</span>
-            `;
-            handEl.appendChild(headerEl);
-
-            // Player's dominos (vertical) with key hints
+            // Player's dominos (vertical) with key hints - all on one line
             const tilesContainer = document.createElement('div');
             tilesContainer.className = 'sun-level-tiles-container';
+
+            // Add player icon and name on the left
+            const icon = CHARACTER_ICONS[player.icon];
+            const playerInfo = document.createElement('div');
+            playerInfo.className = 'player-info-inline';
+            playerInfo.innerHTML = `
+                <span class="player-icon-display">${icon ? icon.svg : ''}</span>
+                <span class="player-name-inline">${player.name}</span>
+            `;
+            tilesContainer.appendChild(playerInfo);
 
             // Determine keys for this player
             const numCards = player.hand.length;
@@ -875,7 +870,7 @@ class VicaDominoGame {
                 }
             }
 
-            // Add "Press" label on the left
+            // Add "Press" label
             if (this.gamePhase === 'sunLevel' && numCards > 0) {
                 const pressLabel = document.createElement('span');
                 pressLabel.className = 'hint-press-left';

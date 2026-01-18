@@ -539,8 +539,9 @@ class VicaDominoGame {
             playerIndex++;
         });
 
-        // Add Xeno as computer player if selected (not in Sun level - Xeno is timer owner)
-        if (this.includeXeno && this.selectedLevel !== 'circle') {
+        // Add Xeno as computer player if selected (not in Find the Double levels - Xeno is timer owner)
+        const findTheDoubleLevels = ['circle', 'triangle', 'star'];
+        if (this.includeXeno && !findTheDoubleLevels.includes(this.selectedLevel)) {
             this.players.push({
                 id: this.players.length,
                 name: 'Xeno',
@@ -576,8 +577,8 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
-        // Check if Sun level (circle) is selected
-        if (this.selectedLevel === 'circle') {
+        // Check if Find the Double level is selected (all levels use this mode now)
+        if (this.selectedLevel === 'circle' || this.selectedLevel === 'triangle' || this.selectedLevel === 'star') {
             this.startSunLevelGame();
         } else {
             // Phase 1: Show doubles - players decide who starts
@@ -593,7 +594,7 @@ class VicaDominoGame {
         this.sunLevelTimeLeft = 30;
         this.sunLevelDuration = 30;
 
-        // Re-deal cards for Sun level: 2 cards per player, one must be double
+        // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
         this.dealSunLevelCards();
 
         // Hide bank area for Sun level
@@ -630,6 +631,15 @@ class VicaDominoGame {
     }
 
     dealSunLevelCards() {
+        // Determine number of cards based on selected level
+        // circle (Sun) = 2 cards, triangle (Alien) = 3 cards, star (Sunflower) = 4 cards
+        let numCards = 2;
+        if (this.selectedLevel === 'triangle') {
+            numCards = 3;
+        } else if (this.selectedLevel === 'star') {
+            numCards = 4;
+        }
+
         // Get all doubles and non-doubles from deck
         const allCards = getShuffledDeck();
         const doubles = allCards.filter(card => isDouble(card));
@@ -639,16 +649,20 @@ class VicaDominoGame {
         this.shuffleArray(doubles);
         this.shuffleArray(nonDoubles);
 
-        // Deal to each player: 1 double + 1 non-double
+        // Deal to each player: 1 double + (numCards-1) non-doubles
         this.players.forEach(player => {
             player.hand = [];
+            // Add 1 double
             if (doubles.length > 0) {
                 player.hand.push(doubles.pop());
             }
-            if (nonDoubles.length > 0) {
-                player.hand.push(nonDoubles.pop());
+            // Add (numCards-1) non-doubles
+            for (let i = 0; i < numCards - 1; i++) {
+                if (nonDoubles.length > 0) {
+                    player.hand.push(nonDoubles.pop());
+                }
             }
-            // Shuffle the hand so double isn't always first
+            // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
         });
 

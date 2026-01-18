@@ -590,8 +590,8 @@ class VicaDominoGame {
     startSunLevelGame() {
         this.gamePhase = 'sunLevel';
         this.sunLevelTimer = null;
-        this.sunLevelTimeLeft = 5;
-        this.sunLevelDuration = 5;
+        this.sunLevelTimeLeft = 30;
+        this.sunLevelDuration = 30;
 
         // Re-deal cards for Sun level: 2 cards per player, one must be double
         this.dealSunLevelCards();

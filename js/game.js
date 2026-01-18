@@ -157,6 +157,43 @@ class VicaDominoGame {
 
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
+
+        // Keyboard controls for Sun level game
+        document.addEventListener('keydown', (e) => this.handleKeyPress(e));
+    }
+
+    handleKeyPress(e) {
+        // Only handle in Sun level game phase
+        if (this.gamePhase !== 'sunLevel') return;
+
+        const key = e.key;
+
+        if (this.players.length === 1) {
+            // Single player: "1" or "0" selects first or second domino
+            if (key === '1' || key === '0') {
+                const cardIndex = key === '1' ? 0 : 1;
+                const player = this.players[0];
+                if (player.hand[cardIndex]) {
+                    this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                }
+            }
+        } else if (this.players.length === 2) {
+            // Two players: "1" for left player (index 0), "0" for right player (index 1)
+            // Each key clicks the first available domino for that player
+            if (key === '1') {
+                const player = this.players[0];
+                if (player.hand.length > 0) {
+                    // Click first domino for player 1
+                    this.handleSunLevelCardClick(player.hand[0], 0, 0);
+                }
+            } else if (key === '0') {
+                const player = this.players[1];
+                if (player.hand.length > 0) {
+                    // Click first domino for player 2
+                    this.handleSunLevelCardClick(player.hand[0], 1, 0);
+                }
+            }
+        }
     }
 
     initGameLevelSelector() {
@@ -297,24 +334,30 @@ class VicaDominoGame {
         const h3Elements = setupPanel.querySelectorAll('h3');
         h3Elements.forEach(h3 => h3.style.display = 'none');
 
-        // Hide all level buttons and show only the selected one
-        document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
-            const btn = wrapper.querySelector('.level-btn');
-            if (btn.dataset.level === this.selectedLevel) {
-                wrapper.style.display = 'flex';
-            } else {
-                wrapper.style.display = 'none';
-            }
-        });
+        // Hide original containers
+        document.querySelector('.game-level-select').style.display = 'none';
+        document.querySelector('.player-select').style.display = 'none';
 
-        // Hide all player buttons and show only the selected one
-        document.querySelectorAll('.player-btn').forEach(btn => {
-            if (btn === e.target) {
-                btn.style.display = 'inline-block';
-            } else {
-                btn.style.display = 'none';
-            }
-        });
+        // Create a row with selected level icon and player button
+        let selectedRow = document.getElementById('selected-options-row');
+        if (!selectedRow) {
+            selectedRow = document.createElement('div');
+            selectedRow.id = 'selected-options-row';
+            selectedRow.className = 'selected-options-row';
+            setupPanel.insertBefore(selectedRow, document.getElementById('player-names'));
+        }
+        selectedRow.innerHTML = '';
+        selectedRow.style.display = 'flex';
+
+        // Clone the selected level button wrapper
+        const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
+        selectedLevelWrapper.style.display = 'flex';
+        selectedRow.appendChild(selectedLevelWrapper);
+
+        // Clone the selected player button
+        const selectedPlayerBtn = e.target.cloneNode(true);
+        selectedPlayerBtn.style.display = 'inline-block';
+        selectedRow.appendChild(selectedPlayerBtn);
 
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
@@ -819,6 +862,27 @@ class VicaDominoGame {
             });
 
             handEl.appendChild(tilesEl);
+
+            // Add key hint text under player's cards
+            if (this.gamePhase === 'sunLevel') {
+                const hintEl = document.createElement('div');
+                hintEl.className = 'player-key-hint';
+
+                if (this.players.length === 1) {
+                    // Single player: show both keys for left and right domino
+                    hintEl.innerHTML = `Press <span class="key">1</span> for left domino or <span class="key">0</span> for right domino`;
+                } else if (this.players.length === 2) {
+                    // Two players: each player has their own key
+                    if (playerIndex === 0) {
+                        hintEl.innerHTML = `Press <span class="key">1</span> to select`;
+                    } else {
+                        hintEl.innerHTML = `Press <span class="key">0</span> to select`;
+                    }
+                }
+
+                handEl.appendChild(hintEl);
+            }
+
             playersArea.appendChild(handEl);
         });
 
@@ -1602,6 +1666,14 @@ class VicaDominoGame {
         setupPanel.querySelectorAll('h3').forEach(h3 => {
             h3.style.display = 'block';
         });
+
+        // Restore original containers and hide selected row
+        document.querySelector('.game-level-select').style.display = 'flex';
+        document.querySelector('.player-select').style.display = 'flex';
+        const selectedRow = document.getElementById('selected-options-row');
+        if (selectedRow) {
+            selectedRow.style.display = 'none';
+        }
 
         // Reset modal content display
         document.getElementById('single-winner-content').style.display = 'block';

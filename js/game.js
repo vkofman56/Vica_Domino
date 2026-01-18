@@ -292,6 +292,11 @@ class VicaDominoGame {
         const heading = playerNamesDiv.querySelector('h3');
         heading.style.display = 'none';
 
+        // Hide "Choose your game:" and "How many players?" headings
+        const setupPanel = document.querySelector('.setup-panel');
+        const h3Elements = setupPanel.querySelectorAll('h3');
+        h3Elements.forEach(h3 => h3.style.display = 'none');
+
         // Hide all level buttons and show only the selected one
         document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
             const btn = wrapper.querySelector('.level-btn');
@@ -299,6 +304,15 @@ class VicaDominoGame {
                 wrapper.style.display = 'flex';
             } else {
                 wrapper.style.display = 'none';
+            }
+        });
+
+        // Hide all player buttons and show only the selected one
+        document.querySelectorAll('.player-btn').forEach(btn => {
+            if (btn === e.target) {
+                btn.style.display = 'inline-block';
+            } else {
+                btn.style.display = 'none';
             }
         });
 
@@ -1576,6 +1590,17 @@ class VicaDominoGame {
         // Restore all level buttons visibility
         document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
             wrapper.style.display = 'flex';
+        });
+
+        // Restore all player buttons visibility
+        document.querySelectorAll('.player-btn').forEach(btn => {
+            btn.style.display = 'inline-block';
+        });
+
+        // Restore all h3 headings in setup panel
+        const setupPanel = document.querySelector('.setup-panel');
+        setupPanel.querySelectorAll('h3').forEach(h3 => {
+            h3.style.display = 'block';
         });
 
         // Reset modal content display

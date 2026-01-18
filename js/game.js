@@ -168,29 +168,35 @@ class VicaDominoGame {
 
         const key = e.key;
 
+        // Player 1 (left side) keys: 1, 2, 3, 4 for dominos left to right
+        const player1Keys = { '1': 0, '2': 1, '3': 2, '4': 3 };
+        // Player 2 (right side) keys: 0, 9, 8, 7 for dominos right to left
+        const player2Keys = { '0': 0, '9': 1, '8': 2, '7': 3 };
+
         if (this.players.length === 1) {
-            // Single player: "1" or "0" selects first or second domino
-            if (key === '1' || key === '0') {
-                const cardIndex = key === '1' ? 0 : 1;
+            // Single player uses Player 1 keys (1, 2, 3, 4)
+            if (player1Keys.hasOwnProperty(key)) {
+                const cardIndex = player1Keys[key];
                 const player = this.players[0];
                 if (player.hand[cardIndex]) {
                     this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
                 }
             }
         } else if (this.players.length === 2) {
-            // Two players: "1" for left player (index 0), "0" for right player (index 1)
-            // Each key clicks the first available domino for that player
-            if (key === '1') {
+            // Player 1 (left): keys 1, 2, 3, 4
+            if (player1Keys.hasOwnProperty(key)) {
+                const cardIndex = player1Keys[key];
                 const player = this.players[0];
-                if (player.hand.length > 0) {
-                    // Click first domino for player 1
-                    this.handleSunLevelCardClick(player.hand[0], 0, 0);
+                if (player.hand[cardIndex]) {
+                    this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
                 }
-            } else if (key === '0') {
+            }
+            // Player 2 (right): keys 0, 9, 8, 7
+            else if (player2Keys.hasOwnProperty(key)) {
+                const cardIndex = player2Keys[key];
                 const player = this.players[1];
-                if (player.hand.length > 0) {
-                    // Click first domino for player 2
-                    this.handleSunLevelCardClick(player.hand[0], 1, 0);
+                if (player.hand[cardIndex]) {
+                    this.handleSunLevelCardClick(player.hand[cardIndex], 1, cardIndex);
                 }
             }
         }
@@ -864,19 +870,28 @@ class VicaDominoGame {
             handEl.appendChild(tilesEl);
 
             // Add key hint text under player's cards
-            if (this.gamePhase === 'sunLevel') {
+            if (this.gamePhase === 'sunLevel' && player.hand.length > 0) {
                 const hintEl = document.createElement('div');
                 hintEl.className = 'player-key-hint';
 
+                const numCards = player.hand.length;
+
                 if (this.players.length === 1) {
-                    // Single player: show both keys for left and right domino
-                    hintEl.innerHTML = `Press <span class="key">1</span> for left domino or <span class="key">0</span> for right domino`;
+                    // Single player uses keys 1, 2, 3, 4 from left to right
+                    const keys = ['1', '2', '3', '4'].slice(0, numCards);
+                    const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
+                    hintEl.innerHTML = `Press ${keySpans}`;
                 } else if (this.players.length === 2) {
-                    // Two players: each player has their own key
                     if (playerIndex === 0) {
-                        hintEl.innerHTML = `Press <span class="key">1</span> to select`;
+                        // Player 1 (left): keys 1, 2, 3, 4 from left to right
+                        const keys = ['1', '2', '3', '4'].slice(0, numCards);
+                        const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
+                        hintEl.innerHTML = `Press ${keySpans}`;
                     } else {
-                        hintEl.innerHTML = `Press <span class="key">0</span> to select`;
+                        // Player 2 (right): keys 0, 9, 8, 7 from right to left
+                        const keys = ['0', '9', '8', '7'].slice(0, numCards);
+                        const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
+                        hintEl.innerHTML = `Press ${keySpans}`;
                     }
                 }
 

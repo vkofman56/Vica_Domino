@@ -292,6 +292,16 @@ class VicaDominoGame {
         const heading = playerNamesDiv.querySelector('h3');
         heading.style.display = 'none';
 
+        // Hide all level buttons and show only the selected one
+        document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
+            const btn = wrapper.querySelector('.level-btn');
+            if (btn.dataset.level === this.selectedLevel) {
+                wrapper.style.display = 'flex';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        });
+
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
             // Create player row container
@@ -1562,6 +1572,11 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'flex';
         document.getElementById('player-names').style.display = 'none';
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
+
+        // Restore all level buttons visibility
+        document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
+            wrapper.style.display = 'flex';
+        });
 
         // Reset modal content display
         document.getElementById('single-winner-content').style.display = 'block';

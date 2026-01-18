@@ -170,8 +170,8 @@ class VicaDominoGame {
 
         // Player 1 (left side) keys: 1, 2, 3, 4 for dominos left to right
         const player1Keys = { '1': 0, '2': 1, '3': 2, '4': 3 };
-        // Player 2 (right side) keys: 7, 8, 9, 0 for dominos left to right
-        const player2Keys = { '7': 0, '8': 1, '9': 2, '0': 3 };
+        // Player 2 key positions: 7=0, 8=1, 9=2, 0=3
+        const player2KeyPositions = { '7': 0, '8': 1, '9': 2, '0': 3 };
 
         if (this.players.length === 1) {
             // Single player uses Player 1 keys (1, 2, 3, 4)
@@ -191,11 +191,18 @@ class VicaDominoGame {
                     this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
                 }
             }
-            // Player 2 (right): keys 7, 8, 9, 0
-            else if (player2Keys.hasOwnProperty(key)) {
-                const cardIndex = player2Keys[key];
+            // Player 2 (right): keys 7, 8, 9, 0 (dynamic based on card count)
+            else if (player2KeyPositions.hasOwnProperty(key)) {
                 const player = this.players[1];
-                if (player.hand[cardIndex]) {
+                const numCards = player.hand.length;
+                const keyPosition = player2KeyPositions[key];
+                // Calculate card index: key position - offset
+                // For 2 cards: keys 9,0 map to indices 0,1 (offset = 2)
+                // For 3 cards: keys 8,9,0 map to indices 0,1,2 (offset = 1)
+                // For 4 cards: keys 7,8,9,0 map to indices 0,1,2,3 (offset = 0)
+                const offset = 4 - numCards;
+                const cardIndex = keyPosition - offset;
+                if (cardIndex >= 0 && player.hand[cardIndex]) {
                     this.handleSunLevelCardClick(player.hand[cardIndex], 1, cardIndex);
                 }
             }
@@ -850,14 +857,40 @@ class VicaDominoGame {
             `;
             handEl.appendChild(headerEl);
 
-            // Player's dominos (vertical) with key hints underneath
+            // Player's dominos (vertical) with key hints
             const tilesContainer = document.createElement('div');
             tilesContainer.className = 'sun-level-tiles-container';
 
-            const tilesEl = document.createElement('div');
-            tilesEl.className = 'hand-tiles sun-level-tiles';
+            // Determine keys for this player
+            const numCards = player.hand.length;
+            let keys;
+            if (this.players.length === 1) {
+                keys = ['1', '2', '3', '4'].slice(0, numCards);
+            } else if (this.players.length === 2) {
+                if (playerIndex === 0) {
+                    keys = ['1', '2', '3', '4'].slice(0, numCards);
+                } else {
+                    // Player 2: use last N keys from 7, 8, 9, 0
+                    keys = ['7', '8', '9', '0'].slice(4 - numCards);
+                }
+            }
+
+            // Add "Press" label on the left
+            if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                const pressLabel = document.createElement('span');
+                pressLabel.className = 'hint-press-left';
+                pressLabel.textContent = 'Press';
+                tilesContainer.appendChild(pressLabel);
+            }
+
+            // Container for dominoes and their key labels
+            const dominoesWithKeys = document.createElement('div');
+            dominoesWithKeys.className = 'dominoes-with-keys';
 
             player.hand.forEach((card, cardIndex) => {
+                const dominoWrapper = document.createElement('div');
+                dominoWrapper.className = 'domino-key-wrapper';
+
                 const dominoEl = createDominoElement(card, true); // vertical dominoes
 
                 // Add click handler for Sun level
@@ -867,42 +900,27 @@ class VicaDominoGame {
                     });
                 }
 
-                tilesEl.appendChild(dominoEl);
-            });
+                dominoWrapper.appendChild(dominoEl);
 
-            tilesContainer.appendChild(tilesEl);
-
-            // Add key hint row under dominoes - spread keys under each domino
-            if (this.gamePhase === 'sunLevel' && player.hand.length > 0) {
-                const hintEl = document.createElement('div');
-                hintEl.className = 'player-key-hint spread';
-
-                const numCards = player.hand.length;
-                let keys;
-
-                if (this.players.length === 1) {
-                    // Single player uses keys 1, 2, 3, 4 from left to right
-                    keys = ['1', '2', '3', '4'].slice(0, numCards);
-                } else if (this.players.length === 2) {
-                    if (playerIndex === 0) {
-                        // Player 1 (left): keys 1, 2, 3, 4 from left to right
-                        keys = ['1', '2', '3', '4'].slice(0, numCards);
-                    } else {
-                        // Player 2 (right): keys 7, 8, 9, 0 from left to right
-                        keys = ['7', '8', '9', '0'].slice(0, numCards);
-                    }
+                // Add key label under this domino
+                if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
+                    const keyLabel = document.createElement('span');
+                    keyLabel.className = 'key';
+                    keyLabel.textContent = keys[cardIndex];
+                    dominoWrapper.appendChild(keyLabel);
                 }
 
-                // Build spread hint: "Press" [keys spread under dominoes] "to select"
-                hintEl.innerHTML = `
-                    <span class="hint-press">Press</span>
-                    <span class="hint-keys">
-                        ${keys.map(k => `<span class="key">${k}</span>`).join('')}
-                    </span>
-                    <span class="hint-select">to select</span>
-                `;
+                dominoesWithKeys.appendChild(dominoWrapper);
+            });
 
-                tilesContainer.appendChild(hintEl);
+            tilesContainer.appendChild(dominoesWithKeys);
+
+            // Add "to select" label on the right
+            if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                const selectLabel = document.createElement('span');
+                selectLabel.className = 'hint-select-right';
+                selectLabel.textContent = 'to select';
+                tilesContainer.appendChild(selectLabel);
             }
 
             handEl.appendChild(tilesContainer);

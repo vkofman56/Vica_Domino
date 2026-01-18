@@ -170,8 +170,8 @@ class VicaDominoGame {
 
         // Player 1 (left side) keys: 1, 2, 3, 4 for dominos left to right
         const player1Keys = { '1': 0, '2': 1, '3': 2, '4': 3 };
-        // Player 2 (right side) keys: 0, 9, 8, 7 for dominos right to left
-        const player2Keys = { '0': 0, '9': 1, '8': 2, '7': 3 };
+        // Player 2 (right side) keys: 7, 8, 9, 0 for dominos left to right
+        const player2Keys = { '7': 0, '8': 1, '9': 2, '0': 3 };
 
         if (this.players.length === 1) {
             // Single player uses Player 1 keys (1, 2, 3, 4)
@@ -191,7 +191,7 @@ class VicaDominoGame {
                     this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
                 }
             }
-            // Player 2 (right): keys 0, 9, 8, 7
+            // Player 2 (right): keys 7, 8, 9, 0
             else if (player2Keys.hasOwnProperty(key)) {
                 const cardIndex = player2Keys[key];
                 const player = this.players[1];
@@ -850,12 +850,15 @@ class VicaDominoGame {
             `;
             handEl.appendChild(headerEl);
 
-            // Player's dominos
+            // Player's dominos (vertical) with key hints underneath
+            const tilesContainer = document.createElement('div');
+            tilesContainer.className = 'sun-level-tiles-container';
+
             const tilesEl = document.createElement('div');
-            tilesEl.className = 'hand-tiles';
+            tilesEl.className = 'hand-tiles sun-level-tiles';
 
             player.hand.forEach((card, cardIndex) => {
-                const dominoEl = createDominoElement(card, false);
+                const dominoEl = createDominoElement(card, true); // vertical dominoes
 
                 // Add click handler for Sun level
                 if (this.gamePhase === 'sunLevel') {
@@ -867,37 +870,42 @@ class VicaDominoGame {
                 tilesEl.appendChild(dominoEl);
             });
 
-            handEl.appendChild(tilesEl);
+            tilesContainer.appendChild(tilesEl);
 
-            // Add key hint text under player's cards
+            // Add key hint row under dominoes - spread keys under each domino
             if (this.gamePhase === 'sunLevel' && player.hand.length > 0) {
                 const hintEl = document.createElement('div');
-                hintEl.className = 'player-key-hint';
+                hintEl.className = 'player-key-hint spread';
 
                 const numCards = player.hand.length;
+                let keys;
 
                 if (this.players.length === 1) {
                     // Single player uses keys 1, 2, 3, 4 from left to right
-                    const keys = ['1', '2', '3', '4'].slice(0, numCards);
-                    const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
-                    hintEl.innerHTML = `Press ${keySpans}`;
+                    keys = ['1', '2', '3', '4'].slice(0, numCards);
                 } else if (this.players.length === 2) {
                     if (playerIndex === 0) {
                         // Player 1 (left): keys 1, 2, 3, 4 from left to right
-                        const keys = ['1', '2', '3', '4'].slice(0, numCards);
-                        const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
-                        hintEl.innerHTML = `Press ${keySpans}`;
+                        keys = ['1', '2', '3', '4'].slice(0, numCards);
                     } else {
-                        // Player 2 (right): keys 0, 9, 8, 7 from right to left
-                        const keys = ['0', '9', '8', '7'].slice(0, numCards);
-                        const keySpans = keys.map(k => `<span class="key">${k}</span>`).join(' ');
-                        hintEl.innerHTML = `Press ${keySpans}`;
+                        // Player 2 (right): keys 7, 8, 9, 0 from left to right
+                        keys = ['7', '8', '9', '0'].slice(0, numCards);
                     }
                 }
 
-                handEl.appendChild(hintEl);
+                // Build spread hint: "Press" [keys spread under dominoes] "to select"
+                hintEl.innerHTML = `
+                    <span class="hint-press">Press</span>
+                    <span class="hint-keys">
+                        ${keys.map(k => `<span class="key">${k}</span>`).join('')}
+                    </span>
+                    <span class="hint-select">to select</span>
+                `;
+
+                tilesContainer.appendChild(hintEl);
             }
 
+            handEl.appendChild(tilesContainer);
             playersArea.appendChild(handEl);
         });
 

@@ -237,6 +237,31 @@ class VicaDominoGame {
         });
     }
 
+    // Play disapproval sound using Web Audio API
+    playWrongSound() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Create a "buzzer" sound
+            oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(100, audioContext.currentTime + 0.1);
+            oscillator.type = 'sawtooth';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
     createIconSelector(playerIndex) {
         let iconKeys = Object.keys(CHARACTER_ICONS);
         const container = document.createElement('div');
@@ -854,25 +879,34 @@ class VicaDominoGame {
     }
 
     sunLevelWrongCard(card, player, cardIndex) {
-        // Remove card from hand
-        player.hand.splice(cardIndex, 1);
-
-        // Place wrong card on board (show it was wrong)
-        this.board = [{ card: card, orientation: 'horizontal', flipped: false }];
+        // Play disapproval sound
+        this.playWrongSound();
 
         // Update status - timer continues
         this.updateStatus('❌ Try again! Two sides of this domino are not equal.', 'wrong');
 
-        // Re-render
-        this.renderSunLevel();
+        // Find the clicked domino element and apply animation
+        const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
+        if (playerHand) {
+            const dominoWrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+            if (dominoWrappers[cardIndex]) {
+                const dominoEl = dominoWrappers[cardIndex].querySelector('.domino');
+                if (dominoEl) {
+                    // Remove animation class if already there, then re-add
+                    dominoEl.classList.remove('wrong-card-shake');
+                    // Trigger reflow to restart animation
+                    void dominoEl.offsetWidth;
+                    dominoEl.classList.add('wrong-card-shake');
 
-        // Show the card on board
-        const boardEl = document.getElementById('game-board');
-        boardEl.innerHTML = '';
-        const dominoEl = createDominoElement(card, false);
-        dominoEl.classList.add('wrong-domino');
-        dominoEl.style.border = '4px solid #FF9800';
-        boardEl.appendChild(dominoEl);
+                    // Remove animation class after it completes
+                    setTimeout(() => {
+                        dominoEl.classList.remove('wrong-card-shake');
+                    }, 600);
+                }
+            }
+        }
+
+        // Card stays in hand - no removal, no re-render
     }
 
     renderSunLevel() {

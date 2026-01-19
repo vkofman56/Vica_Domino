@@ -593,12 +593,16 @@ class VicaDominoGame {
         this.sunLevelTimer = null;
         this.sunLevelTimeLeft = 30;
         this.sunLevelDuration = 30;
+        this.sunLevelWinners = []; // Track winners in Find the Double
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
         this.dealSunLevelCards();
 
         // Hide bank area for Sun level
         document.querySelector('.bank-area').style.display = 'none';
+
+        // Clear the game board (remove any leftover content from previous games)
+        document.getElementById('game-board').innerHTML = '';
 
         // Hide controls except New Game
         document.getElementById('pass-btn').style.display = 'none';
@@ -792,6 +796,11 @@ class VicaDominoGame {
 
         const player = this.players[playerIndex];
 
+        // Check if this player already won
+        if (this.sunLevelWinners && this.sunLevelWinners.includes(player.id)) {
+            return;
+        }
+
         if (isDouble(card)) {
             // WIN!
             this.sunLevelWin(card, player, cardIndex);
@@ -802,27 +811,52 @@ class VicaDominoGame {
     }
 
     sunLevelWin(card, player, cardIndex) {
-        this.stopSunLevelTimer();
-        this.gamePhase = 'sunLevelWon';
+        // Check if this player already won
+        if (this.sunLevelWinners.includes(player.id)) {
+            return;
+        }
+
+        // Add player to winners
+        const winnerNumber = this.sunLevelWinners.length + 1;
+        this.sunLevelWinners.push(player.id);
+        player.isWinner = true;
+        player.winningCard = card;
 
         // Remove card from hand
         player.hand.splice(cardIndex, 1);
 
-        // Place card on board
-        this.board = [{ card: card, orientation: 'vertical', flipped: false }];
+        // Update status based on winner number
+        if (winnerNumber === 1) {
+            this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
+        } else {
+            this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
+        }
 
-        // Update status
-        this.updateStatus('🎉 You Won! You found the double!', 'win');
-
-        // Re-render
+        // Re-render to show winner box instead of cards
         this.renderSunLevel();
 
-        // Animate the board
+        // Check if all players have won
+        if (this.sunLevelWinners.length >= this.players.length) {
+            this.stopSunLevelTimer();
+            this.gamePhase = 'sunLevelWon';
+        }
+
+        // Show the winning card on the board
         const boardEl = document.getElementById('game-board');
         boardEl.innerHTML = '';
-        const dominoEl = createDominoElement(card, true); // vertical double
-        dominoEl.classList.add('winning-domino');
-        boardEl.appendChild(dominoEl);
+
+        // Show all winning cards
+        this.sunLevelWinners.forEach((winnerId, idx) => {
+            const winner = this.players.find(p => p.id === winnerId);
+            if (winner && winner.winningCard) {
+                const dominoEl = createDominoElement(winner.winningCard, true);
+                dominoEl.classList.add('winning-domino');
+                if (idx > 0) {
+                    dominoEl.style.marginLeft = '20px';
+                }
+                boardEl.appendChild(dominoEl);
+            }
+        });
     }
 
     sunLevelWrongCard(card, player, cardIndex) {
@@ -856,83 +890,105 @@ class VicaDominoGame {
             handEl.className = 'player-hand active';
             handEl.dataset.playerId = player.id;
 
-            // Player's dominos (vertical) with key hints - all on one line
-            const tilesContainer = document.createElement('div');
-            tilesContainer.className = 'sun-level-tiles-container';
+            // Check if this player has already won
+            const hasWon = this.sunLevelWinners && this.sunLevelWinners.includes(player.id);
+            const winnerPosition = hasWon ? this.sunLevelWinners.indexOf(player.id) + 1 : 0;
 
-            // Add player icon and name on the left
-            const icon = CHARACTER_ICONS[player.icon];
-            const playerInfo = document.createElement('div');
-            playerInfo.className = 'player-info-inline';
-            playerInfo.innerHTML = `
-                <span class="player-icon-display">${icon ? icon.svg : ''}</span>
-                <span class="player-name-inline">${player.name}</span>
-            `;
-            tilesContainer.appendChild(playerInfo);
+            if (hasWon) {
+                // Show "You Won!" box instead of cards
+                const winnerBox = document.createElement('div');
+                winnerBox.className = 'sun-level-winner-box';
 
-            // Determine keys for this player
-            const numCards = player.hand.length;
-            let keys;
-            if (this.players.length === 1) {
-                keys = ['1', '2', '3', '4'].slice(0, numCards);
-            } else if (this.players.length === 2) {
-                if (playerIndex === 0) {
+                const icon = CHARACTER_ICONS[player.icon];
+                const winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
+
+                winnerBox.innerHTML = `
+                    <span class="player-icon-display">${icon ? icon.svg : ''}</span>
+                    <span class="player-name-inline">${player.name}</span>
+                    <span class="winner-text">${winnerText}</span>
+                `;
+
+                handEl.appendChild(winnerBox);
+            } else {
+                // Player's dominos (vertical) with key hints - all on one line
+                const tilesContainer = document.createElement('div');
+                tilesContainer.className = 'sun-level-tiles-container';
+
+                // Add player icon and name on the left
+                const icon = CHARACTER_ICONS[player.icon];
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info-inline';
+                playerInfo.innerHTML = `
+                    <span class="player-icon-display">${icon ? icon.svg : ''}</span>
+                    <span class="player-name-inline">${player.name}</span>
+                `;
+                tilesContainer.appendChild(playerInfo);
+
+                // Determine keys for this player
+                const numCards = player.hand.length;
+                let keys;
+                if (this.players.length === 1) {
                     keys = ['1', '2', '3', '4'].slice(0, numCards);
-                } else {
-                    // Player 2: use last N keys from 7, 8, 9, 0
-                    keys = ['7', '8', '9', '0'].slice(4 - numCards);
-                }
-            }
-
-            // Add "Press" label
-            if (this.gamePhase === 'sunLevel' && numCards > 0) {
-                const pressLabel = document.createElement('span');
-                pressLabel.className = 'hint-press-left';
-                pressLabel.textContent = 'Press';
-                tilesContainer.appendChild(pressLabel);
-            }
-
-            // Container for dominoes and their key labels
-            const dominoesWithKeys = document.createElement('div');
-            dominoesWithKeys.className = 'dominoes-with-keys';
-
-            player.hand.forEach((card, cardIndex) => {
-                const dominoWrapper = document.createElement('div');
-                dominoWrapper.className = 'domino-key-wrapper';
-
-                const dominoEl = createDominoElement(card, true); // vertical dominoes
-
-                // Add click handler for Sun level
-                if (this.gamePhase === 'sunLevel') {
-                    dominoEl.addEventListener('click', () => {
-                        this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                    });
+                } else if (this.players.length === 2) {
+                    if (playerIndex === 0) {
+                        keys = ['1', '2', '3', '4'].slice(0, numCards);
+                    } else {
+                        // Player 2: use last N keys from 7, 8, 9, 0
+                        keys = ['7', '8', '9', '0'].slice(4 - numCards);
+                    }
                 }
 
-                dominoWrapper.appendChild(dominoEl);
-
-                // Add key label under this domino
-                if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
-                    const keyLabel = document.createElement('span');
-                    keyLabel.className = 'key';
-                    keyLabel.textContent = keys[cardIndex];
-                    dominoWrapper.appendChild(keyLabel);
+                // Add "Press" label
+                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                    const pressLabel = document.createElement('span');
+                    pressLabel.className = 'hint-press-left';
+                    pressLabel.textContent = 'Press';
+                    tilesContainer.appendChild(pressLabel);
                 }
 
-                dominoesWithKeys.appendChild(dominoWrapper);
-            });
+                // Container for dominoes and their key labels
+                const dominoesWithKeys = document.createElement('div');
+                dominoesWithKeys.className = 'dominoes-with-keys';
 
-            tilesContainer.appendChild(dominoesWithKeys);
+                player.hand.forEach((card, cardIndex) => {
+                    const dominoWrapper = document.createElement('div');
+                    dominoWrapper.className = 'domino-key-wrapper';
 
-            // Add "to select" label on the right
-            if (this.gamePhase === 'sunLevel' && numCards > 0) {
-                const selectLabel = document.createElement('span');
-                selectLabel.className = 'hint-select-right';
-                selectLabel.textContent = 'to select';
-                tilesContainer.appendChild(selectLabel);
+                    const dominoEl = createDominoElement(card, true); // vertical dominoes
+
+                    // Add click handler for Sun level
+                    if (this.gamePhase === 'sunLevel') {
+                        dominoEl.addEventListener('click', () => {
+                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                        });
+                    }
+
+                    dominoWrapper.appendChild(dominoEl);
+
+                    // Add key label under this domino
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
+                        const keyLabel = document.createElement('span');
+                        keyLabel.className = 'key';
+                        keyLabel.textContent = keys[cardIndex];
+                        dominoWrapper.appendChild(keyLabel);
+                    }
+
+                    dominoesWithKeys.appendChild(dominoWrapper);
+                });
+
+                tilesContainer.appendChild(dominoesWithKeys);
+
+                // Add "to select" label on the right
+                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                    const selectLabel = document.createElement('span');
+                    selectLabel.className = 'hint-select-right';
+                    selectLabel.textContent = 'to select';
+                    tilesContainer.appendChild(selectLabel);
+                }
+
+                handEl.appendChild(tilesContainer);
             }
 
-            handEl.appendChild(tilesContainer);
             playersArea.appendChild(handEl);
         });
 

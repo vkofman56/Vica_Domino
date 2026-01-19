@@ -832,31 +832,17 @@ class VicaDominoGame {
             this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
         }
 
-        // Re-render to show winner box instead of cards
+        // Re-render to show winner box with domino above it
         this.renderSunLevel();
+
+        // Clear the game board (dominoes now shown above each winner box)
+        document.getElementById('game-board').innerHTML = '';
 
         // Check if all players have won
         if (this.sunLevelWinners.length >= this.players.length) {
             this.stopSunLevelTimer();
             this.gamePhase = 'sunLevelWon';
         }
-
-        // Show the winning card on the board
-        const boardEl = document.getElementById('game-board');
-        boardEl.innerHTML = '';
-
-        // Show all winning cards
-        this.sunLevelWinners.forEach((winnerId, idx) => {
-            const winner = this.players.find(p => p.id === winnerId);
-            if (winner && winner.winningCard) {
-                const dominoEl = createDominoElement(winner.winningCard, true);
-                dominoEl.classList.add('winning-domino');
-                if (idx > 0) {
-                    dominoEl.style.marginLeft = '20px';
-                }
-                boardEl.appendChild(dominoEl);
-            }
-        });
     }
 
     sunLevelWrongCard(card, player, cardIndex) {
@@ -895,7 +881,21 @@ class VicaDominoGame {
             const winnerPosition = hasWon ? this.sunLevelWinners.indexOf(player.id) + 1 : 0;
 
             if (hasWon) {
-                // Show "You Won!" box instead of cards
+                // Show winning domino centered above "You Won!" box
+                const winnerSection = document.createElement('div');
+                winnerSection.className = 'sun-level-winner-section';
+
+                // Add winning domino above the box
+                if (player.winningCard) {
+                    const dominoWrapper = document.createElement('div');
+                    dominoWrapper.className = 'winner-domino-wrapper';
+                    const dominoEl = createDominoElement(player.winningCard, true);
+                    dominoEl.classList.add('winning-domino');
+                    dominoWrapper.appendChild(dominoEl);
+                    winnerSection.appendChild(dominoWrapper);
+                }
+
+                // Show "You Won!" box below the domino
                 const winnerBox = document.createElement('div');
                 winnerBox.className = 'sun-level-winner-box';
 
@@ -908,7 +908,8 @@ class VicaDominoGame {
                     <span class="winner-text">${winnerText}</span>
                 `;
 
-                handEl.appendChild(winnerBox);
+                winnerSection.appendChild(winnerBox);
+                handEl.appendChild(winnerSection);
             } else {
                 // Player's dominos (vertical) with key hints - all on one line
                 const tilesContainer = document.createElement('div');

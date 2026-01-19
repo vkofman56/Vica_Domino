@@ -155,6 +155,9 @@ class VicaDominoGame {
         // New game
         document.getElementById('new-game-btn').addEventListener('click', () => this.resetToSetup());
 
+        // Play again (same settings) - in game controls
+        document.getElementById('play-again-game-btn').addEventListener('click', () => this.playAgain());
+
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
 
@@ -607,6 +610,7 @@ class VicaDominoGame {
         // Hide controls except New Game
         document.getElementById('pass-btn').style.display = 'none';
         document.getElementById('draw-btn').style.display = 'none';
+        document.getElementById('play-again-game-btn').style.display = 'none';
 
         // Update header to not show turn indicator for single player
         if (this.players.length === 1) {
@@ -770,6 +774,9 @@ class VicaDominoGame {
 
         // Show which was the double
         this.highlightDoubleCard();
+
+        // Show end game buttons
+        this.showEndGameButtons();
     }
 
     highlightDoubleCard() {
@@ -842,6 +849,7 @@ class VicaDominoGame {
         if (this.sunLevelWinners.length >= this.players.length) {
             this.stopSunLevelTimer();
             this.gamePhase = 'sunLevelWon';
+            this.showEndGameButtons();
         }
     }
 
@@ -1016,6 +1024,37 @@ class VicaDominoGame {
             progressCircle.style.stroke = '#4CAF50';
             progressCircle.style.strokeDashoffset = '0';
         }
+    }
+
+    // Play again with same settings (same players, same level)
+    playAgain() {
+        // Reset sun level state
+        this.resetSunLevel();
+
+        // Hide the play again button
+        document.getElementById('play-again-game-btn').style.display = 'none';
+
+        // Reset player win states but keep their info
+        this.players.forEach(player => {
+            player.hand = [];
+            player.isWinner = false;
+            player.winningCard = null;
+            player.animationShown = false;
+        });
+
+        // Reset winners array
+        this.sunLevelWinners = [];
+
+        // Clear the board
+        document.getElementById('game-board').innerHTML = '';
+
+        // Start the game again with same settings
+        this.startSunLevelGame();
+    }
+
+    // Show end game buttons
+    showEndGameButtons() {
+        document.getElementById('play-again-game-btn').style.display = 'inline-block';
     }
     // ==================== END SUN LEVEL GAME ====================
 

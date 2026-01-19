@@ -643,24 +643,33 @@ class VicaDominoGame {
         }
 
         // Update status
-        this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
+        if (this.includeXeno) {
+            this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
+        } else {
+            this.updateStatus('🌞 Find the DOUBLE first! Click on it!', 'highlight');
+        }
 
         // Render player hands first
         this.renderSunLevel();
 
-        // Show Xeno timer box with Xeno icon
-        const xenoTimerBox = document.getElementById('xeno-timer-box');
-        xenoTimerBox.style.display = 'block';
+        // Show Xeno timer only if Xeno is included
+        if (this.includeXeno) {
+            const xenoTimerBox = document.getElementById('xeno-timer-box');
+            xenoTimerBox.style.display = 'block';
 
-        // Add Xeno icon
-        const xenoIconEl = document.getElementById('xeno-timer-icon');
-        xenoIconEl.innerHTML = XENO_ICON_SVG;
+            // Add Xeno icon
+            const xenoIconEl = document.getElementById('xeno-timer-icon');
+            xenoIconEl.innerHTML = XENO_ICON_SVG;
 
-        // Set up timer display
-        this.setupTimerTicks();
+            // Set up timer display
+            this.setupTimerTicks();
 
-        // Start the timer AFTER dominoes are visible
-        this.startSunLevelTimer();
+            // Start the timer AFTER dominoes are visible
+            this.startSunLevelTimer();
+        } else {
+            // Hide timer box if no Xeno
+            document.getElementById('xeno-timer-box').style.display = 'none';
+        }
     }
 
     dealSunLevelCards() {
@@ -857,24 +866,34 @@ class VicaDominoGame {
         // Remove card from hand
         player.hand.splice(cardIndex, 1);
 
-        // Update status based on winner number
-        if (winnerNumber === 1) {
+        // Update status based on winner number and game mode
+        if (!this.includeXeno) {
+            // No Xeno = single winner mode, game ends after first winner
             this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
-        } else {
-            this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
-        }
-
-        // Re-render to show winner box with domino above it
-        this.renderSunLevel();
-
-        // Clear the game board (dominoes now shown above each winner box)
-        document.getElementById('game-board').innerHTML = '';
-
-        // Check if all players have won
-        if (this.sunLevelWinners.length >= this.players.length) {
-            this.stopSunLevelTimer();
             this.gamePhase = 'sunLevelWon';
+            this.renderSunLevel();
+            document.getElementById('game-board').innerHTML = '';
             this.showEndGameButtons();
+        } else {
+            // With Xeno = multiple winners possible
+            if (winnerNumber === 1) {
+                this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
+            } else {
+                this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
+            }
+
+            // Re-render to show winner box with domino above it
+            this.renderSunLevel();
+
+            // Clear the game board (dominoes now shown above each winner box)
+            document.getElementById('game-board').innerHTML = '';
+
+            // Check if all players have won
+            if (this.sunLevelWinners.length >= this.players.length) {
+                this.stopSunLevelTimer();
+                this.gamePhase = 'sunLevelWon';
+                this.showEndGameButtons();
+            }
         }
     }
 

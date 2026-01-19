@@ -890,7 +890,11 @@ class VicaDominoGame {
                     const dominoWrapper = document.createElement('div');
                     dominoWrapper.className = 'winner-domino-wrapper';
                     const dominoEl = createDominoElement(player.winningCard, true);
-                    dominoEl.classList.add('winning-domino');
+                    // Only add animation class if animation hasn't been shown yet
+                    if (!player.animationShown) {
+                        dominoEl.classList.add('winning-domino');
+                        player.animationShown = true;
+                    }
                     dominoWrapper.appendChild(dominoEl);
                     winnerSection.appendChild(dominoWrapper);
                 }

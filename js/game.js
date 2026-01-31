@@ -960,28 +960,35 @@ class VicaDominoGame {
         // Keyboard background
         svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
 
+        let targetX = 0, targetY = 0;
+
         rows.forEach((row, rowIdx) => {
             row.keys.forEach((key, i) => {
                 const x = pad + row.offset + i * (keyW + gap);
                 const y = pad + rowIdx * (keyH + rowGap);
                 const isTarget = key === keyValue;
 
-                // Key cap (target key is 30% larger)
-                const kw = isTarget ? Math.round(keyW * 1.3) : keyW;
-                const kh = isTarget ? Math.round(keyH * 1.3) : keyH;
-                const kx = isTarget ? x - (kw - keyW) / 2 : x;
-                const ky = isTarget ? y - (kh - keyH) / 2 : y;
-                svg += `<rect x="${kx}" y="${ky}" width="${kw}" height="${kh}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
+                // Draw all keys at normal size
+                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="#555" stroke="#777" stroke-width="1.5"/>`;
                 // Key label Y offsets per row
                 const textYOffset = [7, 10, 10, 18][rowIdx];
-                const fontSize = isTarget ? 42 : 32;
-                svg += `<text x="${kx + kw/2}" y="${ky + kh/2 + textYOffset}" text-anchor="middle" font-size="${fontSize}" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
-                // Red circle around the target key
+                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="#ddd" font-family="monospace">${key}</text>`;
+
                 if (isTarget) {
-                    svg += `<circle cx="${kx + kw/2}" cy="${ky + kh/2}" r="${kw/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+                    targetX = x;
+                    targetY = y;
                 }
             });
         });
+
+        // Draw enlarged target key on top of everything
+        const bigW = Math.round(keyW * 1.3);
+        const bigH = Math.round(keyH * 1.3);
+        const bigX = targetX - (bigW - keyW) / 2;
+        const bigY = targetY - (bigH - keyH) / 2;
+        svg += `<rect x="${bigX}" y="${bigY}" width="${bigW}" height="${bigH}" rx="5" fill="#ffd700" stroke="#ff8c00" stroke-width="1.5"/>`;
+        svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="42" font-weight="bold" fill="#333" font-family="monospace">${keyValue}</text>`;
+        svg += `<circle cx="${bigX + bigW/2}" cy="${bigY + bigH/2}" r="${bigW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
 
         svg += '</svg>';
         popup.innerHTML = svg;

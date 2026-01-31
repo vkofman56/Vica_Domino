@@ -1198,9 +1198,27 @@ class VicaDominoGame {
         this.startSunLevelGame();
     }
 
-    // Show end game buttons
+    // Show end game buttons centered on the playing area
     showEndGameButtons() {
-        document.getElementById('play-again-game-btn').style.display = 'inline-block';
+        const gameBoard = document.getElementById('game-board');
+
+        // Create button container centered on game board
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'end-game-buttons';
+
+        const playAgainBtn = document.createElement('button');
+        playAgainBtn.className = 'btn btn-primary end-game-btn';
+        playAgainBtn.textContent = 'Play Again';
+        playAgainBtn.addEventListener('click', () => this.playAgain());
+
+        const newGameBtn = document.createElement('button');
+        newGameBtn.className = 'btn btn-secondary end-game-btn';
+        newGameBtn.textContent = 'New Game';
+        newGameBtn.addEventListener('click', () => this.resetToSetup());
+
+        btnContainer.appendChild(playAgainBtn);
+        btnContainer.appendChild(newGameBtn);
+        gameBoard.appendChild(btnContainer);
     }
     // ==================== END SUN LEVEL GAME ====================
 

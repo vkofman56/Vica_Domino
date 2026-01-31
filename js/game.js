@@ -629,8 +629,10 @@ class VicaDominoGame {
         // Hide bank area for Sun level
         document.querySelector('.bank-area').style.display = 'none';
 
-        // Clear the game board (remove any leftover content from previous games)
-        document.getElementById('game-board').innerHTML = '';
+        // Hide and clear the game board (not used in Sun Level)
+        const gameBoard = document.getElementById('game-board');
+        gameBoard.innerHTML = '';
+        gameBoard.style.display = 'none';
 
         // Hide controls except New Game
         document.getElementById('pass-btn').style.display = 'none';
@@ -1177,8 +1179,9 @@ class VicaDominoGame {
         // Reset sun level state
         this.resetSunLevel();
 
-        // Hide the play again button
-        document.getElementById('play-again-game-btn').style.display = 'none';
+        // Remove end game buttons
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
 
         // Reset player win states but keep their info
         this.players.forEach(player => {
@@ -1198,11 +1201,11 @@ class VicaDominoGame {
         this.startSunLevelGame();
     }
 
-    // Show end game buttons centered on the playing area
+    // Show end game buttons below the players area
     showEndGameButtons() {
-        const gameBoard = document.getElementById('game-board');
+        const playersArea = document.getElementById('players-area');
 
-        // Create button container centered on game board
+        // Create button container below the playing area
         const btnContainer = document.createElement('div');
         btnContainer.className = 'end-game-buttons';
 
@@ -1218,7 +1221,7 @@ class VicaDominoGame {
 
         btnContainer.appendChild(playAgainBtn);
         btnContainer.appendChild(newGameBtn);
-        gameBoard.appendChild(btnContainer);
+        playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
     }
     // ==================== END SUN LEVEL GAME ====================
 
@@ -1993,6 +1996,11 @@ class VicaDominoGame {
         document.getElementById('single-winner-content').style.display = 'block';
         document.getElementById('circle-winners-content').style.display = 'none';
         document.getElementById('winner-heading').style.display = 'block';
+
+        // Restore game board visibility and remove end game buttons
+        document.getElementById('game-board').style.display = '';
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
 
         this.players = [];
         this.bank = [];

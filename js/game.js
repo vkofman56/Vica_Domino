@@ -928,7 +928,7 @@ class VicaDominoGame {
         // Card stays in hand - no removal, no re-render
     }
 
-    showKeyboardPopup(keyValue) {
+    showKeyboardPopup(keyValue, anchorEl) {
         // Remove any existing popup
         const existing = document.getElementById('keyboard-popup');
         if (existing) existing.remove();
@@ -938,7 +938,8 @@ class VicaDominoGame {
         popup.id = 'keyboard-popup';
         popup.className = 'keyboard-popup';
 
-        // Full keyboard layout: number row + 3 letter rows
+        // Full keyboard layout: number row + 3 letter rows (30% scale)
+        const scale = 0.3;
         const rows = [
             { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
             { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
@@ -952,8 +953,10 @@ class VicaDominoGame {
         const rowGap = 5;
         const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
         const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
 
-        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`;
+        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${renderW}" height="${renderH}">`;
         // Keyboard background
         svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
 
@@ -977,13 +980,22 @@ class VicaDominoGame {
         svg += '</svg>';
         popup.innerHTML = svg;
 
-        document.body.appendChild(popup);
+        // Position to the left of the dominoes area
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            popup.style.left = (rect.left - renderW - 10) + 'px';
+            popup.style.top = (rect.top + rect.height / 2 - renderH / 2) + 'px';
+        }
 
-        // Remove after 1 second with fade out
-        setTimeout(() => {
-            popup.classList.add('keyboard-popup-fade');
-            setTimeout(() => popup.remove(), 300);
-        }, 1000);
+        document.body.appendChild(popup);
+    }
+
+    hideKeyboardPopup() {
+        const existing = document.getElementById('keyboard-popup');
+        if (existing) {
+            existing.classList.add('keyboard-popup-fade');
+            setTimeout(() => existing.remove(), 300);
+        }
     }
 
     renderSunLevel() {
@@ -1089,13 +1101,19 @@ class VicaDominoGame {
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // Add key label under this domino (clickable - third way to select)
+                    // Add key label under this domino (hover shows keyboard, click selects)
                     if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
                         const keyLabel = document.createElement('span');
                         keyLabel.className = 'key clickable-key';
                         keyLabel.textContent = keys[cardIndex];
+                        keyLabel.addEventListener('mouseenter', () => {
+                            this.showKeyboardPopup(keys[cardIndex], dominoesWithKeys);
+                        });
+                        keyLabel.addEventListener('mouseleave', () => {
+                            this.hideKeyboardPopup();
+                        });
                         keyLabel.addEventListener('click', () => {
-                            this.showKeyboardPopup(keys[cardIndex]);
+                            this.hideKeyboardPopup();
                             this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                         });
                         dominoWrapper.appendChild(keyLabel);

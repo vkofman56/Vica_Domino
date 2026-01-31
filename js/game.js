@@ -982,12 +982,12 @@ class VicaDominoGame {
         });
 
         // Draw enlarged target key on top of everything
-        const bigW = Math.round(keyW * 1.725);
-        const bigH = Math.round(keyH * 1.725);
+        const bigW = Math.round(keyW * 1.518);
+        const bigH = Math.round(keyH * 1.518);
         const bigX = targetX - (bigW - keyW) / 2;
         const bigY = targetY - (bigH - keyH) / 2;
         svg += `<rect x="${bigX}" y="${bigY}" width="${bigW}" height="${bigH}" rx="5" fill="#ffd700" stroke="#ff8c00" stroke-width="1.5"/>`;
-        svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="55" font-weight="bold" fill="#333" font-family="monospace">${keyValue}</text>`;
+        svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="48" font-weight="bold" fill="#333" font-family="monospace">${keyValue}</text>`;
         svg += `<circle cx="${bigX + bigW/2}" cy="${bigY + bigH/2}" r="${bigW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
 
         svg += '</svg>';

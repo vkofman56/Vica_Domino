@@ -966,14 +966,19 @@ class VicaDominoGame {
                 const y = pad + rowIdx * (keyH + rowGap);
                 const isTarget = key === keyValue;
 
-                // Key cap
-                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
+                // Key cap (target key is 30% larger)
+                const kw = isTarget ? Math.round(keyW * 1.3) : keyW;
+                const kh = isTarget ? Math.round(keyH * 1.3) : keyH;
+                const kx = isTarget ? x - (kw - keyW) / 2 : x;
+                const ky = isTarget ? y - (kh - keyH) / 2 : y;
+                svg += `<rect x="${kx}" y="${ky}" width="${kw}" height="${kh}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
                 // Key label Y offsets per row
-                const textYOffset = [7, 10, 10, 20][rowIdx];
-                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
+                const textYOffset = [7, 10, 10, 18][rowIdx];
+                const fontSize = isTarget ? 42 : 32;
+                svg += `<text x="${kx + kw/2}" y="${ky + kh/2 + textYOffset}" text-anchor="middle" font-size="${fontSize}" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
                 // Red circle around the target key
                 if (isTarget) {
-                    svg += `<circle cx="${x + keyW/2}" cy="${y + keyH/2}" r="${keyW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+                    svg += `<circle cx="${kx + kw/2}" cy="${ky + kh/2}" r="${kw/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
                 }
             });
         });

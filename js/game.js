@@ -632,10 +632,11 @@ class VicaDominoGame {
         // Hide the entire board container (dark green box, not used in Sun Level)
         document.querySelector('.board-container').style.display = 'none';
 
-        // Hide controls except New Game
+        // Hide all controls
         document.getElementById('pass-btn').style.display = 'none';
         document.getElementById('draw-btn').style.display = 'none';
         document.getElementById('play-again-game-btn').style.display = 'none';
+        document.getElementById('new-game-btn').style.display = 'none';
 
         // Update header to not show turn indicator for single player
         if (this.players.length === 1) {
@@ -1995,8 +1996,9 @@ class VicaDominoGame {
         document.getElementById('circle-winners-content').style.display = 'none';
         document.getElementById('winner-heading').style.display = 'block';
 
-        // Restore board container visibility and remove end game buttons
+        // Restore board container and controls visibility, remove end game buttons
         document.querySelector('.board-container').style.display = '';
+        document.getElementById('new-game-btn').style.display = '';
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
 

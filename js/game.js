@@ -629,10 +629,8 @@ class VicaDominoGame {
         // Hide bank area for Sun level
         document.querySelector('.bank-area').style.display = 'none';
 
-        // Hide and clear the game board (not used in Sun Level)
-        const gameBoard = document.getElementById('game-board');
-        gameBoard.innerHTML = '';
-        gameBoard.style.display = 'none';
+        // Hide the entire board container (dark green box, not used in Sun Level)
+        document.querySelector('.board-container').style.display = 'none';
 
         // Hide controls except New Game
         document.getElementById('pass-btn').style.display = 'none';
@@ -1997,8 +1995,8 @@ class VicaDominoGame {
         document.getElementById('circle-winners-content').style.display = 'none';
         document.getElementById('winner-heading').style.display = 'block';
 
-        // Restore game board visibility and remove end game buttons
-        document.getElementById('game-board').style.display = '';
+        // Restore board container visibility and remove end game buttons
+        document.querySelector('.board-container').style.display = '';
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
 

@@ -938,32 +938,40 @@ class VicaDominoGame {
         popup.id = 'keyboard-popup';
         popup.className = 'keyboard-popup';
 
-        // Create SVG keyboard showing number row
-        const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+        // Full keyboard layout: number row + 3 letter rows
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
         const keyW = 40;
         const keyH = 40;
         const gap = 5;
         const pad = 15;
-        const totalW = keys.length * (keyW + gap) - gap + pad * 2;
-        const totalH = keyH + pad * 2;
+        const rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
 
         let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`;
         // Keyboard background
         svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
 
-        keys.forEach((key, i) => {
-            const x = pad + i * (keyW + gap);
-            const y = pad;
-            const isTarget = key === keyValue;
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                const x = pad + row.offset + i * (keyW + gap);
+                const y = pad + rowIdx * (keyH + rowGap);
+                const isTarget = key === keyValue;
 
-            // Key cap
-            svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
-            // Key letter
-            svg += `<text x="${x + keyW / 2}" y="${y + keyH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
-            // Red circle around the target key
-            if (isTarget) {
-                svg += `<circle cx="${x + keyW / 2}" cy="${y + keyH / 2}" r="${keyW / 2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
-            }
+                // Key cap
+                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
+                // Key label
+                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + 6}" text-anchor="middle" font-size="18" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
+                // Red circle around the target key
+                if (isTarget) {
+                    svg += `<circle cx="${x + keyW/2}" cy="${y + keyH/2}" r="${keyW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+                }
+            });
         });
 
         svg += '</svg>';

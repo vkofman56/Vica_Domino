@@ -969,7 +969,7 @@ class VicaDominoGame {
                 // Key cap
                 svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
                 // Key label (letters shifted 2px higher within their boxes)
-                const textYOffset = rowIdx === 0 ? 7 : 0;
+                const textYOffset = rowIdx === 0 ? 7 : 10;
                 svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
                 // Red circle around the target key
                 if (isTarget) {

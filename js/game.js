@@ -135,6 +135,9 @@ class VicaDominoGame {
 
         this.initEventListeners();
         this.initGameLevelSelector();
+
+        // Disable right-click context menu during the game
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     initEventListeners() {

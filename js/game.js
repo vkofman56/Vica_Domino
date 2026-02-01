@@ -900,13 +900,13 @@ class VicaDominoGame {
         }
 
         // Update status based on winner number and game mode
+        // Hide status bar - winner boxes already show the info
+        document.getElementById('status-message').style.display = 'none';
+
         if (!this.includeXeno) {
             // No Xeno mode
-            this.updateStatus(`🎉 ${player.name} Won! Found the Double!`, 'win');
-
             if (this.players.length === 1) {
-                // Single player: hide status bar (winner box shows it), end game
-                document.getElementById('status-message').style.display = 'none';
+                // Single player: end game
                 this.gamePhase = 'sunLevelWon';
                 this.renderSunLevel();
                 this.showEndGameButtons();
@@ -922,9 +922,6 @@ class VicaDominoGame {
             }
         } else {
             // With Xeno = multiple winners possible
-            // Hide status bar - winner boxes show the info
-            document.getElementById('status-message').style.display = 'none';
-
             // Re-render to show winner box with domino above it
             this.renderSunLevel();
 

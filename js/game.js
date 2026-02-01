@@ -919,16 +919,8 @@ class VicaDominoGame {
             }
         } else {
             // With Xeno = multiple winners possible
-            if (winnerNumber === 1) {
-                this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
-            } else {
-                this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
-            }
-
-            // Hide status bar for single player (winner box shows it)
-            if (this.players.length === 1) {
-                document.getElementById('status-message').style.display = 'none';
-            }
+            // Hide status bar - winner boxes show the info
+            document.getElementById('status-message').style.display = 'none';
 
             // Re-render to show winner box with domino above it
             this.renderSunLevel();

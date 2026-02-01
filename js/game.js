@@ -1038,11 +1038,11 @@ class VicaDominoGame {
         svg += '</svg>';
         popup.innerHTML = svg;
 
-        // Position to the left of the hovered key button
+        // Position to the left of the hovered key button, aligned to its top
         if (anchorEl) {
             const rect = anchorEl.getBoundingClientRect();
-            popup.style.left = (rect.left - renderW - 10) + 'px';
-            popup.style.top = (rect.top + rect.height / 2 - renderH / 2) + 'px';
+            popup.style.left = (rect.left - renderW - 8) + 'px';
+            popup.style.top = rect.top + 'px';
         }
 
         document.body.appendChild(popup);

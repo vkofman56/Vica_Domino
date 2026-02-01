@@ -164,8 +164,11 @@ class VicaDominoGame {
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
 
-        // Back arrow button
+        // Back arrow button (game screen)
         document.getElementById('back-arrow-btn').addEventListener('click', () => this.resetToSetup());
+
+        // Back arrow button (player names/icon selection screen)
+        document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
 
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
@@ -2058,6 +2061,24 @@ class VicaDominoGame {
         // Game is blocked - no one can play and bank is empty
         // Show "No more winners" since not everyone completed with empty hands
         this.showNoMoreWinners();
+    }
+
+    backToGameSetup() {
+        // Go back from player names/icon screen to game/player selection
+        document.getElementById('player-names').style.display = 'none';
+        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
+
+        // Restore headings
+        const setupPanel = document.querySelector('.setup-panel');
+        setupPanel.querySelectorAll('h3').forEach(h3 => h3.style.display = 'block');
+
+        // Restore game level and player select
+        document.querySelector('.game-level-select').style.display = 'flex';
+        document.querySelector('.player-select').style.display = 'flex';
+
+        // Hide selected options row
+        const selectedRow = document.getElementById('selected-options-row');
+        if (selectedRow) selectedRow.style.display = 'none';
     }
 
     resetToSetup() {

@@ -896,7 +896,8 @@ class VicaDominoGame {
             this.updateStatus(`🎉 ${player.name} Won! Found the Double!`, 'win');
 
             if (this.players.length === 1) {
-                // Single player: end game immediately
+                // Single player: hide status bar (winner box shows it), end game
+                document.getElementById('status-message').style.display = 'none';
                 this.gamePhase = 'sunLevelWon';
                 this.renderSunLevel();
                 this.showEndGameButtons();
@@ -1221,9 +1222,10 @@ class VicaDominoGame {
         playersArea.style.opacity = '';
         playersArea.style.display = '';
 
-        // Restore turn indicator
+        // Restore turn indicator and status bar
         const turnIndicator = document.querySelector('.turn-indicator');
         if (turnIndicator) turnIndicator.style.display = '';
+        document.getElementById('status-message').style.display = '';
 
         // Reset player win states but keep their info
         this.players.forEach(player => {
@@ -2087,6 +2089,7 @@ class VicaDominoGame {
         playersArea.style.display = '';
         const turnIndicator = document.querySelector('.turn-indicator');
         if (turnIndicator) turnIndicator.style.display = '';
+        document.getElementById('status-message').style.display = '';
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
 

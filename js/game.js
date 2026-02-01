@@ -638,10 +638,8 @@ class VicaDominoGame {
         document.getElementById('play-again-game-btn').style.display = 'none';
         document.getElementById('new-game-btn').style.display = 'none';
 
-        // Update header to not show turn indicator for single player
-        if (this.players.length === 1) {
-            document.querySelector('.turn-indicator').innerHTML = 'Find the Double!';
-        }
+        // Hide turn indicator - not used in Find the Double (no turns)
+        document.querySelector('.turn-indicator').style.display = 'none';
 
         // Update status
         if (this.includeXeno) {

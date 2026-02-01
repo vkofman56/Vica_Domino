@@ -654,7 +654,7 @@ class VicaDominoGame {
         // Show Xeno timer only if Xeno is included
         if (this.includeXeno) {
             const xenoTimerBox = document.getElementById('xeno-timer-box');
-            xenoTimerBox.style.display = 'block';
+            xenoTimerBox.style.display = 'flex';
 
             // Add Xeno icon
             const xenoIconEl = document.getElementById('xeno-timer-icon');
@@ -1096,19 +1096,19 @@ class VicaDominoGame {
                 winnerSection.appendChild(winnerBox);
                 handEl.appendChild(winnerSection);
             } else {
-                // Player's dominos (vertical) with key hints - all on one line
-                const tilesContainer = document.createElement('div');
-                tilesContainer.className = 'sun-level-tiles-container';
-
-                // Add player icon and name on the left
+                // Add player icon and name at top-left of the box
                 const icon = CHARACTER_ICONS[player.icon];
                 const playerInfo = document.createElement('div');
-                playerInfo.className = 'player-info-inline';
+                playerInfo.className = 'player-info-inline player-info-topleft';
                 playerInfo.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>
                     <span class="player-name-inline">${player.name}</span>
                 `;
-                tilesContainer.appendChild(playerInfo);
+                handEl.appendChild(playerInfo);
+
+                // Player's dominos (vertical) with key hints - all on one line
+                const tilesContainer = document.createElement('div');
+                tilesContainer.className = 'sun-level-tiles-container';
 
                 // Determine keys for this player
                 const numCards = player.hand.length;

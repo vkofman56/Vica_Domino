@@ -161,6 +161,9 @@ class VicaDominoGame {
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
 
+        // Back arrow button
+        document.getElementById('back-arrow-btn').addEventListener('click', () => this.resetToSetup());
+
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
     }
@@ -919,6 +922,11 @@ class VicaDominoGame {
                 this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
             }
 
+            // Hide status bar for single player (winner box shows it)
+            if (this.players.length === 1) {
+                document.getElementById('status-message').style.display = 'none';
+            }
+
             // Re-render to show winner box with domino above it
             this.renderSunLevel();
 
@@ -1245,11 +1253,10 @@ class VicaDominoGame {
         this.startSunLevelGame();
     }
 
-    // Show end game buttons below the players area
+    // Show end game buttons
     showEndGameButtons() {
         const playersArea = document.getElementById('players-area');
 
-        // Create button container below the playing area
         const btnContainer = document.createElement('div');
         btnContainer.className = 'end-game-buttons';
 
@@ -1265,7 +1272,24 @@ class VicaDominoGame {
 
         btnContainer.appendChild(playAgainBtn);
         btnContainer.appendChild(newGameBtn);
-        playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+
+        if (this.players.length === 1) {
+            // 1-player: place buttons to the right of the winner section
+            const playerHand = playersArea.querySelector('.player-hand');
+            if (playerHand) {
+                playerHand.style.display = 'flex';
+                playerHand.style.flexDirection = 'row';
+                playerHand.style.alignItems = 'center';
+                playerHand.style.justifyContent = 'center';
+                playerHand.style.gap = '30px';
+                playerHand.appendChild(btnContainer);
+            } else {
+                playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+            }
+        } else {
+            // Multi-player: place buttons below the players area
+            playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+        }
     }
     // Dim the playing area over 10 seconds, show buttons immediately
     startPlayAreaDim() {

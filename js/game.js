@@ -1265,18 +1265,43 @@ class VicaDominoGame {
         btnContainer.appendChild(newGameBtn);
         playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
     }
-    // Dim the playing area over 10 seconds, then show buttons
+    // Dim the playing area over 10 seconds, show buttons immediately
     startPlayAreaDim() {
         this.gamePhase = 'sunLevelWon';
+
+        // Build winner status with icons
+        this.updateWinnerStatus();
+
+        // Show buttons right away
+        this.showEndGameButtons();
+
+        // Start dimming the playing area
         const playersArea = document.getElementById('players-area');
         playersArea.style.transition = 'opacity 10s ease';
         playersArea.style.opacity = '0';
 
-        // Show buttons after dimming completes
+        // Hide players area after dim completes
         setTimeout(() => {
             playersArea.style.display = 'none';
-            this.showEndGameButtons();
         }, 10000);
+    }
+
+    // Show winner status with player icons and winner order
+    updateWinnerStatus() {
+        const status = document.getElementById('status-message');
+        let html = '';
+        this.sunLevelWinners.forEach((winnerId, idx) => {
+            const player = this.players.find(p => p.id === winnerId);
+            if (player) {
+                const icon = CHARACTER_ICONS[player.icon];
+                const iconSvg = icon ? icon.svg : '';
+                html += `<span style="display:inline-flex;align-items:center;gap:5px;margin:0 10px;">` +
+                    `<span style="width:24px;height:24px;display:inline-block;">${iconSvg}</span>` +
+                    `${player.name} is winner number ${idx + 1}!</span>`;
+            }
+        });
+        status.innerHTML = '🎉 ' + html;
+        status.className = 'status win';
     }
 
     // ==================== END SUN LEVEL GAME ====================

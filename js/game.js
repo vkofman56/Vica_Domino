@@ -844,8 +844,27 @@ class VicaDominoGame {
         }
 
         if (isDouble(card)) {
-            // WIN!
-            this.sunLevelWin(card, player, cardIndex);
+            // Animate double up 20px and others down 20px before processing win
+            const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
+            if (playerHand) {
+                const dominoWrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+                dominoWrappers.forEach((wrapper, idx) => {
+                    const dominoEl = wrapper.querySelector('.domino');
+                    if (dominoEl) {
+                        if (idx === cardIndex) {
+                            dominoEl.style.transition = 'transform 0.5s ease';
+                            dominoEl.style.transform = 'translateY(-20px)';
+                        } else {
+                            dominoEl.style.transition = 'transform 0.5s ease';
+                            dominoEl.style.transform = 'translateY(20px)';
+                        }
+                    }
+                });
+            }
+            // Delay win processing to let animation play
+            setTimeout(() => {
+                this.sunLevelWin(card, player, cardIndex);
+            }, 600);
         } else {
             // Wrong card
             this.sunLevelWrongCard(card, player, cardIndex);
@@ -867,14 +886,32 @@ class VicaDominoGame {
         // Remove card from hand
         player.hand.splice(cardIndex, 1);
 
+        // Hide turn indicator on win
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) {
+            turnIndicator.style.display = 'none';
+        }
+
         // Update status based on winner number and game mode
         if (!this.includeXeno) {
-            // No Xeno = single winner mode, game ends after first winner
-            this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
-            this.gamePhase = 'sunLevelWon';
-            this.renderSunLevel();
-            document.getElementById('game-board').innerHTML = '';
-            this.showEndGameButtons();
+            // No Xeno mode
+            this.updateStatus(`🎉 ${player.name} Won! Found the Double!`, 'win');
+
+            if (this.players.length === 1) {
+                // Single player: end game immediately
+                this.gamePhase = 'sunLevelWon';
+                this.renderSunLevel();
+                this.showEndGameButtons();
+            } else {
+                // 2 players without Xeno: keep game going for other player
+                this.renderSunLevel();
+
+                // Check if all players have won
+                if (this.sunLevelWinners.length >= this.players.length) {
+                    // All players found their doubles - start dimming
+                    this.startPlayAreaDim();
+                }
+            }
         } else {
             // With Xeno = multiple winners possible
             if (winnerNumber === 1) {
@@ -1178,9 +1215,17 @@ class VicaDominoGame {
         // Reset sun level state
         this.resetSunLevel();
 
-        // Remove end game buttons
+        // Remove end game buttons and reset dim state
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = '';
+        playersArea.style.opacity = '';
+        playersArea.style.display = '';
+
+        // Restore turn indicator
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) turnIndicator.style.display = '';
 
         // Reset player win states but keep their info
         this.players.forEach(player => {
@@ -1222,6 +1267,20 @@ class VicaDominoGame {
         btnContainer.appendChild(newGameBtn);
         playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
     }
+    // Dim the playing area over 10 seconds, then show buttons
+    startPlayAreaDim() {
+        this.gamePhase = 'sunLevelWon';
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = 'opacity 10s ease';
+        playersArea.style.opacity = '0';
+
+        // Show buttons after dimming completes
+        setTimeout(() => {
+            playersArea.style.display = 'none';
+            this.showEndGameButtons();
+        }, 10000);
+    }
+
     // ==================== END SUN LEVEL GAME ====================
 
     promptForDoubles() {
@@ -1996,9 +2055,15 @@ class VicaDominoGame {
         document.getElementById('circle-winners-content').style.display = 'none';
         document.getElementById('winner-heading').style.display = 'block';
 
-        // Restore board container and controls visibility, remove end game buttons
+        // Restore board container, controls, players area visibility, remove end game buttons
         document.querySelector('.board-container').style.display = '';
         document.getElementById('new-game-btn').style.display = '';
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = '';
+        playersArea.style.opacity = '';
+        playersArea.style.display = '';
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) turnIndicator.style.display = '';
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
 

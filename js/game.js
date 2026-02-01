@@ -1038,7 +1038,7 @@ class VicaDominoGame {
         svg += '</svg>';
         popup.innerHTML = svg;
 
-        // Position to the left of the dominoes area
+        // Position to the left of the hovered key button
         if (anchorEl) {
             const rect = anchorEl.getBoundingClientRect();
             popup.style.left = (rect.left - renderW - 10) + 'px';
@@ -1165,7 +1165,7 @@ class VicaDominoGame {
                         keyLabel.className = 'key clickable-key';
                         keyLabel.textContent = keys[cardIndex];
                         keyLabel.addEventListener('mouseenter', () => {
-                            this.showKeyboardPopup(keys[cardIndex], dominoesWithKeys);
+                            this.showKeyboardPopup(keys[cardIndex], keyLabel);
                         });
                         keyLabel.addEventListener('mouseleave', () => {
                             this.hideKeyboardPopup();

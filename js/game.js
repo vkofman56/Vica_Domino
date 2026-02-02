@@ -385,6 +385,7 @@ class VicaDominoGame {
         h3Elements.forEach(h3 => h3.style.display = 'none');
 
         // Hide original containers
+        document.querySelector('.setup-columns').style.display = 'none';
         document.querySelector('.game-level-select').style.display = 'none';
         document.querySelector('.player-select').style.display = 'none';
 
@@ -2070,6 +2071,7 @@ class VicaDominoGame {
         setupPanel.querySelectorAll('h3').forEach(h3 => h3.style.display = 'block');
 
         // Restore game level and player select
+        document.querySelector('.setup-columns').style.display = 'flex';
         document.querySelector('.game-level-select').style.display = 'flex';
         document.querySelector('.player-select').style.display = 'flex';
 
@@ -2105,6 +2107,7 @@ class VicaDominoGame {
         });
 
         // Restore original containers and hide selected row
+        document.querySelector('.setup-columns').style.display = 'flex';
         document.querySelector('.game-level-select').style.display = 'flex';
         document.querySelector('.player-select').style.display = 'flex';
         const selectedRow = document.getElementById('selected-options-row');

@@ -629,8 +629,8 @@ class VicaDominoGame {
     startSunLevelGame() {
         this.gamePhase = 'sunLevel';
         this.sunLevelTimer = null;
-        this.sunLevelTimeLeft = 30;
-        this.sunLevelDuration = 30;
+        this.sunLevelTimeLeft = 20;
+        this.sunLevelDuration = 20;
         this.sunLevelWinners = []; // Track winners in Find the Double
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)

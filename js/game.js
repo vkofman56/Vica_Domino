@@ -810,6 +810,16 @@ class VicaDominoGame {
         this.gamePhase = 'sunLevelEnded';
         this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
 
+        // Adaptive timer: on loss, increase for 1-player Xeno games
+        if (this.includeXeno && this.players.length === 1) {
+            const t = this.currentTimerDuration;
+            if (t > 15) {
+                this.currentTimerDuration = 20;
+            } else {
+                this.currentTimerDuration = t + 4;
+            }
+        }
+
         // Disable clicking on cards
         document.querySelectorAll('.domino').forEach(d => {
             d.style.pointerEvents = 'none';
@@ -905,9 +915,18 @@ class VicaDominoGame {
         // Hide status bar - winner boxes already show the info
         document.getElementById('status-message').style.display = 'none';
 
-        // Adaptive timer: on win, decrease by 5s (min 10s) for 1-player Xeno games
-        if (this.includeXeno && this.players.length === 1 && this.currentTimerDuration > 9) {
-            this.currentTimerDuration -= 5;
+        // Adaptive timer: on win, decrease for 1-player Xeno games
+        if (this.includeXeno && this.players.length === 1) {
+            const t = this.currentTimerDuration;
+            if (t >= 10) {
+                this.currentTimerDuration = t - 5;
+            } else if (t >= 7) {
+                // T=9, 8, 7 → 5
+                this.currentTimerDuration = 5;
+            } else {
+                // T=6, 5, 4 → 4
+                this.currentTimerDuration = 4;
+            }
         }
 
         if (!this.includeXeno) {

@@ -132,6 +132,7 @@ class VicaDominoGame {
         this.firstWinner = null; // The first player to finish
         this.playerIcons = {}; // Track selected icons for each player
         this.selectedLevel = localStorage.getItem('vicaSelectedLevel') || 'circle';
+        this.currentTimerDuration = 20; // Adaptive timer for Xeno games
 
         this.initEventListeners();
         this.initGameLevelSelector();
@@ -629,8 +630,8 @@ class VicaDominoGame {
     startSunLevelGame() {
         this.gamePhase = 'sunLevel';
         this.sunLevelTimer = null;
-        this.sunLevelTimeLeft = 20;
-        this.sunLevelDuration = 20;
+        this.sunLevelTimeLeft = this.currentTimerDuration;
+        this.sunLevelDuration = this.currentTimerDuration;
         this.sunLevelWinners = []; // Track winners in Find the Double
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
@@ -903,6 +904,11 @@ class VicaDominoGame {
         // Update status based on winner number and game mode
         // Hide status bar - winner boxes already show the info
         document.getElementById('status-message').style.display = 'none';
+
+        // Adaptive timer: on win, decrease by 5s (min 10s) for 1-player Xeno games
+        if (this.includeXeno && this.players.length === 1 && this.currentTimerDuration > 9) {
+            this.currentTimerDuration -= 5;
+        }
 
         if (!this.includeXeno) {
             // No Xeno mode
@@ -2083,6 +2089,7 @@ class VicaDominoGame {
     resetToSetup() {
         // Clean up Sun level if it was active
         this.resetSunLevel();
+        this.currentTimerDuration = 20; // Reset adaptive timer
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';

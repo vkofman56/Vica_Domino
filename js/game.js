@@ -174,6 +174,14 @@ class VicaDominoGame {
         // Back arrow button (player names/icon selection screen)
         document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
 
+        // Domino style preview buttons -> open library screen
+        document.querySelectorAll('.domino-preview').forEach(svg => {
+            svg.addEventListener('click', () => this.showDominoLibrary());
+        });
+
+        // Back from domino library screen
+        document.getElementById('back-from-library-btn').addEventListener('click', () => this.hideDominoLibrary());
+
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
     }
@@ -2178,6 +2186,16 @@ class VicaDominoGame {
         // Hide selected options row
         const selectedRow = document.getElementById('selected-options-row');
         if (selectedRow) selectedRow.style.display = 'none';
+    }
+
+    showDominoLibrary() {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('domino-library-screen').style.display = 'block';
+    }
+
+    hideDominoLibrary() {
+        document.getElementById('domino-library-screen').style.display = 'none';
+        document.getElementById('start-screen').style.display = 'block';
     }
 
     resetToSetup() {

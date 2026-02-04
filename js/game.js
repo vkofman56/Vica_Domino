@@ -134,6 +134,8 @@ class VicaDominoGame {
         this.selectedLevel = localStorage.getItem('vicaSelectedLevel') || 'circle';
         this.currentTimerDuration = 20; // Adaptive timer for Xeno games
         this.consecutiveWinsAtMin = 0; // Track consecutive wins at T=4 or T=3
+        this.firstWinTimestamp = null; // Track when first player won (for tie detection)
+        this.isTie = false; // Whether both players found double simultaneously
 
         this.initEventListeners();
         this.initGameLevelSelector();
@@ -635,6 +637,8 @@ class VicaDominoGame {
         this.sunLevelDuration = this.currentTimerDuration;
         console.log('[TIMER] Starting game with duration:', this.currentTimerDuration, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
         this.sunLevelWinners = []; // Track winners in Find the Double
+        this.firstWinTimestamp = null;
+        this.isTie = false;
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
         this.dealSunLevelCards();
@@ -918,6 +922,17 @@ class VicaDominoGame {
         player.isWinner = true;
         player.winningCard = card;
 
+        // Tie detection: if both players find doubles within 500ms, it's a tie
+        if (this.players.length === 2) {
+            const now = Date.now();
+            if (winnerNumber === 1) {
+                this.firstWinTimestamp = now;
+                this.isTie = false;
+            } else if (winnerNumber === 2 && this.firstWinTimestamp) {
+                this.isTie = (now - this.firstWinTimestamp) <= 500;
+            }
+        }
+
         // Remove card from hand
         player.hand.splice(cardIndex, 1);
 
@@ -1159,7 +1174,12 @@ class VicaDominoGame {
                 winnerBox.className = 'sun-level-winner-box';
 
                 const icon = CHARACTER_ICONS[player.icon];
-                const winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
+                let winnerText;
+                if (this.isTie && this.sunLevelWinners.length >= 2) {
+                    winnerText = 'Tie!';
+                } else {
+                    winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
+                }
 
                 winnerBox.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>

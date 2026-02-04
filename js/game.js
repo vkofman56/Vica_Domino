@@ -903,6 +903,9 @@ class VicaDominoGame {
     }
 
     sunLevelWin(card, player, cardIndex) {
+        // If timer already expired, ignore delayed wins
+        if (this.gamePhase !== 'sunLevel') return;
+
         // Check if this player already won
         if (this.sunLevelWinners.includes(player.id)) {
             return;
@@ -1319,6 +1322,10 @@ class VicaDominoGame {
 
     // Show end game buttons
     showEndGameButtons() {
+        // Remove any existing end-game buttons to prevent duplicates
+        const existingBtns = document.querySelector('.end-game-buttons');
+        if (existingBtns) existingBtns.remove();
+
         const playersArea = document.getElementById('players-area');
 
         const btnContainer = document.createElement('div');

@@ -811,8 +811,8 @@ class VicaDominoGame {
         this.gamePhase = 'sunLevelEnded';
         this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
 
-        // Adaptive timer: on loss, increase for 1-player Xeno games
-        if (this.includeXeno && this.players.length === 1) {
+        // Adaptive timer: on loss (time up = at least one player didn't win)
+        if (this.includeXeno) {
             this.consecutiveWinsAtMin = 0; // Reset consecutive wins streak
             const t = this.currentTimerDuration;
             if (t < 5) {
@@ -919,35 +919,6 @@ class VicaDominoGame {
         // Hide status bar - winner boxes already show the info
         document.getElementById('status-message').style.display = 'none';
 
-        // Adaptive timer: on win, decrease for 1-player Xeno games
-        if (this.includeXeno && this.players.length === 1) {
-            const t = this.currentTimerDuration;
-            if (t === 4 || t === 3) {
-                this.consecutiveWinsAtMin++;
-                // 2 consecutive wins at T=4 → T=3
-                if (t === 4 && this.consecutiveWinsAtMin >= 2) {
-                    this.currentTimerDuration = 3;
-                    this.consecutiveWinsAtMin = 0;
-                }
-                // 3 consecutive wins at T=3 → T=2
-                if (t === 3 && this.consecutiveWinsAtMin >= 3) {
-                    this.currentTimerDuration = 2;
-                    this.consecutiveWinsAtMin = 0;
-                }
-            } else {
-                this.consecutiveWinsAtMin = 0;
-                if (t >= 10) {
-                    this.currentTimerDuration = t - 5;
-                } else if (t >= 7) {
-                    // T=9, 8, 7 → 5
-                    this.currentTimerDuration = 5;
-                } else {
-                    // T=6, 5 → 4
-                    this.currentTimerDuration = 4;
-                }
-            }
-        }
-
         if (!this.includeXeno) {
             // No Xeno mode
             if (this.players.length === 1) {
@@ -976,8 +947,35 @@ class VicaDominoGame {
             // Check if all players have won
             if (this.sunLevelWinners.length >= this.players.length) {
                 this.stopSunLevelTimer();
+                this.adaptiveTimerWin(); // All players won — decrease timer
                 this.gamePhase = 'sunLevelWon';
                 this.showEndGameButtons();
+            }
+        }
+    }
+
+    // Adaptive timer: decrease on win (all players found doubles)
+    adaptiveTimerWin() {
+        if (!this.includeXeno) return;
+        const t = this.currentTimerDuration;
+        if (t === 4 || t === 3) {
+            this.consecutiveWinsAtMin++;
+            if (t === 4 && this.consecutiveWinsAtMin >= 2) {
+                this.currentTimerDuration = 3;
+                this.consecutiveWinsAtMin = 0;
+            }
+            if (t === 3 && this.consecutiveWinsAtMin >= 3) {
+                this.currentTimerDuration = 2;
+                this.consecutiveWinsAtMin = 0;
+            }
+        } else {
+            this.consecutiveWinsAtMin = 0;
+            if (t >= 10) {
+                this.currentTimerDuration = t - 5;
+            } else if (t >= 7) {
+                this.currentTimerDuration = 5;
+            } else {
+                this.currentTimerDuration = 4;
             }
         }
     }

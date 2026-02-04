@@ -633,6 +633,7 @@ class VicaDominoGame {
         this.sunLevelTimer = null;
         this.sunLevelTimeLeft = this.currentTimerDuration;
         this.sunLevelDuration = this.currentTimerDuration;
+        console.log('[TIMER] Starting game with duration:', this.currentTimerDuration, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
         this.sunLevelWinners = []; // Track winners in Find the Double
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
@@ -671,6 +672,10 @@ class VicaDominoGame {
             // Add Xeno icon
             const xenoIconEl = document.getElementById('xeno-timer-icon');
             xenoIconEl.innerHTML = XENO_ICON_SVG;
+
+            // Restore timer label
+            const xenoName = document.querySelector('.xeno-timer-name');
+            if (xenoName) xenoName.textContent = "Xeno's Timer";
 
             // Set up timer display
             this.setupTimerTicks();
@@ -813,6 +818,7 @@ class VicaDominoGame {
 
         // Adaptive timer: on loss (time up = at least one player didn't win)
         if (this.includeXeno) {
+            const oldT = this.currentTimerDuration;
             this.consecutiveWinsAtMin = 0; // Reset consecutive wins streak
             const t = this.currentTimerDuration;
             if (t < 5) {
@@ -822,6 +828,8 @@ class VicaDominoGame {
             } else {
                 this.currentTimerDuration = t + 4;
             }
+            console.log('[TIMER] Loss! Old T:', oldT, '-> New T:', this.currentTimerDuration);
+            this.showNextTimerIndicator();
         }
 
         // Disable clicking on cards
@@ -903,6 +911,7 @@ class VicaDominoGame {
         // Add player to winners
         const winnerNumber = this.sunLevelWinners.length + 1;
         this.sunLevelWinners.push(player.id);
+        console.log('[TIMER] sunLevelWin: player', player.name, 'won. Winners:', this.sunLevelWinners.length, '/', this.players.length, 'includeXeno:', this.includeXeno);
         player.isWinner = true;
         player.winningCard = card;
 
@@ -948,6 +957,7 @@ class VicaDominoGame {
             if (this.sunLevelWinners.length >= this.players.length) {
                 this.stopSunLevelTimer();
                 this.adaptiveTimerWin(); // All players won — decrease timer
+                this.showNextTimerIndicator();
                 this.gamePhase = 'sunLevelWon';
                 this.showEndGameButtons();
             }
@@ -958,6 +968,7 @@ class VicaDominoGame {
     adaptiveTimerWin() {
         if (!this.includeXeno) return;
         const t = this.currentTimerDuration;
+        console.log('[TIMER] adaptiveTimerWin called. Current T:', t, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
         if (t === 4 || t === 3) {
             this.consecutiveWinsAtMin++;
             if (t === 4 && this.consecutiveWinsAtMin >= 2) {
@@ -977,6 +988,20 @@ class VicaDominoGame {
             } else {
                 this.currentTimerDuration = 4;
             }
+        }
+        console.log('[TIMER] adaptiveTimerWin done. New T:', this.currentTimerDuration, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
+    }
+
+    // Show next timer duration in the Xeno timer display area
+    showNextTimerIndicator() {
+        if (!this.includeXeno) return;
+        const timerDisplay = document.getElementById('timer-display');
+        if (timerDisplay) {
+            timerDisplay.textContent = this.currentTimerDuration;
+        }
+        const xenoName = document.querySelector('.xeno-timer-name');
+        if (xenoName) {
+            xenoName.textContent = 'Next round: ' + this.currentTimerDuration + 's';
         }
     }
 
@@ -1257,6 +1282,7 @@ class VicaDominoGame {
 
     // Play again with same settings (same players, same level)
     playAgain() {
+        console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
         // Reset sun level state
         this.resetSunLevel();
 

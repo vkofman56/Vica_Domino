@@ -1236,11 +1236,16 @@ class VicaDominoGame {
 
                     const dominoEl = createDominoElement(card, true); // vertical dominoes
 
-                    // Add click handler for Sun level
+                    // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {
                         dominoEl.addEventListener('click', () => {
                             this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                         });
+                        // Touch support: touchstart fires for each finger in multi-touch
+                        dominoEl.addEventListener('touchstart', (e) => {
+                            e.preventDefault(); // Prevent subsequent click from double-firing
+                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                        }, { passive: false });
                     }
 
                     dominoWrapper.appendChild(dominoEl);

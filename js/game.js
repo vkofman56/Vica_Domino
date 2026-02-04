@@ -133,6 +133,7 @@ class VicaDominoGame {
         this.playerIcons = {}; // Track selected icons for each player
         this.selectedLevel = localStorage.getItem('vicaSelectedLevel') || 'circle';
         this.currentTimerDuration = 20; // Adaptive timer for Xeno games
+        this.consecutiveWinsAtMin = 0; // Track consecutive wins at T=4 or T=3
 
         this.initEventListeners();
         this.initGameLevelSelector();
@@ -812,8 +813,11 @@ class VicaDominoGame {
 
         // Adaptive timer: on loss, increase for 1-player Xeno games
         if (this.includeXeno && this.players.length === 1) {
+            this.consecutiveWinsAtMin = 0; // Reset consecutive wins streak
             const t = this.currentTimerDuration;
-            if (t > 15) {
+            if (t < 5) {
+                this.currentTimerDuration = t + 2;
+            } else if (t > 15) {
                 this.currentTimerDuration = 20;
             } else {
                 this.currentTimerDuration = t + 4;
@@ -918,14 +922,29 @@ class VicaDominoGame {
         // Adaptive timer: on win, decrease for 1-player Xeno games
         if (this.includeXeno && this.players.length === 1) {
             const t = this.currentTimerDuration;
-            if (t >= 10) {
-                this.currentTimerDuration = t - 5;
-            } else if (t >= 7) {
-                // T=9, 8, 7 → 5
-                this.currentTimerDuration = 5;
+            if (t === 4 || t === 3) {
+                this.consecutiveWinsAtMin++;
+                // 2 consecutive wins at T=4 → T=3
+                if (t === 4 && this.consecutiveWinsAtMin >= 2) {
+                    this.currentTimerDuration = 3;
+                    this.consecutiveWinsAtMin = 0;
+                }
+                // 3 consecutive wins at T=3 → T=2
+                if (t === 3 && this.consecutiveWinsAtMin >= 3) {
+                    this.currentTimerDuration = 2;
+                    this.consecutiveWinsAtMin = 0;
+                }
             } else {
-                // T=6, 5, 4 → 4
-                this.currentTimerDuration = 4;
+                this.consecutiveWinsAtMin = 0;
+                if (t >= 10) {
+                    this.currentTimerDuration = t - 5;
+                } else if (t >= 7) {
+                    // T=9, 8, 7 → 5
+                    this.currentTimerDuration = 5;
+                } else {
+                    // T=6, 5 → 4
+                    this.currentTimerDuration = 4;
+                }
             }
         }
 
@@ -2109,6 +2128,7 @@ class VicaDominoGame {
         // Clean up Sun level if it was active
         this.resetSunLevel();
         this.currentTimerDuration = 20; // Reset adaptive timer
+        this.consecutiveWinsAtMin = 0;
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';

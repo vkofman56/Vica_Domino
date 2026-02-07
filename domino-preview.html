@@ -87,16 +87,23 @@
             left: 80px;
             width: 80px;
             height: 80px;
-            border: 1px solid #FF69B4;
+            border: 1.5px solid #FF69B4;
             background: transparent;
-            resize: both;
-            overflow: hidden;
             z-index: 99;
             cursor: move;
-            min-width: 10px;
-            min-height: 10px;
             box-sizing: border-box;
         }
+        .ruler-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #FF69B4;
+            border-radius: 50%;
+        }
+        .ruler-tl { top: -5px; left: -5px; cursor: nw-resize; }
+        .ruler-tr { top: -5px; right: -5px; cursor: ne-resize; }
+        .ruler-bl { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .ruler-br { bottom: -5px; right: -5px; cursor: se-resize; }
     </style>
 </head>
 <body>
@@ -105,7 +112,12 @@
         <button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>
         <button class="zoom-btn" onclick="toggleRuler()" title="Toggle ruler (Esc to hide)">▭</button>
     </div>
-    <div id="ruler-rect" style="display:none;"></div>
+    <div id="ruler-rect" style="display:none;">
+        <div class="ruler-handle ruler-tl"></div>
+        <div class="ruler-handle ruler-tr"></div>
+        <div class="ruler-handle ruler-bl"></div>
+        <div class="ruler-handle ruler-br"></div>
+    </div>
     <h1>Domino Library Preview — Type 1, Set 1</h1>
 
     <!-- ============ A = VALUE 1 ============ -->
@@ -602,26 +614,55 @@
     </div>
 
     <script>
-        // Ruler rectangle: toggle, drag, Escape to hide
+        // Ruler rectangle: toggle, drag from center, resize from corners
         function toggleRuler() {
             const r = document.getElementById('ruler-rect');
             r.style.display = r.style.display === 'none' ? 'block' : 'none';
         }
         (function() {
             const r = document.getElementById('ruler-rect');
-            let dragging = false, ox, oy;
+            let mode = null, sx, sy, sL, sT, sW, sH;
             r.addEventListener('mousedown', function(e) {
-                const b = r.getBoundingClientRect();
-                if (e.clientX > b.right - 18 && e.clientY > b.bottom - 18) return;
-                dragging = true; ox = e.clientX - b.left; oy = e.clientY - b.top;
+                const cls = e.target.className;
+                if (cls.includes('ruler-tl')) mode = 'tl';
+                else if (cls.includes('ruler-tr')) mode = 'tr';
+                else if (cls.includes('ruler-bl')) mode = 'bl';
+                else if (cls.includes('ruler-br')) mode = 'br';
+                else mode = 'drag';
+                sx = e.clientX; sy = e.clientY;
+                sL = r.offsetLeft; sT = r.offsetTop;
+                sW = r.offsetWidth; sH = r.offsetHeight;
                 e.preventDefault();
             });
             document.addEventListener('mousemove', function(e) {
-                if (!dragging) return;
-                r.style.left = (e.clientX - ox) + 'px';
-                r.style.top = (e.clientY - oy) + 'px';
+                if (!mode) return;
+                const dx = e.clientX - sx, dy = e.clientY - sy;
+                if (mode === 'drag') {
+                    r.style.left = (sL + dx) + 'px';
+                    r.style.top = (sT + dy) + 'px';
+                } else if (mode === 'br') {
+                    r.style.width = Math.max(20, sW + dx) + 'px';
+                    r.style.height = Math.max(20, sH + dy) + 'px';
+                } else if (mode === 'bl') {
+                    const nw = Math.max(20, sW - dx);
+                    r.style.width = nw + 'px';
+                    r.style.left = (sL + sW - nw) + 'px';
+                    r.style.height = Math.max(20, sH + dy) + 'px';
+                } else if (mode === 'tr') {
+                    r.style.width = Math.max(20, sW + dx) + 'px';
+                    const nh = Math.max(20, sH - dy);
+                    r.style.height = nh + 'px';
+                    r.style.top = (sT + sH - nh) + 'px';
+                } else if (mode === 'tl') {
+                    const nw = Math.max(20, sW - dx);
+                    r.style.width = nw + 'px';
+                    r.style.left = (sL + sW - nw) + 'px';
+                    const nh = Math.max(20, sH - dy);
+                    r.style.height = nh + 'px';
+                    r.style.top = (sT + sH - nh) + 'px';
+                }
             });
-            document.addEventListener('mouseup', function() { dragging = false; });
+            document.addEventListener('mouseup', function() { mode = null; });
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') r.style.display = 'none';
             });

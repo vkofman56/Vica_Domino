@@ -199,6 +199,10 @@
                 <div class="ruler-handle ruler-tr"></div>
                 <div class="ruler-handle ruler-bl"></div>
                 <div class="ruler-handle ruler-br"></div>
+                <div class="ruler-handle ruler-t"></div>
+                <div class="ruler-handle ruler-r"></div>
+                <div class="ruler-handle ruler-b"></div>
+                <div class="ruler-handle ruler-l"></div>
             </div>
             <div class="domino-library-content">
                 <h1 class="library-title">Domino Library — Type 1, Set 1</h1>
@@ -382,17 +386,22 @@
         }
         (function() {
             const r = document.getElementById('lib-ruler-rect');
-            let mode = null, sx, sy, sL, sT, sW, sH;
+            let mode = null, sx, sy, sL, sT, sW, sH, sRatio;
             r.addEventListener('mousedown', function(e) {
                 const cls = e.target.className;
                 if (cls.includes('ruler-tl')) mode = 'tl';
                 else if (cls.includes('ruler-tr')) mode = 'tr';
                 else if (cls.includes('ruler-bl')) mode = 'bl';
                 else if (cls.includes('ruler-br')) mode = 'br';
+                else if (cls.includes('ruler-t')) mode = 't';
+                else if (cls.includes('ruler-r')) mode = 'r';
+                else if (cls.includes('ruler-b')) mode = 'b';
+                else if (cls.includes('ruler-l')) mode = 'l';
                 else mode = 'drag';
                 sx = e.clientX; sy = e.clientY;
                 sL = r.offsetLeft; sT = r.offsetTop;
                 sW = r.offsetWidth; sH = r.offsetHeight;
+                sRatio = sW / sH;
                 e.preventDefault();
             });
             document.addEventListener('mousemove', function(e) {
@@ -402,25 +411,39 @@
                     r.style.left = (sL + dx) + 'px';
                     r.style.top = (sT + dy) + 'px';
                 } else if (mode === 'br') {
-                    r.style.width = Math.max(20, sW + dx) + 'px';
-                    r.style.height = Math.max(20, sH + dy) + 'px';
+                    const nw = Math.max(20, sW + dx);
+                    r.style.width = nw + 'px';
+                    r.style.height = (nw / sRatio) + 'px';
                 } else if (mode === 'bl') {
                     const nw = Math.max(20, sW - dx);
                     r.style.width = nw + 'px';
                     r.style.left = (sL + sW - nw) + 'px';
-                    r.style.height = Math.max(20, sH + dy) + 'px';
+                    r.style.height = (nw / sRatio) + 'px';
                 } else if (mode === 'tr') {
-                    r.style.width = Math.max(20, sW + dx) + 'px';
-                    const nh = Math.max(20, sH - dy);
+                    const nw = Math.max(20, sW + dx);
+                    const nh = nw / sRatio;
+                    r.style.width = nw + 'px';
                     r.style.height = nh + 'px';
                     r.style.top = (sT + sH - nh) + 'px';
                 } else if (mode === 'tl') {
                     const nw = Math.max(20, sW - dx);
+                    const nh = nw / sRatio;
                     r.style.width = nw + 'px';
                     r.style.left = (sL + sW - nw) + 'px';
+                    r.style.height = nh + 'px';
+                    r.style.top = (sT + sH - nh) + 'px';
+                } else if (mode === 't') {
                     const nh = Math.max(20, sH - dy);
                     r.style.height = nh + 'px';
                     r.style.top = (sT + sH - nh) + 'px';
+                } else if (mode === 'b') {
+                    r.style.height = Math.max(20, sH + dy) + 'px';
+                } else if (mode === 'l') {
+                    const nw = Math.max(20, sW - dx);
+                    r.style.width = nw + 'px';
+                    r.style.left = (sL + sW - nw) + 'px';
+                } else if (mode === 'r') {
+                    r.style.width = Math.max(20, sW + dx) + 'px';
                 }
             });
             document.addEventListener('mouseup', function() { mode = null; });

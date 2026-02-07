@@ -192,7 +192,9 @@
             <div class="library-zoom-fixed">
                 <button class="zoom-btn" onclick="libraryZoomOut()" title="Zoom out">−</button>
                 <button class="zoom-btn" onclick="libraryZoomIn()" title="Zoom in">+</button>
+                <button class="zoom-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
             </div>
+            <div id="lib-ruler-rect" style="display:none;"></div>
             <div class="domino-library-content">
                 <h1 class="library-title">Domino Library — Type 1, Set 1</h1>
 
@@ -368,6 +370,31 @@
     </div>
 
     <script>
+        // Ruler rectangle: toggle, drag, Escape to hide
+        function toggleLibRuler() {
+            const r = document.getElementById('lib-ruler-rect');
+            r.style.display = r.style.display === 'none' ? 'block' : 'none';
+        }
+        (function() {
+            const r = document.getElementById('lib-ruler-rect');
+            let dragging = false, ox, oy;
+            r.addEventListener('mousedown', function(e) {
+                const b = r.getBoundingClientRect();
+                if (e.clientX > b.right - 18 && e.clientY > b.bottom - 18) return;
+                dragging = true; ox = e.clientX - b.left; oy = e.clientY - b.top;
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                r.style.left = (e.clientX - ox) + 'px';
+                r.style.top = (e.clientY - oy) + 'px';
+            });
+            document.addEventListener('mouseup', function() { dragging = false; });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') r.style.display = 'none';
+            });
+        })();
+
         let libZoom = 1;
         function libraryZoomIn() {
             libZoom = Math.min(3, libZoom + 0.25);

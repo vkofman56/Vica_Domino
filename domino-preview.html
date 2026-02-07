@@ -81,13 +81,31 @@
             width: 70px;
             height: 70px;
         }
+        #ruler-rect {
+            position: fixed;
+            top: 120px;
+            left: 80px;
+            width: 80px;
+            height: 80px;
+            border: 1px solid #FF69B4;
+            background: transparent;
+            resize: both;
+            overflow: hidden;
+            z-index: 99;
+            cursor: move;
+            min-width: 10px;
+            min-height: 10px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
     <div class="zoom-fixed">
         <button class="zoom-btn" onclick="zoomOut()" title="Zoom out">−</button>
         <button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>
+        <button class="zoom-btn" onclick="toggleRuler()" title="Toggle ruler (Esc to hide)">▭</button>
     </div>
+    <div id="ruler-rect" style="display:none;"></div>
     <h1>Domino Library Preview — Type 1, Set 1</h1>
 
     <!-- ============ A = VALUE 1 ============ -->
@@ -584,6 +602,31 @@
     </div>
 
     <script>
+        // Ruler rectangle: toggle, drag, Escape to hide
+        function toggleRuler() {
+            const r = document.getElementById('ruler-rect');
+            r.style.display = r.style.display === 'none' ? 'block' : 'none';
+        }
+        (function() {
+            const r = document.getElementById('ruler-rect');
+            let dragging = false, ox, oy;
+            r.addEventListener('mousedown', function(e) {
+                const b = r.getBoundingClientRect();
+                if (e.clientX > b.right - 18 && e.clientY > b.bottom - 18) return;
+                dragging = true; ox = e.clientX - b.left; oy = e.clientY - b.top;
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                r.style.left = (e.clientX - ox) + 'px';
+                r.style.top = (e.clientY - oy) + 'px';
+            });
+            document.addEventListener('mouseup', function() { dragging = false; });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') r.style.display = 'none';
+            });
+        })();
+
         let zoomLevel = 1;
         function zoomIn() {
             zoomLevel = Math.min(3, zoomLevel + 0.25);

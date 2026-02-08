@@ -108,6 +108,20 @@
         .ruler-r { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
         .ruler-b { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
         .ruler-l { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
+        .domino-half.show-border {
+            position: relative;
+        }
+        .domino-half.show-border::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-style: solid;
+            border-color: rgba(255, 105, 180, 0.35);
+            border-width: var(--by, 3px) var(--bx, 3px);
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +129,7 @@
         <button class="zoom-btn" onclick="zoomOut()" title="Zoom out">−</button>
         <button class="zoom-btn" onclick="zoomIn()" title="Zoom in">+</button>
         <button class="zoom-btn" onclick="toggleRuler()" title="Toggle ruler (Esc to hide)">▭</button>
+        <button class="zoom-btn" onclick="toggleBorder()" title="Toggle card borders">▣</button>
     </div>
     <div id="ruler-rect" style="display:none;">
         <div class="ruler-handle ruler-tl"></div>
@@ -699,6 +714,61 @@
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') r.style.display = 'none';
             });
+        })();
+
+        // Border overlay: toggle, adjustable borders on each card
+        let borderOn = false, bx = 3, by = 3;
+        function toggleBorder() {
+            borderOn = !borderOn;
+            document.querySelectorAll('.domino-half').forEach(c => c.classList.toggle('show-border', borderOn));
+            updateBorderVars();
+        }
+        function updateBorderVars() {
+            document.documentElement.style.setProperty('--bx', bx + 'px');
+            document.documentElement.style.setProperty('--by', by + 'px');
+        }
+        (function() {
+            updateBorderVars();
+            let bMode = null, bsx, bsy, sbx, sby, bRatio, cW, cH;
+            const TH = 8;
+            document.addEventListener('mousedown', function(e) {
+                if (!borderOn) return;
+                const card = e.target.closest('.domino-half');
+                if (!card || !card.classList.contains('show-border')) return;
+                const r = card.getBoundingClientRect();
+                const mx = e.clientX - r.left, my = e.clientY - r.top;
+                cW = r.width; cH = r.height;
+                const nT = Math.abs(my - by) < TH, nB = Math.abs(my - (cH - by)) < TH;
+                const nL = Math.abs(mx - bx) < TH, nR = Math.abs(mx - (cW - bx)) < TH;
+                if (nT && nL) bMode = 'tl';
+                else if (nT && nR) bMode = 'tr';
+                else if (nB && nL) bMode = 'bl';
+                else if (nB && nR) bMode = 'br';
+                else if (nT) bMode = 'top';
+                else if (nB) bMode = 'bot';
+                else if (nL) bMode = 'left';
+                else if (nR) bMode = 'right';
+                else return;
+                bsx = e.clientX; bsy = e.clientY; sbx = bx; sby = by;
+                bRatio = (cW - 2 * sbx) / (cH - 2 * sby);
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!bMode) return;
+                const dx = e.clientX - bsx, dy = e.clientY - bsy;
+                const mxB = cW / 2 - 1, myB = cH / 2 - 1;
+                if (bMode === 'top') by = Math.max(0, Math.min(myB, sby + dy));
+                else if (bMode === 'bot') by = Math.max(0, Math.min(myB, sby - dy));
+                else if (bMode === 'left') bx = Math.max(0, Math.min(mxB, sbx + dx));
+                else if (bMode === 'right') bx = Math.max(0, Math.min(mxB, sbx - dx));
+                else {
+                    if (bMode === 'tl' || bMode === 'tr') by = Math.max(0, Math.min(myB, sby + dy));
+                    else by = Math.max(0, Math.min(myB, sby - dy));
+                    bx = Math.max(0, Math.min(mxB, (cW - bRatio * (cH - 2 * by)) / 2));
+                }
+                updateBorderVars();
+            });
+            document.addEventListener('mouseup', function() { bMode = null; });
         })();
 
         let zoomLevel = 1;

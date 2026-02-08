@@ -193,6 +193,7 @@
                 <button class="zoom-btn" onclick="libraryZoomOut()" title="Zoom out">−</button>
                 <button class="zoom-btn" onclick="libraryZoomIn()" title="Zoom in">+</button>
                 <button class="zoom-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
+                <button class="zoom-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
             </div>
             <div id="lib-ruler-rect" style="display:none;">
                 <div class="ruler-handle ruler-tl"></div>
@@ -450,6 +451,61 @@
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') r.style.display = 'none';
             });
+        })();
+
+        // Border overlay: toggle, adjustable borders on each card
+        let libBorderOn = false, lbx = 3, lby = 3;
+        function toggleLibBorder() {
+            libBorderOn = !libBorderOn;
+            document.querySelectorAll('.domino-half-preview').forEach(c => c.classList.toggle('show-border', libBorderOn));
+            updateLibBorderVars();
+        }
+        function updateLibBorderVars() {
+            document.documentElement.style.setProperty('--bx', lbx + 'px');
+            document.documentElement.style.setProperty('--by', lby + 'px');
+        }
+        (function() {
+            updateLibBorderVars();
+            let bMode = null, bsx, bsy, sbx, sby, bRatio, cW, cH;
+            const TH = 8;
+            document.addEventListener('mousedown', function(e) {
+                if (!libBorderOn) return;
+                const card = e.target.closest('.domino-half-preview');
+                if (!card || !card.classList.contains('show-border')) return;
+                const r = card.getBoundingClientRect();
+                const mx = e.clientX - r.left, my = e.clientY - r.top;
+                cW = r.width; cH = r.height;
+                const nT = Math.abs(my - lby) < TH, nB = Math.abs(my - (cH - lby)) < TH;
+                const nL = Math.abs(mx - lbx) < TH, nR = Math.abs(mx - (cW - lbx)) < TH;
+                if (nT && nL) bMode = 'tl';
+                else if (nT && nR) bMode = 'tr';
+                else if (nB && nL) bMode = 'bl';
+                else if (nB && nR) bMode = 'br';
+                else if (nT) bMode = 'top';
+                else if (nB) bMode = 'bot';
+                else if (nL) bMode = 'left';
+                else if (nR) bMode = 'right';
+                else return;
+                bsx = e.clientX; bsy = e.clientY; sbx = lbx; sby = lby;
+                bRatio = (cW - 2 * sbx) / (cH - 2 * sby);
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!bMode) return;
+                const dx = e.clientX - bsx, dy = e.clientY - bsy;
+                const mxB = cW / 2 - 1, myB = cH / 2 - 1;
+                if (bMode === 'top') lby = Math.max(0, Math.min(myB, sby + dy));
+                else if (bMode === 'bot') lby = Math.max(0, Math.min(myB, sby - dy));
+                else if (bMode === 'left') lbx = Math.max(0, Math.min(mxB, sbx + dx));
+                else if (bMode === 'right') lbx = Math.max(0, Math.min(mxB, sbx - dx));
+                else {
+                    if (bMode === 'tl' || bMode === 'tr') lby = Math.max(0, Math.min(myB, sby + dy));
+                    else lby = Math.max(0, Math.min(myB, sby - dy));
+                    lbx = Math.max(0, Math.min(mxB, (cW - bRatio * (cH - 2 * lby)) / 2));
+                }
+                updateLibBorderVars();
+            });
+            document.addEventListener('mouseup', function() { bMode = null; });
         })();
 
         let libZoom = 1;

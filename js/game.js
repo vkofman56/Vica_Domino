@@ -174,10 +174,20 @@ class VicaDominoGame {
         // Back arrow button (player names/icon selection screen)
         document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
 
-        // Domino style preview buttons -> open library screen
-        document.querySelectorAll('.domino-preview').forEach(svg => {
-            svg.addEventListener('click', () => this.showDominoLibrary());
-        });
+        // "Create and Edit" button -> open create-edit screen
+        document.getElementById('create-edit-btn').addEventListener('click', () => this.showCreateEdit());
+
+        // Back from create-edit screen
+        document.getElementById('back-from-create-edit-btn').addEventListener('click', () => this.hideCreateEdit());
+
+        // "Library" button -> open card library screen
+        document.getElementById('card-library-btn').addEventListener('click', () => this.showCardLibrary());
+
+        // Back from card library screen
+        document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
+
+        // "Make New Cards" button -> open domino library screen
+        document.getElementById('make-new-cards-btn').addEventListener('click', () => this.showDominoLibrary());
 
         // Back from domino library screen
         document.getElementById('back-from-library-btn').addEventListener('click', () => this.hideDominoLibrary());
@@ -2188,14 +2198,34 @@ class VicaDominoGame {
         if (selectedRow) selectedRow.style.display = 'none';
     }
 
-    showDominoLibrary() {
+    showCreateEdit() {
         document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('create-edit-screen').style.display = 'block';
+    }
+
+    hideCreateEdit() {
+        document.getElementById('create-edit-screen').style.display = 'none';
+        document.getElementById('start-screen').style.display = 'block';
+    }
+
+    showCardLibrary() {
+        document.getElementById('create-edit-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
+    }
+
+    hideCardLibrary() {
+        document.getElementById('card-library-screen').style.display = 'none';
+        document.getElementById('create-edit-screen').style.display = 'block';
+    }
+
+    showDominoLibrary() {
+        document.getElementById('create-edit-screen').style.display = 'none';
         document.getElementById('domino-library-screen').style.display = 'block';
     }
 
     hideDominoLibrary() {
         document.getElementById('domino-library-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('create-edit-screen').style.display = 'block';
     }
 
     resetToSetup() {

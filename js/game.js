@@ -1311,6 +1311,10 @@ class VicaDominoGame {
 
     // Reset game for Sun level
     resetSunLevel() {
+        if (this.playAreaDimTimeout) {
+            clearTimeout(this.playAreaDimTimeout);
+            this.playAreaDimTimeout = null;
+        }
         this.stopSunLevelTimer();
         document.getElementById('xeno-timer-box').style.display = 'none';
         document.getElementById('celebration-area').style.display = 'none';
@@ -1421,7 +1425,7 @@ class VicaDominoGame {
         playersArea.style.opacity = '0';
 
         // Hide players area after dim completes
-        setTimeout(() => {
+        this.playAreaDimTimeout = setTimeout(() => {
             playersArea.style.display = 'none';
         }, 10000);
     }

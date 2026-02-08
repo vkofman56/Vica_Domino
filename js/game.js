@@ -186,6 +186,12 @@ class VicaDominoGame {
         // Back from card library screen
         document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
 
+        // Open set from library
+        document.getElementById('open-set-1-btn').addEventListener('click', () => this.showLibrarySet());
+
+        // Back from library set view
+        document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());
+
         // "Make New Cards" button -> open domino library screen
         document.getElementById('make-new-cards-btn').addEventListener('click', () => this.showDominoLibrary());
 
@@ -2220,6 +2226,17 @@ class VicaDominoGame {
     hideCardLibrary() {
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('create-edit-screen').style.display = 'block';
+    }
+
+    showLibrarySet() {
+        openLibrarySet();
+        document.getElementById('card-library-screen').style.display = 'none';
+        document.getElementById('library-set-screen').style.display = 'block';
+    }
+
+    hideLibrarySet() {
+        document.getElementById('library-set-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
     }
 
     showDominoLibrary() {

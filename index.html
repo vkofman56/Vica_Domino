@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-17">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-18">
 </head>
 <body>
     <div class="game-container">
@@ -601,6 +601,204 @@
             const emptyRow = document.createElement('div');
             emptyRow.className = 'library-row';
             target.appendChild(emptyRow);
+        }
+        // === Variation system ===
+        let activeVariationBox = null;
+        let activeVariationCard = null;
+
+        // Click handler on Card Maker content area
+        document.querySelector('#domino-library-screen .domino-library-content').addEventListener('click', function(e) {
+            // Ignore clicks inside the variation box itself
+            if (e.target.closest('.variation-box')) return;
+            // Ignore clicks on delete buttons
+            if (e.target.closest('.variation-delete-btn')) return;
+
+            const card = e.target.closest('.library-card');
+            if (!card) {
+                hideVariations();
+                return;
+            }
+            // Don't open variations for already-added variation cards
+            if (card.classList.contains('variation')) return;
+
+            // Toggle: clicking same card closes the box
+            if (activeVariationCard === card) {
+                hideVariations();
+                return;
+            }
+            showVariations(card);
+        });
+
+        function showVariations(card) {
+            hideVariations();
+            const row = card.closest('.library-row');
+            if (!row) return;
+
+            const label = card.querySelector('.library-label') ? card.querySelector('.library-label').textContent : '';
+            const svg = card.querySelector('svg');
+            if (!svg) return;
+
+            const box = document.createElement('div');
+            box.className = 'variation-box';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'variation-header';
+            const headerSpan = document.createElement('span');
+            headerSpan.textContent = 'Variations for ' + label;
+            header.appendChild(headerSpan);
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'variation-close-btn';
+            closeBtn.textContent = '\u2715';
+            closeBtn.onclick = function(e) { e.stopPropagation(); hideVariations(); };
+            header.appendChild(closeBtn);
+            box.appendChild(header);
+
+            // Variation previews
+            const items = document.createElement('div');
+            items.className = 'variation-items';
+
+            var transforms = [
+                { label: '90\u00B0',  transform: 'rotate(90, 30, 30)',  desc: 'Rotate 90\u00B0' },
+                { label: '180\u00B0', transform: 'rotate(180, 30, 30)', desc: 'Rotate 180\u00B0' },
+                { label: '270\u00B0', transform: 'rotate(270, 30, 30)', desc: 'Rotate 270\u00B0' },
+                { label: '\u2194',    transform: 'translate(60, 0) scale(-1, 1)',  desc: 'Flip horizontal' },
+                { label: '\u2195',    transform: 'translate(0, 60) scale(1, -1)',  desc: 'Flip vertical' },
+                { label: '\u2922',    transform: 'matrix(0, 1, 1, 0, 0, 0)',       desc: 'Flip diagonal' },
+                { label: '\u2921',    transform: 'matrix(0, -1, -1, 0, 60, 60)',   desc: 'Flip anti-diagonal' }
+            ];
+
+            transforms.forEach(function(t) {
+                var item = document.createElement('div');
+                item.className = 'variation-item';
+
+                var vlabel = document.createElement('div');
+                vlabel.className = 'variation-item-label';
+                vlabel.textContent = t.label;
+                item.appendChild(vlabel);
+
+                var preview = document.createElement('div');
+                preview.className = 'variation-preview';
+                preview.appendChild(createVariationSVG(svg, t.transform));
+                item.appendChild(preview);
+
+                var addBtn = document.createElement('button');
+                addBtn.className = 'variation-add-btn';
+                addBtn.textContent = 'Add';
+                addBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    addVariation(card, t.transform, t.desc);
+                };
+                item.appendChild(addBtn);
+
+                items.appendChild(item);
+            });
+
+            box.appendChild(items);
+            row.parentNode.insertBefore(box, row.nextSibling);
+            activeVariationBox = box;
+            activeVariationCard = card;
+        }
+
+        function hideVariations() {
+            if (activeVariationBox) {
+                activeVariationBox.remove();
+                activeVariationBox = null;
+                activeVariationCard = null;
+            }
+        }
+
+        function createVariationSVG(originalSVG, transformStr) {
+            var svg = originalSVG.cloneNode(true);
+            // Remove any inline size styles (from zoom)
+            svg.style.width = '';
+            svg.style.height = '';
+            var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('transform', transformStr);
+            while (svg.firstChild) {
+                g.appendChild(svg.firstChild);
+            }
+            svg.appendChild(g);
+            return svg;
+        }
+
+        function addVariation(originalCard, transform, desc) {
+            var row = originalCard.closest('.library-row');
+            var label = originalCard.querySelector('.library-label') ? originalCard.querySelector('.library-label').textContent : '';
+            var svg = originalCard.querySelector('svg');
+            if (!row || !svg) return;
+
+            // Create variation card
+            var card = document.createElement('div');
+            card.className = 'library-card variation';
+            card.dataset.originalLabel = label;
+            card.dataset.transform = transform;
+
+            var cardLabel = document.createElement('div');
+            cardLabel.className = 'library-label';
+            card.appendChild(cardLabel);
+
+            var preview = document.createElement('div');
+            preview.className = 'domino-half-preview';
+            preview.appendChild(createVariationSVG(svg, transform));
+            card.appendChild(preview);
+
+            // Delete button
+            var delBtn = document.createElement('button');
+            delBtn.className = 'variation-delete-btn';
+            delBtn.textContent = '\u2715';
+            delBtn.onclick = function(e) {
+                e.stopPropagation();
+                removeVariation(card);
+            };
+            card.appendChild(delBtn);
+
+            // Description
+            var descEl = document.createElement('div');
+            descEl.className = 'library-desc';
+            descEl.textContent = desc;
+            card.appendChild(descEl);
+
+            // Insert after original card and any existing variations of this card
+            var insertAfter = originalCard;
+            var next = originalCard.nextElementSibling;
+            while (next && next.classList.contains('variation') && next.dataset.originalLabel === label) {
+                insertAfter = next;
+                next = next.nextElementSibling;
+            }
+            row.insertBefore(card, insertAfter.nextSibling);
+
+            renumberVariations(row, label);
+
+            // Apply current zoom to the new card
+            if (libZoom !== 1) {
+                var cardSize = Math.round(70 * libZoom);
+                var svgSize = Math.round(60 * libZoom);
+                preview.style.width = cardSize + 'px';
+                preview.style.height = cardSize + 'px';
+                var svgEl = preview.querySelector('svg');
+                if (svgEl) {
+                    svgEl.style.width = svgSize + 'px';
+                    svgEl.style.height = svgSize + 'px';
+                }
+            }
+        }
+
+        function removeVariation(card) {
+            var row = card.closest('.library-row');
+            var label = card.dataset.originalLabel;
+            card.remove();
+            if (row && label) renumberVariations(row, label);
+        }
+
+        function renumberVariations(row, originalLabel) {
+            var subs = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
+            var variations = row.querySelectorAll('.library-card.variation[data-original-label="' + originalLabel + '"]');
+            variations.forEach(function(v, i) {
+                var sub = i < 9 ? subs[i] : String(i + 1);
+                var lbl = v.querySelector('.library-label');
+                if (lbl) lbl.textContent = originalLabel + sub;
+            });
         }
     </script>
     <script src="js/domino.js?v=xeno-fix-3"></script>

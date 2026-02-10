@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-19">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-20">
 </head>
 <body>
     <div class="game-container">
@@ -12,6 +12,7 @@
         <div class="screen" id="start-screen">
             <h1>Pinky-Math Domino</h1>
             <p class="subtitle">Game: Find the Double!</p>
+            <div class="custom-game-btns" id="start-custom-games"></div>
 
             <div class="setup-panel">
                 <div class="setup-columns">
@@ -207,6 +208,7 @@
                 <div class="library-set-list">
                     <button class="library-set-link" id="open-set-1-btn">Numbers and dots, 0 - 6</button>
                 </div>
+                <div class="library-game-list" id="library-game-list"></div>
             </div>
         </div>
 
@@ -221,6 +223,16 @@
             </div>
         </div>
 
+        <!-- Game View Screen -->
+        <div class="screen" id="game-view-screen" style="display: none;">
+            <button class="back-arrow-btn" id="back-from-game-view-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="domino-library-content compact-view" id="game-view-content">
+                <h1 class="library-title" id="game-view-title"></h1>
+                <p class="game-view-desc" id="game-view-desc"></p>
+                <div id="game-view-cards"></div>
+            </div>
+        </div>
+
         <!-- Card Maker Screen -->
         <div class="screen" id="domino-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-library-btn" title="Go back to setup"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -231,6 +243,27 @@
                 <button class="zoom-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
                 <button class="zoom-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Hide/show card descriptions">&gt;</button>
                 <button class="zoom-btn" id="toggle-var-btn" onclick="toggleVariationVisibility()" title="Show/hide variations">V</button>
+                <button class="zoom-btn game-maker-trigger" onclick="startGameMaker()" title="Game Maker">GM</button>
+            </div>
+            <!-- Game Maker name/description dialog -->
+            <div id="game-maker-overlay" style="display:none;">
+                <div class="game-maker-dialog">
+                    <h2>Create New Game</h2>
+                    <label>Game Name:</label>
+                    <input type="text" id="game-maker-name" placeholder="Enter game name">
+                    <label>Description:</label>
+                    <textarea id="game-maker-desc" placeholder="Enter description" rows="3"></textarea>
+                    <div class="game-maker-dialog-btns">
+                        <button onclick="confirmGameMaker()">OK</button>
+                        <button onclick="cancelGameMakerDialog()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Game Maker selection bar -->
+            <div id="game-maker-bar" style="display:none;">
+                <span id="game-maker-bar-text">Select cards for game</span>
+                <button onclick="completeGame()">Complete the game</button>
+                <button onclick="cancelGameMaker()">Cancel</button>
             </div>
             <div id="lib-ruler-rect" style="display:none;">
                 <div class="ruler-handle ruler-tl"></div>
@@ -640,6 +673,28 @@
             if (e.target.closest('.variation-delete-btn')) return;
 
             const card = e.target.closest('.library-card');
+
+            // Game Maker selection mode
+            if (gameMakerActive) {
+                if (!card) return;
+                var label = card.querySelector('.library-label');
+                if (!label) return;
+                var labelText = label.textContent;
+                if (card.classList.contains('card-selected')) {
+                    card.classList.remove('card-selected');
+                    gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
+                } else {
+                    card.classList.add('card-selected');
+                    var info = { label: labelText, isVariation: card.classList.contains('variation') };
+                    if (info.isVariation) {
+                        info.originalLabel = card.dataset.originalLabel;
+                        info.transform = card.dataset.transform;
+                    }
+                    gameMakerSelected.push(info);
+                }
+                return;
+            }
+
             if (!card) {
                 hideVariations();
                 return;
@@ -890,6 +945,212 @@
 
         // Load saved variations on startup
         loadVariations();
+
+        // === Game Maker system ===
+        var gameMakerActive = false;
+        var gameMakerName = '';
+        var gameMakerDesc = '';
+        var gameMakerSelected = []; // array of { label, isVariation, originalLabel?, transform? }
+
+        function startGameMaker() {
+            document.getElementById('game-maker-overlay').style.display = 'flex';
+            document.getElementById('game-maker-name').value = '';
+            document.getElementById('game-maker-desc').value = '';
+            document.getElementById('game-maker-name').focus();
+        }
+
+        function cancelGameMakerDialog() {
+            document.getElementById('game-maker-overlay').style.display = 'none';
+        }
+
+        function confirmGameMaker() {
+            var name = document.getElementById('game-maker-name').value.trim();
+            var desc = document.getElementById('game-maker-desc').value.trim();
+            if (!name) { alert('Please enter a game name.'); return; }
+            gameMakerName = name;
+            gameMakerDesc = desc;
+            document.getElementById('game-maker-overlay').style.display = 'none';
+            enterSelectionMode();
+        }
+
+        function enterSelectionMode() {
+            gameMakerActive = true;
+            gameMakerSelected = [];
+            // Close any open variation box
+            hideVariations();
+            // Clear previous selections
+            document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(function(c) {
+                c.classList.remove('card-selected');
+            });
+            // Show selection bar
+            document.getElementById('game-maker-bar-text').textContent = 'Select cards for \u201C' + gameMakerName + '\u201D';
+            document.getElementById('game-maker-bar').style.display = 'flex';
+        }
+
+        function cancelGameMaker() {
+            gameMakerActive = false;
+            gameMakerSelected = [];
+            document.getElementById('game-maker-bar').style.display = 'none';
+            document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(function(c) {
+                c.classList.remove('card-selected');
+            });
+        }
+
+        function completeGame() {
+            if (gameMakerSelected.length === 0) {
+                alert('Please select at least one card.');
+                return;
+            }
+            // Save the game
+            var games = loadCustomGames();
+            games.push({
+                name: gameMakerName,
+                description: gameMakerDesc,
+                cards: gameMakerSelected
+            });
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+
+            alert('The game \u201C' + gameMakerName + '\u201D is completed!');
+
+            // Exit selection mode
+            cancelGameMaker();
+
+            // Refresh game lists
+            populateLibraryGames();
+            populateStartScreenGames();
+        }
+
+        function loadCustomGames() {
+            try {
+                var data = localStorage.getItem('savedCustomGames');
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        // --- Game view ---
+        var gameViewReturnScreen = 'card-library-screen';
+
+        function openGameView(gameIndex, returnScreen) {
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+
+            gameViewReturnScreen = returnScreen || 'card-library-screen';
+
+            document.getElementById('game-view-title').textContent = game.name;
+            document.getElementById('game-view-desc').textContent = game.description;
+
+            var container = document.getElementById('game-view-cards');
+            container.innerHTML = '';
+
+            // Group cards by row letter
+            var cardsByRow = {};
+            var rowOrder = [];
+            game.cards.forEach(function(c) {
+                var row = c.label.charAt(0);
+                if (!cardsByRow[row]) {
+                    cardsByRow[row] = [];
+                    rowOrder.push(row);
+                }
+                cardsByRow[row].push(c);
+            });
+
+            rowOrder.sort();
+            rowOrder.forEach(function(row) {
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                container.appendChild(section);
+
+                var rowDiv = document.createElement('div');
+                rowDiv.className = 'library-row';
+
+                cardsByRow[row].forEach(function(cardInfo) {
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) rowDiv.appendChild(cardEl);
+                });
+
+                container.appendChild(rowDiv);
+            });
+
+            document.getElementById(returnScreen).style.display = 'none';
+            document.getElementById('game-view-screen').style.display = 'block';
+        }
+
+        function buildGameViewCard(cardInfo) {
+            if (!cardInfo.isVariation) {
+                var original = findCardByLabel(cardInfo.label);
+                if (!original) return null;
+                var clone = original.cloneNode(true);
+                clone.classList.remove('card-selected');
+                // Remove delete button if present
+                var del = clone.querySelector('.variation-delete-btn');
+                if (del) del.remove();
+                return clone;
+            } else {
+                // Variation: find original and apply transform
+                var original = findCardByLabel(cardInfo.originalLabel);
+                if (!original) return null;
+                var clone = original.cloneNode(true);
+                clone.classList.remove('card-selected');
+                var svg = clone.querySelector('svg');
+                if (svg && cardInfo.transform) {
+                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('transform', cardInfo.transform);
+                    while (svg.firstChild) g.appendChild(svg.firstChild);
+                    svg.appendChild(g);
+                }
+                var lbl = clone.querySelector('.library-label');
+                if (lbl) lbl.textContent = cardInfo.label;
+                return clone;
+            }
+        }
+
+        function hideGameView() {
+            document.getElementById('game-view-screen').style.display = 'none';
+            document.getElementById(gameViewReturnScreen).style.display = 'block';
+        }
+
+        document.getElementById('back-from-game-view-btn').addEventListener('click', function() {
+            hideGameView();
+        });
+
+        // --- Populate game lists ---
+        function populateLibraryGames() {
+            var list = document.getElementById('library-game-list');
+            list.innerHTML = '';
+            var games = loadCustomGames();
+            if (games.length > 0) {
+                var heading = document.createElement('h2');
+                heading.className = 'library-subtitle';
+                heading.style.marginTop = '20px';
+                heading.textContent = 'Games';
+                list.appendChild(heading);
+            }
+            games.forEach(function(game, i) {
+                var btn = document.createElement('button');
+                btn.className = 'library-game-link';
+                btn.textContent = 'Game: ' + game.name;
+                btn.onclick = function() { openGameView(i, 'card-library-screen'); };
+                list.appendChild(btn);
+            });
+        }
+
+        function populateStartScreenGames() {
+            var container = document.getElementById('start-custom-games');
+            container.innerHTML = '';
+            var games = loadCustomGames();
+            games.forEach(function(game, i) {
+                var btn = document.createElement('button');
+                btn.className = 'custom-game-btn';
+                btn.textContent = game.name;
+                btn.onclick = function() { openGameView(i, 'start-screen'); };
+                container.appendChild(btn);
+            });
+        }
+
+        // Initialize game lists on page load
+        populateLibraryGames();
+        populateStartScreenGames();
     </script>
     <script src="js/domino.js?v=xeno-fix-3"></script>
     <script src="js/game.js?v=domino-library-3"></script>

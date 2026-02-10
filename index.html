@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-18">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-19">
 </head>
 <body>
     <div class="game-container">
@@ -227,6 +227,7 @@
                 <button class="zoom-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
                 <button class="zoom-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
                 <button class="zoom-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Hide/show card descriptions">&gt;</button>
+                <button class="zoom-btn" id="toggle-var-btn" onclick="toggleVariationVisibility()" title="Show/hide variations">V</button>
             </div>
             <div id="lib-ruler-rect" style="display:none;">
                 <div class="ruler-handle ruler-tl"></div>
@@ -722,7 +723,7 @@
             return svg;
         }
 
-        function addVariation(originalCard, transform, desc) {
+        function addVariation(originalCard, transform, desc, skipSave) {
             var row = originalCard.closest('.library-row');
             var label = originalCard.querySelector('.library-label') ? originalCard.querySelector('.library-label').textContent : '';
             var svg = originalCard.querySelector('svg');
@@ -733,6 +734,7 @@
             card.className = 'library-card variation';
             card.dataset.originalLabel = label;
             card.dataset.transform = transform;
+            card.dataset.desc = desc;
 
             var cardLabel = document.createElement('div');
             cardLabel.className = 'library-label';
@@ -782,6 +784,13 @@
                     svgEl.style.height = svgSize + 'px';
                 }
             }
+
+            // Respect current hide-variations state
+            if (variationsHidden) {
+                card.style.display = 'none';
+            }
+
+            if (!skipSave) saveVariations();
         }
 
         function removeVariation(card) {
@@ -789,6 +798,7 @@
             var label = card.dataset.originalLabel;
             card.remove();
             if (row && label) renumberVariations(row, label);
+            saveVariations();
         }
 
         function renumberVariations(row, originalLabel) {
@@ -800,6 +810,61 @@
                 if (lbl) lbl.textContent = originalLabel + sub;
             });
         }
+
+        // --- Persistence: save/load variations to localStorage ---
+        function saveVariations() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var vars = content.querySelectorAll('.library-card.variation');
+            var data = [];
+            vars.forEach(function(v) {
+                data.push({
+                    originalLabel: v.dataset.originalLabel,
+                    transform: v.dataset.transform,
+                    desc: v.dataset.desc || ''
+                });
+            });
+            localStorage.setItem('cardMakerVariations', JSON.stringify(data));
+        }
+
+        function loadVariations() {
+            var saved = localStorage.getItem('cardMakerVariations');
+            if (!saved) return;
+            try {
+                var data = JSON.parse(saved);
+                data.forEach(function(v) {
+                    var originalCard = findCardByLabel(v.originalLabel);
+                    if (originalCard) {
+                        addVariation(originalCard, v.transform, v.desc, true);
+                    }
+                });
+            } catch(e) {}
+        }
+
+        function findCardByLabel(label) {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var cards = content.querySelectorAll('.library-card:not(.variation)');
+            for (var i = 0; i < cards.length; i++) {
+                var lbl = cards[i].querySelector('.library-label');
+                if (lbl && lbl.textContent === label) return cards[i];
+            }
+            return null;
+        }
+
+        // --- Hide/show all variations toggle ---
+        var variationsHidden = false;
+        function toggleVariationVisibility() {
+            variationsHidden = !variationsHidden;
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var btn = document.getElementById('toggle-var-btn');
+            content.querySelectorAll('.library-card.variation').forEach(function(v) {
+                v.style.display = variationsHidden ? 'none' : '';
+            });
+            btn.style.opacity = variationsHidden ? '0.4' : '1';
+            btn.title = variationsHidden ? 'Show variations' : 'Hide variations';
+        }
+
+        // Load saved variations on startup
+        loadVariations();
     </script>
     <script src="js/domino.js?v=xeno-fix-3"></script>
     <script src="js/game.js?v=domino-library-3"></script>

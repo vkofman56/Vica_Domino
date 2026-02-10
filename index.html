@@ -213,6 +213,9 @@
         <!-- Library Set View Screen -->
         <div class="screen" id="library-set-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-library-set-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="library-zoom-fixed" id="library-set-zoom-fixed">
+                <button class="zoom-btn" id="toggle-lib-var-btn" onclick="toggleLibSetVariations()" style="opacity:0.4" title="Show variations">V</button>
+            </div>
             <div class="domino-library-content compact-view" id="library-set-content">
                 <h1 class="library-title">Numbers and dots, 0 - 6</h1>
             </div>
@@ -574,6 +577,7 @@
         }
 
         // Populate library set view with cards (no descriptions)
+        var libSetVarHidden = true;
         function openLibrarySet() {
             const source = document.querySelector('#domino-library-screen .domino-library-content');
             const target = document.getElementById('library-set-content');
@@ -592,6 +596,12 @@
                     circle.textContent = rowValues[rowIndex] !== undefined ? rowValues[rowIndex] : '';
                     clone.insertBefore(circle, clone.firstChild);
                     rowIndex++;
+                    // Hide variation cards by default
+                    clone.querySelectorAll('.library-card.variation').forEach(function(v) {
+                        v.style.display = 'none';
+                    });
+                    // Remove variation delete buttons and variation boxes from clones
+                    clone.querySelectorAll('.variation-delete-btn').forEach(function(b) { b.remove(); });
                 }
                 target.appendChild(clone);
             });
@@ -602,6 +612,21 @@
             const emptyRow = document.createElement('div');
             emptyRow.className = 'library-row';
             target.appendChild(emptyRow);
+            // Reset toggle state
+            libSetVarHidden = true;
+            var btn = document.getElementById('toggle-lib-var-btn');
+            if (btn) { btn.style.opacity = '0.4'; btn.title = 'Show variations'; }
+        }
+
+        function toggleLibSetVariations() {
+            libSetVarHidden = !libSetVarHidden;
+            var target = document.getElementById('library-set-content');
+            target.querySelectorAll('.library-card.variation').forEach(function(v) {
+                v.style.display = libSetVarHidden ? 'none' : '';
+            });
+            var btn = document.getElementById('toggle-lib-var-btn');
+            btn.style.opacity = libSetVarHidden ? '0.4' : '1';
+            btn.title = libSetVarHidden ? 'Show variations' : 'Hide variations';
         }
         // === Variation system ===
         let activeVariationBox = null;

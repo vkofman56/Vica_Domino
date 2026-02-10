@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-20">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-21">
 </head>
 <body>
     <div class="game-container">
@@ -1143,16 +1143,152 @@
                 var btn = document.createElement('button');
                 btn.className = 'custom-game-btn';
                 btn.textContent = game.name;
-                btn.onclick = function() { openGameView(i, 'start-screen'); };
+                btn.onclick = function() { startCustomGame(i, btn); };
                 container.appendChild(btn);
             });
+        }
+
+        // === Custom game: build domino deck from saved game cards ===
+        var activeCustomGameIndex = -1;
+
+        function startCustomGame(gameIndex, btnEl) {
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+
+            // Toggle: clicking same game deselects it
+            if (activeCustomGameIndex === gameIndex) {
+                clearCustomGame();
+                if (btnEl) btnEl.classList.remove('active');
+                return;
+            }
+
+            // Deselect previous
+            document.querySelectorAll('.custom-game-btn.active').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            if (btnEl) btnEl.classList.add('active');
+            activeCustomGameIndex = gameIndex;
+
+            // Update subtitle
+            document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
+
+            // Group selected cards by value (row letter)
+            var valueCards = {};
+            game.cards.forEach(function(c) {
+                var value = c.label.charAt(0);
+                if (!valueCards[value]) valueCards[value] = [];
+                valueCards[value].push(c);
+            });
+
+            var values = Object.keys(valueCards).sort();
+
+            // Load saved variations from localStorage
+            var savedVars = [];
+            try {
+                var vd = localStorage.getItem('cardMakerVariations');
+                savedVars = vd ? JSON.parse(vd) : [];
+            } catch(e) {}
+
+            // Build SVG map and variation pools for each value
+            var svgMap = {};
+            var cardPools = {}; // value -> array of representation keys
+            values.forEach(function(v) { cardPools[v] = []; });
+
+            game.cards.forEach(function(c) {
+                var value = c.label.charAt(0);
+                var svg = getGameCardSVG(c);
+                if (svg) {
+                    svgMap[c.label] = svg;
+                    cardPools[value].push(c.label);
+                }
+
+                // Find variations of this card and add them to the pool
+                var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
+                cardVars.forEach(function(v, vi) {
+                    var varKey = c.label + '_v' + vi;
+                    var varSvg = getGameVariationSVG(c, v.transform);
+                    if (varSvg) {
+                        svgMap[varKey] = varSvg;
+                        cardPools[value].push(varKey);
+                    }
+                });
+            });
+
+            // Generate domino deck: all combinations of value pairs
+            var customDeck = [];
+            var cardId = 1;
+            for (var i = 0; i < values.length; i++) {
+                for (var j = i; j < values.length; j++) {
+                    var leftValue = values[i];
+                    var rightValue = values[j];
+                    // Pick random visual from each value's pool
+                    var leftKey = randomPick(cardPools[leftValue]);
+                    var rightKey = randomPick(cardPools[rightValue]);
+                    customDeck.push({
+                        id: cardId++,
+                        left: leftKey,
+                        right: rightKey,
+                        leftValue: leftValue,
+                        rightValue: rightValue
+                    });
+                }
+            }
+
+            window.customGameDeck = customDeck;
+            window.customGameSVGs = svgMap;
+
+            // Extend VALUE_RANK for all custom values
+            values.forEach(function(v, idx) {
+                VALUE_RANK[v] = idx + 1;
+            });
+        }
+
+        function clearCustomGame() {
+            activeCustomGameIndex = -1;
+            window.customGameDeck = null;
+            window.customGameSVGs = null;
+            document.querySelector('#start-screen .subtitle').textContent = 'Game: Find the Double!';
+        }
+
+        function getGameCardSVG(cardInfo) {
+            if (!cardInfo.isVariation) {
+                var card = findCardByLabel(cardInfo.label);
+                if (!card) return null;
+                var svg = card.querySelector('svg');
+                return svg ? svg.cloneNode(true) : null;
+            } else {
+                var original = findCardByLabel(cardInfo.originalLabel);
+                if (!original) return null;
+                var svg = original.querySelector('svg');
+                if (!svg) return null;
+                return createVariationSVG(svg, cardInfo.transform);
+            }
+        }
+
+        function getGameVariationSVG(cardInfo, transform) {
+            var original;
+            if (cardInfo.isVariation) {
+                original = findCardByLabel(cardInfo.originalLabel);
+            } else {
+                original = findCardByLabel(cardInfo.label);
+            }
+            if (!original) return null;
+            var svg = original.querySelector('svg');
+            if (!svg) return null;
+            return createVariationSVG(svg, transform);
+        }
+
+        function randomPick(arr) {
+            if (!arr || arr.length === 0) return null;
+            return arr[Math.floor(Math.random() * arr.length)];
         }
 
         // Initialize game lists on page load
         populateLibraryGames();
         populateStartScreenGames();
     </script>
-    <script src="js/domino.js?v=xeno-fix-3"></script>
+    <script src="js/domino.js?v=custom-game-1"></script>
     <script src="js/game.js?v=domino-library-3"></script>
 </body>
 </html>

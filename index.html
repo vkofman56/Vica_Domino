@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-22">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-23">
 </head>
 <body>
     <div class="game-container">
@@ -250,9 +250,15 @@
             <!-- Game Maker name/description dialog -->
             <div id="game-maker-overlay" style="display:none;">
                 <div class="game-maker-dialog">
-                    <h2>Create New Game</h2>
-                    <label>Game Name:</label>
-                    <input type="text" id="game-maker-name" placeholder="Enter game name">
+                    <h2 id="game-maker-dialog-title">Create New Game</h2>
+                    <label>Game:</label>
+                    <select id="game-maker-select" onchange="onGameMakerSelect()">
+                        <option value="__new__">+ New Game</option>
+                    </select>
+                    <div id="game-maker-name-row">
+                        <label>Game Name:</label>
+                        <input type="text" id="game-maker-name" placeholder="Enter game name">
+                    </div>
                     <label>Description:</label>
                     <textarea id="game-maker-desc" placeholder="Enter description" rows="3"></textarea>
                     <div class="game-maker-dialog-btns">
@@ -953,12 +959,51 @@
         var gameMakerName = '';
         var gameMakerDesc = '';
         var gameMakerSelected = []; // array of { label, isVariation, originalLabel?, transform? }
+        var gameMakerEditIndex = -1; // -1 = new game, >= 0 = editing existing game
 
         function startGameMaker() {
-            document.getElementById('game-maker-overlay').style.display = 'flex';
+            var sel = document.getElementById('game-maker-select');
+            var games = loadCustomGames();
+            // Rebuild options: existing games + New Game
+            sel.innerHTML = '';
+            for (var i = 0; i < games.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = games[i].name;
+                sel.appendChild(opt);
+            }
+            var newOpt = document.createElement('option');
+            newOpt.value = '__new__';
+            newOpt.textContent = '+ New Game';
+            sel.appendChild(newOpt);
+            // Default to "New Game"
+            sel.value = '__new__';
+            document.getElementById('game-maker-name-row').style.display = 'block';
             document.getElementById('game-maker-name').value = '';
             document.getElementById('game-maker-desc').value = '';
+            document.getElementById('game-maker-dialog-title').textContent = 'Create New Game';
+            gameMakerEditIndex = -1;
+            document.getElementById('game-maker-overlay').style.display = 'flex';
             document.getElementById('game-maker-name').focus();
+        }
+
+        function onGameMakerSelect() {
+            var sel = document.getElementById('game-maker-select');
+            var val = sel.value;
+            if (val === '__new__') {
+                document.getElementById('game-maker-name-row').style.display = 'block';
+                document.getElementById('game-maker-name').value = '';
+                document.getElementById('game-maker-desc').value = '';
+                document.getElementById('game-maker-dialog-title').textContent = 'Create New Game';
+                gameMakerEditIndex = -1;
+            } else {
+                var games = loadCustomGames();
+                var idx = parseInt(val);
+                document.getElementById('game-maker-name-row').style.display = 'none';
+                document.getElementById('game-maker-desc').value = games[idx].description || '';
+                document.getElementById('game-maker-dialog-title').textContent = 'Edit Game';
+                gameMakerEditIndex = idx;
+            }
         }
 
         function cancelGameMakerDialog() {
@@ -966,13 +1011,23 @@
         }
 
         function confirmGameMaker() {
-            var name = document.getElementById('game-maker-name').value.trim();
-            var desc = document.getElementById('game-maker-desc').value.trim();
-            if (!name) { alert('Please enter a game name.'); return; }
-            gameMakerName = name;
-            gameMakerDesc = desc;
-            document.getElementById('game-maker-overlay').style.display = 'none';
-            enterSelectionMode();
+            if (gameMakerEditIndex >= 0) {
+                // Editing existing game
+                var games = loadCustomGames();
+                gameMakerName = games[gameMakerEditIndex].name;
+                gameMakerDesc = document.getElementById('game-maker-desc').value.trim();
+                document.getElementById('game-maker-overlay').style.display = 'none';
+                enterSelectionMode();
+            } else {
+                // New game
+                var name = document.getElementById('game-maker-name').value.trim();
+                var desc = document.getElementById('game-maker-desc').value.trim();
+                if (!name) { alert('Please enter a game name.'); return; }
+                gameMakerName = name;
+                gameMakerDesc = desc;
+                document.getElementById('game-maker-overlay').style.display = 'none';
+                enterSelectionMode();
+            }
         }
 
         function enterSelectionMode() {
@@ -984,8 +1039,29 @@
             document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(function(c) {
                 c.classList.remove('card-selected');
             });
+            // If editing, pre-highlight existing cards
+            if (gameMakerEditIndex >= 0) {
+                var games = loadCustomGames();
+                var existingCards = games[gameMakerEditIndex].cards || [];
+                var allCards = document.querySelectorAll('#domino-library-screen .library-card');
+                existingCards.forEach(function(ec) {
+                    allCards.forEach(function(cardEl) {
+                        var lbl = cardEl.querySelector('.library-label');
+                        if (lbl && lbl.textContent === ec.label) {
+                            cardEl.classList.add('card-selected');
+                            var info = { label: ec.label, isVariation: ec.isVariation };
+                            if (ec.isVariation) {
+                                info.originalLabel = ec.originalLabel;
+                                info.transform = ec.transform;
+                            }
+                            gameMakerSelected.push(info);
+                        }
+                    });
+                });
+            }
             // Show selection bar
-            document.getElementById('game-maker-bar-text').textContent = 'Select cards for \u201C' + gameMakerName + '\u201D';
+            var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
+            document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for \u201C' + gameMakerName + '\u201D';
             document.getElementById('game-maker-bar').style.display = 'flex';
         }
 
@@ -1005,14 +1081,21 @@
             }
             // Save the game
             var games = loadCustomGames();
-            games.push({
-                name: gameMakerName,
-                description: gameMakerDesc,
-                cards: gameMakerSelected
-            });
+            if (gameMakerEditIndex >= 0) {
+                // Update existing game
+                games[gameMakerEditIndex].description = gameMakerDesc;
+                games[gameMakerEditIndex].cards = gameMakerSelected;
+                alert('The game \u201C' + gameMakerName + '\u201D has been updated!');
+            } else {
+                // Create new game
+                games.push({
+                    name: gameMakerName,
+                    description: gameMakerDesc,
+                    cards: gameMakerSelected
+                });
+                alert('The game \u201C' + gameMakerName + '\u201D is completed!');
+            }
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-
-            alert('The game \u201C' + gameMakerName + '\u201D is completed!');
 
             // Exit selection mode
             cancelGameMaker();

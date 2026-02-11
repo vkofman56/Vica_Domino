@@ -188,8 +188,18 @@ class VicaDominoGame {
         // Back from card library screen
         document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
 
-        // Open set from library
-        document.getElementById('open-set-1-btn').addEventListener('click', () => this.showLibrarySet());
+        // Toggle games under set box, and open set view
+        document.getElementById('open-set-1-btn').addEventListener('click', () => {
+            var gamesDiv = document.getElementById('library-set-1-games');
+            var btn = document.getElementById('open-set-1-btn');
+            if (gamesDiv.style.display === 'none') {
+                gamesDiv.style.display = 'block';
+                btn.classList.add('active');
+            } else {
+                gamesDiv.style.display = 'none';
+                btn.classList.remove('active');
+            }
+        });
 
         // Back from library set view
         document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());

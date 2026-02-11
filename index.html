@@ -1048,8 +1048,11 @@
                 var games = loadCustomGames();
                 var existingCards = games[gameMakerEditIndex].cards || [];
                 var allCards = document.querySelectorAll('#domino-library-screen .library-card');
+                var addedLabels = {};
                 existingCards.forEach(function(ec) {
+                    if (addedLabels[ec.label]) return; // skip duplicates
                     allCards.forEach(function(cardEl) {
+                        if (addedLabels[ec.label]) return; // already found
                         var lbl = cardEl.querySelector('.library-label');
                         if (lbl && lbl.textContent === ec.label) {
                             cardEl.classList.add('card-selected');
@@ -1059,6 +1062,7 @@
                                 info.transform = ec.transform;
                             }
                             gameMakerSelected.push(info);
+                            addedLabels[ec.label] = true;
                         }
                     });
                 });
@@ -1194,10 +1198,14 @@
                 container.appendChild(rowDiv);
             });
 
-            // Collect only original (non-variation) cards
+            // Collect only original (non-variation) cards, deduplicated by label
             var origCards = [];
+            var seenLabels = {};
             game.cards.forEach(function(c) {
-                if (!c.isVariation) origCards.push(c);
+                if (!c.isVariation && !seenLabels[c.label]) {
+                    seenLabels[c.label] = true;
+                    origCards.push(c);
+                }
             });
 
             // Build variations (hidden by default, toggled by V button)
@@ -1757,10 +1765,14 @@
             // Update subtitle
             document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
-            // Collect original (non-variation) cards
+            // Collect original (non-variation) cards, deduplicated by label
             var origCards = [];
+            var seenLabels = {};
             game.cards.forEach(function(c) {
-                if (!c.isVariation) origCards.push(c);
+                if (!c.isVariation && !seenLabels[c.label]) {
+                    seenLabels[c.label] = true;
+                    origCards.push(c);
+                }
             });
 
             // Collect all unique values

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-30">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-31">
 </head>
 <body>
     <div class="game-container">
@@ -1525,14 +1525,6 @@
                 savedVars = vd ? JSON.parse(vd) : [];
             } catch(e) {}
 
-            if (savedVars.length === 0) {
-                var noVars = document.createElement('div');
-                noVars.className = 'game-view-group-title';
-                noVars.textContent = 'No variations saved';
-                varArea.appendChild(noVars);
-                return;
-            }
-
             // Group variations by original card label
             var origLabels = {};
             origCards.forEach(function(c) { origLabels[c.label] = c; });
@@ -1540,7 +1532,7 @@
             var varsByCard = {};
             var cardOrder = [];
             savedVars.forEach(function(v, idx) {
-                if (!origLabels[v.originalLabel]) return; // skip if card not in this game
+                if (!origLabels[v.originalLabel]) return;
                 if (!varsByCard[v.originalLabel]) {
                     varsByCard[v.originalLabel] = [];
                     cardOrder.push(v.originalLabel);
@@ -1556,50 +1548,60 @@
                 return;
             }
 
+            var subs = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
+
             cardOrder.forEach(function(label) {
-                var title = document.createElement('div');
-                title.className = 'game-view-group-title';
-                title.textContent = label + ' variations (' + varsByCard[label].length + ')';
-                varArea.appendChild(title);
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                varArea.appendChild(section);
 
                 var row = document.createElement('div');
-                row.className = 'game-view-dominos';
+                row.className = 'library-row';
 
-                varsByCard[label].forEach(function(item) {
+                // Show original card first
+                var origCard = findCardByLabel(label);
+                if (origCard) {
+                    var origClone = origCard.cloneNode(true);
+                    origClone.classList.remove('card-selected');
+                    var origDel = origClone.querySelector('.variation-delete-btn');
+                    if (origDel) origDel.remove();
+                    row.appendChild(origClone);
+                }
+
+                // Then show each variation as a library-card
+                varsByCard[label].forEach(function(item, vi) {
                     var card = document.createElement('div');
-                    card.className = 'game-view-var-card';
+                    card.className = 'library-card variation';
 
-                    // Original card SVG with transform applied
-                    var origCard = findCardByLabel(item.data.originalLabel);
-                    if (origCard) {
-                        var origSvg = origCard.querySelector('svg');
+                    var cardLabel = document.createElement('div');
+                    cardLabel.className = 'library-label';
+                    cardLabel.textContent = label + (vi < subs.length ? subs.charAt(vi) : '_' + (vi + 1));
+                    card.appendChild(cardLabel);
+
+                    var preview = document.createElement('div');
+                    preview.className = 'domino-half-preview';
+                    var origCardEl = findCardByLabel(item.data.originalLabel);
+                    if (origCardEl) {
+                        var origSvg = origCardEl.querySelector('svg');
                         if (origSvg) {
-                            var svg = createVariationSVG(origSvg, item.data.transform);
-                            svg.style.width = '50px';
-                            svg.style.height = '50px';
-                            card.appendChild(svg);
+                            preview.appendChild(createVariationSVG(origSvg, item.data.transform));
                         }
                     }
-
-                    // Description
-                    var desc = document.createElement('div');
-                    desc.className = 'game-view-var-desc';
-                    desc.textContent = item.data.desc || item.data.transform;
-                    card.appendChild(desc);
+                    card.appendChild(preview);
 
                     // Delete button
                     var delBtn = document.createElement('button');
-                    delBtn.className = 'game-view-var-delete';
-                    delBtn.textContent = '\u00D7';
+                    delBtn.className = 'variation-delete-btn';
+                    delBtn.textContent = '\u2715';
                     delBtn.title = 'Delete this variation';
-                    delBtn.onclick = function() {
+                    delBtn.onclick = function(e) {
+                        e.stopPropagation();
                         if (!confirm('Delete this variation of ' + label + '?')) return;
-                        // Remove from localStorage
                         var allVars = [];
                         try {
-                            var vd = localStorage.getItem('cardMakerVariations');
-                            allVars = vd ? JSON.parse(vd) : [];
-                        } catch(e) {}
+                            var vd2 = localStorage.getItem('cardMakerVariations');
+                            allVars = vd2 ? JSON.parse(vd2) : [];
+                        } catch(e2) {}
                         allVars.splice(item.globalIndex, 1);
                         localStorage.setItem('cardMakerVariations', JSON.stringify(allVars));
                         // Also remove from Card Maker DOM
@@ -1609,10 +1611,14 @@
                                 el.remove();
                             }
                         });
-                        // Rebuild the variation area
                         buildGameViewVariations(varArea, origCards, gameIndex);
                     };
                     card.appendChild(delBtn);
+
+                    var descEl = document.createElement('div');
+                    descEl.className = 'library-desc';
+                    descEl.textContent = item.data.desc || item.data.transform;
+                    card.appendChild(descEl);
 
                     row.appendChild(card);
                 });

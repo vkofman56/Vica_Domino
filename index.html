@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-31">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-32">
 </head>
 <body>
     <div class="game-container">
@@ -227,7 +227,7 @@
         <div class="screen" id="game-view-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-game-view-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="game-view-toolbar">
-                <button class="zoom-btn" id="game-view-desc-btn" onclick="toggleGameViewDescriptions()" title="Hide/show card descriptions">&gt;</button>
+                <button class="zoom-btn" id="game-view-var-btn" onclick="toggleGameViewVariations()" title="Show/hide variations">V</button>
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
@@ -1198,32 +1198,15 @@
                 if (!c.isVariation) origCards.push(c);
             });
 
-            // Variations section
-            var varBtnRow = document.createElement('div');
-            varBtnRow.style.cssText = 'margin: 15px 0 5px 40px;';
-            var varBtn = document.createElement('button');
-            varBtn.className = 'show-dominos-btn';
-            varBtn.style.display = 'inline-block';
-            varBtn.style.margin = '0';
-            varBtn.textContent = 'Show Variations';
-            varBtn.onclick = function() {
-                var varArea = document.getElementById('game-view-variations-area');
-                if (varArea.style.display === 'block') {
-                    varArea.style.display = 'none';
-                    varBtn.textContent = 'Show Variations';
-                } else {
-                    varArea.style.display = 'block';
-                    varBtn.textContent = 'Hide Variations';
-                }
-            };
-            varBtnRow.appendChild(varBtn);
-            container.appendChild(varBtnRow);
-
+            // Build variations (hidden by default, toggled by V button)
             var varArea = document.createElement('div');
             varArea.id = 'game-view-variations-area';
             varArea.style.display = 'none';
             buildGameViewVariations(varArea, origCards, gameIndex);
             container.appendChild(varArea);
+            // Reset V button state
+            var vBtn = document.getElementById('game-view-var-btn');
+            if (vBtn) { vBtn.style.opacity = '1'; vBtn.title = 'Show variations'; }
 
             // Buttons row: Show Dominos + Copy Game
             var btnRow = document.createElement('div');
@@ -1519,25 +1502,23 @@
 
         function buildGameViewVariations(varArea, origCards, gameIndex) {
             varArea.innerHTML = '';
-            var savedVars = [];
-            try {
-                var vd = localStorage.getItem('cardMakerVariations');
-                savedVars = vd ? JSON.parse(vd) : [];
-            } catch(e) {}
 
-            // Group variations by original card label
+            // Collect all variation cards from Card Maker DOM that belong to this game's cards
             var origLabels = {};
-            origCards.forEach(function(c) { origLabels[c.label] = c; });
+            origCards.forEach(function(c) { origLabels[c.label] = true; });
 
+            var cmVarCards = document.querySelectorAll('#domino-library-screen .library-card.variation');
+            // Group by original label
             var varsByCard = {};
             var cardOrder = [];
-            savedVars.forEach(function(v, idx) {
-                if (!origLabels[v.originalLabel]) return;
-                if (!varsByCard[v.originalLabel]) {
-                    varsByCard[v.originalLabel] = [];
-                    cardOrder.push(v.originalLabel);
+            cmVarCards.forEach(function(el) {
+                var origLabel = el.dataset.originalLabel;
+                if (!origLabels[origLabel]) return;
+                if (!varsByCard[origLabel]) {
+                    varsByCard[origLabel] = [];
+                    cardOrder.push(origLabel);
                 }
-                varsByCard[v.originalLabel].push({ data: v, globalIndex: idx });
+                varsByCard[origLabel].push(el);
             });
 
             if (cardOrder.length === 0) {
@@ -1547,8 +1528,6 @@
                 varArea.appendChild(noVars);
                 return;
             }
-
-            var subs = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
 
             cardOrder.forEach(function(label) {
                 var section = document.createElement('div');
@@ -1568,28 +1547,14 @@
                     row.appendChild(origClone);
                 }
 
-                // Then show each variation as a library-card
-                varsByCard[label].forEach(function(item, vi) {
-                    var card = document.createElement('div');
-                    card.className = 'library-card variation';
-
-                    var cardLabel = document.createElement('div');
-                    cardLabel.className = 'library-label';
-                    cardLabel.textContent = label + (vi < subs.length ? subs.charAt(vi) : '_' + (vi + 1));
-                    card.appendChild(cardLabel);
-
-                    var preview = document.createElement('div');
-                    preview.className = 'domino-half-preview';
-                    var origCardEl = findCardByLabel(item.data.originalLabel);
-                    if (origCardEl) {
-                        var origSvg = origCardEl.querySelector('svg');
-                        if (origSvg) {
-                            preview.appendChild(createVariationSVG(origSvg, item.data.transform));
-                        }
-                    }
-                    card.appendChild(preview);
-
-                    // Delete button
+                // Clone each variation card from Card Maker DOM
+                varsByCard[label].forEach(function(cmCard) {
+                    var clone = cmCard.cloneNode(true);
+                    clone.classList.remove('card-selected');
+                    clone.style.display = '';
+                    // Replace delete button with one that works in game view
+                    var oldDel = clone.querySelector('.variation-delete-btn');
+                    if (oldDel) oldDel.remove();
                     var delBtn = document.createElement('button');
                     delBtn.className = 'variation-delete-btn';
                     delBtn.textContent = '\u2715';
@@ -1597,30 +1562,27 @@
                     delBtn.onclick = function(e) {
                         e.stopPropagation();
                         if (!confirm('Delete this variation of ' + label + '?')) return;
-                        var allVars = [];
-                        try {
-                            var vd2 = localStorage.getItem('cardMakerVariations');
-                            allVars = vd2 ? JSON.parse(vd2) : [];
-                        } catch(e2) {}
-                        allVars.splice(item.globalIndex, 1);
-                        localStorage.setItem('cardMakerVariations', JSON.stringify(allVars));
-                        // Also remove from Card Maker DOM
-                        var cmVars = document.querySelectorAll('#domino-library-screen .library-card.variation');
-                        cmVars.forEach(function(el) {
-                            if (el.dataset.originalLabel === item.data.originalLabel && el.dataset.transform === item.data.transform) {
-                                el.remove();
-                            }
-                        });
+                        // Remove from Card Maker DOM
+                        var cmRow = cmCard.closest('.library-row');
+                        cmCard.remove();
+                        if (cmRow) {
+                            // Renumber remaining variations
+                            var subs2 = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
+                            var remaining = cmRow.querySelectorAll('.library-card.variation[data-original-label="' + label + '"]');
+                            var count = 0;
+                            remaining.forEach(function(r) {
+                                var lbl = r.querySelector('.library-label');
+                                if (lbl) lbl.textContent = label + (count < subs2.length ? subs2.charAt(count) : '_' + (count + 1));
+                                count++;
+                            });
+                        }
+                        // Save updated variations
+                        saveVariations();
+                        // Rebuild
                         buildGameViewVariations(varArea, origCards, gameIndex);
                     };
-                    card.appendChild(delBtn);
-
-                    var descEl = document.createElement('div');
-                    descEl.className = 'library-desc';
-                    descEl.textContent = item.data.desc || item.data.transform;
-                    card.appendChild(descEl);
-
-                    row.appendChild(card);
+                    clone.appendChild(delBtn);
+                    row.appendChild(clone);
                 });
 
                 varArea.appendChild(row);
@@ -1660,11 +1622,19 @@
             document.getElementById('game-view-desc').textContent = newDesc.trim();
         }
 
-        function toggleGameViewDescriptions() {
-            var content = document.getElementById('game-view-content');
-            var btn = document.getElementById('game-view-desc-btn');
-            content.classList.toggle('compact-view');
-            btn.textContent = content.classList.contains('compact-view') ? '>' : '<';
+        function toggleGameViewVariations() {
+            var varArea = document.getElementById('game-view-variations-area');
+            var btn = document.getElementById('game-view-var-btn');
+            if (!varArea) return;
+            if (varArea.style.display === 'none') {
+                varArea.style.display = 'block';
+                btn.style.opacity = '1';
+                btn.title = 'Hide variations';
+            } else {
+                varArea.style.display = 'none';
+                btn.style.opacity = '0.4';
+                btn.title = 'Show variations';
+            }
         }
 
         function deleteGame(gameIndex) {

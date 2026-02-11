@@ -136,6 +136,8 @@ class VicaDominoGame {
         this.consecutiveWinsAtMin = 0; // Track consecutive wins at T=4 or T=3
         this.firstWinTimestamp = null; // Track when first player won (for tie detection)
         this.isTie = false; // Whether both players found double simultaneously
+        this.recentDoubles = []; // Track last 2 rounds' double IDs (avoid same double for 2 rounds)
+        this.recentNonDoubles = []; // Track last round's non-double IDs (avoid same non-double next round)
 
         this.initEventListeners();
         this.initGameLevelSelector();
@@ -577,6 +579,8 @@ class VicaDominoGame {
         // Create players (skip disabled Xeno input)
         this.players = [];
         this.winners = []; // Reset winners list
+        this.recentDoubles = []; // Reset card history for new game
+        this.recentNonDoubles = [];
         let playerIndex = 0;
         inputs.forEach((input) => {
             // Skip the Xeno input (disabled)
@@ -735,22 +739,56 @@ class VicaDominoGame {
         this.shuffleArray(doubles);
         this.shuffleArray(nonDoubles);
 
+        // Filter out recently used doubles (avoid same double for 2 consecutive rounds)
+        let availableDoubles = doubles.filter(d => !this.recentDoubles.includes(d.id));
+        if (availableDoubles.length < this.players.length) {
+            // Not enough fresh doubles, fall back to all
+            availableDoubles = doubles;
+        }
+        this.shuffleArray(availableDoubles);
+
+        // Filter out recently used non-doubles (avoid same non-double next round)
+        let availableNonDoubles = nonDoubles.filter(d => !this.recentNonDoubles.includes(d.id));
+        const nonDoublesNeeded = this.players.length * (numCards - 1);
+        if (availableNonDoubles.length < nonDoublesNeeded) {
+            // Not enough fresh non-doubles, fall back to all
+            availableNonDoubles = nonDoubles;
+        }
+        this.shuffleArray(availableNonDoubles);
+
+        // Track this round's dealt cards
+        const thisRoundDoubles = [];
+        const thisRoundNonDoubles = [];
+
         // Deal to each player: 1 double + (numCards-1) non-doubles
         this.players.forEach(player => {
             player.hand = [];
             // Add 1 double
-            if (doubles.length > 0) {
-                player.hand.push(doubles.pop());
+            if (availableDoubles.length > 0) {
+                const dbl = availableDoubles.pop();
+                player.hand.push(dbl);
+                thisRoundDoubles.push(dbl.id);
             }
             // Add (numCards-1) non-doubles
             for (let i = 0; i < numCards - 1; i++) {
-                if (nonDoubles.length > 0) {
-                    player.hand.push(nonDoubles.pop());
+                if (availableNonDoubles.length > 0) {
+                    const nd = availableNonDoubles.pop();
+                    player.hand.push(nd);
+                    thisRoundNonDoubles.push(nd.id);
                 }
             }
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
         });
+
+        // Update recent history: doubles keep last 2 rounds, non-doubles keep last 1 round
+        this.recentDoubles = this.recentDoubles.concat(thisRoundDoubles);
+        // Keep only last 2 rounds worth of doubles (trim old ones)
+        const maxRecentDoubles = this.players.length * 2;
+        if (this.recentDoubles.length > maxRecentDoubles) {
+            this.recentDoubles = this.recentDoubles.slice(this.recentDoubles.length - maxRecentDoubles);
+        }
+        this.recentNonDoubles = thisRoundNonDoubles; // Only track last 1 round
 
         // No bank in Sun level
         this.bank = [];

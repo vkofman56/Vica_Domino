@@ -228,6 +228,7 @@
             <button class="back-arrow-btn" id="back-from-game-view-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="game-view-toolbar">
                 <button class="zoom-btn" id="game-view-var-btn" onclick="toggleGameViewVariations()" title="Show/hide variations">V</button>
+                <button class="zoom-btn" id="game-view-undo-btn" onclick="undoDeleteVariation()" title="Undo delete variation" style="display:none;">&#x21BA;</button>
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
@@ -1133,6 +1134,7 @@
         var gameViewReturnScreen = 'card-library-screen';
 
         var currentGameViewIndex = -1;
+        var lastDeletedGameViewVariation = null;
 
         function getDominoKey(d) {
             return d.leftCard.label + ':' + d.rightCard.label;
@@ -1204,9 +1206,12 @@
             varArea.style.display = 'none';
             buildGameViewVariations(varArea, origCards, gameIndex);
             container.appendChild(varArea);
-            // Reset V button state
+            // Reset V button and undo button state
             var vBtn = document.getElementById('game-view-var-btn');
             if (vBtn) { vBtn.style.opacity = '1'; vBtn.title = 'Show variations'; }
+            var undoBtn = document.getElementById('game-view-undo-btn');
+            if (undoBtn) undoBtn.style.display = 'none';
+            lastDeletedGameViewVariation = null;
 
             // Buttons row: Show Dominos + Copy Game
             var btnRow = document.createElement('div');
@@ -1561,9 +1566,17 @@
                     delBtn.title = 'Delete this variation';
                     delBtn.onclick = function(e) {
                         e.stopPropagation();
-                        if (!confirm('Delete this variation of ' + label + '?')) return;
-                        // Remove from Card Maker DOM
+                        // Store undo data before removing
                         var cmRow = cmCard.closest('.library-row');
+                        lastDeletedGameViewVariation = {
+                            cmCard: cmCard,
+                            cmRow: cmRow,
+                            label: label,
+                            varArea: varArea,
+                            origCards: origCards,
+                            gameIndex: gameIndex
+                        };
+                        // Remove from Card Maker DOM
                         cmCard.remove();
                         if (cmRow) {
                             // Renumber remaining variations
@@ -1580,6 +1593,9 @@
                         saveVariations();
                         // Rebuild
                         buildGameViewVariations(varArea, origCards, gameIndex);
+                        // Show undo button
+                        var undoBtn = document.getElementById('game-view-undo-btn');
+                        if (undoBtn) undoBtn.style.display = 'block';
                     };
                     clone.appendChild(delBtn);
                     row.appendChild(clone);
@@ -1635,6 +1651,32 @@
                 btn.style.opacity = '0.4';
                 btn.title = 'Show variations';
             }
+        }
+
+        function undoDeleteVariation() {
+            if (!lastDeletedGameViewVariation) return;
+            var data = lastDeletedGameViewVariation;
+            lastDeletedGameViewVariation = null;
+            // Re-insert card back into Card Maker DOM row
+            if (data.cmRow) {
+                data.cmRow.appendChild(data.cmCard);
+                // Renumber all variations for this label
+                var subs2 = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
+                var remaining = data.cmRow.querySelectorAll('.library-card.variation[data-original-label="' + data.label + '"]');
+                var count = 0;
+                remaining.forEach(function(r) {
+                    var lbl = r.querySelector('.library-label');
+                    if (lbl) lbl.textContent = data.label + (count < subs2.length ? subs2.charAt(count) : '_' + (count + 1));
+                    count++;
+                });
+            }
+            // Save restored variations
+            saveVariations();
+            // Rebuild game view variations
+            buildGameViewVariations(data.varArea, data.origCards, data.gameIndex);
+            // Hide undo button
+            var undoBtn = document.getElementById('game-view-undo-btn');
+            if (undoBtn) undoBtn.style.display = 'none';
         }
 
         function deleteGame(gameIndex) {

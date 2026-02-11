@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-36">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-37">
 </head>
 <body>
     <div class="game-container">
@@ -1254,6 +1254,22 @@
             delBtn.onclick = function() { deleteGame(gameIndex); };
             btnRow.appendChild(delBtn);
 
+            // UP/DOWN flip toggle button
+            var flipBtn = document.createElement('button');
+            flipBtn.className = 'flip-toggle-btn';
+            flipBtn.id = 'flip-toggle-btn';
+            flipBtn.title = 'UP/DOWN mode: each domino may be randomly flipped so the top card goes to the bottom and vice versa during gameplay';
+            var flipOn = !!(game.flipEnabled);
+            flipBtn.textContent = '\u2195';
+            if (flipOn) flipBtn.classList.add('active');
+            flipBtn.onclick = function() {
+                var games = loadCustomGames();
+                games[gameIndex].flipEnabled = !games[gameIndex].flipEnabled;
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                flipBtn.classList.toggle('active');
+            };
+            btnRow.appendChild(flipBtn);
+
             container.appendChild(btnRow);
 
             // Dominos area (hidden initially)
@@ -1419,7 +1435,8 @@
             var newGame = {
                 name: newName,
                 description: game.description,
-                cards: JSON.parse(JSON.stringify(game.cards))
+                cards: JSON.parse(JSON.stringify(game.cards)),
+                flipEnabled: !!game.flipEnabled
             };
             games.push(newGame);
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
@@ -1446,7 +1463,8 @@
             var newGame = {
                 name: newName,
                 description: game.description,
-                cards: JSON.parse(JSON.stringify(game.cards))
+                cards: JSON.parse(JSON.stringify(game.cards)),
+                flipEnabled: !!game.flipEnabled
             };
             games.push(newGame);
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
@@ -1840,6 +1858,7 @@
 
             window.customGameDeck = customDeck;
             window.customGameSVGs = svgMap;
+            window.customGameFlipEnabled = !!(game.flipEnabled);
 
             // Extend VALUE_RANK for all custom values
             values.forEach(function(v, idx) {
@@ -1851,6 +1870,7 @@
             activeCustomGameIndex = -1;
             window.customGameDeck = null;
             window.customGameSVGs = null;
+            window.customGameFlipEnabled = false;
             document.querySelector('#start-screen .subtitle').textContent = 'Game: Find the Double!';
         }
 

@@ -790,6 +790,25 @@ class VicaDominoGame {
         }
         this.recentNonDoubles = thisRoundNonDoubles; // Only track last 1 round
 
+        // Randomly flip cards (UP/DOWN) if enabled for this custom game
+        if (window.customGameFlipEnabled) {
+            this.players.forEach(player => {
+                player.hand = player.hand.map(card => {
+                    if (Math.random() < 0.5) {
+                        // Flip: swap left/right
+                        return {
+                            ...card,
+                            left: card.right,
+                            right: card.left,
+                            leftValue: card.rightValue,
+                            rightValue: card.leftValue
+                        };
+                    }
+                    return card;
+                });
+            });
+        }
+
         // No bank in Sun level
         this.bank = [];
     }

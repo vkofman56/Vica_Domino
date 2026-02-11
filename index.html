@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-26">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-27">
 </head>
 <body>
     <div class="game-container">
@@ -1381,7 +1381,9 @@
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
-            var newName = 'Copy of ' + game.name;
+            var newName = prompt('Name for the copy:', 'Copy of ' + game.name);
+            if (!newName || !newName.trim()) return;
+            newName = newName.trim();
             var newGame = {
                 name: newName,
                 description: game.description,
@@ -1400,6 +1402,36 @@
             populateCardMakerGames();
             // Open the copied game
             openGameView(games.length - 1, gameViewReturnScreen);
+        }
+
+        function copyGameAndEdit(gameIndex) {
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+            var newName = prompt('Name for the copy:', 'Copy of ' + game.name);
+            if (!newName || !newName.trim()) return;
+            newName = newName.trim();
+            var newGame = {
+                name: newName,
+                description: game.description,
+                cards: JSON.parse(JSON.stringify(game.cards))
+            };
+            games.push(newGame);
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            // Copy excluded dominos too
+            var excluded = getExcludedDominos(gameIndex);
+            if (excluded.length > 0) {
+                saveExcludedDominos(games.length - 1, excluded);
+            }
+            populateLibraryGames();
+            populateStartScreenGames();
+            populateCardMakerGames();
+            // Enter edit mode for the new copy
+            var newIndex = games.length - 1;
+            gameMakerEditIndex = newIndex;
+            gameMakerName = newName;
+            gameMakerDesc = newGame.description;
+            enterSelectionMode();
         }
 
         function buildGameViewCard(cardInfo) {
@@ -1641,12 +1673,21 @@
             container.innerHTML = '';
             var games = loadCustomGames();
             games.forEach(function(game, i) {
+                var wrapper = document.createElement('div');
+                wrapper.className = 'card-maker-game-row';
                 var btn = document.createElement('button');
                 btn.className = 'card-maker-game-btn';
                 btn.textContent = game.name;
                 btn.title = game.name;
                 btn.onclick = function() { openGameView(i, 'domino-library-screen'); };
-                container.appendChild(btn);
+                wrapper.appendChild(btn);
+                var cpBtn = document.createElement('button');
+                cpBtn.className = 'card-maker-copy-btn';
+                cpBtn.textContent = 'C';
+                cpBtn.title = 'Copy & Edit';
+                cpBtn.onclick = function(e) { e.stopPropagation(); copyGameAndEdit(i); };
+                wrapper.appendChild(cpBtn);
+                container.appendChild(wrapper);
             });
         }
 

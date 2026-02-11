@@ -1192,32 +1192,22 @@
             dominoArea.id = 'game-view-dominos-area';
             dominoArea.style.display = 'none';
 
-            // Group only original cards by value for domino generation
-            var cardsByValue = {};
-            var valueOrder = [];
+            // Collect only original (non-variation) cards for domino generation
+            var origCards = [];
             game.cards.forEach(function(c) {
-                if (c.isVariation) return;
-                var value = c.label.charAt(0);
-                if (!cardsByValue[value]) {
-                    cardsByValue[value] = [];
-                    valueOrder.push(value);
-                }
-                cardsByValue[value].push(c);
+                if (!c.isVariation) origCards.push(c);
             });
-            valueOrder.sort();
 
-            // Generate all domino pairs
+            // Generate ALL card-to-card pair combinations
             var doubles = [];
             var nonDoubles = [];
-            var cardId = 1;
-            for (var i = 0; i < valueOrder.length; i++) {
-                for (var j = i; j < valueOrder.length; j++) {
-                    var leftValue = valueOrder[i];
-                    var rightValue = valueOrder[j];
-                    var leftCard = cardsByValue[leftValue][0];
-                    var rightCard = cardsByValue[rightValue][0];
+            for (var i = 0; i < origCards.length; i++) {
+                for (var j = i + 1; j < origCards.length; j++) {
+                    var leftCard = origCards[i];
+                    var rightCard = origCards[j];
+                    var leftValue = leftCard.label.charAt(0);
+                    var rightValue = rightCard.label.charAt(0);
                     var domino = {
-                        id: cardId++,
                         leftCard: leftCard,
                         rightCard: rightCard,
                         leftValue: leftValue,
@@ -1231,6 +1221,13 @@
                     }
                 }
             }
+
+            // Show total count
+            var total = doubles.length + nonDoubles.length;
+            var countInfo = document.createElement('div');
+            countInfo.className = 'game-view-group-title';
+            countInfo.textContent = 'Total: ' + total + ' dominos (' + doubles.length + ' doubles, ' + nonDoubles.length + ' other)';
+            dominoArea.appendChild(countInfo);
 
             // Render doubles
             if (doubles.length > 0) {
@@ -1246,18 +1243,31 @@
                 dominoArea.appendChild(dRow);
             }
 
-            // Render non-doubles
+            // Render non-doubles grouped by value pair
             if (nonDoubles.length > 0) {
-                var nTitle = document.createElement('div');
-                nTitle.className = 'game-view-group-title';
-                nTitle.textContent = 'Other Dominos';
-                dominoArea.appendChild(nTitle);
-                var nRow = document.createElement('div');
-                nRow.className = 'game-view-dominos';
+                // Group by value pair
+                var byPair = {};
+                var pairOrder = [];
                 nonDoubles.forEach(function(d) {
-                    nRow.appendChild(buildGameViewDomino(d));
+                    var key = d.leftValue + '-' + d.rightValue;
+                    if (!byPair[key]) {
+                        byPair[key] = [];
+                        pairOrder.push(key);
+                    }
+                    byPair[key].push(d);
                 });
-                dominoArea.appendChild(nRow);
+                pairOrder.forEach(function(key) {
+                    var nTitle = document.createElement('div');
+                    nTitle.className = 'game-view-group-title';
+                    nTitle.textContent = 'Value ' + key.charAt(0) + ' \u00D7 Value ' + key.charAt(2) + ' (' + byPair[key].length + ')';
+                    dominoArea.appendChild(nTitle);
+                    var nRow = document.createElement('div');
+                    nRow.className = 'game-view-dominos';
+                    byPair[key].forEach(function(d) {
+                        nRow.appendChild(buildGameViewDomino(d));
+                    });
+                    dominoArea.appendChild(nRow);
+                });
             }
 
             container.appendChild(dominoArea);
@@ -1381,16 +1391,16 @@
             // Update subtitle
             document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
-            // Group original (non-variation) cards by value (row letter)
-            var cardsByValue = {};
+            // Collect original (non-variation) cards
+            var origCards = [];
             game.cards.forEach(function(c) {
-                if (c.isVariation) return; // skip variations in deck building
-                var value = c.label.charAt(0);
-                if (!cardsByValue[value]) cardsByValue[value] = [];
-                cardsByValue[value].push(c);
+                if (!c.isVariation) origCards.push(c);
             });
 
-            var values = Object.keys(cardsByValue).sort();
+            // Collect all unique values
+            var valueSet = {};
+            origCards.forEach(function(c) { valueSet[c.label.charAt(0)] = true; });
+            var values = Object.keys(valueSet).sort();
 
             // Load saved variations from localStorage
             var savedVars = [];
@@ -1399,36 +1409,31 @@
                 savedVars = vd ? JSON.parse(vd) : [];
             } catch(e) {}
 
-            // Build SVG pools: for each card, include original + its variations
-            var svgPools = {}; // cardLabel -> array of SVG nodes (original + variations)
-            game.cards.forEach(function(c) {
-                if (c.isVariation) return;
+            // Build SVG pools: for each card, original + its variations
+            var svgPools = {};
+            origCards.forEach(function(c) {
                 var pool = [];
                 var svg = getGameCardSVG(c);
                 if (svg) pool.push(svg);
-
-                // Find variations of this card and add them to pool
                 var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
                 cardVars.forEach(function(v) {
                     var varSvg = getGameVariationSVG(c, v.transform);
                     if (varSvg) pool.push(varSvg);
                 });
-
                 svgPools[c.label] = pool;
             });
 
-            // Generate deterministic domino deck: all value-pair combinations
-            // For each domino, store the first card label from each value
+            // Generate ALL card-to-card pair combinations as dominos
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
-            for (var i = 0; i < values.length; i++) {
-                for (var j = i; j < values.length; j++) {
-                    var leftValue = values[i];
-                    var rightValue = values[j];
-                    var leftCard = cardsByValue[leftValue][0];
-                    var rightCard = cardsByValue[rightValue][0];
-                    // Unique keys per domino half so each gets its own random visual
+            for (var i = 0; i < origCards.length; i++) {
+                for (var j = i + 1; j < origCards.length; j++) {
+                    var leftCard = origCards[i];
+                    var rightCard = origCards[j];
+                    var leftValue = leftCard.label.charAt(0);
+                    var rightValue = rightCard.label.charAt(0);
+                    // Unique keys per domino half
                     var leftKey = leftCard.label + '_d' + cardId + 'L';
                     var rightKey = rightCard.label + '_d' + cardId + 'R';
                     // Randomly pick visual from pool (original + variations)

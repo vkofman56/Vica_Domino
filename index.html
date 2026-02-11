@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-37">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-38">
 </head>
 <body>
     <div class="game-container">
@@ -229,8 +229,10 @@
             <div class="game-view-toolbar">
                 <button class="zoom-btn" id="game-view-var-btn" onclick="toggleGameViewVariations()" title="Show/hide variations">V</button>
                 <button class="zoom-btn" id="game-view-undo-btn" onclick="undoDeleteVariation()" title="Undo delete variation" style="display:none;">&#x21BA;</button>
+                <button class="zoom-btn" id="game-view-flip-btn" onclick="toggleGameFlip()" title="UP/DOWN mode: each domino will be randomly top/bottom flipped during gameplay" style="opacity:0.4;">&#x2195;</button>
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
+                <h1 class="library-title" style="margin-bottom: 2px;">Game Creator</h1>
                 <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
                 <p class="game-view-desc game-view-editable" id="game-view-desc" onclick="editGameDesc()" title="Click to edit description"></p>
                 <div id="game-view-cards"></div>
@@ -1254,23 +1256,13 @@
             delBtn.onclick = function() { deleteGame(gameIndex); };
             btnRow.appendChild(delBtn);
 
-            // UP/DOWN flip toggle button
-            var flipBtn = document.createElement('button');
-            flipBtn.className = 'flip-toggle-btn';
-            flipBtn.id = 'flip-toggle-btn';
-            flipBtn.title = 'UP/DOWN mode: each domino may be randomly flipped so the top card goes to the bottom and vice versa during gameplay';
-            var flipOn = !!(game.flipEnabled);
-            flipBtn.textContent = '\u2195';
-            if (flipOn) flipBtn.classList.add('active');
-            flipBtn.onclick = function() {
-                var games = loadCustomGames();
-                games[gameIndex].flipEnabled = !games[gameIndex].flipEnabled;
-                localStorage.setItem('savedCustomGames', JSON.stringify(games));
-                flipBtn.classList.toggle('active');
-            };
-            btnRow.appendChild(flipBtn);
-
             container.appendChild(btnRow);
+
+            // Update flip button state on left toolbar
+            var flipBtn = document.getElementById('game-view-flip-btn');
+            if (flipBtn) {
+                flipBtn.style.opacity = game.flipEnabled ? '1' : '0.4';
+            }
 
             // Dominos area (hidden initially)
             var dominoArea = document.createElement('div');
@@ -1677,6 +1669,17 @@
                 btn.style.opacity = '0.4';
                 btn.title = 'Show variations';
             }
+        }
+
+        function toggleGameFlip() {
+            if (currentGameViewIndex < 0) return;
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            game.flipEnabled = !game.flipEnabled;
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            var btn = document.getElementById('game-view-flip-btn');
+            if (btn) btn.style.opacity = game.flipEnabled ? '1' : '0.4';
         }
 
         function undoDeleteVariation() {

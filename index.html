@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-29">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-30">
 </head>
 <body>
     <div class="game-container">
@@ -226,6 +226,9 @@
         <!-- Game View Screen -->
         <div class="screen" id="game-view-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-game-view-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="game-view-toolbar">
+                <button class="zoom-btn" id="game-view-desc-btn" onclick="toggleGameViewDescriptions()" title="Hide/show card descriptions">&gt;</button>
+            </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
                 <p class="game-view-desc game-view-editable" id="game-view-desc" onclick="editGameDesc()" title="Click to edit description"></p>
@@ -1249,6 +1252,12 @@
             copyBtn.onclick = function() { copyGame(gameIndex); };
             btnRow.appendChild(copyBtn);
 
+            var delBtn = document.createElement('button');
+            delBtn.className = 'delete-game-btn';
+            delBtn.textContent = 'Delete Game';
+            delBtn.onclick = function() { deleteGame(gameIndex); };
+            btnRow.appendChild(delBtn);
+
             container.appendChild(btnRow);
 
             // Dominos area (hidden initially)
@@ -1643,6 +1652,28 @@
             games[currentGameViewIndex].description = newDesc.trim();
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
             document.getElementById('game-view-desc').textContent = newDesc.trim();
+        }
+
+        function toggleGameViewDescriptions() {
+            var content = document.getElementById('game-view-content');
+            var btn = document.getElementById('game-view-desc-btn');
+            content.classList.toggle('compact-view');
+            btn.textContent = content.classList.contains('compact-view') ? '>' : '<';
+        }
+
+        function deleteGame(gameIndex) {
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+            if (!confirm('Delete game \u201C' + game.name + '\u201D? This cannot be undone.')) return;
+            games.splice(gameIndex, 1);
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            // Remove excluded dominos for this game
+            localStorage.removeItem('excludedDominos_' + gameIndex);
+            populateLibraryGames();
+            populateStartScreenGames();
+            populateCardMakerGames();
+            hideGameView();
         }
 
         document.getElementById('back-from-game-view-btn').addEventListener('click', function() {

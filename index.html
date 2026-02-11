@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-24">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-25">
 </head>
 <body>
     <div class="game-container">
@@ -1142,11 +1142,61 @@
             var container = document.getElementById('game-view-cards');
             container.innerHTML = '';
 
-            // Group original (non-variation) cards by value (row letter)
+            // Group cards by row letter
+            var cardsByRow = {};
+            var rowOrder = [];
+            game.cards.forEach(function(c) {
+                var row = c.label.charAt(0);
+                if (!cardsByRow[row]) {
+                    cardsByRow[row] = [];
+                    rowOrder.push(row);
+                }
+                cardsByRow[row].push(c);
+            });
+
+            rowOrder.sort();
+            rowOrder.forEach(function(row) {
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                container.appendChild(section);
+
+                var rowDiv = document.createElement('div');
+                rowDiv.className = 'library-row';
+
+                cardsByRow[row].forEach(function(cardInfo) {
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) rowDiv.appendChild(cardEl);
+                });
+
+                container.appendChild(rowDiv);
+            });
+
+            // "Show Dominos" button
+            var showBtn = document.createElement('button');
+            showBtn.className = 'show-dominos-btn';
+            showBtn.textContent = 'Show Dominos';
+            showBtn.onclick = function() {
+                var dominoArea = document.getElementById('game-view-dominos-area');
+                if (dominoArea.style.display === 'block') {
+                    dominoArea.style.display = 'none';
+                    showBtn.textContent = 'Show Dominos';
+                } else {
+                    dominoArea.style.display = 'block';
+                    showBtn.textContent = 'Hide Dominos';
+                }
+            };
+            container.appendChild(showBtn);
+
+            // Dominos area (hidden initially)
+            var dominoArea = document.createElement('div');
+            dominoArea.id = 'game-view-dominos-area';
+            dominoArea.style.display = 'none';
+
+            // Group only original cards by value for domino generation
             var cardsByValue = {};
             var valueOrder = [];
             game.cards.forEach(function(c) {
-                if (c.isVariation) return; // skip variations
+                if (c.isVariation) return;
                 var value = c.label.charAt(0);
                 if (!cardsByValue[value]) {
                     cardsByValue[value] = [];
@@ -1164,7 +1214,6 @@
                 for (var j = i; j < valueOrder.length; j++) {
                     var leftValue = valueOrder[i];
                     var rightValue = valueOrder[j];
-                    // Pick first card from each value group for display
                     var leftCard = cardsByValue[leftValue][0];
                     var rightCard = cardsByValue[rightValue][0];
                     var domino = {
@@ -1188,13 +1237,13 @@
                 var dTitle = document.createElement('div');
                 dTitle.className = 'game-view-group-title';
                 dTitle.textContent = 'Doubles';
-                container.appendChild(dTitle);
+                dominoArea.appendChild(dTitle);
                 var dRow = document.createElement('div');
                 dRow.className = 'game-view-dominos';
                 doubles.forEach(function(d) {
                     dRow.appendChild(buildGameViewDomino(d));
                 });
-                container.appendChild(dRow);
+                dominoArea.appendChild(dRow);
             }
 
             // Render non-doubles
@@ -1202,17 +1251,46 @@
                 var nTitle = document.createElement('div');
                 nTitle.className = 'game-view-group-title';
                 nTitle.textContent = 'Other Dominos';
-                container.appendChild(nTitle);
+                dominoArea.appendChild(nTitle);
                 var nRow = document.createElement('div');
                 nRow.className = 'game-view-dominos';
                 nonDoubles.forEach(function(d) {
                     nRow.appendChild(buildGameViewDomino(d));
                 });
-                container.appendChild(nRow);
+                dominoArea.appendChild(nRow);
             }
+
+            container.appendChild(dominoArea);
 
             document.getElementById(returnScreen).style.display = 'none';
             document.getElementById('game-view-screen').style.display = 'block';
+        }
+
+        function buildGameViewCard(cardInfo) {
+            if (!cardInfo.isVariation) {
+                var original = findCardByLabel(cardInfo.label);
+                if (!original) return null;
+                var clone = original.cloneNode(true);
+                clone.classList.remove('card-selected');
+                var del = clone.querySelector('.variation-delete-btn');
+                if (del) del.remove();
+                return clone;
+            } else {
+                var original = findCardByLabel(cardInfo.originalLabel);
+                if (!original) return null;
+                var clone = original.cloneNode(true);
+                clone.classList.remove('card-selected');
+                var svg = clone.querySelector('svg');
+                if (svg && cardInfo.transform) {
+                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('transform', cardInfo.transform);
+                    while (svg.firstChild) g.appendChild(svg.firstChild);
+                    svg.appendChild(g);
+                }
+                var lbl = clone.querySelector('.library-label');
+                if (lbl) lbl.textContent = cardInfo.label;
+                return clone;
+            }
         }
 
         function buildGameViewDomino(domino) {

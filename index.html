@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-25">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-26">
 </head>
 <body>
     <div class="game-container">
@@ -1129,11 +1129,29 @@
         // --- Game view ---
         var gameViewReturnScreen = 'card-library-screen';
 
+        var currentGameViewIndex = -1;
+
+        function getDominoKey(d) {
+            return d.leftCard.label + ':' + d.rightCard.label;
+        }
+
+        function getExcludedDominos(gameIndex) {
+            try {
+                var data = localStorage.getItem('excludedDominos_' + gameIndex);
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveExcludedDominos(gameIndex, excludedKeys) {
+            localStorage.setItem('excludedDominos_' + gameIndex, JSON.stringify(excludedKeys));
+        }
+
         function openGameView(gameIndex, returnScreen) {
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
 
+            currentGameViewIndex = gameIndex;
             gameViewReturnScreen = returnScreen || 'card-library-screen';
 
             document.getElementById('game-view-title').textContent = game.name;
@@ -1171,9 +1189,14 @@
                 container.appendChild(rowDiv);
             });
 
-            // "Show Dominos" button
+            // Buttons row: Show Dominos + Copy Game
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'margin: 20px 0 10px 40px;';
+
             var showBtn = document.createElement('button');
             showBtn.className = 'show-dominos-btn';
+            showBtn.style.display = 'inline-block';
+            showBtn.style.margin = '0';
             showBtn.textContent = 'Show Dominos';
             showBtn.onclick = function() {
                 var dominoArea = document.getElementById('game-view-dominos-area');
@@ -1185,7 +1208,15 @@
                     showBtn.textContent = 'Hide Dominos';
                 }
             };
-            container.appendChild(showBtn);
+            btnRow.appendChild(showBtn);
+
+            var copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-game-btn';
+            copyBtn.textContent = 'Copy Game';
+            copyBtn.onclick = function() { copyGame(gameIndex); };
+            btnRow.appendChild(copyBtn);
+
+            container.appendChild(btnRow);
 
             // Dominos area (hidden initially)
             var dominoArea = document.createElement('div');
@@ -1199,53 +1230,126 @@
             });
 
             // Generate ALL card-to-card pair combinations
-            var doubles = [];
-            var nonDoubles = [];
+            var allDominos = [];
             for (var i = 0; i < origCards.length; i++) {
                 for (var j = i + 1; j < origCards.length; j++) {
                     var leftCard = origCards[i];
                     var rightCard = origCards[j];
                     var leftValue = leftCard.label.charAt(0);
                     var rightValue = rightCard.label.charAt(0);
-                    var domino = {
+                    allDominos.push({
                         leftCard: leftCard,
                         rightCard: rightCard,
                         leftValue: leftValue,
                         rightValue: rightValue,
                         isDouble: leftValue === rightValue
-                    };
-                    if (domino.isDouble) {
-                        doubles.push(domino);
-                    } else {
-                        nonDoubles.push(domino);
-                    }
+                    });
                 }
             }
 
-            // Show total count
-            var total = doubles.length + nonDoubles.length;
-            var countInfo = document.createElement('div');
-            countInfo.className = 'game-view-group-title';
-            countInfo.textContent = 'Total: ' + total + ' dominos (' + doubles.length + ' doubles, ' + nonDoubles.length + ' other)';
-            dominoArea.appendChild(countInfo);
+            // Load excluded dominos for this game
+            var excludedKeys = getExcludedDominos(gameIndex);
 
-            // Render doubles
+            // Active box
+            var activeBox = document.createElement('div');
+            activeBox.className = 'domino-box domino-box-active';
+            activeBox.id = 'domino-box-active';
+            var activeLabel = document.createElement('span');
+            activeLabel.className = 'domino-box-label';
+            activeLabel.id = 'active-box-label';
+            activeBox.appendChild(activeLabel);
+            var activeContent = document.createElement('div');
+            activeContent.id = 'active-dominos-content';
+            activeBox.appendChild(activeContent);
+            dominoArea.appendChild(activeBox);
+
+            // Not Used box
+            var unusedBox = document.createElement('div');
+            unusedBox.className = 'domino-box domino-box-unused';
+            unusedBox.id = 'domino-box-unused';
+            var unusedLabel = document.createElement('span');
+            unusedLabel.className = 'domino-box-label';
+            unusedLabel.id = 'unused-box-label';
+            unusedBox.appendChild(unusedLabel);
+            var unusedContent = document.createElement('div');
+            unusedContent.id = 'unused-dominos-content';
+            unusedBox.appendChild(unusedContent);
+            dominoArea.appendChild(unusedBox);
+
+            container.appendChild(dominoArea);
+
+            // Render dominos into boxes
+            renderDominoBoxes(allDominos, excludedKeys, gameIndex);
+
+            document.getElementById(returnScreen).style.display = 'none';
+            document.getElementById('game-view-screen').style.display = 'block';
+        }
+
+        function renderDominoBoxes(allDominos, excludedKeys, gameIndex) {
+            var activeContent = document.getElementById('active-dominos-content');
+            var unusedContent = document.getElementById('unused-dominos-content');
+            activeContent.innerHTML = '';
+            unusedContent.innerHTML = '';
+
+            var activeDominos = [];
+            var unusedDominos = [];
+            allDominos.forEach(function(d) {
+                var key = getDominoKey(d);
+                if (excludedKeys.indexOf(key) >= 0) {
+                    unusedDominos.push(d);
+                } else {
+                    activeDominos.push(d);
+                }
+            });
+
+            // Update labels with counts
+            document.getElementById('active-box-label').textContent = 'Active (' + activeDominos.length + ')';
+            document.getElementById('unused-box-label').textContent = 'Not Used (' + unusedDominos.length + ')';
+
+            // Render active dominos (doubles first, then by value pair)
+            renderDominoGroup(activeContent, activeDominos, function(d) {
+                // Click to move to Not Used
+                var key = getDominoKey(d);
+                var ex = getExcludedDominos(gameIndex);
+                ex.push(key);
+                saveExcludedDominos(gameIndex, ex);
+                renderDominoBoxes(allDominos, ex, gameIndex);
+            });
+
+            // Render unused dominos
+            renderDominoGroup(unusedContent, unusedDominos, function(d) {
+                // Click to move back to Active
+                var key = getDominoKey(d);
+                var ex = getExcludedDominos(gameIndex);
+                ex = ex.filter(function(k) { return k !== key; });
+                saveExcludedDominos(gameIndex, ex);
+                renderDominoBoxes(allDominos, ex, gameIndex);
+            });
+
+            // Hide unused box if empty
+            document.getElementById('domino-box-unused').style.display = unusedDominos.length > 0 ? 'block' : 'none';
+        }
+
+        function renderDominoGroup(container, dominos, onClick) {
+            var doubles = dominos.filter(function(d) { return d.isDouble; });
+            var nonDoubles = dominos.filter(function(d) { return !d.isDouble; });
+
             if (doubles.length > 0) {
                 var dTitle = document.createElement('div');
                 dTitle.className = 'game-view-group-title';
-                dTitle.textContent = 'Doubles';
-                dominoArea.appendChild(dTitle);
+                dTitle.textContent = 'Doubles (' + doubles.length + ')';
+                container.appendChild(dTitle);
                 var dRow = document.createElement('div');
                 dRow.className = 'game-view-dominos';
                 doubles.forEach(function(d) {
-                    dRow.appendChild(buildGameViewDomino(d));
+                    var el = buildGameViewDomino(d);
+                    el.onclick = function() { onClick(d); };
+                    dRow.appendChild(el);
                 });
-                dominoArea.appendChild(dRow);
+                container.appendChild(dRow);
             }
 
-            // Render non-doubles grouped by value pair
             if (nonDoubles.length > 0) {
-                // Group by value pair
                 var byPair = {};
                 var pairOrder = [];
                 nonDoubles.forEach(function(d) {
@@ -1260,20 +1364,42 @@
                     var nTitle = document.createElement('div');
                     nTitle.className = 'game-view-group-title';
                     nTitle.textContent = 'Value ' + key.charAt(0) + ' \u00D7 Value ' + key.charAt(2) + ' (' + byPair[key].length + ')';
-                    dominoArea.appendChild(nTitle);
+                    container.appendChild(nTitle);
                     var nRow = document.createElement('div');
                     nRow.className = 'game-view-dominos';
                     byPair[key].forEach(function(d) {
-                        nRow.appendChild(buildGameViewDomino(d));
+                        var el = buildGameViewDomino(d);
+                        el.onclick = function() { onClick(d); };
+                        nRow.appendChild(el);
                     });
-                    dominoArea.appendChild(nRow);
+                    container.appendChild(nRow);
                 });
             }
+        }
 
-            container.appendChild(dominoArea);
-
-            document.getElementById(returnScreen).style.display = 'none';
-            document.getElementById('game-view-screen').style.display = 'block';
+        function copyGame(gameIndex) {
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+            var newName = 'Copy of ' + game.name;
+            var newGame = {
+                name: newName,
+                description: game.description,
+                cards: JSON.parse(JSON.stringify(game.cards))
+            };
+            games.push(newGame);
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            // Copy excluded dominos too
+            var excluded = getExcludedDominos(gameIndex);
+            if (excluded.length > 0) {
+                saveExcludedDominos(games.length - 1, excluded);
+            }
+            alert('Game copied as \u201C' + newName + '\u201D');
+            populateLibraryGames();
+            populateStartScreenGames();
+            populateCardMakerGames();
+            // Open the copied game
+            openGameView(games.length - 1, gameViewReturnScreen);
         }
 
         function buildGameViewCard(cardInfo) {
@@ -1423,7 +1549,10 @@
                 svgPools[c.label] = pool;
             });
 
-            // Generate ALL card-to-card pair combinations as dominos
+            // Load excluded dominos for this game
+            var excludedKeys = getExcludedDominos(gameIndex);
+
+            // Generate ALL card-to-card pair combinations as dominos (skip excluded)
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
@@ -1431,6 +1560,8 @@
                 for (var j = i + 1; j < origCards.length; j++) {
                     var leftCard = origCards[i];
                     var rightCard = origCards[j];
+                    var dominoKey = leftCard.label + ':' + rightCard.label;
+                    if (excludedKeys.indexOf(dominoKey) >= 0) continue;
                     var leftValue = leftCard.label.charAt(0);
                     var rightValue = rightCard.label.charAt(0);
                     // Unique keys per domino half

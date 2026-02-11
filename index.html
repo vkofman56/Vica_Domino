@@ -962,6 +962,54 @@
         // Load saved variations on startup
         loadVariations();
 
+        // Restore variations that were wrongly removed from Card Maker
+        // (due to old bug where game view delete removed from Card Maker globally)
+        function restoreMissingVariations() {
+            var games = [];
+            try {
+                var gd = localStorage.getItem('savedCustomGames');
+                games = gd ? JSON.parse(gd) : [];
+            } catch(e) { return; }
+
+            // Collect all unique variations referenced by any game
+            var neededVars = {};
+            games.forEach(function(game) {
+                if (!game.cards) return;
+                game.cards.forEach(function(c) {
+                    if (c.isVariation && c.originalLabel && c.transform) {
+                        var key = c.originalLabel + ':' + c.transform;
+                        if (!neededVars[key]) {
+                            neededVars[key] = { originalLabel: c.originalLabel, transform: c.transform };
+                        }
+                    }
+                });
+            });
+
+            // Load current Card Maker variations
+            var existing = {};
+            try {
+                var saved = localStorage.getItem('cardMakerVariations');
+                var data = saved ? JSON.parse(saved) : [];
+                data.forEach(function(v) {
+                    existing[v.originalLabel + ':' + v.transform] = true;
+                });
+            } catch(e) {}
+
+            // Find missing ones and re-add them
+            var added = false;
+            Object.keys(neededVars).forEach(function(key) {
+                if (existing[key]) return; // already exists
+                var v = neededVars[key];
+                var originalCard = findCardByLabel(v.originalLabel);
+                if (!originalCard) return; // original card not found
+                addVariation(originalCard, v.transform, '', true);
+                added = true;
+            });
+
+            if (added) saveVariations();
+        }
+        restoreMissingVariations();
+
         // === Game Maker system ===
         var gameMakerActive = false;
         var gameMakerName = '';
@@ -1157,6 +1205,22 @@
 
         function saveExcludedDominos(gameIndex, excludedKeys) {
             localStorage.setItem('excludedDominos_' + gameIndex, JSON.stringify(excludedKeys));
+        }
+
+        // Per-game excluded variations (originalLabel + ':' + transform)
+        function getExcludedVariations(gameIndex) {
+            try {
+                var data = localStorage.getItem('excludedVariations_' + gameIndex);
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveExcludedVariations(gameIndex, excludedKeys) {
+            localStorage.setItem('excludedVariations_' + gameIndex, JSON.stringify(excludedKeys));
+        }
+
+        function getVariationKey(originalLabel, transform) {
+            return originalLabel + ':' + transform;
         }
 
         function openGameView(gameIndex, returnScreen) {
@@ -1431,10 +1495,14 @@
             };
             games.push(newGame);
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            // Copy excluded dominos too
+            // Copy excluded dominos and variations too
             var excluded = getExcludedDominos(gameIndex);
             if (excluded.length > 0) {
                 saveExcludedDominos(games.length - 1, excluded);
+            }
+            var excludedVars = getExcludedVariations(gameIndex);
+            if (excludedVars.length > 0) {
+                saveExcludedVariations(games.length - 1, excludedVars);
             }
             alert('Game copied as \u201C' + newName + '\u201D');
             populateLibraryGames();
@@ -1459,10 +1527,14 @@
             };
             games.push(newGame);
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            // Copy excluded dominos too
+            // Copy excluded dominos and variations too
             var excluded = getExcludedDominos(gameIndex);
             if (excluded.length > 0) {
                 saveExcludedDominos(games.length - 1, excluded);
+            }
+            var excludedVars = getExcludedVariations(gameIndex);
+            if (excludedVars.length > 0) {
+                saveExcludedVariations(games.length - 1, excludedVars);
             }
             populateLibraryGames();
             populateStartScreenGames();
@@ -1529,13 +1601,18 @@
             var origLabels = {};
             origCards.forEach(function(c) { origLabels[c.label] = true; });
 
+            // Load per-game excluded variations
+            var excludedVars = getExcludedVariations(gameIndex);
+
             var cmVarCards = document.querySelectorAll('#domino-library-screen .library-card.variation');
-            // Group by original label
+            // Group by original label, filtering out excluded for this game
             var varsByCard = {};
             var cardOrder = [];
             cmVarCards.forEach(function(el) {
                 var origLabel = el.dataset.originalLabel;
                 if (!origLabels[origLabel]) return;
+                var vKey = getVariationKey(origLabel, el.dataset.transform);
+                if (excludedVars.indexOf(vKey) >= 0) return; // excluded for this game
                 if (!varsByCard[origLabel]) {
                     varsByCard[origLabel] = [];
                     cardOrder.push(origLabel);
@@ -1580,40 +1657,28 @@
                     var delBtn = document.createElement('button');
                     delBtn.className = 'variation-delete-btn';
                     delBtn.textContent = '\u2715';
-                    delBtn.title = 'Delete this variation';
-                    delBtn.onclick = function(e) {
-                        e.stopPropagation();
-                        // Store undo data before removing
-                        var cmRow = cmCard.closest('.library-row');
-                        lastDeletedGameViewVariation = {
-                            cmCard: cmCard,
-                            cmRow: cmRow,
-                            label: label,
-                            varArea: varArea,
-                            origCards: origCards,
-                            gameIndex: gameIndex
+                    delBtn.title = 'Exclude this variation from this game';
+                    delBtn.onclick = (function(cardLabel, cardTransform) {
+                        return function(e) {
+                            e.stopPropagation();
+                            // Store undo data
+                            lastDeletedGameViewVariation = {
+                                varKey: getVariationKey(cardLabel, cardTransform),
+                                varArea: varArea,
+                                origCards: origCards,
+                                gameIndex: gameIndex
+                            };
+                            // Add to per-game excluded variations
+                            var ex = getExcludedVariations(gameIndex);
+                            ex.push(getVariationKey(cardLabel, cardTransform));
+                            saveExcludedVariations(gameIndex, ex);
+                            // Rebuild (Card Maker is NOT touched)
+                            buildGameViewVariations(varArea, origCards, gameIndex);
+                            // Show undo button
+                            var undoBtn = document.getElementById('game-view-undo-btn');
+                            if (undoBtn) undoBtn.style.display = 'block';
                         };
-                        // Remove from Card Maker DOM
-                        cmCard.remove();
-                        if (cmRow) {
-                            // Renumber remaining variations
-                            var subs2 = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
-                            var remaining = cmRow.querySelectorAll('.library-card.variation[data-original-label="' + label + '"]');
-                            var count = 0;
-                            remaining.forEach(function(r) {
-                                var lbl = r.querySelector('.library-label');
-                                if (lbl) lbl.textContent = label + (count < subs2.length ? subs2.charAt(count) : '_' + (count + 1));
-                                count++;
-                            });
-                        }
-                        // Save updated variations
-                        saveVariations();
-                        // Rebuild
-                        buildGameViewVariations(varArea, origCards, gameIndex);
-                        // Show undo button
-                        var undoBtn = document.getElementById('game-view-undo-btn');
-                        if (undoBtn) undoBtn.style.display = 'block';
-                    };
+                    })(cmCard.dataset.originalLabel, cmCard.dataset.transform);
                     clone.appendChild(delBtn);
                     row.appendChild(clone);
                 });
@@ -1698,22 +1763,12 @@
             if (!lastDeletedGameViewVariation) return;
             var data = lastDeletedGameViewVariation;
             lastDeletedGameViewVariation = null;
-            // Re-insert card back into Card Maker DOM row
-            if (data.cmRow) {
-                data.cmRow.appendChild(data.cmCard);
-                // Renumber all variations for this label
-                var subs2 = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
-                var remaining = data.cmRow.querySelectorAll('.library-card.variation[data-original-label="' + data.label + '"]');
-                var count = 0;
-                remaining.forEach(function(r) {
-                    var lbl = r.querySelector('.library-label');
-                    if (lbl) lbl.textContent = data.label + (count < subs2.length ? subs2.charAt(count) : '_' + (count + 1));
-                    count++;
-                });
-            }
-            // Save restored variations
-            saveVariations();
-            // Rebuild game view variations
+            // Remove the variation key from per-game exclusion list
+            var ex = getExcludedVariations(data.gameIndex);
+            var idx = ex.indexOf(data.varKey);
+            if (idx >= 0) ex.splice(idx, 1);
+            saveExcludedVariations(data.gameIndex, ex);
+            // Rebuild game view variations (Card Maker is NOT touched)
             buildGameViewVariations(data.varArea, data.origCards, data.gameIndex);
             // Hide undo button
             var undoBtn = document.getElementById('game-view-undo-btn');
@@ -1727,8 +1782,9 @@
             if (!confirm('Delete game \u201C' + game.name + '\u201D? This cannot be undone.')) return;
             games.splice(gameIndex, 1);
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            // Remove excluded dominos for this game
+            // Remove excluded dominos and variations for this game
             localStorage.removeItem('excludedDominos_' + gameIndex);
+            localStorage.removeItem('excludedVariations_' + gameIndex);
             populateLibraryGames();
             populateStartScreenGames();
             populateCardMakerGames();
@@ -1814,7 +1870,10 @@
                 savedVars = vd ? JSON.parse(vd) : [];
             } catch(e) {}
 
-            // Build SVG pools: for each card, original + its variations
+            // Load per-game excluded variations
+            var excludedVars = getExcludedVariations(gameIndex);
+
+            // Build SVG pools: for each card, original + its non-excluded variations
             var svgPools = {};
             origCards.forEach(function(c) {
                 var pool = [];
@@ -1822,6 +1881,8 @@
                 if (svg) pool.push(svg);
                 var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
                 cardVars.forEach(function(v) {
+                    var vKey = getVariationKey(v.originalLabel, v.transform);
+                    if (excludedVars.indexOf(vKey) >= 0) return; // skip excluded
                     var varSvg = getGameVariationSVG(c, v.transform);
                     if (varSvg) pool.push(varSvg);
                 });

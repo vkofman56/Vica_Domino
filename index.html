@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-23">
+    <link rel="stylesheet" href="css/style.css?v=domino-library-24">
 </head>
 <body>
     <div class="game-container">
@@ -1142,66 +1142,97 @@
             var container = document.getElementById('game-view-cards');
             container.innerHTML = '';
 
-            // Group cards by row letter
-            var cardsByRow = {};
-            var rowOrder = [];
+            // Group original (non-variation) cards by value (row letter)
+            var cardsByValue = {};
+            var valueOrder = [];
             game.cards.forEach(function(c) {
-                var row = c.label.charAt(0);
-                if (!cardsByRow[row]) {
-                    cardsByRow[row] = [];
-                    rowOrder.push(row);
+                if (c.isVariation) return; // skip variations
+                var value = c.label.charAt(0);
+                if (!cardsByValue[value]) {
+                    cardsByValue[value] = [];
+                    valueOrder.push(value);
                 }
-                cardsByRow[row].push(c);
+                cardsByValue[value].push(c);
             });
+            valueOrder.sort();
 
-            rowOrder.sort();
-            rowOrder.forEach(function(row) {
-                var section = document.createElement('div');
-                section.className = 'library-section';
-                container.appendChild(section);
+            // Generate all domino pairs
+            var doubles = [];
+            var nonDoubles = [];
+            var cardId = 1;
+            for (var i = 0; i < valueOrder.length; i++) {
+                for (var j = i; j < valueOrder.length; j++) {
+                    var leftValue = valueOrder[i];
+                    var rightValue = valueOrder[j];
+                    // Pick first card from each value group for display
+                    var leftCard = cardsByValue[leftValue][0];
+                    var rightCard = cardsByValue[rightValue][0];
+                    var domino = {
+                        id: cardId++,
+                        leftCard: leftCard,
+                        rightCard: rightCard,
+                        leftValue: leftValue,
+                        rightValue: rightValue,
+                        isDouble: leftValue === rightValue
+                    };
+                    if (domino.isDouble) {
+                        doubles.push(domino);
+                    } else {
+                        nonDoubles.push(domino);
+                    }
+                }
+            }
 
-                var rowDiv = document.createElement('div');
-                rowDiv.className = 'library-row';
-
-                cardsByRow[row].forEach(function(cardInfo) {
-                    var cardEl = buildGameViewCard(cardInfo);
-                    if (cardEl) rowDiv.appendChild(cardEl);
+            // Render doubles
+            if (doubles.length > 0) {
+                var dTitle = document.createElement('div');
+                dTitle.className = 'game-view-group-title';
+                dTitle.textContent = 'Doubles';
+                container.appendChild(dTitle);
+                var dRow = document.createElement('div');
+                dRow.className = 'game-view-dominos';
+                doubles.forEach(function(d) {
+                    dRow.appendChild(buildGameViewDomino(d));
                 });
+                container.appendChild(dRow);
+            }
 
-                container.appendChild(rowDiv);
-            });
+            // Render non-doubles
+            if (nonDoubles.length > 0) {
+                var nTitle = document.createElement('div');
+                nTitle.className = 'game-view-group-title';
+                nTitle.textContent = 'Other Dominos';
+                container.appendChild(nTitle);
+                var nRow = document.createElement('div');
+                nRow.className = 'game-view-dominos';
+                nonDoubles.forEach(function(d) {
+                    nRow.appendChild(buildGameViewDomino(d));
+                });
+                container.appendChild(nRow);
+            }
 
             document.getElementById(returnScreen).style.display = 'none';
             document.getElementById('game-view-screen').style.display = 'block';
         }
 
-        function buildGameViewCard(cardInfo) {
-            if (!cardInfo.isVariation) {
-                var original = findCardByLabel(cardInfo.label);
-                if (!original) return null;
-                var clone = original.cloneNode(true);
-                clone.classList.remove('card-selected');
-                // Remove delete button if present
-                var del = clone.querySelector('.variation-delete-btn');
-                if (del) del.remove();
-                return clone;
-            } else {
-                // Variation: find original and apply transform
-                var original = findCardByLabel(cardInfo.originalLabel);
-                if (!original) return null;
-                var clone = original.cloneNode(true);
-                clone.classList.remove('card-selected');
-                var svg = clone.querySelector('svg');
-                if (svg && cardInfo.transform) {
-                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                    g.setAttribute('transform', cardInfo.transform);
-                    while (svg.firstChild) g.appendChild(svg.firstChild);
-                    svg.appendChild(g);
-                }
-                var lbl = clone.querySelector('.library-label');
-                if (lbl) lbl.textContent = cardInfo.label;
-                return clone;
-            }
+        function buildGameViewDomino(domino) {
+            var el = document.createElement('div');
+            el.className = 'game-view-domino';
+            if (domino.isDouble) el.classList.add('double-domino');
+
+            var leftHalf = document.createElement('div');
+            leftHalf.className = 'game-view-domino-half';
+            var leftSvg = getGameCardSVG(domino.leftCard);
+            if (leftSvg) leftHalf.appendChild(leftSvg);
+
+            var rightHalf = document.createElement('div');
+            rightHalf.className = 'game-view-domino-half';
+            var rightSvg = getGameCardSVG(domino.rightCard);
+            if (rightSvg) rightHalf.appendChild(rightSvg);
+
+            el.appendChild(leftHalf);
+            el.appendChild(rightHalf);
+            return el;
         }
 
         function hideGameView() {
@@ -1272,15 +1303,16 @@
             // Update subtitle
             document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
-            // Group selected cards by value (row letter)
-            var valueCards = {};
+            // Group original (non-variation) cards by value (row letter)
+            var cardsByValue = {};
             game.cards.forEach(function(c) {
+                if (c.isVariation) return; // skip variations in deck building
                 var value = c.label.charAt(0);
-                if (!valueCards[value]) valueCards[value] = [];
-                valueCards[value].push(c);
+                if (!cardsByValue[value]) cardsByValue[value] = [];
+                cardsByValue[value].push(c);
             });
 
-            var values = Object.keys(valueCards).sort();
+            var values = Object.keys(cardsByValue).sort();
 
             // Load saved variations from localStorage
             var savedVars = [];
@@ -1289,41 +1321,47 @@
                 savedVars = vd ? JSON.parse(vd) : [];
             } catch(e) {}
 
-            // Build SVG map and variation pools for each value
-            var svgMap = {};
-            var cardPools = {}; // value -> array of representation keys
-            values.forEach(function(v) { cardPools[v] = []; });
-
+            // Build SVG pools: for each card, include original + its variations
+            var svgPools = {}; // cardLabel -> array of SVG nodes (original + variations)
             game.cards.forEach(function(c) {
-                var value = c.label.charAt(0);
+                if (c.isVariation) return;
+                var pool = [];
                 var svg = getGameCardSVG(c);
-                if (svg) {
-                    svgMap[c.label] = svg;
-                    cardPools[value].push(c.label);
-                }
+                if (svg) pool.push(svg);
 
-                // Find variations of this card and add them to the pool
+                // Find variations of this card and add them to pool
                 var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
-                cardVars.forEach(function(v, vi) {
-                    var varKey = c.label + '_v' + vi;
+                cardVars.forEach(function(v) {
                     var varSvg = getGameVariationSVG(c, v.transform);
-                    if (varSvg) {
-                        svgMap[varKey] = varSvg;
-                        cardPools[value].push(varKey);
-                    }
+                    if (varSvg) pool.push(varSvg);
                 });
+
+                svgPools[c.label] = pool;
             });
 
-            // Generate domino deck: all combinations of value pairs
+            // Generate deterministic domino deck: all value-pair combinations
+            // For each domino, store the first card label from each value
             var customDeck = [];
+            var svgMap = {};
             var cardId = 1;
             for (var i = 0; i < values.length; i++) {
                 for (var j = i; j < values.length; j++) {
                     var leftValue = values[i];
                     var rightValue = values[j];
-                    // Pick random visual from each value's pool
-                    var leftKey = randomPick(cardPools[leftValue]);
-                    var rightKey = randomPick(cardPools[rightValue]);
+                    var leftCard = cardsByValue[leftValue][0];
+                    var rightCard = cardsByValue[rightValue][0];
+                    // Unique keys per domino half so each gets its own random visual
+                    var leftKey = leftCard.label + '_d' + cardId + 'L';
+                    var rightKey = rightCard.label + '_d' + cardId + 'R';
+                    // Randomly pick visual from pool (original + variations)
+                    var leftPool = svgPools[leftCard.label];
+                    var rightPool = svgPools[rightCard.label];
+                    if (leftPool && leftPool.length > 0) {
+                        svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
+                    }
+                    if (rightPool && rightPool.length > 0) {
+                        svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
+                    }
                     customDeck.push({
                         id: cardId++,
                         left: leftKey,

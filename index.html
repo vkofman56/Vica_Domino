@@ -283,6 +283,16 @@
                     <svg viewBox="0 0 24 24" width="22" height="22"><text x="4" y="20" font-size="12" font-weight="bold" fill="currentColor">1</text><text x="14" y="20" font-size="12" font-weight="bold" fill="currentColor">2</text><path d="M6 6 L18 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 6 L9 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 6 L9 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18 6 L15 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18 6 L15 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 </button>
             </div>
+            <!-- Duplicate variation confirmation dialog -->
+            <div id="duplicate-var-overlay" style="display:none;">
+                <div class="duplicate-var-dialog">
+                    <p>You are making a card's copy</p>
+                    <div class="duplicate-var-btns">
+                        <button class="btn" id="dup-var-confirm-btn">Confirm</button>
+                        <button class="btn" id="dup-var-cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
             <!-- Game list panel on left side -->
             <div class="card-maker-games" id="card-maker-games"></div>
             <!-- Game Maker name/description dialog -->
@@ -755,7 +765,7 @@
                     // Symbol toggle - only for cards with 2+ numbers (future)
                     return;
                 }
-                addVariation(card, tool.transform, tool.desc);
+                checkDuplicateAndAdd(card, tool.transform, tool.desc);
                 return;
             }
 
@@ -825,7 +835,7 @@
                 addBtn.textContent = 'Add';
                 addBtn.onclick = function(e) {
                     e.stopPropagation();
-                    addVariation(card, t.transform, t.desc);
+                    checkDuplicateAndAdd(card, t.transform, t.desc);
                 };
                 item.appendChild(addBtn);
 
@@ -858,6 +868,115 @@
             }
             svg.appendChild(g);
             return svg;
+        }
+
+        // --- Duplicate variation detection ---
+        function svgToPixels(svgEl, callback) {
+            var clone = svgEl.cloneNode(true);
+            clone.setAttribute('width', '60');
+            clone.setAttribute('height', '60');
+            clone.style.width = '';
+            clone.style.height = '';
+            var str = new XMLSerializer().serializeToString(clone);
+            var url = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(str)));
+            var img = new Image();
+            img.onload = function() {
+                var c = document.createElement('canvas');
+                c.width = 60; c.height = 60;
+                var ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, 60, 60);
+                try { callback(ctx.getImageData(0, 0, 60, 60).data); }
+                catch(e) { callback(null); }
+            };
+            img.onerror = function() { callback(null); };
+            img.src = url;
+        }
+
+        function pixelsMatch(a, b) {
+            if (!a || !b || a.length !== b.length) return false;
+            var diff = 0, total = a.length / 4;
+            for (var i = 0; i < a.length; i += 4) {
+                if (Math.abs(a[i] - b[i]) > 12 || Math.abs(a[i+1] - b[i+1]) > 12 ||
+                    Math.abs(a[i+2] - b[i+2]) > 12 || Math.abs(a[i+3] - b[i+3]) > 12) diff++;
+            }
+            return diff / total < 0.03;
+        }
+
+        function highlightDuplicateCard(cardEl) {
+            cardEl.classList.add('duplicate-highlight');
+        }
+
+        function clearDuplicateHighlights() {
+            document.querySelectorAll('.duplicate-highlight').forEach(function(el) {
+                el.classList.remove('duplicate-highlight');
+            });
+        }
+
+        function showDuplicateConfirm(callback) {
+            var overlay = document.getElementById('duplicate-var-overlay');
+            overlay.style.display = 'flex';
+            var confirmBtn = document.getElementById('dup-var-confirm-btn');
+            var cancelBtn = document.getElementById('dup-var-cancel-btn');
+            function cleanup() {
+                overlay.style.display = 'none';
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            }
+            confirmBtn.onclick = function() { cleanup(); callback(true); };
+            cancelBtn.onclick = function() { cleanup(); callback(false); };
+        }
+
+        function checkDuplicateAndAdd(originalCard, transform, desc) {
+            var label = originalCard.querySelector('.library-label') ? originalCard.querySelector('.library-label').textContent : '';
+            var row = originalCard.closest('.library-row');
+            var svg = originalCard.querySelector('svg');
+            if (!row || !svg) return;
+
+            // Collect cards to compare: original + existing variations of this card
+            var compareCards = [originalCard];
+            row.querySelectorAll('.library-card.variation[data-original-label="' + label + '"]').forEach(function(v) {
+                compareCards.push(v);
+            });
+
+            // Render the new variation to pixels
+            var newVarSvg = createVariationSVG(svg, transform);
+            svgToPixels(newVarSvg, function(newPixels) {
+                if (!newPixels) {
+                    // Canvas failed, fall back to just adding
+                    addVariation(originalCard, transform, desc);
+                    return;
+                }
+
+                // Compare against each existing card in parallel
+                var remaining = compareCards.length;
+                var matchCard = null;
+
+                compareCards.forEach(function(cardEl) {
+                    var cardSvg = cardEl.querySelector('svg');
+                    if (!cardSvg) { remaining--; checkDone(); return; }
+                    svgToPixels(cardSvg.cloneNode(true), function(existingPixels) {
+                        if (!matchCard && pixelsMatch(newPixels, existingPixels)) {
+                            matchCard = cardEl;
+                        }
+                        remaining--;
+                        checkDone();
+                    });
+                });
+
+                function checkDone() {
+                    if (remaining > 0) return;
+                    if (matchCard) {
+                        // Found a visual duplicate - highlight it and ask
+                        highlightDuplicateCard(matchCard);
+                        showDuplicateConfirm(function(confirmed) {
+                            clearDuplicateHighlights();
+                            if (confirmed) addVariation(originalCard, transform, desc);
+                        });
+                    } else {
+                        addVariation(originalCard, transform, desc);
+                    }
+                }
+            });
         }
 
         function addVariation(originalCard, transform, desc, skipSave) {

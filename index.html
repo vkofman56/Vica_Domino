@@ -252,8 +252,10 @@
                 <button class="zoom-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Hide/show card descriptions">&gt;</button>
                 <button class="zoom-btn" id="var-tool-btn" onclick="toggleVariationToolbar()" title="Create variations">V</button>
                 <button class="zoom-btn" id="toggle-var-btn" onclick="toggleVariationVisibility()" title="Hide variations" style="font-size:11px;">V+</button>
-                <button class="zoom-btn game-maker-trigger" onclick="startGameMaker()" title="Game Maker">GM</button>
+                <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker">GM</button>
             </div>
+            <!-- GM game list popup -->
+            <div class="gm-popup" id="gm-popup" style="display:none;"></div>
             <!-- Variation creation toolbar -->
             <div class="variation-toolbar" id="variation-toolbar" style="display:none;">
                 <button class="var-tool-btn" onclick="selectVariationTool(0)" title="Vertical axis reflection">
@@ -1220,74 +1222,55 @@
         var gameMakerSelected = []; // array of { label, isVariation, originalLabel?, transform? }
         var gameMakerEditIndex = -1; // -1 = new game, >= 0 = editing existing game
 
-        function startGameMaker() {
-            var sel = document.getElementById('game-maker-select');
+        function toggleGmPopup() {
+            var popup = document.getElementById('gm-popup');
+            if (popup.style.display !== 'none') {
+                popup.style.display = 'none';
+                return;
+            }
+            // Build the list
+            popup.innerHTML = '';
             var games = loadCustomGames();
-            // Rebuild options: existing games + New Game
-            sel.innerHTML = '';
-            for (var i = 0; i < games.length; i++) {
-                var opt = document.createElement('option');
-                opt.value = String(i);
-                opt.textContent = games[i].name;
-                sel.appendChild(opt);
-            }
-            var newOpt = document.createElement('option');
-            newOpt.value = '__new__';
-            newOpt.textContent = '+ New Game';
-            sel.appendChild(newOpt);
-            // Default to "New Game"
-            sel.value = '__new__';
-            document.getElementById('game-maker-name-row').style.display = 'block';
-            document.getElementById('game-maker-name').value = '';
-            document.getElementById('game-maker-desc').value = '';
-            document.getElementById('game-maker-dialog-title').textContent = 'Create New Game';
-            gameMakerEditIndex = -1;
-            document.getElementById('game-maker-overlay').style.display = 'flex';
-            document.getElementById('game-maker-name').focus();
-        }
-
-        function onGameMakerSelect() {
-            var sel = document.getElementById('game-maker-select');
-            var val = sel.value;
-            if (val === '__new__') {
-                document.getElementById('game-maker-name-row').style.display = 'block';
-                document.getElementById('game-maker-name').value = '';
-                document.getElementById('game-maker-desc').value = '';
-                document.getElementById('game-maker-dialog-title').textContent = 'Create New Game';
+            // "+ New Game" first
+            var newBtn = document.createElement('button');
+            newBtn.className = 'gm-popup-btn gm-new-game';
+            newBtn.textContent = '+ New Game';
+            newBtn.onclick = function() {
+                popup.style.display = 'none';
+                var name = prompt('Game name:');
+                if (!name || !name.trim()) return;
                 gameMakerEditIndex = -1;
-            } else {
-                var games = loadCustomGames();
-                var idx = parseInt(val);
-                document.getElementById('game-maker-name-row').style.display = 'none';
-                document.getElementById('game-maker-desc').value = games[idx].description || '';
-                document.getElementById('game-maker-dialog-title').textContent = 'Edit Game';
-                gameMakerEditIndex = idx;
-            }
+                gameMakerName = name.trim();
+                gameMakerDesc = '';
+                enterSelectionMode();
+            };
+            popup.appendChild(newBtn);
+            // Existing games
+            games.forEach(function(game, i) {
+                var btn = document.createElement('button');
+                btn.className = 'gm-popup-btn';
+                btn.textContent = game.name;
+                btn.onclick = function() {
+                    popup.style.display = 'none';
+                    gameMakerEditIndex = i;
+                    gameMakerName = game.name;
+                    gameMakerDesc = game.description || '';
+                    enterSelectionMode();
+                };
+                popup.appendChild(btn);
+            });
+            popup.style.display = 'flex';
         }
 
-        function cancelGameMakerDialog() {
-            document.getElementById('game-maker-overlay').style.display = 'none';
-        }
-
-        function confirmGameMaker() {
-            if (gameMakerEditIndex >= 0) {
-                // Editing existing game
-                var games = loadCustomGames();
-                gameMakerName = games[gameMakerEditIndex].name;
-                gameMakerDesc = document.getElementById('game-maker-desc').value.trim();
-                document.getElementById('game-maker-overlay').style.display = 'none';
-                enterSelectionMode();
-            } else {
-                // New game
-                var name = document.getElementById('game-maker-name').value.trim();
-                var desc = document.getElementById('game-maker-desc').value.trim();
-                if (!name) { alert('Please enter a game name.'); return; }
-                gameMakerName = name;
-                gameMakerDesc = desc;
-                document.getElementById('game-maker-overlay').style.display = 'none';
-                enterSelectionMode();
+        // Close GM popup when clicking outside
+        document.addEventListener('click', function(e) {
+            var popup = document.getElementById('gm-popup');
+            if (popup && popup.style.display !== 'none') {
+                if (!e.target.closest('.gm-popup') && !e.target.closest('#gm-btn')) {
+                    popup.style.display = 'none';
+                }
             }
-        }
+        });
 
         function enterSelectionMode() {
             gameMakerActive = true;
@@ -1331,6 +1314,13 @@
                 subtitle.textContent = 'New game: ' + gameMakerName;
                 subtitle.style.color = '#FFD700';
             }
+            // Red box around unselected cards when editing existing game
+            var cmContent = document.querySelector('#domino-library-screen .domino-library-content');
+            if (gameMakerEditIndex >= 0) {
+                cmContent.classList.add('game-maker-editing');
+            } else {
+                cmContent.classList.remove('game-maker-editing');
+            }
             // Show selection bar
             var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
             document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for \u201C' + gameMakerName + '\u201D';
@@ -1344,6 +1334,9 @@
             document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(function(c) {
                 c.classList.remove('card-selected');
             });
+            // Remove red box styling
+            var cmContent = document.querySelector('#domino-library-screen .domino-library-content');
+            cmContent.classList.remove('game-maker-editing');
             // Restore original subtitle
             var subtitle = document.getElementById('card-maker-subtitle');
             subtitle.textContent = 'Numbers and dots, 0 - 6';

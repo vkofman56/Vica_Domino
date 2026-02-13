@@ -318,11 +318,13 @@
                 <button class="draw-tool-btn" id="draw-hollow-btn" onclick="selectDrawTool('hollow')" title="Draw hollow circle">&#9675;</button>
                 <div class="draw-size-row">
                     <label>r</label>
-                    <input type="range" id="draw-size-slider" min="2" max="15" value="6" oninput="drawCircleRadius=+this.value">
+                    <input type="range" id="draw-size-slider" min="1" max="30" value="10" oninput="drawCircleRadius=+this.value;document.getElementById('draw-r-val').textContent=this.value">
+                    <span id="draw-r-val" class="draw-val">10</span>
                 </div>
                 <div class="draw-size-row">
                     <label style="font-size:11px;">Aa</label>
-                    <input type="range" id="draw-font-slider" min="10" max="59" value="40" oninput="drawFontSize=+this.value">
+                    <input type="range" id="draw-font-slider" min="5" max="99" value="66" oninput="drawFontSize=+this.value;document.getElementById('draw-f-val').textContent=this.value">
+                    <span id="draw-f-val" class="draw-val">66</span>
                 </div>
                 <div class="draw-font-row">
                     <select id="draw-font-select" onchange="drawFontFamily=this.value" title="Font">
@@ -847,8 +849,13 @@
         // === Draw mode: place circles and text on cards ===
         var drawModeActive = false;
         var drawTool = 'circle'; // 'circle', 'text', 'hollow'
-        var drawCircleRadius = 6;
-        var drawFontSize = 40;
+        // 1 grid unit = 60/100 = 0.6 SVG units (99 lines → 100 cells in a 60-unit viewBox)
+        var GRID_UNIT = 0.6;
+        function snapToGrid(svgVal) { return Math.round(svgVal / GRID_UNIT) * GRID_UNIT; }
+        function gridToSvg(gridVal) { return gridVal * GRID_UNIT; }
+
+        var drawCircleRadius = 10;  // in grid units (10 × 0.6 = 6 SVG)
+        var drawFontSize = 66;      // in grid units (66 × 0.6 ≈ 40 SVG)
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
         var drawLoupeClickHandler = null;
@@ -968,38 +975,42 @@
                 if (!drawModeActive) return;
                 var rect = container.getBoundingClientRect();
                 // Convert click position to SVG coordinates (0-60)
-                var x = ((e.clientX - rect.left) / rect.width) * 60;
-                var y = ((e.clientY - rect.top) / rect.height) * 60;
-                // Clamp to card bounds
-                x = Math.max(0, Math.min(60, x));
-                y = Math.max(0, Math.min(60, y));
+                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
+                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // Snap position to grid
+                var x = snapToGrid(Math.max(0, Math.min(60, rawX)));
+                var y = snapToGrid(Math.max(0, Math.min(60, rawY)));
                 // Get the card SVG (first SVG child)
                 var cardSvg = container.querySelector('svg:not(.loupe-grid)');
                 if (!cardSvg) return;
 
+                // Convert grid-unit sizes to SVG
+                var svgRadius = gridToSvg(drawCircleRadius);
+                var svgFontSize = gridToSvg(drawFontSize);
+
                 var el;
                 if (drawTool === 'circle') {
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    el.setAttribute('cx', x.toFixed(1));
-                    el.setAttribute('cy', y.toFixed(1));
-                    el.setAttribute('r', drawCircleRadius);
+                    el.setAttribute('cx', x);
+                    el.setAttribute('cy', y);
+                    el.setAttribute('r', svgRadius);
                     el.setAttribute('fill', '#333');
                 } else if (drawTool === 'hollow') {
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    el.setAttribute('cx', x.toFixed(1));
-                    el.setAttribute('cy', y.toFixed(1));
-                    el.setAttribute('r', (drawCircleRadius * 0.9).toFixed(1));
+                    el.setAttribute('cx', x);
+                    el.setAttribute('cy', y);
+                    el.setAttribute('r', gridToSvg(drawCircleRadius * 0.9));
                     el.setAttribute('fill', 'none');
                     el.setAttribute('stroke', '#333');
-                    el.setAttribute('stroke-width', '2.5');
+                    el.setAttribute('stroke-width', gridToSvg(Math.max(2, Math.round(drawCircleRadius * 0.4))));
                 } else if (drawTool === 'text') {
                     var ch = prompt('Enter character(s):');
                     if (!ch) return;
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    el.setAttribute('x', x.toFixed(1));
-                    el.setAttribute('y', (y + drawFontSize * 0.35).toFixed(1));
+                    el.setAttribute('x', x);
+                    el.setAttribute('y', y);
                     el.setAttribute('text-anchor', 'middle');
-                    el.setAttribute('font-size', drawFontSize);
+                    el.setAttribute('font-size', svgFontSize);
                     el.setAttribute('font-family', drawFontFamily);
                     el.setAttribute('font-weight', '500');
                     el.setAttribute('fill', '#333');

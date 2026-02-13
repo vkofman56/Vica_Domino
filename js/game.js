@@ -159,7 +159,7 @@ class VicaDominoGame {
         document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
 
         // Draw from bank
-        document.getElementById('draw-btn').addEventListener('click', () => this.drawFromBank());
+        document.getElementById('bank-draw-btn').addEventListener('click', () => this.drawFromBank());
 
         // Pass turn
         document.getElementById('pass-btn').addEventListener('click', () => this.passTurn());
@@ -705,7 +705,7 @@ class VicaDominoGame {
 
         // Hide all controls
         document.getElementById('pass-btn').style.display = 'none';
-        document.getElementById('draw-btn').style.display = 'none';
+        document.getElementById('bank-draw-btn').style.display = 'none';
         document.getElementById('play-again-game-btn').style.display = 'none';
         document.getElementById('new-game-btn').style.display = 'none';
 
@@ -1538,7 +1538,7 @@ class VicaDominoGame {
         document.getElementById('celebration-area').style.display = 'none';
         document.querySelector('.bank-area').style.display = '';
         document.getElementById('pass-btn').style.display = '';
-        document.getElementById('draw-btn').style.display = '';
+        document.getElementById('bank-draw-btn').style.display = '';
 
         // Reset timer progress color
         const progressCircle = document.querySelector('.timer-progress');
@@ -2043,11 +2043,11 @@ class VicaDominoGame {
         // Check if they can now play
         if (this.canCurrentPlayerPlay()) {
             this.updateStatus(`${player.name} drew a card. Select a card to play!`);
-            document.getElementById('draw-btn').disabled = true;
+            document.getElementById('bank-draw-btn').disabled = true;
             document.getElementById('pass-btn').disabled = false;
         } else {
             this.updateStatus(`${player.name} drew but cannot play. Click "Skip Turn".`, 'warning');
-            document.getElementById('draw-btn').disabled = true;
+            document.getElementById('bank-draw-btn').disabled = true;
             document.getElementById('pass-btn').disabled = false;
         }
 
@@ -2431,7 +2431,7 @@ class VicaDominoGame {
 
     hideCreateEdit() {
         document.getElementById('create-edit-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('start-screen').style.display = 'flex';
     }
 
     showCardLibrary() {
@@ -2690,7 +2690,7 @@ class VicaDominoGame {
     }
 
     updateControls() {
-        const drawBtn = document.getElementById('draw-btn');
+        const drawBtn = document.getElementById('bank-draw-btn');
         const passBtn = document.getElementById('pass-btn');
 
         // During drawForDouble phase - enable draw button

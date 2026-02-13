@@ -1382,17 +1382,32 @@
             popup.appendChild(newBtn);
             // Existing games
             games.forEach(function(game, i) {
+                var row = document.createElement('div');
+                row.className = 'gm-popup-row';
+                // Game name button → opens Game View
                 var btn = document.createElement('button');
                 btn.className = 'gm-popup-btn';
                 btn.textContent = game.name;
                 btn.onclick = function() {
+                    popup.style.display = 'none';
+                    openGameView(i, 'domino-library-screen');
+                };
+                row.appendChild(btn);
+                // Edit (pencil) button → enters selection mode
+                var editBtn = document.createElement('button');
+                editBtn.className = 'gm-popup-edit-btn';
+                editBtn.innerHTML = '&#9998;'; // pencil icon
+                editBtn.title = 'Edit card selection';
+                editBtn.onclick = function(e) {
+                    e.stopPropagation();
                     popup.style.display = 'none';
                     gameMakerEditIndex = i;
                     gameMakerName = game.name;
                     gameMakerDesc = game.description || '';
                     enterSelectionMode();
                 };
-                popup.appendChild(btn);
+                row.appendChild(editBtn);
+                popup.appendChild(row);
             });
             popup.style.display = 'flex';
         }
@@ -1421,21 +1436,36 @@
                 var games = loadCustomGames();
                 var existingCards = games[gameMakerEditIndex].cards || [];
                 var allCards = document.querySelectorAll('#domino-library-screen .library-card');
-                var addedLabels = {};
+                var matched = {};
                 existingCards.forEach(function(ec) {
-                    if (addedLabels[ec.label]) return; // skip duplicates
+                    var ecKey = ec.label;
+                    if (matched[ecKey]) return; // skip duplicates
+                    var found = false;
                     allCards.forEach(function(cardEl) {
-                        if (addedLabels[ec.label]) return; // already found
+                        if (found) return;
                         var lbl = cardEl.querySelector('.library-label');
-                        if (lbl && lbl.textContent === ec.label) {
+                        if (!lbl) return;
+                        // Match by label text first
+                        if (lbl.textContent === ec.label) {
+                            found = true;
+                        }
+                        // For variations, also match by originalLabel + transform
+                        // (in case subscript numbers changed after renumbering)
+                        if (!found && ec.isVariation && cardEl.classList.contains('variation') &&
+                            cardEl.dataset.originalLabel === ec.originalLabel &&
+                            cardEl.dataset.transform === ec.transform) {
+                            found = true;
+                            ecKey = lbl.textContent; // use current label
+                        }
+                        if (found && !matched[ecKey]) {
                             cardEl.classList.add('card-selected');
-                            var info = { label: ec.label, isVariation: ec.isVariation };
+                            var info = { label: lbl.textContent, isVariation: ec.isVariation };
                             if (ec.isVariation) {
                                 info.originalLabel = ec.originalLabel;
                                 info.transform = ec.transform;
                             }
                             gameMakerSelected.push(info);
-                            addedLabels[ec.label] = true;
+                            matched[ecKey] = true;
                         }
                     });
                 });

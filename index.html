@@ -262,7 +262,6 @@
                 <button class="zoom-panel-btn" onclick="libraryZoomOut()" title="Zoom out">−</button>
                 <button class="zoom-panel-btn" onclick="libraryZoomIn()" title="Zoom in">+</button>
                 <button class="zoom-panel-btn" id="loupe-mode-btn" onclick="toggleLoupeMode()" title="Loupe: click a card to enlarge">++</button>
-                <button class="zoom-panel-btn" onclick="libraryZoomReset()" title="Reset to 100%">100%</button>
             </div>
             <!-- Loupe overlay for enlarged card -->
             <div id="loupe-overlay" style="display:none;">
@@ -701,12 +700,23 @@
             var container = document.getElementById('loupe-card-container');
             container.innerHTML = '';
 
+            // Raise the left toolbar above the loupe overlay
+            var toolbar = document.querySelector('#domino-library-screen .library-zoom-fixed');
+            if (toolbar) toolbar.classList.add('loupe-toolbar-raised');
+            var zoomPanel = document.getElementById('zoom-panel');
+            if (zoomPanel) zoomPanel.classList.add('loupe-toolbar-raised');
+
             // Determine size: fill most of the screen, keeping it square
+            // Account for toolbar width (~60px) on the left
+            var toolbarWidth = 60;
             var screenW = window.innerWidth;
             var screenH = window.innerHeight;
-            var size = Math.min(screenW, screenH) * 0.85;
+            var availW = screenW - toolbarWidth;
+            var size = Math.min(availW, screenH) * 0.85;
             container.style.width = size + 'px';
             container.style.height = size + 'px';
+            // Shift card right to avoid toolbar overlap
+            overlay.style.paddingLeft = toolbarWidth + 'px';
 
             // Clone SVG and enlarge
             var svgClone = svg.cloneNode(true);
@@ -747,7 +757,13 @@
 
         function closeLoupe() {
             document.getElementById('loupe-overlay').style.display = 'none';
+            document.getElementById('loupe-overlay').style.paddingLeft = '';
             document.getElementById('loupe-card-container').innerHTML = '';
+            // Restore toolbar z-index
+            var toolbar = document.querySelector('#domino-library-screen .library-zoom-fixed');
+            if (toolbar) toolbar.classList.remove('loupe-toolbar-raised');
+            var zoomPanel = document.getElementById('zoom-panel');
+            if (zoomPanel) zoomPanel.classList.remove('loupe-toolbar-raised');
         }
 
         // Loupe close button

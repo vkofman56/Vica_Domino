@@ -138,6 +138,9 @@ class VicaDominoGame {
         this.isTie = false; // Whether both players found double simultaneously
         this.recentDoubles = []; // Track last 2 rounds' double IDs (avoid same double for 2 rounds)
         this.recentNonDoubles = []; // Track last round's non-double IDs (avoid same non-double next round)
+        this.recentDoublePositions = {}; // Track double positions per player (avoid same position 3x)
+        this._playerClickBuffers = {}; // Multi-press detection per player
+        this._playerClickTimers = {};
 
         this.initEventListeners();
         this.initGameLevelSelector();
@@ -591,6 +594,9 @@ class VicaDominoGame {
         this.winners = []; // Reset winners list
         this.recentDoubles = []; // Reset card history for new game
         this.recentNonDoubles = [];
+        this.recentDoublePositions = {};
+        this._playerClickBuffers = {};
+        this._playerClickTimers = {};
         let playerIndex = 0;
         inputs.forEach((input) => {
             // Skip the Xeno input (disabled)
@@ -789,6 +795,32 @@ class VicaDominoGame {
             }
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
+
+            // Prevent double from landing on same position 3 times in a row
+            const pid = player.id;
+            if (!this.recentDoublePositions[pid]) this.recentDoublePositions[pid] = [];
+            let doublePos = player.hand.findIndex(c => isDouble(c));
+            const recent = this.recentDoublePositions[pid];
+            if (doublePos >= 0 && recent.length >= 2 &&
+                recent[recent.length - 1] === doublePos &&
+                recent[recent.length - 2] === doublePos) {
+                // Same position 3 times - swap double to a different position
+                const otherPositions = [];
+                for (let p = 0; p < player.hand.length; p++) {
+                    if (p !== doublePos) otherPositions.push(p);
+                }
+                if (otherPositions.length > 0) {
+                    const newPos = otherPositions[Math.floor(Math.random() * otherPositions.length)];
+                    const temp = player.hand[doublePos];
+                    player.hand[doublePos] = player.hand[newPos];
+                    player.hand[newPos] = temp;
+                    doublePos = newPos;
+                }
+            }
+            if (doublePos >= 0) {
+                recent.push(doublePos);
+                if (recent.length > 2) recent.shift();
+            }
         });
 
         // Update recent history: doubles keep last 2 rounds, non-doubles keep last 1 round
@@ -968,6 +1000,35 @@ class VicaDominoGame {
         if (this.sunLevelWinners && this.sunLevelWinners.includes(player.id)) {
             return;
         }
+
+        // Multi-press detection: buffer clicks per player, process after short delay
+        const pid = player.id;
+        if (!this._playerClickBuffers[pid]) this._playerClickBuffers[pid] = [];
+        this._playerClickBuffers[pid].push({ card, playerIndex, cardIndex });
+
+        // Clear any existing timer for this player and start fresh
+        if (this._playerClickTimers[pid]) clearTimeout(this._playerClickTimers[pid]);
+
+        this._playerClickTimers[pid] = setTimeout(() => {
+            const clicks = this._playerClickBuffers[pid] || [];
+            this._playerClickBuffers[pid] = [];
+
+            if (clicks.length > 1) {
+                // Multiple simultaneous presses - all treated as wrong
+                clicks.forEach(c => {
+                    this.sunLevelWrongCard(c.card, this.players[c.playerIndex], c.cardIndex);
+                });
+            } else if (clicks.length === 1) {
+                // Single press - process normally
+                const c = clicks[0];
+                this._processSunLevelClick(c.card, this.players[c.playerIndex], c.cardIndex);
+            }
+        }, 150);
+    }
+
+    _processSunLevelClick(card, player, cardIndex) {
+        if (this.gamePhase !== 'sunLevel') return;
+        if (this.sunLevelWinners && this.sunLevelWinners.includes(player.id)) return;
 
         if (isDouble(card)) {
             // Animate double up 20px and others down 20px before processing win

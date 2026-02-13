@@ -313,21 +313,24 @@
             </div>
             <!-- Draw tools panel (inside loupe) -->
             <div id="draw-tools-panel" style="display:none;">
+                <button class="draw-tool-btn" id="draw-select-btn" onclick="selectDrawTool('select')" title="Select / Move symbol">
+                    <svg viewBox="0 0 20 20" width="18" height="18"><path d="M4 2 L4 16 L8 12 L12 18 L14 17 L10 11 L15 11 Z" fill="white" stroke="none"/></svg>
+                </button>
                 <button class="draw-tool-btn active" id="draw-circle-btn" onclick="selectDrawTool('circle')" title="Draw filled circle">&#9679;</button>
                 <button class="draw-tool-btn" id="draw-text-btn" onclick="selectDrawTool('text')" title="Write number or letter">A</button>
                 <button class="draw-tool-btn" id="draw-hollow-btn" onclick="selectDrawTool('hollow')" title="Draw hollow circle">&#9675;</button>
                 <div class="draw-size-row">
                     <label>r</label>
-                    <input type="range" id="draw-size-slider" min="1" max="30" value="10" oninput="drawCircleRadius=+this.value;document.getElementById('draw-r-val').textContent=this.value">
+                    <input type="range" id="draw-size-slider" min="1" max="30" value="10" oninput="onDrawRadiusChange(+this.value)">
                     <span id="draw-r-val" class="draw-val">10</span>
                 </div>
                 <div class="draw-size-row">
                     <label style="font-size:11px;">Aa</label>
-                    <input type="range" id="draw-font-slider" min="5" max="99" value="66" oninput="drawFontSize=+this.value;document.getElementById('draw-f-val').textContent=this.value">
+                    <input type="range" id="draw-font-slider" min="5" max="99" value="66" oninput="onDrawFontSizeChange(+this.value)">
                     <span id="draw-f-val" class="draw-val">66</span>
                 </div>
                 <div class="draw-font-row">
-                    <select id="draw-font-select" onchange="drawFontFamily=this.value" title="Font">
+                    <select id="draw-font-select" onchange="onDrawFontFamilyChange(this.value)" title="Font">
                         <option value="Arial, sans-serif">Arial</option>
                         <option value="'Times New Roman', serif">Times</option>
                         <option value="'Courier New', monospace">Courier</option>
@@ -338,6 +341,7 @@
                         <option value="'Comic Sans MS', cursive">Comic</option>
                     </select>
                 </div>
+                <button class="draw-tool-btn draw-delete-btn" id="draw-delete-btn" onclick="drawDeleteSelected()" title="Delete selected" style="display:none;">&#10005;</button>
                 <button class="draw-tool-btn" id="draw-undo-btn" onclick="drawUndo()" title="Undo last">&#8617;</button>
                 <button class="draw-tool-btn draw-save-btn" onclick="drawSave()" title="Save card">&#10003;</button>
             </div>
@@ -859,11 +863,12 @@
 
         // === Draw mode: place circles and text on cards ===
         var drawModeActive = false;
-        var drawTool = 'circle'; // 'circle', 'text', 'hollow'
+        var drawTool = 'circle'; // 'circle', 'text', 'hollow', 'select'
         // 1 grid unit = 60/100 = 0.6 SVG units (99 lines → 100 cells in a 60-unit viewBox)
         var GRID_UNIT = 0.6;
         function snapToGrid(svgVal) { return Math.round(svgVal / GRID_UNIT) * GRID_UNIT; }
         function gridToSvg(gridVal) { return gridVal * GRID_UNIT; }
+        function svgToGrid(svgVal) { return svgVal / GRID_UNIT; }
 
         var drawCircleRadius = 10;  // in grid units (10 × 0.6 = 6 SVG)
         var drawFontSize = 66;      // in grid units (66 × 0.6 ≈ 40 SVG)
@@ -871,6 +876,16 @@
         var drawHistory = []; // SVG elements added, for undo
         var drawLoupeClickHandler = null;
         var pendingNewCardName = null; // name for card being drawn
+
+        // === Select / Edit mode state ===
+        var selectedElement = null;      // currently selected SVG element
+        var isDragging = false;          // drag in progress
+        var dragStartX = 0, dragStartY = 0; // mouse start position (SVG coords)
+        var elemStartX = 0, elemStartY = 0; // element start position (SVG coords)
+        var drawMouseMoveHandler = null;
+        var drawMouseUpHandler = null;
+        var drawKeyHandler = null;
+        var hasEditedExisting = false;    // track if existing elements were modified
 
         function createNewCard() {
             var name = prompt('Card name (label):');
@@ -900,6 +915,7 @@
                 btn.style.boxShadow = '0 0 0 2px #FFD700';
                 panel.style.display = 'flex';
                 drawHistory = [];
+                hasEditedExisting = false;
                 attachDrawClickHandler();
             } else {
                 btn.classList.remove('loupe-active-tool');
@@ -975,27 +991,211 @@
             document.querySelectorAll('#draw-tools-panel .draw-tool-btn').forEach(function(b) {
                 b.classList.remove('active');
             });
-            var idMap = { circle: 'draw-circle-btn', text: 'draw-text-btn', hollow: 'draw-hollow-btn' };
+            var idMap = { select: 'draw-select-btn', circle: 'draw-circle-btn', text: 'draw-text-btn', hollow: 'draw-hollow-btn' };
             var btn = document.getElementById(idMap[tool]);
             if (btn) btn.classList.add('active');
+            // Update cursor
+            var container = document.getElementById('loupe-card-container');
+            if (container) {
+                container.style.cursor = (tool === 'select') ? 'default' : 'crosshair';
+            }
+            // Deselect when switching away from select tool
+            if (tool !== 'select') {
+                deselectElement();
+            }
+        }
+
+        // --- Selection helpers ---
+        function getElementPos(el) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'circle') return { x: +el.getAttribute('cx'), y: +el.getAttribute('cy') };
+            if (tag === 'text') return { x: +el.getAttribute('x'), y: +el.getAttribute('y') };
+            return { x: 0, y: 0 };
+        }
+        function setElementPos(el, x, y) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'circle') { el.setAttribute('cx', x); el.setAttribute('cy', y); }
+            else if (tag === 'text') { el.setAttribute('x', x); el.setAttribute('y', y); }
+        }
+        function isSelectableElement(el) {
+            var tag = el.tagName.toLowerCase();
+            return (tag === 'circle' || tag === 'text') && el.closest('svg:not(.loupe-grid)');
+        }
+
+        var selectionRing = null; // SVG rect/circle showing selection
+
+        function selectElement(el) {
+            deselectElement();
+            selectedElement = el;
+            // Create a visible selection ring around the element
+            var cardSvg = el.closest('svg');
+            if (cardSvg) {
+                var bbox;
+                try { bbox = el.getBBox(); } catch(e) { bbox = null; }
+                if (bbox) {
+                    selectionRing = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    var pad = 2;
+                    selectionRing.setAttribute('x', bbox.x - pad);
+                    selectionRing.setAttribute('y', bbox.y - pad);
+                    selectionRing.setAttribute('width', bbox.width + pad * 2);
+                    selectionRing.setAttribute('height', bbox.height + pad * 2);
+                    selectionRing.setAttribute('fill', 'none');
+                    selectionRing.setAttribute('stroke', '#FFD700');
+                    selectionRing.setAttribute('stroke-width', '1');
+                    selectionRing.setAttribute('stroke-dasharray', '2,1');
+                    selectionRing.setAttribute('rx', '1');
+                    selectionRing.classList.add('draw-sel-ring');
+                    selectionRing.style.pointerEvents = 'none';
+                    cardSvg.appendChild(selectionRing);
+                }
+            }
+            // Show delete button
+            var delBtn = document.getElementById('draw-delete-btn');
+            if (delBtn) delBtn.style.display = '';
+            // Populate property controls with element's current values
+            populatePropsFromElement(el);
+        }
+
+        function updateSelectionRing() {
+            if (!selectionRing || !selectedElement) return;
+            try {
+                var bbox = selectedElement.getBBox();
+                var pad = 2;
+                selectionRing.setAttribute('x', bbox.x - pad);
+                selectionRing.setAttribute('y', bbox.y - pad);
+                selectionRing.setAttribute('width', bbox.width + pad * 2);
+                selectionRing.setAttribute('height', bbox.height + pad * 2);
+            } catch(e) {}
+        }
+
+        function deselectElement() {
+            if (selectionRing && selectionRing.parentNode) {
+                selectionRing.parentNode.removeChild(selectionRing);
+            }
+            selectionRing = null;
+            if (selectedElement) {
+                selectedElement = null;
+            }
+            var delBtn = document.getElementById('draw-delete-btn');
+            if (delBtn) delBtn.style.display = 'none';
+        }
+
+        function populatePropsFromElement(el) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'circle') {
+                var isHollow = el.getAttribute('fill') === 'none';
+                var r;
+                if (isHollow) {
+                    // Hollow circle: stored radius is r * 0.9, reverse it
+                    r = Math.round(svgToGrid(+el.getAttribute('r')) / 0.9);
+                } else {
+                    r = Math.round(svgToGrid(+el.getAttribute('r')));
+                }
+                drawCircleRadius = r;
+                var slider = document.getElementById('draw-size-slider');
+                if (slider) { slider.value = r; }
+                document.getElementById('draw-r-val').textContent = r;
+            } else if (tag === 'text') {
+                var fs = Math.round(svgToGrid(+el.getAttribute('font-size')));
+                drawFontSize = fs;
+                var fSlider = document.getElementById('draw-font-slider');
+                if (fSlider) { fSlider.value = fs; }
+                document.getElementById('draw-f-val').textContent = fs;
+                var ff = el.getAttribute('font-family') || 'Arial, sans-serif';
+                drawFontFamily = ff;
+                var sel = document.getElementById('draw-font-select');
+                if (sel) {
+                    for (var i = 0; i < sel.options.length; i++) {
+                        if (sel.options[i].value === ff) { sel.selectedIndex = i; break; }
+                    }
+                }
+            }
+        }
+
+        // --- Property change handlers (update selected element live) ---
+        function onDrawRadiusChange(val) {
+            drawCircleRadius = val;
+            document.getElementById('draw-r-val').textContent = val;
+            if (selectedElement && selectedElement.tagName.toLowerCase() === 'circle') {
+                hasEditedExisting = true;
+                var isHollow = selectedElement.getAttribute('fill') === 'none';
+                if (isHollow) {
+                    selectedElement.setAttribute('r', gridToSvg(val * 0.9));
+                    selectedElement.setAttribute('stroke-width', gridToSvg(Math.max(2, Math.round(val * 0.4))));
+                } else {
+                    selectedElement.setAttribute('r', gridToSvg(val));
+                }
+                updateSelectionRing();
+            }
+        }
+        function onDrawFontSizeChange(val) {
+            drawFontSize = val;
+            document.getElementById('draw-f-val').textContent = val;
+            if (selectedElement && selectedElement.tagName.toLowerCase() === 'text') {
+                hasEditedExisting = true;
+                selectedElement.setAttribute('font-size', gridToSvg(val));
+                updateSelectionRing();
+            }
+        }
+        function onDrawFontFamilyChange(val) {
+            drawFontFamily = val;
+            if (selectedElement && selectedElement.tagName.toLowerCase() === 'text') {
+                hasEditedExisting = true;
+                selectedElement.setAttribute('font-family', val);
+                updateSelectionRing();
+            }
+        }
+
+        // --- Delete selected element ---
+        function drawDeleteSelected() {
+            if (!selectedElement) return;
+            // Remove from drawHistory if it's there
+            var idx = drawHistory.indexOf(selectedElement);
+            if (idx !== -1) drawHistory.splice(idx, 1);
+            // Remove from SVG
+            if (selectedElement.parentNode) selectedElement.parentNode.removeChild(selectedElement);
+            hasEditedExisting = true;
+            selectedElement = null;
+            var delBtn = document.getElementById('draw-delete-btn');
+            if (delBtn) delBtn.style.display = 'none';
         }
 
         function attachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
+
             drawLoupeClickHandler = function(e) {
                 if (!drawModeActive) return;
                 var rect = container.getBoundingClientRect();
                 // Convert click position to SVG coordinates (0-60)
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+
+                if (drawTool === 'select') {
+                    // Check if clicked on an SVG element
+                    var target = e.target;
+                    if (isSelectableElement(target)) {
+                        selectElement(target);
+                        // Start drag
+                        isDragging = true;
+                        dragStartX = rawX;
+                        dragStartY = rawY;
+                        var pos = getElementPos(target);
+                        elemStartX = pos.x;
+                        elemStartY = pos.y;
+                        e.preventDefault();
+                    } else {
+                        deselectElement();
+                    }
+                    return;
+                }
+
+                // --- Drawing tools ---
                 // Snap position to grid
                 var x = snapToGrid(Math.max(0, Math.min(60, rawX)));
                 var y = snapToGrid(Math.max(0, Math.min(60, rawY)));
-                // Get the card SVG (first SVG child)
                 var cardSvg = container.querySelector('svg:not(.loupe-grid)');
                 if (!cardSvg) return;
 
-                // Convert grid-unit sizes to SVG
                 var svgRadius = gridToSvg(drawCircleRadius);
                 var svgFontSize = gridToSvg(drawFontSize);
 
@@ -1033,16 +1233,95 @@
                     drawHistory.push(el);
                 }
             };
-            container.addEventListener('click', drawLoupeClickHandler);
-            container.style.cursor = 'crosshair';
+            container.addEventListener('mousedown', drawLoupeClickHandler);
+
+            // --- Double-click to edit text content ---
+            container.addEventListener('dblclick', function(e) {
+                if (!drawModeActive || drawTool !== 'select') return;
+                var target = e.target;
+                if (target.tagName.toLowerCase() === 'text' && isSelectableElement(target)) {
+                    var newText = prompt('Edit text:', target.textContent);
+                    if (newText !== null && newText !== target.textContent) {
+                        target.textContent = newText;
+                        hasEditedExisting = true;
+                        updateSelectionRing();
+                    }
+                }
+            });
+
+            // --- Mouse move for dragging ---
+            drawMouseMoveHandler = function(e) {
+                if (!isDragging || !selectedElement) return;
+                var rect = container.getBoundingClientRect();
+                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
+                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                var dx = rawX - dragStartX;
+                var dy = rawY - dragStartY;
+                var newX = snapToGrid(Math.max(0, Math.min(60, elemStartX + dx)));
+                var newY = snapToGrid(Math.max(0, Math.min(60, elemStartY + dy)));
+                setElementPos(selectedElement, newX, newY);
+                updateSelectionRing();
+                hasEditedExisting = true;
+                e.preventDefault();
+            };
+            container.addEventListener('mousemove', drawMouseMoveHandler);
+
+            // --- Mouse up to end drag ---
+            drawMouseUpHandler = function(e) {
+                if (isDragging) {
+                    isDragging = false;
+                }
+            };
+            document.addEventListener('mouseup', drawMouseUpHandler);
+
+            // --- Keyboard handler for arrow keys and Delete ---
+            drawKeyHandler = function(e) {
+                if (!selectedElement || !drawModeActive) return;
+                var step = GRID_UNIT; // 1 grid unit
+                if (e.shiftKey) step = GRID_UNIT * 5; // 5 grid units with shift
+                var pos = getElementPos(selectedElement);
+                if (e.key === 'ArrowLeft') {
+                    setElementPos(selectedElement, Math.max(0, pos.x - step), pos.y);
+                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                } else if (e.key === 'ArrowRight') {
+                    setElementPos(selectedElement, Math.min(60, pos.x + step), pos.y);
+                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    setElementPos(selectedElement, pos.x, Math.max(0, pos.y - step));
+                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                } else if (e.key === 'ArrowDown') {
+                    setElementPos(selectedElement, pos.x, Math.min(60, pos.y + step));
+                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    drawDeleteSelected();
+                    e.preventDefault();
+                }
+            };
+            document.addEventListener('keydown', drawKeyHandler);
+
+            container.style.cursor = (drawTool === 'select') ? 'default' : 'crosshair';
         }
 
         function detachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
             if (drawLoupeClickHandler) {
-                container.removeEventListener('click', drawLoupeClickHandler);
+                container.removeEventListener('mousedown', drawLoupeClickHandler);
                 drawLoupeClickHandler = null;
             }
+            if (drawMouseMoveHandler) {
+                container.removeEventListener('mousemove', drawMouseMoveHandler);
+                drawMouseMoveHandler = null;
+            }
+            if (drawMouseUpHandler) {
+                document.removeEventListener('mouseup', drawMouseUpHandler);
+                drawMouseUpHandler = null;
+            }
+            if (drawKeyHandler) {
+                document.removeEventListener('keydown', drawKeyHandler);
+                drawKeyHandler = null;
+            }
+            deselectElement();
+            isDragging = false;
             container.style.cursor = '';
         }
 
@@ -1056,16 +1335,23 @@
             var container = document.getElementById('loupe-card-container');
             var cardSvg = container.querySelector('svg:not(.loupe-grid)');
             if (!cardSvg) return;
-            if (drawHistory.length === 0 && loupeSourceCard) {
+            if (drawHistory.length === 0 && !hasEditedExisting && loupeSourceCard) {
                 // No changes, just close
                 closeLoupe();
                 return;
             }
+            deselectElement();
             // Build a clean SVG for the card
             var cleanSvg = cardSvg.cloneNode(true);
             cleanSvg.removeAttribute('style');
             cleanSvg.querySelectorAll('.draw-placed').forEach(function(el) {
                 el.classList.remove('draw-placed');
+            });
+            cleanSvg.querySelectorAll('.draw-selected').forEach(function(el) {
+                el.classList.remove('draw-selected');
+            });
+            cleanSvg.querySelectorAll('.draw-sel-ring').forEach(function(el) {
+                el.parentNode.removeChild(el);
             });
 
             if (loupeSourceCard) {
@@ -1087,6 +1373,7 @@
             // Save variations (triggers localStorage save)
             if (typeof saveVariations === 'function') saveVariations();
             drawHistory = [];
+            hasEditedExisting = false;
             closeLoupe();
         }
 

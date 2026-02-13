@@ -218,6 +218,16 @@ class VicaDominoGame {
     }
 
     handleKeyPress(e) {
+        const key = e.key.toUpperCase();
+
+        // W or P to play again when game is won
+        if (this.gamePhase === 'sunLevelWon') {
+            if (key === 'W' || key === 'P') {
+                this.playAgain();
+            }
+            return;
+        }
+
         // Only handle in Sun level game phase
         if (this.gamePhase !== 'sunLevel') return;
 
@@ -1289,6 +1299,80 @@ class VicaDominoGame {
         }
     }
 
+    showPlayAgainKeyboardHint() {
+        // Remove any existing popup
+        const existing = document.getElementById('keyboard-popup');
+        if (existing) existing.remove();
+
+        const highlightKeys = this.players.length >= 2 ? ['W', 'P'] : ['W'];
+
+        const popup = document.createElement('div');
+        popup.id = 'keyboard-popup';
+        popup.className = 'keyboard-popup play-again-keyboard';
+
+        const scale = 0.3;
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
+        const keyW = 40, keyH = 40, gap = 5, pad = 15, rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
+
+        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${renderW}" height="${renderH}">`;
+        svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
+
+        // Collect target positions
+        const targets = {};
+
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                const x = pad + row.offset + i * (keyW + gap);
+                const y = pad + rowIdx * (keyH + rowGap);
+                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="#555" stroke="#777" stroke-width="1.5"/>`;
+                const textYOffset = [7, 10, 10, 18][rowIdx];
+                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="#ddd" font-family="monospace">${key}</text>`;
+                if (highlightKeys.indexOf(key) >= 0) {
+                    targets[key] = { x, y };
+                }
+            });
+        });
+
+        // Draw enlarged highlighted keys on top
+        highlightKeys.forEach(keyVal => {
+            const t = targets[keyVal];
+            if (!t) return;
+            const bigW = Math.round(keyW * 1.37);
+            const bigH = Math.round(keyH * 1.37);
+            const bigX = t.x - (bigW - keyW) / 2;
+            const bigY = t.y - (bigH - keyH) / 2;
+            svg += `<rect x="${bigX}" y="${bigY}" width="${bigW}" height="${bigH}" rx="5" fill="#ffd700" stroke="#ff8c00" stroke-width="1.5"/>`;
+            svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="44" font-weight="bold" fill="#333" font-family="monospace">${keyVal}</text>`;
+            svg += `<circle cx="${bigX + bigW/2}" cy="${bigY + bigH/2}" r="${bigW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+        });
+
+        svg += '</svg>';
+        popup.innerHTML = svg;
+
+        // Position centered below the Play Again button
+        const playAgainBtn = document.querySelector('.end-game-buttons .btn-primary');
+        if (playAgainBtn) {
+            const rect = playAgainBtn.getBoundingClientRect();
+            popup.style.left = (rect.left + rect.width / 2 - renderW / 2) + 'px';
+            popup.style.top = (rect.bottom + 8) + 'px';
+        } else {
+            // Fallback: center of screen
+            popup.style.left = (window.innerWidth / 2 - renderW / 2) + 'px';
+            popup.style.top = (window.innerHeight / 2 + 60) + 'px';
+        }
+
+        document.body.appendChild(popup);
+    }
+
     renderSunLevel() {
         const playersArea = document.getElementById('players-area');
         playersArea.innerHTML = '';
@@ -1470,7 +1554,8 @@ class VicaDominoGame {
         // Reset sun level state
         this.resetSunLevel();
 
-        // Remove end game buttons and reset dim state
+        // Remove keyboard hint and end game buttons
+        this.hideKeyboardPopup();
         const endBtns = document.querySelector('.end-game-buttons');
         if (endBtns) endBtns.remove();
         const playersArea = document.getElementById('players-area');
@@ -1552,6 +1637,9 @@ class VicaDominoGame {
 
         // Show buttons right away
         this.showEndGameButtons();
+
+        // Show keyboard hint for Play Again keys
+        this.showPlayAgainKeyboardHint();
 
         // Start dimming the playing area
         const playersArea = document.getElementById('players-area');
@@ -2380,6 +2468,7 @@ class VicaDominoGame {
     resetToSetup() {
         // Clean up Sun level if it was active
         this.resetSunLevel();
+        this.hideKeyboardPopup();
         this.currentTimerDuration = 20; // Reset adaptive timer
         this.consecutiveWinsAtMin = 0;
 

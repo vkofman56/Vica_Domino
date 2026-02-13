@@ -1170,26 +1170,30 @@
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
 
-                if (drawTool === 'select') {
-                    // Check if clicked on an SVG element
-                    var target = e.target;
-                    if (isSelectableElement(target)) {
-                        selectElement(target);
-                        // Start drag
-                        isDragging = true;
-                        dragStartX = rawX;
-                        dragStartY = rawY;
-                        var pos = getElementPos(target);
-                        elemStartX = pos.x;
-                        elemStartY = pos.y;
-                        e.preventDefault();
-                    } else {
-                        deselectElement();
-                    }
+                // --- In ANY tool mode, clicking directly on an existing element selects it ---
+                var target = e.target;
+                if (isSelectableElement(target)) {
+                    selectElement(target);
+                    // Auto-switch to select tool
+                    selectDrawTool('select');
+                    // Start drag
+                    isDragging = true;
+                    dragStartX = rawX;
+                    dragStartY = rawY;
+                    var pos = getElementPos(target);
+                    elemStartX = pos.x;
+                    elemStartY = pos.y;
+                    e.preventDefault();
                     return;
                 }
 
-                // --- Drawing tools ---
+                // Clicking on empty space in select mode = deselect
+                if (drawTool === 'select') {
+                    deselectElement();
+                    return;
+                }
+
+                // --- Drawing tools (only on empty space) ---
                 // Snap position to grid
                 var x = snapToGrid(Math.max(0, Math.min(60, rawX)));
                 var y = snapToGrid(Math.max(0, Math.min(60, rawY)));
@@ -1359,6 +1363,8 @@
                 var origSvg = loupeSourceCard.querySelector('svg');
                 if (origSvg) {
                     origSvg.innerHTML = cleanSvg.innerHTML;
+                    // Mark as edited for persistence
+                    loupeSourceCard.dataset.edited = 'true';
                 }
             } else {
                 // New card: ask for name if not already set
@@ -1403,6 +1409,7 @@
             // Build card element
             var card = document.createElement('div');
             card.className = 'library-card';
+            card.dataset.custom = 'true';
             var labelEl = document.createElement('div');
             labelEl.className = 'library-label';
             labelEl.textContent = label;
@@ -1873,6 +1880,80 @@
                 });
             });
             localStorage.setItem('cardMakerVariations', JSON.stringify(data));
+            // Also save custom drawn cards and edited built-in cards
+            saveCustomCards();
+        }
+
+        // --- Persistence: save/load custom drawn cards to localStorage ---
+        function saveCustomCards() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var data = [];
+            // Save newly created custom cards (have 'Custom card' description or data-custom)
+            content.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                var svg = card.querySelector('svg');
+                if (lbl && svg) {
+                    data.push({
+                        label: lbl.textContent,
+                        svgContent: svg.innerHTML,
+                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                    });
+                }
+            });
+            localStorage.setItem('customDrawnCards', JSON.stringify(data));
+
+            // Save edits to built-in cards (track which built-in cards were modified)
+            var edits = [];
+            content.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                var svg = card.querySelector('svg');
+                if (lbl && svg) {
+                    edits.push({
+                        label: lbl.textContent,
+                        svgContent: svg.innerHTML
+                    });
+                }
+            });
+            localStorage.setItem('editedBuiltinCards', JSON.stringify(edits));
+        }
+
+        function loadCustomCards() {
+            // Load custom drawn cards
+            var saved = localStorage.getItem('customDrawnCards');
+            if (saved) {
+                try {
+                    var data = JSON.parse(saved);
+                    data.forEach(function(item) {
+                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('viewBox', '0 0 60 60');
+                        svg.innerHTML = item.svgContent;
+                        addNewDrawnCard(svg, item.label);
+                        // Mark the card we just added as custom
+                        var content = document.querySelector('#domino-library-screen .domino-library-content');
+                        var cards = content.querySelectorAll('.library-card');
+                        var lastCard = cards[cards.length - 1];
+                        if (lastCard) lastCard.dataset.custom = 'true';
+                    });
+                } catch(e) {}
+            }
+
+            // Load edits to built-in cards
+            var edits = localStorage.getItem('editedBuiltinCards');
+            if (edits) {
+                try {
+                    var editData = JSON.parse(edits);
+                    editData.forEach(function(item) {
+                        var card = findCardByLabel(item.label);
+                        if (card) {
+                            var svg = card.querySelector('svg');
+                            if (svg) {
+                                svg.innerHTML = item.svgContent;
+                                card.dataset.edited = 'true';
+                            }
+                        }
+                    });
+                } catch(e) {}
+            }
         }
 
         function loadVariations() {
@@ -1955,7 +2036,8 @@
             }
         }
 
-        // Load saved variations on startup
+        // Load saved custom/edited cards and variations on startup
+        loadCustomCards();
         loadVariations();
 
         // Restore variations that were wrongly removed from Card Maker

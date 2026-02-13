@@ -248,11 +248,14 @@
                 <button class="zoom-btn" id="zoom-loupe-btn" onclick="toggleZoomPanel()" title="Zoom tools">
                     <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
                 </button>
-                <button class="zoom-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
-                <button class="zoom-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
+                <button class="zoom-btn" id="ruler-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
+                <button class="zoom-btn" id="border-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
                 <button class="zoom-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Hide/show card descriptions">&gt;</button>
                 <button class="zoom-btn" id="var-tool-btn" onclick="toggleVariationToolbar()" title="Create variations">V</button>
                 <button class="zoom-btn" id="toggle-var-btn" onclick="toggleVariationVisibility()" title="Hide variations" style="font-size:11px;">V+</button>
+                <button class="zoom-btn" id="draw-btn" onclick="toggleDrawMode()" title="Draw on card">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="7" cy="17" r="4" fill="currentColor"/><text x="17" y="10" text-anchor="middle" font-size="11" font-weight="bold" fill="currentColor">A</text><text x="17" y="21" text-anchor="middle" font-size="11" font-weight="bold" fill="currentColor">1</text></svg>
+                </button>
                 <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker">GM</button>
             </div>
             <!-- GM game list popup -->
@@ -306,6 +309,22 @@
                         <button class="btn" id="dup-var-cancel-btn">Cancel</button>
                     </div>
                 </div>
+            </div>
+            <!-- Draw tools panel (inside loupe) -->
+            <div id="draw-tools-panel" style="display:none;">
+                <button class="draw-tool-btn active" id="draw-circle-btn" onclick="selectDrawTool('circle')" title="Draw filled circle">&#9679;</button>
+                <button class="draw-tool-btn" id="draw-text-btn" onclick="selectDrawTool('text')" title="Write number or letter">A</button>
+                <button class="draw-tool-btn" id="draw-hollow-btn" onclick="selectDrawTool('hollow')" title="Draw hollow circle">&#9675;</button>
+                <div class="draw-size-row">
+                    <label>r</label>
+                    <input type="range" id="draw-size-slider" min="2" max="15" value="6" oninput="drawCircleRadius=+this.value">
+                </div>
+                <div class="draw-size-row">
+                    <label style="font-size:11px;">Aa</label>
+                    <input type="range" id="draw-font-slider" min="10" max="59" value="40" oninput="drawFontSize=+this.value">
+                </div>
+                <button class="draw-tool-btn" id="draw-undo-btn" onclick="drawUndo()" title="Undo last">&#8617;</button>
+                <button class="draw-tool-btn draw-save-btn" onclick="drawSave()" title="Save card">&#10003;</button>
             </div>
             <!-- Game list panel on left side -->
             <div class="card-maker-games" id="card-maker-games"></div>
@@ -599,6 +618,11 @@
         function toggleLibBorder() {
             libBorderOn = !libBorderOn;
             document.querySelectorAll('.domino-half-preview').forEach(c => c.classList.toggle('show-border', libBorderOn));
+            // Also toggle on loupe card container if loupe is open
+            var loupeContainer = document.getElementById('loupe-card-container');
+            if (loupeContainer && document.getElementById('loupe-overlay').style.display !== 'none') {
+                loupeContainer.classList.toggle('show-border', libBorderOn);
+            }
             updateLibBorderVars();
         }
         function updateLibBorderVars() {
@@ -611,8 +635,12 @@
             const TH = 8;
             document.addEventListener('mousedown', function(e) {
                 if (!libBorderOn) return;
-                const card = e.target.closest('.domino-half-preview');
-                if (!card || !card.classList.contains('show-border')) return;
+                var card = e.target.closest('.domino-half-preview');
+                // Also check loupe card container
+                if (!card || !card.classList.contains('show-border')) {
+                    card = e.target.closest('#loupe-card-container');
+                    if (!card || !card.classList.contains('show-border')) return;
+                }
                 const r = card.getBoundingClientRect();
                 const mx = e.clientX - r.left, my = e.clientY - r.top;
                 cW = r.width; cH = r.height;
@@ -693,9 +721,12 @@
             }
         }
 
+        var loupeSourceCard = null; // reference to the original card element in loupe
+
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
             if (!svg) return;
+            loupeSourceCard = cardEl;
             var overlay = document.getElementById('loupe-overlay');
             var container = document.getElementById('loupe-card-container');
             container.innerHTML = '';
@@ -705,6 +736,16 @@
             if (toolbar) toolbar.classList.add('loupe-toolbar-raised');
             var zoomPanel = document.getElementById('zoom-panel');
             if (zoomPanel) zoomPanel.classList.add('loupe-toolbar-raised');
+
+            // Raise ruler above overlay
+            var ruler = document.getElementById('lib-ruler-rect');
+            if (ruler) ruler.classList.add('loupe-toolbar-raised');
+
+            // Disable buttons that shouldn't work in loupe view
+            ['toggle-desc-btn', 'var-tool-btn', 'toggle-var-btn', 'gm-btn'].forEach(function(id) {
+                var b = document.getElementById(id);
+                if (b) { b.classList.add('loupe-disabled'); b.disabled = true; }
+            });
 
             // Determine size: fill most of the screen, keeping it square
             // Account for toolbar width (~60px) on the left
@@ -756,6 +797,10 @@
         }
 
         function closeLoupe() {
+            // Exit draw mode if active
+            if (drawModeActive) toggleDrawMode();
+            loupeSourceCard = null;
+
             document.getElementById('loupe-overlay').style.display = 'none';
             document.getElementById('loupe-overlay').style.paddingLeft = '';
             document.getElementById('loupe-card-container').innerHTML = '';
@@ -764,6 +809,17 @@
             if (toolbar) toolbar.classList.remove('loupe-toolbar-raised');
             var zoomPanel = document.getElementById('zoom-panel');
             if (zoomPanel) zoomPanel.classList.remove('loupe-toolbar-raised');
+            var ruler = document.getElementById('lib-ruler-rect');
+            if (ruler) ruler.classList.remove('loupe-toolbar-raised');
+
+            // Re-enable buttons
+            ['toggle-desc-btn', 'var-tool-btn', 'toggle-var-btn', 'gm-btn'].forEach(function(id) {
+                var b = document.getElementById(id);
+                if (b) { b.classList.remove('loupe-disabled'); b.disabled = false; }
+            });
+            // Remove border from loupe container
+            var container = document.getElementById('loupe-card-container');
+            container.classList.remove('show-border');
         }
 
         // Loupe close button
@@ -774,6 +830,281 @@
                 closeLoupe();
             }
         });
+
+        // === Draw mode: place circles and text on cards ===
+        var drawModeActive = false;
+        var drawTool = 'circle'; // 'circle', 'text', 'hollow'
+        var drawCircleRadius = 6;
+        var drawFontSize = 40;
+        var drawHistory = []; // SVG elements added, for undo
+        var drawLoupeClickHandler = null;
+
+        function toggleDrawMode() {
+            drawModeActive = !drawModeActive;
+            var btn = document.getElementById('draw-btn');
+            var panel = document.getElementById('draw-tools-panel');
+            if (drawModeActive) {
+                // If loupe is not open, open a blank card
+                var overlay = document.getElementById('loupe-overlay');
+                if (overlay.style.display === 'none' || overlay.style.display === '') {
+                    openBlankCardLoupe();
+                }
+                btn.classList.add('loupe-active-tool');
+                btn.style.boxShadow = '0 0 0 2px #FFD700';
+                panel.style.display = 'flex';
+                drawHistory = [];
+                attachDrawClickHandler();
+            } else {
+                btn.classList.remove('loupe-active-tool');
+                btn.style.boxShadow = '';
+                panel.style.display = 'none';
+                detachDrawClickHandler();
+            }
+        }
+
+        function openBlankCardLoupe() {
+            // Create a temporary blank card element to open in loupe
+            var blankCard = document.createElement('div');
+            blankCard.className = 'library-card draw-blank-card';
+            var preview = document.createElement('div');
+            preview.className = 'domino-half-preview';
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 60 60');
+            preview.appendChild(svg);
+            blankCard.appendChild(preview);
+            loupeSourceCard = null; // no original card to save back to
+            // Open the blank card in loupe manually
+            var overlay = document.getElementById('loupe-overlay');
+            var container = document.getElementById('loupe-card-container');
+            container.innerHTML = '';
+            var toolbar = document.querySelector('#domino-library-screen .library-zoom-fixed');
+            if (toolbar) toolbar.classList.add('loupe-toolbar-raised');
+            var zoomPanel = document.getElementById('zoom-panel');
+            if (zoomPanel) zoomPanel.classList.add('loupe-toolbar-raised');
+            var ruler = document.getElementById('lib-ruler-rect');
+            if (ruler) ruler.classList.add('loupe-toolbar-raised');
+            ['toggle-desc-btn', 'var-tool-btn', 'toggle-var-btn', 'gm-btn'].forEach(function(id) {
+                var b = document.getElementById(id);
+                if (b) { b.classList.add('loupe-disabled'); b.disabled = true; }
+            });
+            var toolbarWidth = 60;
+            var screenW = window.innerWidth;
+            var screenH = window.innerHeight;
+            var availW = screenW - toolbarWidth;
+            var size = Math.min(availW, screenH) * 0.85;
+            container.style.width = size + 'px';
+            container.style.height = size + 'px';
+            overlay.style.paddingLeft = toolbarWidth + 'px';
+            var svgClone = svg.cloneNode(true);
+            svgClone.style.width = '100%';
+            svgClone.style.height = '100%';
+            svgClone.removeAttribute('width');
+            svgClone.removeAttribute('height');
+            container.appendChild(svgClone);
+            // Grid
+            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            gridSvg.setAttribute('viewBox', '0 0 100 100');
+            gridSvg.setAttribute('preserveAspectRatio', 'none');
+            gridSvg.classList.add('loupe-grid');
+            for (var i = 1; i < 100; i++) {
+                var cls = (i % 10 === 0) ? 'loupe-grid-major' : (i % 5 === 0) ? 'loupe-grid-mid' : '';
+                var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', i); vLine.setAttribute('y1', 0);
+                vLine.setAttribute('x2', i); vLine.setAttribute('y2', 100);
+                if (cls) vLine.classList.add(cls);
+                gridSvg.appendChild(vLine);
+                var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hLine.setAttribute('x1', 0); hLine.setAttribute('y1', i);
+                hLine.setAttribute('x2', 100); hLine.setAttribute('y2', i);
+                if (cls) hLine.classList.add(cls);
+                gridSvg.appendChild(hLine);
+            }
+            container.appendChild(gridSvg);
+            overlay.style.display = 'flex';
+        }
+
+        function selectDrawTool(tool) {
+            drawTool = tool;
+            document.querySelectorAll('#draw-tools-panel .draw-tool-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            var idMap = { circle: 'draw-circle-btn', text: 'draw-text-btn', hollow: 'draw-hollow-btn' };
+            var btn = document.getElementById(idMap[tool]);
+            if (btn) btn.classList.add('active');
+        }
+
+        function attachDrawClickHandler() {
+            var container = document.getElementById('loupe-card-container');
+            drawLoupeClickHandler = function(e) {
+                if (!drawModeActive) return;
+                var rect = container.getBoundingClientRect();
+                // Convert click position to SVG coordinates (0-60)
+                var x = ((e.clientX - rect.left) / rect.width) * 60;
+                var y = ((e.clientY - rect.top) / rect.height) * 60;
+                // Clamp to card bounds
+                x = Math.max(0, Math.min(60, x));
+                y = Math.max(0, Math.min(60, y));
+                // Get the card SVG (first SVG child)
+                var cardSvg = container.querySelector('svg:not(.loupe-grid)');
+                if (!cardSvg) return;
+
+                var el;
+                if (drawTool === 'circle') {
+                    el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    el.setAttribute('cx', x.toFixed(1));
+                    el.setAttribute('cy', y.toFixed(1));
+                    el.setAttribute('r', drawCircleRadius);
+                    el.setAttribute('fill', '#333');
+                } else if (drawTool === 'hollow') {
+                    el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    el.setAttribute('cx', x.toFixed(1));
+                    el.setAttribute('cy', y.toFixed(1));
+                    el.setAttribute('r', (drawCircleRadius * 0.9).toFixed(1));
+                    el.setAttribute('fill', 'none');
+                    el.setAttribute('stroke', '#333');
+                    el.setAttribute('stroke-width', '2.5');
+                } else if (drawTool === 'text') {
+                    var ch = prompt('Enter character(s):');
+                    if (!ch) return;
+                    el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    el.setAttribute('x', x.toFixed(1));
+                    el.setAttribute('y', (y + drawFontSize * 0.35).toFixed(1));
+                    el.setAttribute('text-anchor', 'middle');
+                    el.setAttribute('font-size', drawFontSize);
+                    el.setAttribute('font-family', 'Arial, sans-serif');
+                    el.setAttribute('font-weight', '500');
+                    el.setAttribute('fill', '#333');
+                    el.textContent = ch;
+                }
+                if (el) {
+                    el.classList.add('draw-placed');
+                    cardSvg.appendChild(el);
+                    drawHistory.push(el);
+                }
+            };
+            container.addEventListener('click', drawLoupeClickHandler);
+            container.style.cursor = 'crosshair';
+        }
+
+        function detachDrawClickHandler() {
+            var container = document.getElementById('loupe-card-container');
+            if (drawLoupeClickHandler) {
+                container.removeEventListener('click', drawLoupeClickHandler);
+                drawLoupeClickHandler = null;
+            }
+            container.style.cursor = '';
+        }
+
+        function drawUndo() {
+            if (drawHistory.length === 0) return;
+            var last = drawHistory.pop();
+            if (last && last.parentNode) last.parentNode.removeChild(last);
+        }
+
+        function drawSave() {
+            var container = document.getElementById('loupe-card-container');
+            var cardSvg = container.querySelector('svg:not(.loupe-grid)');
+            if (!cardSvg) return;
+            if (drawHistory.length === 0 && loupeSourceCard) {
+                // No changes, just close
+                closeLoupe();
+                return;
+            }
+            // Build a clean SVG for the card
+            var cleanSvg = cardSvg.cloneNode(true);
+            cleanSvg.removeAttribute('style');
+            cleanSvg.querySelectorAll('.draw-placed').forEach(function(el) {
+                el.classList.remove('draw-placed');
+            });
+
+            if (loupeSourceCard) {
+                // Save back to existing card
+                var origSvg = loupeSourceCard.querySelector('svg');
+                if (origSvg) {
+                    origSvg.innerHTML = cleanSvg.innerHTML;
+                }
+            } else {
+                // New card: add to a new row in Card Maker
+                addNewDrawnCard(cleanSvg);
+            }
+            // Save variations (triggers localStorage save)
+            if (typeof saveVariations === 'function') saveVariations();
+            drawHistory = [];
+            closeLoupe();
+        }
+
+        function addNewDrawnCard(cleanSvg) {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            // Find next available label letter (after G = row 7, use H, I, ...)
+            var existingLabels = [];
+            content.querySelectorAll('.library-card:not(.variation) .library-label').forEach(function(lbl) {
+                existingLabels.push(lbl.textContent);
+            });
+            // Find next letter after existing rows
+            var usedLetters = {};
+            existingLabels.forEach(function(l) { usedLetters[l.charAt(0)] = true; });
+            var nextLetter = 'H';
+            for (var code = 72; code <= 90; code++) { // H-Z
+                if (!usedLetters[String.fromCharCode(code)]) {
+                    nextLetter = String.fromCharCode(code);
+                    break;
+                }
+            }
+            // Count cards in that letter's row
+            var countInRow = 0;
+            existingLabels.forEach(function(l) {
+                if (l.charAt(0) === nextLetter) countInRow++;
+            });
+            var label = nextLetter + (countInRow + 1);
+
+            // Check if row already exists, else create
+            var rows = content.querySelectorAll('.library-row');
+            var targetRow = null;
+            rows.forEach(function(r) {
+                var firstLabel = r.querySelector('.library-label');
+                if (firstLabel && firstLabel.textContent.charAt(0) === nextLetter) {
+                    targetRow = r;
+                }
+            });
+            if (!targetRow) {
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                content.appendChild(section);
+                targetRow = document.createElement('div');
+                targetRow.className = 'library-row';
+                content.appendChild(targetRow);
+            }
+
+            // Build card element
+            var card = document.createElement('div');
+            card.className = 'library-card';
+            var labelEl = document.createElement('div');
+            labelEl.className = 'library-label';
+            labelEl.textContent = label;
+            card.appendChild(labelEl);
+            var preview = document.createElement('div');
+            preview.className = 'domino-half-preview';
+            cleanSvg.setAttribute('viewBox', '0 0 60 60');
+            cleanSvg.removeAttribute('width');
+            cleanSvg.removeAttribute('height');
+            preview.appendChild(cleanSvg);
+            card.appendChild(preview);
+            var desc = document.createElement('div');
+            desc.className = 'library-desc';
+            desc.textContent = 'Custom card';
+            card.appendChild(desc);
+            targetRow.appendChild(card);
+
+            // Apply current zoom
+            if (libZoom !== 1) {
+                var cardSize = Math.round(70 * libZoom);
+                var svgSize = Math.round(60 * libZoom);
+                preview.style.width = cardSize + 'px';
+                preview.style.height = cardSize + 'px';
+                cleanSvg.style.width = svgSize + 'px';
+                cleanSvg.style.height = svgSize + 'px';
+            }
+        }
 
         function applyLibZoom() {
             const cardSize = Math.round(70 * libZoom);

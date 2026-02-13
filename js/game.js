@@ -218,7 +218,7 @@ class VicaDominoGame {
     }
 
     handleKeyPress(e) {
-        const key = e.key.toUpperCase();
+        let key = e.key.toUpperCase();
 
         // W or P to play again when game is won
         if (this.gamePhase === 'sunLevelWon') {
@@ -231,7 +231,7 @@ class VicaDominoGame {
         // Only handle in Sun level game phase
         if (this.gamePhase !== 'sunLevel') return;
 
-        const key = e.key;
+        key = e.key;
 
         // Player 1 (left side) keys: 1, 2, 3, 4 for dominos left to right
         const player1Keys = { '1': 0, '2': 1, '3': 2, '4': 3 };

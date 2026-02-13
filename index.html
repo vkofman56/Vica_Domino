@@ -245,8 +245,9 @@
         <div class="screen" id="domino-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-library-btn" title="Go back to setup"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="library-zoom-fixed">
-                <button class="zoom-btn" onclick="libraryZoomOut()" title="Zoom out">−</button>
-                <button class="zoom-btn" onclick="libraryZoomIn()" title="Zoom in">+</button>
+                <button class="zoom-btn" id="zoom-loupe-btn" onclick="toggleZoomPanel()" title="Zoom tools">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
                 <button class="zoom-btn" onclick="toggleLibRuler()" title="Toggle ruler (Esc to hide)">▭</button>
                 <button class="zoom-btn" onclick="toggleLibBorder()" title="Toggle card borders">▣</button>
                 <button class="zoom-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Hide/show card descriptions">&gt;</button>
@@ -256,6 +257,18 @@
             </div>
             <!-- GM game list popup -->
             <div class="gm-popup" id="gm-popup" style="display:none;"></div>
+            <!-- Zoom panel -->
+            <div class="zoom-panel" id="zoom-panel" style="display:none;">
+                <button class="zoom-panel-btn" onclick="libraryZoomOut()" title="Zoom out">−</button>
+                <button class="zoom-panel-btn" onclick="libraryZoomIn()" title="Zoom in">+</button>
+                <button class="zoom-panel-btn" id="loupe-mode-btn" onclick="toggleLoupeMode()" title="Loupe: click a card to enlarge">++</button>
+                <button class="zoom-panel-btn" onclick="libraryZoomReset()" title="Reset to 100%">100%</button>
+            </div>
+            <!-- Loupe overlay for enlarged card -->
+            <div id="loupe-overlay" style="display:none;">
+                <button class="loupe-close-btn" id="loupe-close-btn" title="Close">&times;</button>
+                <div id="loupe-card-container"></div>
+            </div>
             <!-- Variation creation toolbar -->
             <div class="variation-toolbar" id="variation-toolbar" style="display:none;">
                 <button class="var-tool-btn" onclick="selectVariationTool(0)" title="Vertical axis reflection">
@@ -646,6 +659,103 @@
             libZoom = Math.max(0.5, libZoom - 0.25);
             applyLibZoom();
         }
+        function libraryZoomReset() {
+            libZoom = 1;
+            applyLibZoom();
+        }
+
+        // --- Zoom panel toggle ---
+        function toggleZoomPanel() {
+            var panel = document.getElementById('zoom-panel');
+            var btn = document.getElementById('zoom-loupe-btn');
+            if (panel.style.display !== 'none') {
+                panel.style.display = 'none';
+                btn.style.boxShadow = '';
+                // Exit loupe mode if active
+                if (loupeMode) toggleLoupeMode();
+            } else {
+                panel.style.display = 'flex';
+                btn.style.boxShadow = '0 0 0 2px #FFD700';
+            }
+        }
+
+        // --- Loupe (++) mode ---
+        var loupeMode = false;
+        function toggleLoupeMode() {
+            loupeMode = !loupeMode;
+            var btn = document.getElementById('loupe-mode-btn');
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (loupeMode) {
+                btn.classList.add('active');
+                content.classList.add('loupe-cursor');
+            } else {
+                btn.classList.remove('active');
+                content.classList.remove('loupe-cursor');
+            }
+        }
+
+        function openLoupe(cardEl) {
+            var svg = cardEl.querySelector('svg');
+            if (!svg) return;
+            var overlay = document.getElementById('loupe-overlay');
+            var container = document.getElementById('loupe-card-container');
+            container.innerHTML = '';
+
+            // Determine size: fill most of the screen, keeping it square
+            var screenW = window.innerWidth;
+            var screenH = window.innerHeight;
+            var size = Math.min(screenW, screenH) * 0.85;
+            container.style.width = size + 'px';
+            container.style.height = size + 'px';
+
+            // Clone SVG and enlarge
+            var svgClone = svg.cloneNode(true);
+            svgClone.style.width = '100%';
+            svgClone.style.height = '100%';
+            svgClone.removeAttribute('width');
+            svgClone.removeAttribute('height');
+            container.appendChild(svgClone);
+
+            // Add grid overlay (99 lines each direction = 10000 squares)
+            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            gridSvg.setAttribute('viewBox', '0 0 100 100');
+            gridSvg.setAttribute('preserveAspectRatio', 'none');
+            gridSvg.classList.add('loupe-grid');
+            for (var i = 1; i < 100; i++) {
+                // Vertical line
+                var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', i);
+                vLine.setAttribute('y1', 0);
+                vLine.setAttribute('x2', i);
+                vLine.setAttribute('y2', 100);
+                gridSvg.appendChild(vLine);
+                // Horizontal line
+                var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hLine.setAttribute('x1', 0);
+                hLine.setAttribute('y1', i);
+                hLine.setAttribute('x2', 100);
+                hLine.setAttribute('y2', i);
+                gridSvg.appendChild(hLine);
+            }
+            container.appendChild(gridSvg);
+
+            overlay.style.display = 'flex';
+        }
+
+        function closeLoupe() {
+            document.getElementById('loupe-overlay').style.display = 'none';
+            document.getElementById('loupe-card-container').innerHTML = '';
+        }
+
+        // Loupe close button
+        document.getElementById('loupe-close-btn').addEventListener('click', closeLoupe);
+        // Close loupe with Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('loupe-overlay').style.display !== 'none') {
+                closeLoupe();
+            }
+        });
+
         function applyLibZoom() {
             const cardSize = Math.round(70 * libZoom);
             const svgSize = Math.round(60 * libZoom);
@@ -731,6 +841,12 @@
             if (e.target.closest('.variation-delete-btn')) return;
 
             const card = e.target.closest('.library-card');
+
+            // Loupe mode: enlarge clicked card
+            if (loupeMode && card) {
+                openLoupe(card);
+                return;
+            }
 
             // Game Maker selection mode
             if (gameMakerActive) {

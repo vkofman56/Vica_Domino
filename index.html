@@ -629,7 +629,8 @@
         })();
 
         // Border overlay: toggle, adjustable borders on each card
-        let libBorderOn = false, lbx = 3, lby = 3;
+        // Separate values: lbx/lby for small cards, llbx/llby for loupe
+        let libBorderOn = false, lbx = 3, lby = 3, llbx = 20, llby = 20;
         function toggleLibBorder() {
             libBorderOn = !libBorderOn;
             document.querySelectorAll('.domino-half-preview').forEach(c => c.classList.toggle('show-border', libBorderOn));
@@ -643,24 +644,30 @@
         function updateLibBorderVars() {
             document.documentElement.style.setProperty('--bx', lbx + 'px');
             document.documentElement.style.setProperty('--by', lby + 'px');
+            document.documentElement.style.setProperty('--lbx', llbx + 'px');
+            document.documentElement.style.setProperty('--lby', llby + 'px');
         }
         (function() {
             updateLibBorderVars();
-            let bMode = null, bsx, bsy, sbx, sby, bRatio, cW, cH;
+            let bMode = null, bsx, bsy, sbx, sby, bRatio, cW, cH, bIsLoupe = false;
             const TH = 8;
             document.addEventListener('mousedown', function(e) {
                 if (!libBorderOn) return;
+                bIsLoupe = false;
                 var card = e.target.closest('.domino-half-preview');
-                // Also check loupe card container
                 if (!card || !card.classList.contains('show-border')) {
                     card = e.target.closest('#loupe-card-container');
                     if (!card || !card.classList.contains('show-border')) return;
+                    bIsLoupe = true;
                 }
+                var curBx = bIsLoupe ? llbx : lbx;
+                var curBy = bIsLoupe ? llby : lby;
                 const r = card.getBoundingClientRect();
                 const mx = e.clientX - r.left, my = e.clientY - r.top;
                 cW = r.width; cH = r.height;
-                const nT = Math.abs(my - lby) < TH, nB = Math.abs(my - (cH - lby)) < TH;
-                const nL = Math.abs(mx - lbx) < TH, nR = Math.abs(mx - (cW - lbx)) < TH;
+                var hitTH = bIsLoupe ? 16 : TH;
+                const nT = Math.abs(my - curBy) < hitTH, nB = Math.abs(my - (cH - curBy)) < hitTH;
+                const nL = Math.abs(mx - curBx) < hitTH, nR = Math.abs(mx - (cW - curBx)) < hitTH;
                 if (nT && nL) bMode = 'tl';
                 else if (nT && nR) bMode = 'tr';
                 else if (nB && nL) bMode = 'bl';
@@ -670,23 +677,27 @@
                 else if (nL) bMode = 'left';
                 else if (nR) bMode = 'right';
                 else return;
-                bsx = e.clientX; bsy = e.clientY; sbx = lbx; sby = lby;
-                bRatio = (cW - 2 * sbx) / (cH - 2 * sby);
+                bsx = e.clientX; bsy = e.clientY; sbx = curBx; sby = curBy;
+                bRatio = (cW - 2 * sbx) / (cH - 2 * sby) || 1;
                 e.preventDefault();
             });
             document.addEventListener('mousemove', function(e) {
                 if (!bMode) return;
                 const dx = e.clientX - bsx, dy = e.clientY - bsy;
                 const mxB = cW / 2 - 1, myB = cH / 2 - 1;
-                if (bMode === 'top') lby = Math.max(0, Math.min(myB, sby + dy));
-                else if (bMode === 'bot') lby = Math.max(0, Math.min(myB, sby - dy));
-                else if (bMode === 'left') lbx = Math.max(0, Math.min(mxB, sbx + dx));
-                else if (bMode === 'right') lbx = Math.max(0, Math.min(mxB, sbx - dx));
+                var newBx = bIsLoupe ? llbx : lbx;
+                var newBy = bIsLoupe ? llby : lby;
+                if (bMode === 'top') newBy = Math.max(0, Math.min(myB, sby + dy));
+                else if (bMode === 'bot') newBy = Math.max(0, Math.min(myB, sby - dy));
+                else if (bMode === 'left') newBx = Math.max(0, Math.min(mxB, sbx + dx));
+                else if (bMode === 'right') newBx = Math.max(0, Math.min(mxB, sbx - dx));
                 else {
-                    if (bMode === 'tl' || bMode === 'tr') lby = Math.max(0, Math.min(myB, sby + dy));
-                    else lby = Math.max(0, Math.min(myB, sby - dy));
-                    lbx = Math.max(0, Math.min(mxB, (cW - bRatio * (cH - 2 * lby)) / 2));
+                    if (bMode === 'tl' || bMode === 'tr') newBy = Math.max(0, Math.min(myB, sby + dy));
+                    else newBy = Math.max(0, Math.min(myB, sby - dy));
+                    newBx = Math.max(0, Math.min(mxB, (cW - bRatio * (cH - 2 * newBy)) / 2));
                 }
+                if (bIsLoupe) { llbx = newBx; llby = newBy; }
+                else { lbx = newBx; lby = newBy; }
                 updateLibBorderVars();
             });
             document.addEventListener('mouseup', function() { bMode = null; });

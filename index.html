@@ -874,7 +874,6 @@
         var drawFontSize = 66;      // in grid units (66 × 0.6 ≈ 40 SVG)
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
-        var drawLoupeClickHandler = null;
         var pendingNewCardName = null; // name for card being drawn
 
         // === Select / Edit mode state ===
@@ -1160,41 +1159,60 @@
             if (delBtn) delBtn.style.display = 'none';
         }
 
+        var drawMouseDownHandler = null;
+        var drawClickHandler = null;
+        var justDragged = false; // flag to prevent click after drag
+
         function attachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
 
-            drawLoupeClickHandler = function(e) {
+            // --- mousedown: only used to start dragging an existing element ---
+            drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
+                var target = e.target;
+                if (!isSelectableElement(target)) return;
+                // Start drag on existing element
                 var rect = container.getBoundingClientRect();
-                // Convert click position to SVG coordinates (0-60)
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                selectElement(target);
+                selectDrawTool('select');
+                isDragging = true;
+                justDragged = false;
+                dragStartX = rawX;
+                dragStartY = rawY;
+                var pos = getElementPos(target);
+                elemStartX = pos.x;
+                elemStartY = pos.y;
+                e.preventDefault();
+            };
+            container.addEventListener('mousedown', drawMouseDownHandler);
 
-                // --- In ANY tool mode, clicking directly on an existing element selects it ---
+            // --- click: used for drawing new elements, selecting, deselecting ---
+            drawClickHandler = function(e) {
+                if (!drawModeActive) return;
+                // If we just finished a drag, don't also draw/select
+                if (justDragged) { justDragged = false; return; }
+
+                var rect = container.getBoundingClientRect();
+                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
+                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
                 var target = e.target;
+
+                // Click on existing element = select it (if not already dragging)
                 if (isSelectableElement(target)) {
                     selectElement(target);
-                    // Auto-switch to select tool
                     selectDrawTool('select');
-                    // Start drag
-                    isDragging = true;
-                    dragStartX = rawX;
-                    dragStartY = rawY;
-                    var pos = getElementPos(target);
-                    elemStartX = pos.x;
-                    elemStartY = pos.y;
-                    e.preventDefault();
                     return;
                 }
 
-                // Clicking on empty space in select mode = deselect
+                // Click on empty space in select mode = deselect
                 if (drawTool === 'select') {
                     deselectElement();
                     return;
                 }
 
                 // --- Drawing tools (only on empty space) ---
-                // Snap position to grid
                 var x = snapToGrid(Math.max(0, Math.min(60, rawX)));
                 var y = snapToGrid(Math.max(0, Math.min(60, rawY)));
                 var cardSvg = container.querySelector('svg:not(.loupe-grid)');
@@ -1237,7 +1255,7 @@
                     drawHistory.push(el);
                 }
             };
-            container.addEventListener('mousedown', drawLoupeClickHandler);
+            container.addEventListener('click', drawClickHandler);
 
             // --- Double-click to edit text content ---
             container.addEventListener('dblclick', function(e) {
@@ -1266,6 +1284,7 @@
                 setElementPos(selectedElement, newX, newY);
                 updateSelectionRing();
                 hasEditedExisting = true;
+                justDragged = true;
                 e.preventDefault();
             };
             container.addEventListener('mousemove', drawMouseMoveHandler);
@@ -1308,9 +1327,13 @@
 
         function detachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
-            if (drawLoupeClickHandler) {
-                container.removeEventListener('mousedown', drawLoupeClickHandler);
-                drawLoupeClickHandler = null;
+            if (drawMouseDownHandler) {
+                container.removeEventListener('mousedown', drawMouseDownHandler);
+                drawMouseDownHandler = null;
+            }
+            if (drawClickHandler) {
+                container.removeEventListener('click', drawClickHandler);
+                drawClickHandler = null;
             }
             if (drawMouseMoveHandler) {
                 container.removeEventListener('mousemove', drawMouseMoveHandler);
@@ -1326,6 +1349,7 @@
             }
             deselectElement();
             isDragging = false;
+            justDragged = false;
             container.style.cursor = '';
         }
 

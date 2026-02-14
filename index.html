@@ -1450,6 +1450,7 @@
             desc.textContent = 'Custom card';
             card.appendChild(desc);
             targetRow.appendChild(card);
+            addCardDeleteButton(card);
 
             // Apply current zoom
             if (libZoom !== 1) {
@@ -1544,7 +1545,7 @@
             // Ignore clicks inside the variation box itself
             if (e.target.closest('.variation-box')) return;
             // Ignore clicks on delete buttons
-            if (e.target.closest('.variation-delete-btn')) return;
+            if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn')) return;
 
             const card = e.target.closest('.library-card');
 
@@ -1881,6 +1882,68 @@
             saveVariations();
         }
 
+        // --- Delete any card (built-in or custom) with confirmation ---
+        function addCardDeleteButton(card) {
+            // Don't double-add, and skip variations (they have their own button)
+            if (card.querySelector('.card-delete-btn') || card.classList.contains('variation')) return;
+            var btn = document.createElement('button');
+            btn.className = 'card-delete-btn';
+            btn.textContent = '\u2715';
+            btn.onclick = function(e) {
+                e.stopPropagation();
+                confirmDeleteCard(card);
+            };
+            card.appendChild(btn);
+        }
+
+        function addDeleteButtonsToAllCards() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            content.querySelectorAll('.library-card:not(.variation)').forEach(addCardDeleteButton);
+        }
+
+        function confirmDeleteCard(card) {
+            var label = card.querySelector('.library-label');
+            var labelText = label ? label.textContent : 'this card';
+            if (!confirm('Delete card "' + labelText + '"? This cannot be undone.')) return;
+            deleteCard(card);
+        }
+
+        function deleteCard(card) {
+            var row = card.closest('.library-row');
+            var label = card.querySelector('.library-label');
+            var labelText = label ? label.textContent : '';
+
+            // Track deleted built-in cards so they stay deleted after refresh
+            if (!card.dataset.custom && labelText) {
+                var deleted = [];
+                try { deleted = JSON.parse(localStorage.getItem('deletedCards') || '[]'); } catch(e) {}
+                if (deleted.indexOf(labelText) === -1) {
+                    deleted.push(labelText);
+                    localStorage.setItem('deletedCards', JSON.stringify(deleted));
+                }
+            }
+
+            // Also remove any variations of this card
+            if (row && labelText) {
+                row.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) {
+                    v.remove();
+                });
+            }
+
+            card.remove();
+
+            // Clean up empty rows
+            if (row && row.querySelectorAll('.library-card').length === 0) {
+                var prevSection = row.previousElementSibling;
+                if (prevSection && prevSection.classList.contains('library-section')) {
+                    prevSection.remove();
+                }
+                row.remove();
+            }
+
+            saveVariations();
+        }
+
         function renumberVariations(row, originalLabel) {
             var subs = '\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089';
             var variations = row.querySelectorAll('.library-card.variation[data-original-label="' + originalLabel + '"]');
@@ -2060,9 +2123,30 @@
             }
         }
 
+        // Remove previously deleted built-in cards on startup
+        (function removeDeletedCards() {
+            var deleted = [];
+            try { deleted = JSON.parse(localStorage.getItem('deletedCards') || '[]'); } catch(e) {}
+            if (deleted.length === 0) return;
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            content.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                if (lbl && deleted.indexOf(lbl.textContent) !== -1) {
+                    var row = card.closest('.library-row');
+                    card.remove();
+                    if (row && row.querySelectorAll('.library-card').length === 0) {
+                        var prev = row.previousElementSibling;
+                        if (prev && prev.classList.contains('library-section')) prev.remove();
+                        row.remove();
+                    }
+                }
+            });
+        })();
+
         // Load saved custom/edited cards and variations on startup
         loadCustomCards();
         loadVariations();
+        addDeleteButtonsToAllCards();
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)

@@ -400,6 +400,13 @@ class VicaDominoGame {
         selectedPlayerBtn.style.display = 'inline-block';
         selectedRow.appendChild(selectedPlayerBtn);
 
+        // Add Go Back button to the selected row
+        const goBackBtn = document.createElement('button');
+        goBackBtn.className = 'btn btn-secondary';
+        goBackBtn.textContent = '\u2190 Go Back';
+        goBackBtn.addEventListener('click', () => this.goBackToSelection());
+        selectedRow.appendChild(goBackBtn);
+
         // Preserve start button if it was moved into name-inputs (from Xeno row)
         const startBtn = document.getElementById('start-game-btn');
         if (startBtn && startBtn.closest('#name-inputs')) {
@@ -544,6 +551,38 @@ class VicaDominoGame {
             xenoRow.appendChild(xenoNameSection);
             nameInputs.appendChild(xenoRow);
         }
+    }
+
+    goBackToSelection() {
+        // Move start button back if it was moved into name-inputs (Xeno row)
+        const startBtn = document.getElementById('start-game-btn');
+        if (startBtn && startBtn.closest('#name-inputs')) {
+            document.getElementById('player-names').appendChild(startBtn);
+        }
+        startBtn.style.margin = '';
+
+        // Hide name entry area
+        document.getElementById('player-names').style.display = 'none';
+        document.getElementById('name-inputs').innerHTML = '';
+
+        // Hide selected-options-row
+        const selectedRow = document.getElementById('selected-options-row');
+        if (selectedRow) {
+            selectedRow.style.display = 'none';
+        }
+
+        // Restore level and player selectors
+        document.querySelector('.game-level-select').style.display = 'flex';
+        document.querySelector('.player-select').style.display = 'flex';
+
+        // Restore all h3 headings in setup panel
+        const setupPanel = document.querySelector('.setup-panel');
+        setupPanel.querySelectorAll('h3').forEach(h3 => {
+            h3.style.display = 'block';
+        });
+
+        // Clear player button selection
+        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
     }
 
     startGame() {

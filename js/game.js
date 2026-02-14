@@ -1646,6 +1646,9 @@ class VicaDominoGame {
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
 
+        // Flush any pending coin→gem exchanges before checking progression
+        this._flushPendingExchanges();
+
         // Combined game: check if celebration is pending (final stage complete)
         if (this.combinedGame && this.combinedGame.pendingCelebration) {
             this.showFinalCelebration();
@@ -2583,26 +2586,92 @@ class VicaDominoGame {
 
     addCoins(playerId, amount) {
         this.playerCoins[playerId] = (this.playerCoins[playerId] || 0) + amount;
-        // Auto-exchange: 5 coins → 1 gem
-        while (this.playerCoins[playerId] >= 5) {
-            this.playerCoins[playerId] -= 5;
-            this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
-            this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
+
+        // Track when coins were added (for pop-in animation)
+        if (!this._coinAddedInfo) this._coinAddedInfo = {};
+        this._coinAddedInfo[playerId] = { time: Date.now(), amount: amount };
+
+        // Check if exchange needed (5 coins → 1 gem)
+        if (this.playerCoins[playerId] >= 5) {
+            // Show all coins briefly before exchanging
+            if (!this._exchangeTimeouts) this._exchangeTimeouts = {};
+            if (this._exchangeTimeouts[playerId]) clearTimeout(this._exchangeTimeouts[playerId]);
+
+            const exchangeDelay = amount * 300 + 700;
+            this._exchangeTimeouts[playerId] = setTimeout(() => {
+                while (this.playerCoins[playerId] >= 5) {
+                    this.playerCoins[playerId] -= 5;
+                    this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
+                    this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
+                }
+                if (!this._gemAddedAt) this._gemAddedAt = {};
+                this._gemAddedAt[playerId] = Date.now();
+                this.renderCoinGemDisplay();
+                this.checkGameProgression(playerId);
+                this._updateEndGameButtonText();
+                delete this._exchangeTimeouts[playerId];
+            }, exchangeDelay);
+        } else {
+            this.checkGameProgression(playerId);
         }
-        this.renderCoinGemDisplay();
-        this.checkGameProgression(playerId);
+        // Note: display is rendered by caller's renderSunLevel(), not here
     }
 
     buildCoinGemHTML(container, playerId) {
         const coins = this.playerCoins[playerId] || 0;
         const gems = this.playerGems[playerId] || 0;
+
+        // Check for recent coin/gem additions for animation
+        let newCoinCount = 0;
+        if (this._coinAddedInfo && this._coinAddedInfo[playerId]) {
+            if (Date.now() - this._coinAddedInfo[playerId].time < 600) {
+                newCoinCount = this._coinAddedInfo[playerId].amount;
+            }
+        }
+        let isNewGem = false;
+        if (this._gemAddedAt && this._gemAddedAt[playerId]) {
+            if (Date.now() - this._gemAddedAt[playerId] < 600) {
+                isNewGem = true;
+            }
+        }
+
         let html = '';
+
+        // Gems first
         for (let i = 0; i < gems; i++) {
-            html += '<span class="gem-icon">💎</span>';
+            const gemNew = isNewGem && i === gems - 1;
+            html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">💎</span>';
         }
-        for (let i = 0; i < coins; i++) {
-            html += '<span class="coin-icon">🪙</span>';
+
+        // Gold coins grouped in pairs (every other coin stacked on top)
+        let coinIdx = 0;
+        while (coinIdx < coins) {
+            const remaining = coins - coinIdx;
+            const isPair = remaining >= 2;
+
+            html += '<div class="coin-stack-group">';
+
+            // Base coin
+            const isNew1 = coinIdx >= (coins - newCoinCount);
+            const stagger1 = isNew1 ? (coinIdx - (coins - newCoinCount)) * 0.3 : 0;
+            html += '<div class="gold-coin' + (isNew1 ? ' coin-appear' : '') + '"';
+            if (stagger1 > 0) html += ' style="animation-delay:' + stagger1 + 's"';
+            html += '></div>';
+            coinIdx++;
+
+            if (isPair) {
+                // Stacked coin (drawn on top of the base coin)
+                const isNew2 = coinIdx >= (coins - newCoinCount);
+                const stagger2 = isNew2 ? (coinIdx - (coins - newCoinCount)) * 0.3 : 0;
+                html += '<div class="gold-coin coin-stacked' + (isNew2 ? ' coin-appear' : '') + '"';
+                if (stagger2 > 0) html += ' style="animation-delay:' + stagger2 + 's"';
+                html += '></div>';
+                coinIdx++;
+            }
+
+            html += '</div>';
         }
+
         container.innerHTML = html;
     }
 
@@ -2627,6 +2696,35 @@ class VicaDominoGame {
             } else {
                 this.combinedGame.pendingAdvance = true;
             }
+        }
+    }
+
+    _flushPendingExchanges() {
+        if (!this.combinedGame) return;
+        // Cancel pending exchange timeouts
+        if (this._exchangeTimeouts) {
+            Object.values(this._exchangeTimeouts).forEach(function(id) { clearTimeout(id); });
+            this._exchangeTimeouts = {};
+        }
+        // Force immediate exchange for all players
+        this.players.forEach(p => {
+            while ((this.playerCoins[p.id] || 0) >= 5) {
+                this.playerCoins[p.id] -= 5;
+                this.playerGems[p.id] = (this.playerGems[p.id] || 0) + 1;
+                this.stageGems[p.id] = (this.stageGems[p.id] || 0) + 1;
+            }
+        });
+        this.players.forEach(p => this.checkGameProgression(p.id));
+    }
+
+    _updateEndGameButtonText() {
+        if (!this.combinedGame) return;
+        const btn = document.querySelector('.end-game-btn');
+        if (!btn) return;
+        if (this.combinedGame.pendingCelebration) {
+            btn.textContent = '🎉 Celebration!';
+        } else if (this.combinedGame.pendingAdvance) {
+            btn.textContent = '⭐ Next Game!';
         }
     }
 

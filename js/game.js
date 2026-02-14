@@ -161,6 +161,9 @@ class VicaDominoGame {
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
 
+        // Go back (from name entry page)
+        document.getElementById('go-back-btn').addEventListener('click', () => this.goBackToSelection());
+
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
     }
@@ -400,13 +403,6 @@ class VicaDominoGame {
         selectedPlayerBtn.style.display = 'inline-block';
         selectedRow.appendChild(selectedPlayerBtn);
 
-        // Add Go Back button to the selected row
-        const goBackBtn = document.createElement('button');
-        goBackBtn.className = 'btn btn-secondary';
-        goBackBtn.textContent = '\u2190 Go Back';
-        goBackBtn.addEventListener('click', () => this.goBackToSelection());
-        selectedRow.appendChild(goBackBtn);
-
         // Preserve start button if it was moved into name-inputs (from Xeno row)
         const startBtn = document.getElementById('start-game-btn');
         if (startBtn && startBtn.closest('#name-inputs')) {
@@ -532,7 +528,7 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 25%;
+                width: 15%;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;

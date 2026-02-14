@@ -428,12 +428,13 @@ class VicaDominoGame {
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            // Use "Player's Name" for single player with Xeno, otherwise "Player X name"
-            const placeholderName = (count === 1 && includeXeno) ? "Player's Name" : `Player ${i + 1} name`;
-            input.placeholder = `${i + 1}. ${placeholderName}`;
+            // Use "Player's Name" for single player with Xeno (no number prefix), otherwise "Player X name"
+            const isSingleWithXeno = (count === 1 && includeXeno);
+            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1} name`;
+            input.placeholder = isSingleWithXeno ? placeholderName : `${i + 1}. ${placeholderName}`;
             input.value = '';
             input.dataset.playerIndex = i;
-            input.dataset.prefix = `${i + 1}.  `;
+            input.dataset.prefix = isSingleWithXeno ? '' : `${i + 1}.  `;
 
             // On focus, set the prefix and place cursor after it
             input.addEventListener('focus', (e) => {
@@ -503,7 +504,7 @@ class VicaDominoGame {
             // Xeno name input (disabled)
             const xenoInput = document.createElement('input');
             xenoInput.type = 'text';
-            xenoInput.value = `${xenoNumber}.  Xeno`;
+            xenoInput.value = 'Xeno';
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
             xenoInput.style.cssText = `
@@ -518,7 +519,7 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 100%;
+                width: 20%;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;

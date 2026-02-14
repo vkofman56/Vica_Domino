@@ -142,6 +142,13 @@ class VicaDominoGame {
         this._playerClickBuffers = {}; // Multi-press detection per player
         this._playerClickTimers = {};
 
+        // Combined game state
+        this.combinedGame = null; // { config, currentStage }
+        this.playerCoins = {}; // { playerId: coinCount }
+        this.playerGems = {}; // { playerId: gemCount }
+        this.stageGems = {}; // { playerId: gemsEarnedThisStage }
+        this._celebrationAnimFrame = null;
+
         this.initEventListeners();
         this.initGameLevelSelector();
 
@@ -648,6 +655,22 @@ class VicaDominoGame {
             });
         }
 
+        // Initialize combined game if configured
+        if (window.combinedGameConfig && !this.combinedGame) {
+            this.combinedGame = {
+                config: window.combinedGameConfig,
+                currentStage: window.combinedGameStage || 0
+            };
+            this.playerCoins = {};
+            this.playerGems = {};
+            this.stageGems = {};
+            this.players.forEach(p => {
+                this.playerCoins[p.id] = 0;
+                this.playerGems[p.id] = 0;
+                this.stageGems[p.id] = 0;
+            });
+        }
+
         // Initialize deck and deal
         const deck = getShuffledDeck();
         const cardsPerPlayer = 3;
@@ -1084,6 +1107,11 @@ class VicaDominoGame {
         player.isWinner = true;
         player.winningCard = card;
 
+        // Combined game: award coins for winning
+        if (this.combinedGame) {
+            this.addCoins(player.id, 2);
+        }
+
         // Tie detection: if both players find doubles within 500ms, it's a tie
         if (this.players.length === 2) {
             const now = Date.now();
@@ -1188,6 +1216,15 @@ class VicaDominoGame {
     sunLevelWrongCard(card, player, cardIndex) {
         // Play disapproval sound
         this.playWrongSound();
+
+        // Combined game: deduct coin for mistake (but not if 4 or less)
+        if (this.combinedGame) {
+            const currentCoins = this.playerCoins[player.id] || 0;
+            if (currentCoins > 4) {
+                this.playerCoins[player.id]--;
+                this.renderCoinGemDisplay();
+            }
+        }
 
         // Update status - timer continues
         this.updateStatus('❌ Try again! Two sides of this domino are not equal.', 'wrong');
@@ -1377,6 +1414,45 @@ class VicaDominoGame {
         const playersArea = document.getElementById('players-area');
         playersArea.innerHTML = '';
 
+        // Combined game: show stage progress
+        if (this.combinedGame) {
+            const stageDiv = document.createElement('div');
+            stageDiv.className = 'stage-progress';
+            const config = this.combinedGame.config;
+            const stage = config.stages[this.combinedGame.currentStage];
+            const stageLabel = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][this.combinedGame.currentStage] || '?';
+            const totalStages = config.stages.length;
+            const games = [];
+            try {
+                const gd = localStorage.getItem('savedCustomGames');
+                if (gd) {
+                    const parsed = JSON.parse(gd);
+                    config.stages.forEach(function(s) {
+                        games.push(parsed[s.gameIndex] ? parsed[s.gameIndex].name : 'Game');
+                    });
+                }
+            } catch(e) {}
+            const gameName = games[this.combinedGame.currentStage] || 'Game ' + stageLabel;
+            stageDiv.innerHTML = '<span class="stage-label">Game ' + stageLabel + ': ' + gameName + '</span>';
+
+            // Show gem progress slots for highest stage-gem player
+            let maxStageGems = 0;
+            this.players.forEach(p => {
+                if ((this.stageGems[p.id] || 0) > maxStageGems) maxStageGems = this.stageGems[p.id];
+            });
+            const slotsDiv = document.createElement('span');
+            slotsDiv.className = 'stage-gem-slots';
+            for (let i = 0; i < stage.gemsNeeded; i++) {
+                const slot = document.createElement('span');
+                slot.className = 'stage-gem-slot' + (i < maxStageGems ? ' filled' : '');
+                slot.textContent = i < maxStageGems ? '💎' : '';
+                slotsDiv.appendChild(slot);
+            }
+            stageDiv.appendChild(slotsDiv);
+            stageDiv.innerHTML += ' <span style="font-size:0.8rem;opacity:0.7;">(' + (this.combinedGame.currentStage + 1) + '/' + totalStages + ')</span>';
+            playersArea.appendChild(stageDiv);
+        }
+
         this.players.forEach((player, playerIndex) => {
             const handEl = document.createElement('div');
             handEl.className = 'player-hand active';
@@ -1423,6 +1499,15 @@ class VicaDominoGame {
                     <span class="winner-text">${winnerText}</span>
                 `;
 
+                // Combined game: show coin/gem display for winners too
+                if (this.combinedGame) {
+                    const coinGemDiv = document.createElement('div');
+                    coinGemDiv.className = 'coin-gem-display';
+                    coinGemDiv.dataset.playerId = player.id;
+                    this.buildCoinGemHTML(coinGemDiv, player.id);
+                    winnerSection.appendChild(coinGemDiv);
+                }
+
                 winnerSection.appendChild(winnerBox);
                 handEl.appendChild(winnerSection);
             } else {
@@ -1435,6 +1520,15 @@ class VicaDominoGame {
                     <span class="player-name-inline">${player.name}</span>
                 `;
                 handEl.appendChild(playerInfo);
+
+                // Combined game: show coin/gem display
+                if (this.combinedGame) {
+                    const coinGemDiv = document.createElement('div');
+                    coinGemDiv.className = 'coin-gem-display';
+                    coinGemDiv.dataset.playerId = player.id;
+                    this.buildCoinGemHTML(coinGemDiv, player.id);
+                    handEl.appendChild(coinGemDiv);
+                }
 
                 // Player's dominos (vertical) with key hints - all on one line
                 const tilesContainer = document.createElement('div');
@@ -1551,6 +1645,19 @@ class VicaDominoGame {
     // Play again with same settings (same players, same level)
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
+
+        // Combined game: check if celebration is pending (final stage complete)
+        if (this.combinedGame && this.combinedGame.pendingCelebration) {
+            this.showFinalCelebration();
+            return;
+        }
+
+        // Combined game: check if stage should advance
+        if (this.combinedGame && this.combinedGame.pendingAdvance) {
+            this.advanceToNextStage();
+            return;
+        }
+
         // Reset sun level state
         this.resetSunLevel();
 
@@ -1599,7 +1706,14 @@ class VicaDominoGame {
 
         const playAgainBtn = document.createElement('button');
         playAgainBtn.className = 'btn btn-primary end-game-btn';
-        playAgainBtn.textContent = 'Play Again';
+        // Combined game: change button text when advancing/celebrating
+        if (this.combinedGame && this.combinedGame.pendingCelebration) {
+            playAgainBtn.textContent = '🎉 Celebration!';
+        } else if (this.combinedGame && this.combinedGame.pendingAdvance) {
+            playAgainBtn.textContent = '⭐ Next Game!';
+        } else {
+            playAgainBtn.textContent = 'Play Again';
+        }
         playAgainBtn.addEventListener('click', () => this.playAgain());
 
         const newGameBtn = document.createElement('button');
@@ -2465,7 +2579,217 @@ class VicaDominoGame {
         document.getElementById('create-edit-screen').style.display = 'block';
     }
 
+    // === Combined Game Methods ===
+
+    addCoins(playerId, amount) {
+        this.playerCoins[playerId] = (this.playerCoins[playerId] || 0) + amount;
+        // Auto-exchange: 5 coins → 1 gem
+        while (this.playerCoins[playerId] >= 5) {
+            this.playerCoins[playerId] -= 5;
+            this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
+            this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
+        }
+        this.renderCoinGemDisplay();
+        this.checkGameProgression(playerId);
+    }
+
+    buildCoinGemHTML(container, playerId) {
+        const coins = this.playerCoins[playerId] || 0;
+        const gems = this.playerGems[playerId] || 0;
+        let html = '';
+        for (let i = 0; i < gems; i++) {
+            html += '<span class="gem-icon">💎</span>';
+        }
+        for (let i = 0; i < coins; i++) {
+            html += '<span class="coin-icon">🪙</span>';
+        }
+        container.innerHTML = html;
+    }
+
+    renderCoinGemDisplay() {
+        if (!this.combinedGame) return;
+        this.players.forEach(player => {
+            const displayEl = document.querySelector(`.coin-gem-display[data-player-id="${player.id}"]`);
+            if (displayEl) {
+                this.buildCoinGemHTML(displayEl, player.id);
+            }
+        });
+    }
+
+    checkGameProgression(playerId) {
+        if (!this.combinedGame) return;
+        const stage = this.combinedGame.config.stages[this.combinedGame.currentStage];
+        const stageGems = this.stageGems[playerId] || 0;
+        if (stageGems >= stage.gemsNeeded) {
+            const isLastStage = this.combinedGame.currentStage >= this.combinedGame.config.stages.length - 1;
+            if (isLastStage) {
+                this.combinedGame.pendingCelebration = true;
+            } else {
+                this.combinedGame.pendingAdvance = true;
+            }
+        }
+    }
+
+    advanceToNextStage() {
+        if (!this.combinedGame) return;
+
+        // Stop any timers
+        this.stopSunLevelTimer();
+        this.resetSunLevel();
+
+        // Remove end game buttons
+        this.hideKeyboardPopup();
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
+
+        const nextStageIndex = this.combinedGame.currentStage + 1;
+        const config = this.combinedGame.config;
+        const nextStage = config.stages[nextStageIndex];
+        const stageLabel = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][nextStageIndex] || '?';
+
+        // Get game name
+        let gameName = 'Game ' + stageLabel;
+        try {
+            const gd = localStorage.getItem('savedCustomGames');
+            if (gd) {
+                const parsed = JSON.parse(gd);
+                if (parsed[nextStage.gameIndex]) gameName = parsed[nextStage.gameIndex].name;
+            }
+        } catch(e) {}
+
+        // Show transition overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'stage-transition-overlay';
+        overlay.id = 'stage-transition-overlay';
+        overlay.innerHTML = `
+            <div class="stage-transition-text">Level Up!</div>
+            <div class="stage-transition-sub">Starting Game ${stageLabel}: ${gameName}</div>
+            <div style="margin-top:20px;font-size:2rem;">💎 → ⭐</div>
+        `;
+        document.body.appendChild(overlay);
+
+        // After 2.5 seconds, load next game and continue
+        setTimeout(() => {
+            overlay.remove();
+
+            // Update stage
+            this.combinedGame.currentStage = nextStageIndex;
+            this.combinedGame.pendingAdvance = false;
+
+            // Reset stage gems for all players
+            this.players.forEach(p => {
+                this.stageGems[p.id] = 0;
+            });
+
+            // Load next game's deck
+            if (window.loadGameDeckForStage) {
+                window.loadGameDeckForStage(nextStage.gameIndex);
+            }
+
+            // Reset player states
+            const playersArea = document.getElementById('players-area');
+            playersArea.style.transition = '';
+            playersArea.style.opacity = '';
+            playersArea.style.display = '';
+            const turnIndicator = document.querySelector('.turn-indicator');
+            if (turnIndicator) turnIndicator.style.display = '';
+            document.getElementById('status-message').style.display = '';
+
+            this.players.forEach(player => {
+                player.hand = [];
+                player.isWinner = false;
+                player.winningCard = null;
+                player.animationShown = false;
+            });
+            this.sunLevelWinners = [];
+            document.getElementById('game-board').innerHTML = '';
+
+            // Start the game with the new deck
+            this.startSunLevelGame();
+        }, 2500);
+    }
+
+    showFinalCelebration() {
+        // Stop game
+        this.stopSunLevelTimer();
+        this.gamePhase = 'ended';
+
+        const overlay = document.getElementById('combined-celebration-overlay');
+        overlay.style.display = 'flex';
+
+        // Run confetti animation on canvas
+        const canvas = document.getElementById('celebration-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const colors = ['#FFD700', '#FF4500', '#00BFFF', '#FF69B4', '#32CD32', '#FF6347', '#9370DB', '#00CED1', '#FF1493', '#7FFF00'];
+
+        // Create 150 confetti particles
+        for (let i = 0; i < 150; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                w: Math.random() * 12 + 5,
+                h: Math.random() * 8 + 3,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                speed: Math.random() * 3 + 2,
+                angle: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 0.1,
+                drift: (Math.random() - 0.5) * 2
+            });
+        }
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+
+                p.y += p.speed;
+                p.x += p.drift;
+                p.angle += p.spin;
+
+                // Reset particle when it falls off screen
+                if (p.y > canvas.height + 20) {
+                    p.y = -20;
+                    p.x = Math.random() * canvas.width;
+                }
+            });
+            this._celebrationAnimFrame = requestAnimationFrame(animate);
+        };
+        animate();
+    }
+
+    cleanupCelebration() {
+        if (this._celebrationAnimFrame) {
+            cancelAnimationFrame(this._celebrationAnimFrame);
+            this._celebrationAnimFrame = null;
+        }
+        const overlay = document.getElementById('combined-celebration-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
     resetToSetup() {
+        // Clean up combined game
+        this.combinedGame = null;
+        this.playerCoins = {};
+        this.playerGems = {};
+        this.stageGems = {};
+        this.cleanupCelebration();
+        window.combinedGameConfig = null;
+        window.combinedGameStage = 0;
+        window._activeCombinedIndex = -1;
+
+        // Remove any stage transition overlay
+        const stageOverlay = document.getElementById('stage-transition-overlay');
+        if (stageOverlay) stageOverlay.remove();
+
         // Clean up Sun level if it was active
         this.resetSunLevel();
         this.hideKeyboardPopup();

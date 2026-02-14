@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=domino-library-39">
+    <link rel="stylesheet" href="css/style.css?v=combined-games-1">
 </head>
 <body>
     <div class="game-container">
@@ -573,6 +573,29 @@
         <div class="winner-banner" id="winner-banner" style="display: none;">
             <h2>Here is the <span id="winner-ordinal">first</span> winner!</h2>
             <div class="winner-name" id="banner-winner-name">Player Name</div>
+        </div>
+
+        <!-- Combined Game Configuration Dialog -->
+        <div id="combine-games-overlay" style="display:none;">
+            <div class="combine-games-dialog">
+                <h2>Combine Games</h2>
+                <p style="text-align:center;color:rgba(255,255,255,0.7);margin:0 0 16px;font-size:0.9rem;">Set the number of gems needed to advance to the next game</p>
+                <div id="combine-games-list"></div>
+                <div class="combine-games-btns">
+                    <button onclick="confirmCombineGames()">Save Combined Game</button>
+                    <button onclick="cancelCombineGames()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Combined Game Final Celebration -->
+        <div id="combined-celebration-overlay" style="display:none;">
+            <canvas id="celebration-canvas"></canvas>
+            <div class="celebration-content">
+                <h1 class="celebration-title">Congratulations!</h1>
+                <p class="celebration-subtitle">You completed all games!</p>
+                <button class="btn btn-primary" id="close-celebration-btn">Finish</button>
+            </div>
         </div>
     </div>
 
@@ -3028,12 +3051,66 @@
             list.innerHTML = '';
             var games = loadCustomGames();
             games.forEach(function(game, i) {
+                var row = document.createElement('div');
+                row.className = 'library-game-row';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'combine-checkbox';
+                checkbox.dataset.gameIndex = i;
+                checkbox.addEventListener('change', updateCombineButton);
+                row.appendChild(checkbox);
+
                 var btn = document.createElement('button');
                 btn.className = 'library-game-link';
                 btn.textContent = game.name;
                 btn.onclick = function() { openGameView(i, 'card-library-screen'); };
-                list.appendChild(btn);
+                row.appendChild(btn);
+
+                list.appendChild(row);
             });
+
+            // Add "Combine Selected Games" button (hidden until 2+ checked)
+            var combineBtn = document.createElement('button');
+            combineBtn.id = 'combine-games-btn';
+            combineBtn.className = 'combine-games-btn';
+            combineBtn.textContent = 'Combine Selected Games';
+            combineBtn.style.display = 'none';
+            combineBtn.onclick = openCombineDialog;
+            list.appendChild(combineBtn);
+
+            // Show existing combined games
+            var combinedGames = loadCombinedGames();
+            if (combinedGames.length > 0) {
+                var sep = document.createElement('div');
+                sep.style.cssText = 'border-top:1px solid rgba(255,255,255,0.2);margin:12px 0 8px;padding-top:8px;color:#FFD700;font-weight:bold;font-size:0.9rem;';
+                sep.textContent = 'Combined Games:';
+                list.appendChild(sep);
+                combinedGames.forEach(function(cg, ci) {
+                    var cgRow = document.createElement('div');
+                    cgRow.className = 'library-game-row';
+                    var cgBtn = document.createElement('button');
+                    cgBtn.className = 'library-game-link';
+                    cgBtn.textContent = cg.name;
+                    cgBtn.style.color = '#FFD700';
+                    cgRow.appendChild(cgBtn);
+                    var delBtn = document.createElement('button');
+                    delBtn.className = 'delete-combined-btn';
+                    delBtn.title = 'Delete combined game';
+                    delBtn.innerHTML = '&#10005;';
+                    delBtn.onclick = function() {
+                        if (confirm('Delete combined game "' + cg.name + '"?')) {
+                            var all = loadCombinedGames();
+                            all.splice(ci, 1);
+                            saveCombinedGames(all);
+                            populateLibraryGames();
+                            populateStartScreenGames();
+                        }
+                    };
+                    cgRow.appendChild(delBtn);
+                    list.appendChild(cgRow);
+                });
+            }
         }
 
         function populateStartScreenGames() {
@@ -3045,6 +3122,15 @@
                 btn.className = 'custom-game-btn';
                 btn.textContent = game.name;
                 btn.onclick = function() { startCustomGame(i, btn); };
+                container.appendChild(btn);
+            });
+            // Add combined games
+            var combinedGames = loadCombinedGames();
+            combinedGames.forEach(function(cg, ci) {
+                var btn = document.createElement('button');
+                btn.className = 'custom-game-btn combined-game-btn';
+                btn.textContent = cg.name;
+                btn.onclick = function() { startCombinedGameFromMenu(ci, btn); };
                 container.appendChild(btn);
             });
         }
@@ -3167,6 +3253,9 @@
             window.customGameDeck = null;
             window.customGameSVGs = null;
             window.customGameFlipEnabled = false;
+            window.combinedGameConfig = null;
+            window.combinedGameStage = 0;
+            window._activeCombinedIndex = -1;
             document.querySelector('#start-screen .subtitle').textContent = 'Game: Find the Double!';
         }
 
@@ -3203,6 +3292,122 @@
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
+        // === Combined Games Functions ===
+        function updateCombineButton() {
+            var checked = document.querySelectorAll('.combine-checkbox:checked');
+            var btn = document.getElementById('combine-games-btn');
+            if (btn) btn.style.display = checked.length >= 2 ? 'block' : 'none';
+        }
+
+        function openCombineDialog() {
+            var checked = document.querySelectorAll('.combine-checkbox:checked');
+            if (checked.length < 2) return;
+            var games = loadCustomGames();
+            var overlay = document.getElementById('combine-games-overlay');
+            var list = document.getElementById('combine-games-list');
+            list.innerHTML = '';
+
+            var labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            checked.forEach(function(cb, idx) {
+                var gameIdx = parseInt(cb.dataset.gameIndex);
+                var game = games[gameIdx];
+                var row = document.createElement('div');
+                row.className = 'combine-game-row';
+                row.innerHTML = '<span class="combine-game-label">Game ' + labels[idx] + ': ' + game.name + '</span>' +
+                    '<label style="display:flex;align-items:center;gap:6px;"><span style="font-size:20px;">💎</span><input type="number" class="combine-gem-input" min="1" max="99" value="2" data-game-index="' + gameIdx + '"></label>';
+                list.appendChild(row);
+            });
+
+            overlay.style.display = 'flex';
+        }
+
+        function confirmCombineGames() {
+            var inputs = document.querySelectorAll('.combine-gem-input');
+            var gameStages = [];
+            inputs.forEach(function(input) {
+                gameStages.push({
+                    gameIndex: parseInt(input.dataset.gameIndex),
+                    gemsNeeded: parseInt(input.value) || 2
+                });
+            });
+
+            var name = prompt('Name for this combined game:');
+            if (!name || !name.trim()) return;
+
+            var combinedGames = loadCombinedGames();
+            combinedGames.push({ name: name.trim(), stages: gameStages });
+            saveCombinedGames(combinedGames);
+
+            document.getElementById('combine-games-overlay').style.display = 'none';
+
+            // Uncheck all
+            document.querySelectorAll('.combine-checkbox').forEach(function(cb) { cb.checked = false; });
+            updateCombineButton();
+
+            populateLibraryGames();
+            populateStartScreenGames();
+        }
+
+        function cancelCombineGames() {
+            document.getElementById('combine-games-overlay').style.display = 'none';
+        }
+
+        function loadCombinedGames() {
+            try {
+                var data = localStorage.getItem('savedCombinedGames');
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveCombinedGames(games) {
+            localStorage.setItem('savedCombinedGames', JSON.stringify(games));
+        }
+
+        function startCombinedGameFromMenu(combinedIndex, btnEl) {
+            var combinedGames = loadCombinedGames();
+            var cg = combinedGames[combinedIndex];
+            if (!cg) return;
+
+            // Toggle: clicking same combined game deselects it
+            if (window._activeCombinedIndex === combinedIndex) {
+                clearCustomGame();
+                window._activeCombinedIndex = -1;
+                window.combinedGameConfig = null;
+                if (btnEl) btnEl.classList.remove('active');
+                document.querySelector('#start-screen .subtitle').textContent = 'Game: Find the Double!';
+                return;
+            }
+
+            // Deselect all game buttons
+            document.querySelectorAll('.custom-game-btn.active').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            if (btnEl) btnEl.classList.add('active');
+            window._activeCombinedIndex = combinedIndex;
+
+            // Load the first stage's game deck
+            var firstStage = cg.stages[0];
+            startCustomGame(firstStage.gameIndex, null);
+
+            // Store combined game config globally for game.js to read
+            window.combinedGameConfig = cg;
+            window.combinedGameStage = 0;
+
+            // Update subtitle
+            document.querySelector('#start-screen .subtitle').textContent = 'Combined: ' + cg.name;
+        }
+
+        // Expose function for game.js to switch game decks during combined game
+        window.loadGameDeckForStage = function(gameIndex) {
+            startCustomGame(gameIndex, null);
+        };
+
+        // Close celebration handler
+        document.getElementById('close-celebration-btn').addEventListener('click', function() {
+            document.getElementById('combined-celebration-overlay').style.display = 'none';
+            if (window.game) window.game.resetToSetup();
+        });
+
         // --- Last used game shortcut on Card Maker left panel ---
         function populateCardMakerGames() {
             var container = document.getElementById('card-maker-games');
@@ -3225,6 +3430,6 @@
         populateCardMakerGames();
     </script>
     <script src="js/domino.js?v=custom-game-1"></script>
-    <script src="js/game.js?v=domino-library-3"></script>
+    <script src="js/game.js?v=combined-games-1"></script>
 </body>
 </html>

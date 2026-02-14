@@ -504,7 +504,7 @@ class VicaDominoGame {
             // Xeno name input (disabled)
             const xenoInput = document.createElement('input');
             xenoInput.type = 'text';
-            xenoInput.value = 'Xeno';
+            xenoInput.value = 'Xeno ⏳';
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
             xenoInput.style.cssText = `
@@ -519,7 +519,7 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 20%;
+                width: 35%;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;

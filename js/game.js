@@ -292,6 +292,9 @@ class VicaDominoGame {
             }
         });
 
+        // Update page number badge for initial selection
+        this.updatePageNumber();
+
         // Add click handlers
         levelBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -302,8 +305,17 @@ class VicaDominoGame {
                 // Save selection
                 this.selectedLevel = btn.dataset.level;
                 localStorage.setItem('vicaSelectedLevel', this.selectedLevel);
+                // Update page number badge
+                this.updatePageNumber();
             });
         });
+    }
+
+    updatePageNumber() {
+        const levelLetters = { circle: 'a', triangle: 'b', star: 'c' };
+        const letter = levelLetters[this.selectedLevel] || '';
+        const badge = document.querySelector('#start-screen .page-number');
+        if (badge) badge.textContent = '1' + letter;
     }
 
     // Play disapproval sound using Web Audio API

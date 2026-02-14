@@ -671,6 +671,18 @@ class VicaDominoGame {
             });
         }
 
+        // Initialize coins/gems for 2-player Find the Double (even without combined game)
+        if (this.players.length >= 2 && !this.combinedGame) {
+            this.playerCoins = {};
+            this.playerGems = {};
+            this.stageGems = {};
+            this.players.forEach(p => {
+                this.playerCoins[p.id] = 0;
+                this.playerGems[p.id] = 0;
+                this.stageGems[p.id] = 0;
+            });
+        }
+
         // Initialize deck and deal
         const deck = getShuffledDeck();
         const cardsPerPlayer = 3;
@@ -696,6 +708,9 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
+        // Show current game name temporarily next to title
+        this.showGameName();
+
         // Check if Find the Double level is selected (all levels use this mode now)
         if (this.selectedLevel === 'circle' || this.selectedLevel === 'triangle' || this.selectedLevel === 'star') {
             this.startSunLevelGame();
@@ -703,6 +718,35 @@ class VicaDominoGame {
             // Phase 1: Show doubles - players decide who starts
             this.gamePhase = 'showDoubles';
             this.promptForDoubles();
+        }
+    }
+
+    // Show game name temporarily next to the title
+    showGameName() {
+        const el = document.getElementById('game-name-display');
+        if (!el) return;
+
+        // Get game name from start screen subtitle
+        const subtitle = document.querySelector('#start-screen .subtitle');
+        let gameName = '';
+        if (subtitle) {
+            const text = subtitle.textContent;
+            // Extract name from "Game: <name>" or "Combined: <name>"
+            const match = text.match(/(?:Game|Combined):\s*(.+)/);
+            if (match && match[1] !== 'Find the Double!') {
+                gameName = match[1];
+            }
+        }
+
+        el.textContent = gameName;
+        el.classList.remove('fade-out');
+
+        // Fade out after 5 seconds
+        if (this._gameNameFadeTimer) clearTimeout(this._gameNameFadeTimer);
+        if (gameName) {
+            this._gameNameFadeTimer = setTimeout(() => {
+                el.classList.add('fade-out');
+            }, 5000);
         }
     }
 
@@ -1107,8 +1151,8 @@ class VicaDominoGame {
         player.isWinner = true;
         player.winningCard = card;
 
-        // Combined game: award coins for winning
-        if (this.combinedGame) {
+        // Award coins for winning (2+ players)
+        if (this.players.length >= 2) {
             this.addCoins(player.id, 2);
         }
 
@@ -1217,8 +1261,8 @@ class VicaDominoGame {
         // Play disapproval sound
         this.playWrongSound();
 
-        // Combined game: deduct coin for mistake (but not if 4 or less)
-        if (this.combinedGame) {
+        // Deduct coin for mistake (but not below 4)
+        if (this.players.length >= 2) {
             const currentCoins = this.playerCoins[player.id] || 0;
             if (currentCoins > 4) {
                 this.playerCoins[player.id]--;
@@ -1499,8 +1543,8 @@ class VicaDominoGame {
                     <span class="winner-text">${winnerText}</span>
                 `;
 
-                // Combined game: show coin/gem display for winners too
-                if (this.combinedGame) {
+                // Show coin/gem display for winners too (2+ players)
+                if (this.players.length >= 2) {
                     const coinGemDiv = document.createElement('div');
                     coinGemDiv.className = 'coin-gem-display';
                     coinGemDiv.dataset.playerId = player.id;
@@ -1521,15 +1565,6 @@ class VicaDominoGame {
                 `;
                 handEl.appendChild(playerInfo);
 
-                // Combined game: show coin/gem display
-                if (this.combinedGame) {
-                    const coinGemDiv = document.createElement('div');
-                    coinGemDiv.className = 'coin-gem-display';
-                    coinGemDiv.dataset.playerId = player.id;
-                    this.buildCoinGemHTML(coinGemDiv, player.id);
-                    handEl.appendChild(coinGemDiv);
-                }
-
                 // Player's dominos (vertical) with key hints - all on one line
                 const tilesContainer = document.createElement('div');
                 tilesContainer.className = 'sun-level-tiles-container';
@@ -1546,6 +1581,15 @@ class VicaDominoGame {
                         // Player 2: use last N keys from 7, 8, 9, 0
                         keys = ['7', '8', '9', '0'].slice(4 - numCards);
                     }
+                }
+
+                // Show coin/gem display left of "Press" (2+ players)
+                if (this.players.length >= 2) {
+                    const coinGemDiv = document.createElement('div');
+                    coinGemDiv.className = 'coin-gem-display coin-gem-inline';
+                    coinGemDiv.dataset.playerId = player.id;
+                    this.buildCoinGemHTML(coinGemDiv, player.id);
+                    tilesContainer.appendChild(coinGemDiv);
                 }
 
                 // Add "Press" label
@@ -1755,8 +1799,12 @@ class VicaDominoGame {
         // Show buttons right away
         this.showEndGameButtons();
 
-        // Show keyboard hint for Play Again keys
-        this.showPlayAgainKeyboardHint();
+        // Show keyboard hint for Play Again keys (not for 2-player non-Xeno mode)
+        if (this.players.length < 2 || this.includeXeno) {
+            this.showPlayAgainKeyboardHint();
+        } else {
+            this.hideKeyboardPopup();
+        }
 
         // Start dimming the playing area
         const playersArea = document.getElementById('players-area');
@@ -2676,7 +2724,7 @@ class VicaDominoGame {
     }
 
     renderCoinGemDisplay() {
-        if (!this.combinedGame) return;
+        if (!this.combinedGame && this.players.length < 2) return;
         this.players.forEach(player => {
             const displayEl = document.querySelector(`.coin-gem-display[data-player-id="${player.id}"]`);
             if (displayEl) {
@@ -2700,7 +2748,7 @@ class VicaDominoGame {
     }
 
     _flushPendingExchanges() {
-        if (!this.combinedGame) return;
+        if (!this.combinedGame && this.players.length < 2) return;
         // Cancel pending exchange timeouts
         if (this._exchangeTimeouts) {
             Object.values(this._exchangeTimeouts).forEach(function(id) { clearTimeout(id); });

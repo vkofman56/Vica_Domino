@@ -1,4 +1,8 @@
-# Pinky-Math Domino - Comprehensive Project Details
+# Pinky Math Gaming - Comprehensive Project Details
+
+> **Brand**: Pinky Math | **Platform**: Pinky Math Gaming (game generator)
+> **First standalone apps**: "Find the Double" game family
+> **Repo codename**: Vica_Domino
 
 ## Architecture
 

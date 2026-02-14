@@ -1,10 +1,12 @@
 # Vica Domino Project Memory
 
 ## Project Overview
-- **Name**: Pinky-Math Domino (originally "Vica Domino")
-- **Subtitle**: "Game: Find the Double!"
-- **Type**: Educational math domino game, single-page web app
-- **Purpose**: Children's game where players find matching doubles among domino cards
+- **Brand**: "Pinky Math"
+- **Platform**: "Pinky Math Gaming" — a game generator that produces standalone game applications
+- **Repo/codename**: Vica_Domino
+- **First standalone apps**: "Find the Double" — a family of domino-based games (various versions)
+- **Type**: Educational math game generator, single-page web app
+- **Vision**: Each completed game is extracted as a standalone application; the generator continues developing new games
 - **Development**: 199 commits over Feb 1-14, 2026 (most active: Feb 7 with 68 commits)
 - **Detailed notes**: See [project-details.md](project-details.md)
 

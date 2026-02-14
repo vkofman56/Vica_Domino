@@ -400,6 +400,12 @@ class VicaDominoGame {
         selectedPlayerBtn.style.display = 'inline-block';
         selectedRow.appendChild(selectedPlayerBtn);
 
+        // Preserve start button if it was moved into name-inputs (from Xeno row)
+        const startBtn = document.getElementById('start-game-btn');
+        if (startBtn && startBtn.closest('#name-inputs')) {
+            document.getElementById('player-names').appendChild(startBtn);
+        }
+
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
             // Create player row container
@@ -519,12 +525,22 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 35%;
+                width: 25%;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;
             `;
-            xenoNameSection.appendChild(xenoInput);
+            // Create a row wrapper for Xeno input + Start Game button
+            const xenoContentRow = document.createElement('div');
+            xenoContentRow.style.cssText = 'display: flex; align-items: center; gap: 15px; width: 100%;';
+            xenoContentRow.appendChild(xenoInput);
+
+            // Move Start Game button into the Xeno row (under Player's Name box)
+            const startBtn = document.getElementById('start-game-btn');
+            startBtn.style.margin = '0';
+            xenoContentRow.appendChild(startBtn);
+
+            xenoNameSection.appendChild(xenoContentRow);
             xenoRow.appendChild(xenoNameSection);
             nameInputs.appendChild(xenoRow);
         }

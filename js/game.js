@@ -252,7 +252,9 @@ class VicaDominoGame {
                 const cardIndex = player1Keys[key];
                 const player = this.players[0];
                 if (player.hand[cardIndex]) {
-                    this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                    this.showFingerPush(0, cardIndex, () => {
+                        this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                    });
                 }
             }
         } else if (this.players.length === 2) {
@@ -1138,6 +1140,30 @@ class VicaDominoGame {
                     }
                 }
             });
+        });
+    }
+
+    // Show a finger pushing the domino animation (for keyboard presses in single player)
+    showFingerPush(playerIndex, cardIndex, callback) {
+        const playerHand = document.querySelector(`[data-player-id="${this.players[playerIndex].id}"]`);
+        if (!playerHand) { callback(); return; }
+
+        const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+        const wrapper = wrappers[cardIndex];
+        if (!wrapper) { callback(); return; }
+
+        // Make wrapper position relative for absolute finger positioning
+        wrapper.style.position = 'relative';
+
+        const finger = document.createElement('span');
+        finger.className = 'finger-push';
+        finger.textContent = '👆';
+        wrapper.appendChild(finger);
+
+        // Remove finger after animation and fire callback
+        finger.addEventListener('animationend', () => {
+            finger.remove();
+            callback();
         });
     }
 

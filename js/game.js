@@ -599,8 +599,8 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: calc(56% - 21pt) !important;
-                max-width: calc(56% - 21pt) !important;
+                width: calc(56% - 22pt) !important;
+                max-width: calc(56% - 22pt) !important;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;

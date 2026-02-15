@@ -3339,51 +3339,63 @@
 
         // Update level button domino icons with custom game card images
         function updateLevelDominoIcons(origCards, svgPools) {
-            // Hide default dot patterns
-            document.querySelectorAll('.level-domino-dot').forEach(function(dot) {
-                dot.style.display = 'none';
-            });
-            var faces = document.querySelectorAll('.level-domino-face');
-            faces.forEach(function(face) {
-                var idx = parseInt(face.getAttribute('data-face'));
-                if (idx < origCards.length && svgPools[origCards[idx].label] && svgPools[origCards[idx].label].length > 0) {
-                    var svg = svgPools[origCards[idx].label][0].cloneNode(true);
-                    // Replace text with embedded SVG image
-                    var parent = face.parentNode;
-                    // Get position from the text element (centered in each domino half)
+            var ns = 'http://www.w3.org/2000/svg';
+            // Process each domino group independently
+            document.querySelectorAll('.level-dominos-svg g').forEach(function(group) {
+                var groupFaces = group.querySelectorAll('.level-domino-face');
+                if (groupFaces.length === 0) return;
+
+                // Check if ALL faces in this domino can be replaced
+                var canReplaceAll = true;
+                groupFaces.forEach(function(face) {
+                    var idx = parseInt(face.getAttribute('data-face'));
+                    if (!(idx < origCards.length && svgPools[origCards[idx].label] && svgPools[origCards[idx].label].length > 0)) {
+                        canReplaceAll = false;
+                    }
+                });
+                if (!canReplaceAll) return; // Keep dots on this domino
+
+                // Replace all faces with nested SVG card images
+                groupFaces.forEach(function(face) {
+                    var idx = parseInt(face.getAttribute('data-face'));
+                    var cardSvg = svgPools[origCards[idx].label][0];
                     var x = parseFloat(face.getAttribute('x'));
                     var y = parseFloat(face.getAttribute('y'));
                     var sz = 24;
-                    // Create foreignObject to embed the SVG
-                    var ns = 'http://www.w3.org/2000/svg';
-                    var fo = document.createElementNS(ns, 'foreignObject');
-                    fo.setAttribute('x', x - sz / 2);
-                    fo.setAttribute('y', y - sz / 2);
-                    fo.setAttribute('width', sz);
-                    fo.setAttribute('height', sz);
-                    fo.setAttribute('class', 'level-domino-img');
-                    fo.setAttribute('data-face', idx.toString());
-                    svg.style.width = '100%';
-                    svg.style.height = '100%';
-                    svg.style.display = 'block';
-                    fo.appendChild(svg);
-                    parent.insertBefore(fo, face);
+
+                    // Use nested <svg> (works reliably inside rotated groups)
+                    var nested = document.createElementNS(ns, 'svg');
+                    nested.setAttribute('x', x - sz / 2);
+                    nested.setAttribute('y', y - sz / 2);
+                    nested.setAttribute('width', sz);
+                    nested.setAttribute('height', sz);
+                    nested.setAttribute('viewBox', cardSvg.getAttribute('viewBox') || '0 0 60 60');
+                    nested.setAttribute('class', 'level-domino-img');
+                    nested.setAttribute('data-face', idx.toString());
+                    Array.from(cardSvg.cloneNode(true).childNodes).forEach(function(child) {
+                        nested.appendChild(child);
+                    });
+                    group.insertBefore(nested, face);
                     face.style.display = 'none';
-                }
+                });
+
+                // Hide dots only on this fully-replaced domino
+                group.querySelectorAll('.level-domino-dot').forEach(function(dot) {
+                    dot.style.display = 'none';
+                });
             });
         }
 
         // Reset level domino icons back to default dot patterns
         function resetLevelDominoIcons() {
-            // Remove any custom image foreignObjects
-            document.querySelectorAll('.level-domino-img').forEach(function(fo) {
-                fo.remove();
+            // Remove card images
+            document.querySelectorAll('.level-domino-img').forEach(function(img) {
+                img.remove();
             });
-            // Show the text elements again
+            // Show face text and dot patterns
             document.querySelectorAll('.level-domino-face').forEach(function(face) {
                 face.style.display = '';
             });
-            // Show default dot patterns
             document.querySelectorAll('.level-domino-dot').forEach(function(dot) {
                 dot.style.display = '';
             });

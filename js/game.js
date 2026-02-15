@@ -147,6 +147,7 @@ class VicaDominoGame {
         this.playerCoins = {}; // { playerId: coinCount }
         this.playerGems = {}; // { playerId: gemCount }
         this.stageGems = {}; // { playerId: gemsEarnedThisStage }
+        this._consecutiveProtectedMistakes = {}; // { playerId: count } for gem→coins conversion
         this._celebrationAnimFrame = null;
 
         this.initEventListeners();
@@ -327,6 +328,40 @@ class VicaDominoGame {
 
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
+    // Play glin-glin sound when coins convert to gem
+    playGlinGlinSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // First glin
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(1200, ctx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.1);
+            gain1.gain.setValueAtTime(0.25, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc1.start(ctx.currentTime);
+            osc1.stop(ctx.currentTime + 0.2);
+            // Second glin (higher pitch, slightly delayed)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(1600, ctx.currentTime + 0.15);
+            osc2.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + 0.25);
+            gain2.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.15);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc2.start(ctx.currentTime + 0.15);
+            osc2.stop(ctx.currentTime + 0.4);
         } catch (e) {
             console.log('Audio not supported');
         }
@@ -686,10 +721,12 @@ class VicaDominoGame {
             this.playerCoins = {};
             this.playerGems = {};
             this.stageGems = {};
+            this._consecutiveProtectedMistakes = {};
             this.players.forEach(p => {
                 this.playerCoins[p.id] = 0;
                 this.playerGems[p.id] = 0;
                 this.stageGems[p.id] = 0;
+                this._consecutiveProtectedMistakes[p.id] = 0;
             });
         }
 
@@ -698,10 +735,12 @@ class VicaDominoGame {
             this.playerCoins = {};
             this.playerGems = {};
             this.stageGems = {};
+            this._consecutiveProtectedMistakes = {};
             this.players.forEach(p => {
                 this.playerCoins[p.id] = 0;
                 this.playerGems[p.id] = 0;
                 this.stageGems[p.id] = 0;
+                this._consecutiveProtectedMistakes[p.id] = 0;
             });
         }
 
@@ -1283,13 +1322,27 @@ class VicaDominoGame {
         // Play disapproval sound
         this.playWrongSound();
 
-        // Deduct coin for mistake (but not below 4)
+        // Deduct coin for mistake (but not below 3; gem protection rules)
         if (this.players.length >= 2) {
             const currentCoins = this.playerCoins[player.id] || 0;
-            if (currentCoins > 4) {
+            const currentGems = this.playerGems[player.id] || 0;
+            if (currentCoins > 3) {
+                // Has coins above minimum: deduct 1
                 this.playerCoins[player.id]--;
+                this._consecutiveProtectedMistakes[player.id] = 0;
                 this.renderCoinGemDisplay();
+            } else if (currentCoins === 0 && currentGems > 0) {
+                // Has gems but no coins: track consecutive protected mistakes
+                this._consecutiveProtectedMistakes[player.id] = (this._consecutiveProtectedMistakes[player.id] || 0) + 1;
+                if (this._consecutiveProtectedMistakes[player.id] >= 3) {
+                    // Lose last gem, get 7 coins
+                    this.playerGems[player.id]--;
+                    this.playerCoins[player.id] = 7;
+                    this._consecutiveProtectedMistakes[player.id] = 0;
+                    this.renderCoinGemDisplay();
+                }
             }
+            // If coins <= 3 and > 0, or no gems and no coins: no deduction
         }
 
         // Update status - timer continues
@@ -1793,21 +1846,11 @@ class VicaDominoGame {
         btnContainer.appendChild(playAgainBtn);
         btnContainer.appendChild(newGameBtn);
 
-        if (this.players.length === 1) {
-            // 1-player: place buttons to the right of the winner section
-            const playerHand = playersArea.querySelector('.player-hand');
-            if (playerHand) {
-                playerHand.style.display = 'flex';
-                playerHand.style.flexDirection = 'row';
-                playerHand.style.alignItems = 'center';
-                playerHand.style.justifyContent = 'center';
-                playerHand.style.gap = '30px';
-                playerHand.appendChild(btnContainer);
-            } else {
-                playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
-            }
+        // Always place buttons below the players area (before the xeno timer box)
+        const xenoTimerBox = document.getElementById('xeno-timer-box');
+        if (xenoTimerBox && xenoTimerBox.parentNode === playersArea.parentNode) {
+            playersArea.parentNode.insertBefore(btnContainer, xenoTimerBox);
         } else {
-            // Multi-player: place buttons below the players area
             playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
         }
     }
@@ -2664,29 +2707,41 @@ class VicaDominoGame {
 
     addCoins(playerId, amount) {
         this.playerCoins[playerId] = (this.playerCoins[playerId] || 0) + amount;
+        // Reset consecutive protected mistakes on coin gain
+        this._consecutiveProtectedMistakes[playerId] = 0;
 
         // Track when coins were added (for pop-in animation)
         if (!this._coinAddedInfo) this._coinAddedInfo = {};
         this._coinAddedInfo[playerId] = { time: Date.now(), amount: amount };
 
-        // Check if exchange needed (5 coins → 1 gem)
-        if (this.playerCoins[playerId] >= 5) {
+        // Check if exchange needed (10 coins → 1 gem)
+        if (this.playerCoins[playerId] >= 10) {
             // Show all coins briefly before exchanging
             if (!this._exchangeTimeouts) this._exchangeTimeouts = {};
             if (this._exchangeTimeouts[playerId]) clearTimeout(this._exchangeTimeouts[playerId]);
 
             const exchangeDelay = amount * 300 + 700;
             this._exchangeTimeouts[playerId] = setTimeout(() => {
-                while (this.playerCoins[playerId] >= 5) {
-                    this.playerCoins[playerId] -= 5;
-                    this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
-                    this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
-                }
-                if (!this._gemAddedAt) this._gemAddedAt = {};
-                this._gemAddedAt[playerId] = Date.now();
+                // Play glin-glin sound
+                this.playGlinGlinSound();
+                // Mark coins for fall animation
+                if (!this._coinFallAt) this._coinFallAt = {};
+                this._coinFallAt[playerId] = Date.now();
                 this.renderCoinGemDisplay();
-                this.checkGameProgression(playerId);
-                this._updateEndGameButtonText();
+                // After fall animation, convert to gem
+                setTimeout(() => {
+                    while (this.playerCoins[playerId] >= 10) {
+                        this.playerCoins[playerId] -= 10;
+                        this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
+                        this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
+                    }
+                    if (!this._gemAddedAt) this._gemAddedAt = {};
+                    this._gemAddedAt[playerId] = Date.now();
+                    delete this._coinFallAt[playerId];
+                    this.renderCoinGemDisplay();
+                    this.checkGameProgression(playerId);
+                    this._updateEndGameButtonText();
+                }, 800);
                 delete this._exchangeTimeouts[playerId];
             }, exchangeDelay);
         } else {
@@ -2712,41 +2767,53 @@ class VicaDominoGame {
                 isNewGem = true;
             }
         }
+        // Check for coin fall animation
+        let isFalling = false;
+        if (this._coinFallAt && this._coinFallAt[playerId]) {
+            if (Date.now() - this._coinFallAt[playerId] < 800) {
+                isFalling = true;
+            }
+        }
 
         let html = '';
 
-        // Gems first
+        // Gems first (to the left of coins)
         for (let i = 0; i < gems; i++) {
             const gemNew = isNewGem && i === gems - 1;
             html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">💎</span>';
         }
 
-        // Gold coins grouped in pairs (every other coin stacked on top)
-        let coinIdx = 0;
-        while (coinIdx < coins) {
-            const remaining = coins - coinIdx;
-            const isPair = remaining >= 2;
+        // Golden coins in columns of 5 (3D flat disks stacked one above another)
+        // Column 1: coins 1-5, Column 2: coins 6-10
+        if (coins > 0) {
+            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+            const col1Count = Math.min(coins, 5);
+            const col2Count = Math.max(0, coins - 5);
 
-            html += '<div class="coin-stack-group">';
-
-            // Base coin
-            const isNew1 = coinIdx >= (coins - newCoinCount);
-            const stagger1 = isNew1 ? (coinIdx - (coins - newCoinCount)) * 0.3 : 0;
-            html += '<div class="gold-coin' + (isNew1 ? ' coin-appear' : '') + '"';
-            if (stagger1 > 0) html += ' style="animation-delay:' + stagger1 + 's"';
-            html += '></div>';
-            coinIdx++;
-
-            if (isPair) {
-                // Stacked coin (drawn on top of the base coin)
-                const isNew2 = coinIdx >= (coins - newCoinCount);
-                const stagger2 = isNew2 ? (coinIdx - (coins - newCoinCount)) * 0.3 : 0;
-                html += '<div class="gold-coin coin-stacked' + (isNew2 ? ' coin-appear' : '') + '"';
-                if (stagger2 > 0) html += ' style="animation-delay:' + stagger2 + 's"';
-                html += '></div>';
-                coinIdx++;
+            // Column 1
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col1Count; i++) {
+                const isNew = i >= (col1Count - (newCoinCount > 0 ? Math.min(newCoinCount, col1Count) : 0));
+                const actualNew = (coins - 1 - i) < newCoinCount;
+                const stagger = actualNew ? i * 0.15 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '" style="bottom:' + (i * 4) + 'px';
+                if (stagger > 0) html += ';animation-delay:' + stagger + 's';
+                html += '"></div>';
             }
+            html += '</div>';
 
+            // Column 2 (if needed)
+            if (col2Count > 0) {
+                html += '<div class="coin-column">';
+                for (let i = 0; i < col2Count; i++) {
+                    const actualNew = (coins - 1 - (5 + i)) < newCoinCount;
+                    const stagger = actualNew ? (5 + i) * 0.15 : 0;
+                    html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '" style="bottom:' + (i * 4) + 'px';
+                    if (stagger > 0) html += ';animation-delay:' + stagger + 's';
+                    html += '"></div>';
+                }
+                html += '</div>';
+            }
             html += '</div>';
         }
 
@@ -2786,8 +2853,8 @@ class VicaDominoGame {
         }
         // Force immediate exchange for all players
         this.players.forEach(p => {
-            while ((this.playerCoins[p.id] || 0) >= 5) {
-                this.playerCoins[p.id] -= 5;
+            while ((this.playerCoins[p.id] || 0) >= 10) {
+                this.playerCoins[p.id] -= 10;
                 this.playerGems[p.id] = (this.playerGems[p.id] || 0) + 1;
                 this.stageGems[p.id] = (this.stageGems[p.id] || 0) + 1;
             }
@@ -2957,6 +3024,7 @@ class VicaDominoGame {
         this.playerCoins = {};
         this.playerGems = {};
         this.stageGems = {};
+        this._consecutiveProtectedMistakes = {};
         this.cleanupCelebration();
         window.combinedGameConfig = null;
         window.combinedGameStage = 0;

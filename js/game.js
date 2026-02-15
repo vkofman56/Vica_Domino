@@ -1592,9 +1592,7 @@ class VicaDominoGame {
                     dominoRow.appendChild(dominoWrapper);
                 }
 
-                winnerSection.appendChild(dominoRow);
-
-                // Show winner box to the right of the domino
+                // Add winner box to the right of the domino in the same row
                 const winnerBox = document.createElement('div');
                 winnerBox.className = 'sun-level-winner-box';
 
@@ -1621,7 +1619,8 @@ class VicaDominoGame {
                     <span class="winner-text">${winnerText}</span>
                 `;
 
-                winnerSection.appendChild(winnerBox);
+                dominoRow.appendChild(winnerBox);
+                winnerSection.appendChild(dominoRow);
                 handEl.appendChild(winnerSection);
             } else {
                 // Add player icon and name at top-left of the box
@@ -2776,34 +2775,32 @@ class VicaDominoGame {
         }
 
         // Golden coins in vertical columns of 5 (no overlap, easy to count)
-        if (coins > 0) {
-            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
-            const col1Count = Math.min(coins, 5);
-            const col2Count = Math.max(0, coins - 5);
+        // Always render 2 columns so layout stays stable as coins are added
+        html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+        const col1Count = Math.min(coins, 5);
+        const col2Count = Math.max(0, coins - 5);
 
-            html += '<div class="coin-column">';
-            for (let i = 0; i < col1Count; i++) {
-                const actualNew = i < newCoinCount;
-                const stagger = actualNew ? i * 0.12 : 0;
-                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
-                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
-                html += '></div>';
-            }
-            html += '</div>';
-
-            if (col2Count > 0) {
-                html += '<div class="coin-column">';
-                for (let i = 0; i < col2Count; i++) {
-                    const actualNew = (5 + i) < newCoinCount;
-                    const stagger = actualNew ? (5 + i) * 0.12 : 0;
-                    html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
-                    if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
-                    html += '></div>';
-                }
-                html += '</div>';
-            }
-            html += '</div>';
+        html += '<div class="coin-column">';
+        for (let i = 0; i < col1Count; i++) {
+            const actualNew = i < newCoinCount;
+            const stagger = actualNew ? i * 0.12 : 0;
+            html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+            if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+            html += '></div>';
         }
+        html += '</div>';
+
+        html += '<div class="coin-column">';
+        for (let i = 0; i < col2Count; i++) {
+            const actualNew = (5 + i) < newCoinCount;
+            const stagger = actualNew ? (5 + i) * 0.12 : 0;
+            html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+            if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+            html += '></div>';
+        }
+        html += '</div>';
+
+        html += '</div>';
 
         container.innerHTML = html;
     }

@@ -543,13 +543,14 @@ class VicaDominoGame {
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            // Use "Player's Name" for single player with Xeno (no number prefix), otherwise "Player X name"
+            // No number prefix for single-with-Xeno or 2-player games
             const isSingleWithXeno = (count === 1 && includeXeno);
-            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1} name`;
-            input.placeholder = isSingleWithXeno ? placeholderName : `${i + 1}. ${placeholderName}`;
+            const noPrefix = isSingleWithXeno || count === 2;
+            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1}`;
+            input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
             input.value = '';
             input.dataset.playerIndex = i;
-            input.dataset.prefix = isSingleWithXeno ? '' : `${i + 1}.  `;
+            input.dataset.prefix = noPrefix ? '' : `${i + 1}.  `;
 
             // On focus, set the prefix and place cursor after it
             input.addEventListener('focus', (e) => {

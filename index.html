@@ -3321,7 +3321,12 @@
             });
 
             // Update level button icons with images from this game
-            updateLevelDominoIcons(origCards, svgPools);
+            console.log('[startCustomGame] Calling updateLevelDominoIcons with ' + origCards.length + ' cards, pool keys: ' + Object.keys(svgPools).join(', '));
+            try {
+                updateLevelDominoIcons(origCards, svgPools);
+            } catch(e) {
+                console.error('[startCustomGame] updateLevelDominoIcons error:', e);
+            }
         }
 
         function clearCustomGame() {
@@ -3339,51 +3344,89 @@
 
         // Update level button domino icons with custom game card images
         function updateLevelDominoIcons(origCards, svgPools) {
+            // Reset any previous replacements first
+            resetLevelDominoIcons();
+
+            if (!origCards || origCards.length === 0) {
+                console.log('[LevelIcons] No origCards, skipping');
+                return;
+            }
+
             var ns = 'http://www.w3.org/2000/svg';
-            // Process each domino group independently
-            document.querySelectorAll('.level-dominos-svg g').forEach(function(group) {
-                var groupFaces = group.querySelectorAll('.level-domino-face');
-                if (groupFaces.length === 0) return;
 
-                // Check if ALL faces in this domino can be replaced
-                var canReplaceAll = true;
-                groupFaces.forEach(function(face) {
-                    var idx = parseInt(face.getAttribute('data-face'));
-                    if (!(idx < origCards.length && svgPools[origCards[idx].label] && svgPools[origCards[idx].label].length > 0)) {
-                        canReplaceAll = false;
+            var svgEls = document.querySelectorAll('.level-dominos-svg');
+            console.log('[LevelIcons] Found ' + svgEls.length + ' level SVGs, origCards: ' + origCards.length);
+
+            for (var s = 0; s < svgEls.length; s++) {
+                var svgEl = svgEls[s];
+                // Only iterate direct child <g> elements (domino groups)
+                var children = svgEl.childNodes;
+                for (var c = 0; c < children.length; c++) {
+                    var group = children[c];
+                    if (group.nodeType !== 1 || group.tagName.toLowerCase() !== 'g') continue;
+
+                    var faces = group.querySelectorAll('.level-domino-face');
+                    if (faces.length === 0) continue;
+
+                    // Check if ALL faces in this domino have valid SVG pools
+                    var canReplace = true;
+                    for (var f = 0; f < faces.length; f++) {
+                        var idx = parseInt(faces[f].getAttribute('data-face'));
+                        if (isNaN(idx) || idx >= origCards.length) {
+                            console.log('[LevelIcons] Face idx ' + idx + ' out of range (origCards.length=' + origCards.length + ')');
+                            canReplace = false; break;
+                        }
+                        var label = origCards[idx].label;
+                        if (!svgPools[label] || svgPools[label].length === 0) {
+                            console.log('[LevelIcons] No pool for label "' + label + '"');
+                            canReplace = false; break;
+                        }
                     }
-                });
-                if (!canReplaceAll) return; // Keep dots on this domino
+                    if (!canReplace) continue;
 
-                // Replace all faces with nested SVG card images
-                groupFaces.forEach(function(face) {
-                    var idx = parseInt(face.getAttribute('data-face'));
-                    var cardSvg = svgPools[origCards[idx].label][0];
-                    var x = parseFloat(face.getAttribute('x'));
-                    var y = parseFloat(face.getAttribute('y'));
-                    var sz = 24;
+                    // Replace each face with card content in a positioned/scaled <g>
+                    for (var f = 0; f < faces.length; f++) {
+                        var face = faces[f];
+                        var idx = parseInt(face.getAttribute('data-face'));
+                        var label = origCards[idx].label;
+                        var cardSvg = svgPools[label][0];
+                        var x = parseFloat(face.getAttribute('x'));
+                        var y = parseFloat(face.getAttribute('y'));
+                        var sz = 24;
 
-                    // Use nested <svg> (works reliably inside rotated groups)
-                    var nested = document.createElementNS(ns, 'svg');
-                    nested.setAttribute('x', x - sz / 2);
-                    nested.setAttribute('y', y - sz / 2);
-                    nested.setAttribute('width', sz);
-                    nested.setAttribute('height', sz);
-                    nested.setAttribute('viewBox', cardSvg.getAttribute('viewBox') || '0 0 60 60');
-                    nested.setAttribute('class', 'level-domino-img');
-                    nested.setAttribute('data-face', idx.toString());
-                    Array.from(cardSvg.cloneNode(true).childNodes).forEach(function(child) {
-                        nested.appendChild(child);
-                    });
-                    group.insertBefore(nested, face);
-                    face.style.display = 'none';
-                });
+                        // Get viewBox dimensions for scaling
+                        var vb = (cardSvg.getAttribute('viewBox') || '0 0 60 60').split(/[\s,]+/);
+                        var vbW = parseFloat(vb[2]) || 60;
+                        var vbH = parseFloat(vb[3]) || 60;
+                        var scale = sz / Math.max(vbW, vbH);
 
-                // Hide dots only on this fully-replaced domino
-                group.querySelectorAll('.level-domino-dot').forEach(function(dot) {
-                    dot.style.display = 'none';
-                });
-            });
+                        // Create wrapper <g> that positions and scales card content
+                        var wrapper = document.createElementNS(ns, 'g');
+                        var tx = x - (vbW * scale / 2);
+                        var ty = y - (vbH * scale / 2);
+                        wrapper.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + scale + ')');
+                        wrapper.setAttribute('class', 'level-domino-img');
+                        wrapper.setAttribute('data-face', idx.toString());
+
+                        // Clone card SVG children into wrapper
+                        var cloned = cardSvg.cloneNode(true);
+                        var kids = Array.from(cloned.childNodes);
+                        for (var k = 0; k < kids.length; k++) {
+                            if (kids[k].nodeType === 1) wrapper.appendChild(kids[k]);
+                        }
+
+                        group.insertBefore(wrapper, face);
+                        face.style.display = 'none';
+                    }
+
+                    // Hide dots on this fully-replaced domino
+                    var dots = group.querySelectorAll('.level-domino-dot');
+                    for (var d = 0; d < dots.length; d++) {
+                        dots[d].style.display = 'none';
+                    }
+                    console.log('[LevelIcons] Replaced ' + faces.length + ' faces in a domino group');
+                }
+            }
         }
 
         // Reset level domino icons back to default dot patterns

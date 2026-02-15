@@ -1329,8 +1329,8 @@ class VicaDominoGame {
                 this.playerCoins[player.id]--;
                 this._consecutiveProtectedMistakes[player.id] = 0;
                 this.renderCoinGemDisplay();
-            } else if (currentCoins === 0 && currentGems > 0) {
-                // Has gems but no coins: track consecutive protected mistakes
+            } else if (currentGems > 0) {
+                // Protected (coins <= 3 or 0, but has gems): track consecutive mistakes
                 this._consecutiveProtectedMistakes[player.id] = (this._consecutiveProtectedMistakes[player.id] || 0) + 1;
                 if (this._consecutiveProtectedMistakes[player.id] >= 3) {
                     // Lose last gem, get 7 coins
@@ -1340,7 +1340,7 @@ class VicaDominoGame {
                     this.renderCoinGemDisplay();
                 }
             }
-            // If coins <= 3 and > 0, or no gems and no coins: no deduction
+            // If coins <= 3 and no gems: no deduction
         }
 
         // Update status - timer continues

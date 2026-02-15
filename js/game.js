@@ -1320,27 +1320,21 @@ class VicaDominoGame {
         // Play disapproval sound
         this.playWrongSound();
 
-        // Deduct coin for mistake (but not below 3; gem protection rules)
+        // Deduct coin for mistake
         if (this.playerCoins) {
             const currentCoins = this.playerCoins[player.id] || 0;
             const currentGems = this.playerGems[player.id] || 0;
-            if (currentCoins > 3) {
-                // Has coins above minimum: deduct 1
+            if (currentCoins > 0) {
+                // Has coins: deduct 1
                 this.playerCoins[player.id]--;
-                this._consecutiveProtectedMistakes[player.id] = 0;
                 this.renderCoinGemDisplay();
             } else if (currentGems > 0) {
-                // Protected (coins <= 3 or 0, but has gems): track consecutive mistakes
-                this._consecutiveProtectedMistakes[player.id] = (this._consecutiveProtectedMistakes[player.id] || 0) + 1;
-                if (this._consecutiveProtectedMistakes[player.id] >= 3) {
-                    // Lose last gem, get 7 coins
-                    this.playerGems[player.id]--;
-                    this.playerCoins[player.id] = 7;
-                    this._consecutiveProtectedMistakes[player.id] = 0;
-                    this.renderCoinGemDisplay();
-                }
+                // No coins but has gems: convert 1 gem to 10 coins, then deduct 1
+                this.playerGems[player.id]--;
+                this.playerCoins[player.id] = 9;
+                this.renderCoinGemDisplay();
             }
-            // If coins <= 3 and no gems: no deduction
+            // If no coins and no gems: no deduction
         }
 
         // Update status - timer continues
@@ -2754,15 +2748,32 @@ class VicaDominoGame {
             html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">💎</span>';
         }
 
-        // Golden coins in a flat row (no overlap, easy to count)
+        // Golden coins in vertical columns of 5 (no overlap, easy to count)
         if (coins > 0) {
-            html += '<div class="coin-row' + (isFalling ? ' coins-falling' : '') + '">';
-            for (let i = 0; i < coins; i++) {
-                const actualNew = i >= (coins - newCoinCount);
-                const stagger = actualNew ? (i - (coins - newCoinCount)) * 0.12 : 0;
+            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+            const col1Count = Math.min(coins, 5);
+            const col2Count = Math.max(0, coins - 5);
+
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col1Count; i++) {
+                const actualNew = i < newCoinCount;
+                const stagger = actualNew ? i * 0.12 : 0;
                 html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
                 if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
                 html += '></div>';
+            }
+            html += '</div>';
+
+            if (col2Count > 0) {
+                html += '<div class="coin-column">';
+                for (let i = 0; i < col2Count; i++) {
+                    const actualNew = (5 + i) < newCoinCount;
+                    const stagger = actualNew ? (5 + i) * 0.12 : 0;
+                    html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                    if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                    html += '></div>';
+                }
+                html += '</div>';
             }
             html += '</div>';
         }

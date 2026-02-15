@@ -1224,8 +1224,9 @@ class VicaDominoGame {
         player.isWinner = true;
         player.winningCard = card;
 
-        // Award coins for winning
-        this.addCoins(player.id, 2);
+        // Award coins for winning (first winner gets 2, second gets 1)
+        const coinReward = this.sunLevelWinners.length === 1 ? 2 : 1;
+        this.addCoins(player.id, coinReward);
 
         // Tie detection: if both players find doubles within 500ms, it's a tie
         if (this.players.length === 2) {
@@ -1598,24 +1599,27 @@ class VicaDominoGame {
 
                 const icon = CHARACTER_ICONS[player.icon];
                 let winnerText;
-                let showPlayerName = true;
+                const isSinglePlayer = this.players.filter(p => !p.isComputer).length === 1;
                 if (this.isTie && this.sunLevelWinners.length >= 2) {
                     winnerText = 'Tie!';
-                } else if (this.players.filter(p => !p.isComputer).length === 1) {
-                    // Single player: show "Name Won!" or "You Won!"
+                } else if (isSinglePlayer) {
+                    // Single player: show "You Won!" or "Name Won!"
                     if (player.hasCustomName) {
                         winnerText = `${player.name} Won!`;
                     } else {
                         winnerText = 'You Won!';
                     }
-                    showPlayerName = false;
                 } else {
-                    winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
+                    // Two players: show "Player N Won!"
+                    winnerText = `${player.name} Won!`;
+                }
+
+                if (isSinglePlayer) {
+                    winnerBox.classList.add('winner-box-single');
                 }
 
                 winnerBox.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>
-                    ${showPlayerName ? `<span class="player-name-inline">${player.name}</span>` : ''}
                     <span class="winner-text">${winnerText}</span>
                 `;
 

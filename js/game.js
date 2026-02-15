@@ -470,6 +470,8 @@ class VicaDominoGame {
         const selectedPlayerBtn = e.target.cloneNode(true);
         selectedPlayerBtn.style.display = 'inline-block';
         selectedPlayerBtn.style.marginTop = '-33pt';
+        selectedPlayerBtn.style.padding = '8px 12px';
+        selectedPlayerBtn.style.fontSize = '0.85rem';
         selectedRow.appendChild(selectedPlayerBtn);
 
         // Preserve start button if it was moved into name-inputs (from Xeno row)
@@ -597,8 +599,8 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 70% !important;
-                max-width: 70% !important;
+                width: 56% !important;
+                max-width: 56% !important;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;

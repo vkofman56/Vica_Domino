@@ -1555,7 +1555,18 @@ class VicaDominoGame {
                 const winnerSection = document.createElement('div');
                 winnerSection.className = 'sun-level-winner-section';
 
-                // Add winning domino above the box
+                // Horizontal row: coins on left, domino on right
+                const dominoRow = document.createElement('div');
+                dominoRow.className = 'winner-domino-row';
+
+                // Show coin/gem display to the left of domino
+                const coinGemDiv = document.createElement('div');
+                coinGemDiv.className = 'coin-gem-display coin-gem-inline';
+                coinGemDiv.dataset.playerId = player.id;
+                this.buildCoinGemHTML(coinGemDiv, player.id);
+                dominoRow.appendChild(coinGemDiv);
+
+                // Add winning domino
                 if (player.winningCard) {
                     const dominoWrapper = document.createElement('div');
                     dominoWrapper.className = 'winner-domino-wrapper';
@@ -1566,8 +1577,10 @@ class VicaDominoGame {
                         player.animationShown = true;
                     }
                     dominoWrapper.appendChild(dominoEl);
-                    winnerSection.appendChild(dominoWrapper);
+                    dominoRow.appendChild(dominoWrapper);
                 }
+
+                winnerSection.appendChild(dominoRow);
 
                 // Show "You Won!" box below the domino
                 const winnerBox = document.createElement('div');
@@ -1586,13 +1599,6 @@ class VicaDominoGame {
                     <span class="player-name-inline">${player.name}</span>
                     <span class="winner-text">${winnerText}</span>
                 `;
-
-                // Show coin/gem display for winners
-                const coinGemDiv = document.createElement('div');
-                coinGemDiv.className = 'coin-gem-display';
-                coinGemDiv.dataset.playerId = player.id;
-                this.buildCoinGemHTML(coinGemDiv, player.id);
-                winnerSection.appendChild(coinGemDiv);
 
                 winnerSection.appendChild(winnerBox);
                 handEl.appendChild(winnerSection);

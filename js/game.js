@@ -1152,9 +1152,6 @@ class VicaDominoGame {
         const wrapper = wrappers[cardIndex];
         if (!wrapper) { callback(); return; }
 
-        // Make wrapper position relative for absolute finger positioning
-        wrapper.style.position = 'relative';
-
         const finger = document.createElement('span');
         finger.className = 'finger-push';
         finger.textContent = '👆';
@@ -1740,7 +1737,13 @@ class VicaDominoGame {
                         });
                         keyLabel.addEventListener('click', () => {
                             this.hideKeyboardPopup();
-                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                            if (this.players.length === 1) {
+                                this.showFingerPush(playerIndex, cardIndex, () => {
+                                    this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                                });
+                            } else {
+                                this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                            }
                         });
                         dominoWrapper.appendChild(keyLabel);
                     }

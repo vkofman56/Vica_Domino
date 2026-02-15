@@ -453,6 +453,10 @@ class VicaDominoGame {
                     btn.classList.remove('icon-taken');
                 }
             });
+
+            // Move taken icons to the end of the row
+            const takenBtns = selector.querySelectorAll('.icon-btn.icon-taken');
+            takenBtns.forEach(btn => selector.appendChild(btn));
         });
     }
 
@@ -521,24 +525,28 @@ class VicaDominoGame {
             const playerRow = document.createElement('div');
             playerRow.className = 'player-input-row';
 
-            // Create icon section with label
+            // Create icon section with label (only show label for first player row when 2 players)
             const iconSection = document.createElement('div');
             iconSection.className = 'input-section';
-            const iconLabel = document.createElement('div');
-            iconLabel.className = 'input-label';
-            iconLabel.textContent = 'Choose the icon';
-            iconSection.appendChild(iconLabel);
+            if (i === 0 || count === 1) {
+                const iconLabel = document.createElement('div');
+                iconLabel.className = 'input-label';
+                iconLabel.textContent = 'Choose the icon';
+                iconSection.appendChild(iconLabel);
+            }
             const iconSelector = this.createIconSelector(i);
             iconSection.appendChild(iconSelector);
             playerRow.appendChild(iconSection);
 
-            // Create name section with label
+            // Create name section with label (only show label for first player row when 2 players)
             const nameSection = document.createElement('div');
             nameSection.className = 'input-section name-section';
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'input-label';
-            nameLabel.textContent = 'Type your name';
-            nameSection.appendChild(nameLabel);
+            if (i === 0 || count === 1) {
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'input-label';
+                nameLabel.textContent = 'Type your name';
+                nameSection.appendChild(nameLabel);
+            }
 
             // Create name input
             const input = document.createElement('input');

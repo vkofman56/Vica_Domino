@@ -2754,36 +2754,15 @@ class VicaDominoGame {
             html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">💎</span>';
         }
 
-        // Golden coins in columns of 5 (3D flat disks stacked one above another)
-        // Column 1: coins 1-5, Column 2: coins 6-10
+        // Golden coins in a flat row (no overlap, easy to count)
         if (coins > 0) {
-            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
-            const col1Count = Math.min(coins, 5);
-            const col2Count = Math.max(0, coins - 5);
-
-            // Column 1
-            html += '<div class="coin-column">';
-            for (let i = 0; i < col1Count; i++) {
-                const isNew = i >= (col1Count - (newCoinCount > 0 ? Math.min(newCoinCount, col1Count) : 0));
-                const actualNew = (coins - 1 - i) < newCoinCount;
-                const stagger = actualNew ? i * 0.15 : 0;
-                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '" style="bottom:' + (i * 4) + 'px';
-                if (stagger > 0) html += ';animation-delay:' + stagger + 's';
-                html += '"></div>';
-            }
-            html += '</div>';
-
-            // Column 2 (if needed)
-            if (col2Count > 0) {
-                html += '<div class="coin-column">';
-                for (let i = 0; i < col2Count; i++) {
-                    const actualNew = (coins - 1 - (5 + i)) < newCoinCount;
-                    const stagger = actualNew ? (5 + i) * 0.15 : 0;
-                    html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '" style="bottom:' + (i * 4) + 'px';
-                    if (stagger > 0) html += ';animation-delay:' + stagger + 's';
-                    html += '"></div>';
-                }
-                html += '</div>';
+            html += '<div class="coin-row' + (isFalling ? ' coins-falling' : '') + '">';
+            for (let i = 0; i < coins; i++) {
+                const actualNew = i >= (coins - newCoinCount);
+                const stagger = actualNew ? (i - (coins - newCoinCount)) * 0.12 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                html += '></div>';
             }
             html += '</div>';
         }

@@ -683,6 +683,8 @@ class VicaDominoGame {
             if (name.startsWith(prefix)) {
                 name = name.substring(prefix.length);
             }
+            // Check if player actually entered a name
+            const hasCustomName = name.trim().length > 0;
             // Use default name if empty
             name = name.trim() || `Player ${playerIndex + 1}`;
 
@@ -695,7 +697,8 @@ class VicaDominoGame {
                 icon: iconKey,
                 hand: [],
                 isWinner: false,
-                isComputer: false
+                isComputer: false,
+                hasCustomName: hasCustomName
             });
             playerIndex++;
         });
@@ -1552,7 +1555,7 @@ class VicaDominoGame {
             const winnerPosition = hasWon ? this.sunLevelWinners.indexOf(player.id) + 1 : 0;
 
             if (hasWon) {
-                // Show winning domino centered above "You Won!" box
+                // Show winning domino with winner box to its right
                 const winnerSection = document.createElement('div');
                 winnerSection.className = 'sun-level-winner-section';
 
@@ -1583,21 +1586,30 @@ class VicaDominoGame {
 
                 winnerSection.appendChild(dominoRow);
 
-                // Show "You Won!" box below the domino
+                // Show winner box to the right of the domino
                 const winnerBox = document.createElement('div');
                 winnerBox.className = 'sun-level-winner-box';
 
                 const icon = CHARACTER_ICONS[player.icon];
                 let winnerText;
+                let showPlayerName = true;
                 if (this.isTie && this.sunLevelWinners.length >= 2) {
                     winnerText = 'Tie!';
+                } else if (this.players.filter(p => !p.isComputer).length === 1) {
+                    // Single player: show "Name Won!" or "You Won!"
+                    if (player.hasCustomName) {
+                        winnerText = `${player.name} Won!`;
+                    } else {
+                        winnerText = 'You Won!';
+                    }
+                    showPlayerName = false;
                 } else {
                     winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
                 }
 
                 winnerBox.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>
-                    <span class="player-name-inline">${player.name}</span>
+                    ${showPlayerName ? `<span class="player-name-inline">${player.name}</span>` : ''}
                     <span class="winner-text">${winnerText}</span>
                 `;
 

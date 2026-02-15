@@ -469,7 +469,7 @@ class VicaDominoGame {
         // Clone the selected player button
         const selectedPlayerBtn = e.target.cloneNode(true);
         selectedPlayerBtn.style.display = 'inline-block';
-        selectedPlayerBtn.style.marginTop = '-33pt';
+        selectedPlayerBtn.style.marginTop = '-34pt';
         selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
         selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
         selectedRow.appendChild(selectedPlayerBtn);

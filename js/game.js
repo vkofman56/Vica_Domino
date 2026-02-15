@@ -1538,20 +1538,27 @@ class VicaDominoGame {
         const playersArea = document.getElementById('players-area');
         playersArea.innerHTML = '';
 
-        // Combined game: show stage progress as 3 stacked stones
-        if (this.combinedGame) {
-            const config = this.combinedGame.config;
-            const totalStages = config.stages.length;
-            const currentStage = this.combinedGame.currentStage;
-            const stageDiv = document.createElement('div');
-            stageDiv.className = 'stage-stones';
-            // 3 stones stacked bottom-to-top; colored up to current stage + 1
-            for (let i = totalStages - 1; i >= 0; i--) {
-                const stone = document.createElement('div');
-                stone.className = 'stage-stone' + (i <= currentStage ? ' active' : '');
-                stageDiv.appendChild(stone);
+        // Single player: use 2-column grid so box doesn't stretch full width
+        if (this.players.length === 1) {
+            playersArea.classList.add('single-player-layout');
+        } else {
+            playersArea.classList.remove('single-player-layout');
+        }
+
+        // Combined game: show stage progress as stones in the header next to game name
+        const headerStones = document.getElementById('header-stage-stones');
+        if (headerStones) {
+            headerStones.innerHTML = '';
+            if (this.combinedGame) {
+                const config = this.combinedGame.config;
+                const totalStages = config.stages.length;
+                const currentStage = this.combinedGame.currentStage;
+                for (let i = totalStages - 1; i >= 0; i--) {
+                    const stone = document.createElement('span');
+                    stone.className = 'stage-stone-inline' + (i <= currentStage ? ' active' : '');
+                    headerStones.appendChild(stone);
+                }
             }
-            playersArea.appendChild(stageDiv);
         }
 
         this.players.forEach((player, playerIndex) => {
@@ -1747,6 +1754,7 @@ class VicaDominoGame {
         document.querySelector('.bank-area').style.display = '';
         document.getElementById('pass-btn').style.display = '';
         document.getElementById('bank-draw-btn').style.display = '';
+        document.getElementById('players-area').classList.remove('single-player-layout');
 
         // Reset timer progress color
         const progressCircle = document.querySelector('.timer-progress');
@@ -2779,32 +2787,34 @@ class VicaDominoGame {
         }
 
         // Golden coins in vertical columns of 5 (no overlap, easy to count)
-        // Always render 2 columns so layout stays stable as coins are added
-        html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
-        const col1Count = Math.min(coins, 5);
-        const col2Count = Math.max(0, coins - 5);
+        // Always render 2 columns when coins > 0 so layout stays stable
+        if (coins > 0) {
+            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+            const col1Count = Math.min(coins, 5);
+            const col2Count = Math.max(0, coins - 5);
 
-        html += '<div class="coin-column">';
-        for (let i = 0; i < col1Count; i++) {
-            const actualNew = i < newCoinCount;
-            const stagger = actualNew ? i * 0.12 : 0;
-            html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
-            if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
-            html += '></div>';
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col1Count; i++) {
+                const actualNew = i < newCoinCount;
+                const stagger = actualNew ? i * 0.12 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                html += '></div>';
+            }
+            html += '</div>';
+
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col2Count; i++) {
+                const actualNew = (5 + i) < newCoinCount;
+                const stagger = actualNew ? (5 + i) * 0.12 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                html += '></div>';
+            }
+            html += '</div>';
+
+            html += '</div>';
         }
-        html += '</div>';
-
-        html += '<div class="coin-column">';
-        for (let i = 0; i < col2Count; i++) {
-            const actualNew = (5 + i) < newCoinCount;
-            const stagger = actualNew ? (5 + i) * 0.12 : 0;
-            html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
-            if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
-            html += '></div>';
-        }
-        html += '</div>';
-
-        html += '</div>';
 
         container.innerHTML = html;
     }
@@ -3022,6 +3032,10 @@ class VicaDominoGame {
         // Remove any stage transition overlay
         const stageOverlay = document.getElementById('stage-transition-overlay');
         if (stageOverlay) stageOverlay.remove();
+
+        // Clear header stones
+        const headerStones = document.getElementById('header-stage-stones');
+        if (headerStones) headerStones.innerHTML = '';
 
         // Clean up Sun level if it was active
         this.resetSunLevel();

@@ -730,8 +730,8 @@ class VicaDominoGame {
             });
         }
 
-        // Initialize coins/gems for 2-player Find the Double (even without combined game)
-        if (this.players.length >= 2 && !this.combinedGame) {
+        // Initialize coins/gems for Find the Double (all player counts)
+        if (!this.combinedGame) {
             this.playerCoins = {};
             this.playerGems = {};
             this.stageGems = {};
@@ -1212,10 +1212,8 @@ class VicaDominoGame {
         player.isWinner = true;
         player.winningCard = card;
 
-        // Award coins for winning (2+ players)
-        if (this.players.length >= 2) {
-            this.addCoins(player.id, 2);
-        }
+        // Award coins for winning
+        this.addCoins(player.id, 2);
 
         // Tie detection: if both players find doubles within 500ms, it's a tie
         if (this.players.length === 2) {
@@ -1323,7 +1321,7 @@ class VicaDominoGame {
         this.playWrongSound();
 
         // Deduct coin for mistake (but not below 3; gem protection rules)
-        if (this.players.length >= 2) {
+        if (this.playerCoins) {
             const currentCoins = this.playerCoins[player.id] || 0;
             const currentGems = this.playerGems[player.id] || 0;
             if (currentCoins > 3) {
@@ -1533,42 +1531,19 @@ class VicaDominoGame {
         const playersArea = document.getElementById('players-area');
         playersArea.innerHTML = '';
 
-        // Combined game: show stage progress
+        // Combined game: show stage progress as 3 stacked stones
         if (this.combinedGame) {
-            const stageDiv = document.createElement('div');
-            stageDiv.className = 'stage-progress';
             const config = this.combinedGame.config;
-            const stage = config.stages[this.combinedGame.currentStage];
-            const stageLabel = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][this.combinedGame.currentStage] || '?';
             const totalStages = config.stages.length;
-            const games = [];
-            try {
-                const gd = localStorage.getItem('savedCustomGames');
-                if (gd) {
-                    const parsed = JSON.parse(gd);
-                    config.stages.forEach(function(s) {
-                        games.push(parsed[s.gameIndex] ? parsed[s.gameIndex].name : 'Game');
-                    });
-                }
-            } catch(e) {}
-            const gameName = games[this.combinedGame.currentStage] || 'Game ' + stageLabel;
-            stageDiv.innerHTML = '<span class="stage-label">Game ' + stageLabel + ': ' + gameName + '</span>';
-
-            // Show gem progress slots for highest stage-gem player
-            let maxStageGems = 0;
-            this.players.forEach(p => {
-                if ((this.stageGems[p.id] || 0) > maxStageGems) maxStageGems = this.stageGems[p.id];
-            });
-            const slotsDiv = document.createElement('span');
-            slotsDiv.className = 'stage-gem-slots';
-            for (let i = 0; i < stage.gemsNeeded; i++) {
-                const slot = document.createElement('span');
-                slot.className = 'stage-gem-slot' + (i < maxStageGems ? ' filled' : '');
-                slot.textContent = i < maxStageGems ? '💎' : '';
-                slotsDiv.appendChild(slot);
+            const currentStage = this.combinedGame.currentStage;
+            const stageDiv = document.createElement('div');
+            stageDiv.className = 'stage-stones';
+            // 3 stones stacked bottom-to-top; colored up to current stage + 1
+            for (let i = totalStages - 1; i >= 0; i--) {
+                const stone = document.createElement('div');
+                stone.className = 'stage-stone' + (i <= currentStage ? ' active' : '');
+                stageDiv.appendChild(stone);
             }
-            stageDiv.appendChild(slotsDiv);
-            stageDiv.innerHTML += ' <span style="font-size:0.8rem;opacity:0.7;">(' + (this.combinedGame.currentStage + 1) + '/' + totalStages + ')</span>';
             playersArea.appendChild(stageDiv);
         }
 
@@ -1618,14 +1593,12 @@ class VicaDominoGame {
                     <span class="winner-text">${winnerText}</span>
                 `;
 
-                // Show coin/gem display for winners too (2+ players)
-                if (this.players.length >= 2) {
-                    const coinGemDiv = document.createElement('div');
-                    coinGemDiv.className = 'coin-gem-display';
-                    coinGemDiv.dataset.playerId = player.id;
-                    this.buildCoinGemHTML(coinGemDiv, player.id);
-                    winnerSection.appendChild(coinGemDiv);
-                }
+                // Show coin/gem display for winners
+                const coinGemDiv = document.createElement('div');
+                coinGemDiv.className = 'coin-gem-display';
+                coinGemDiv.dataset.playerId = player.id;
+                this.buildCoinGemHTML(coinGemDiv, player.id);
+                winnerSection.appendChild(coinGemDiv);
 
                 winnerSection.appendChild(winnerBox);
                 handEl.appendChild(winnerSection);
@@ -1658,14 +1631,12 @@ class VicaDominoGame {
                     }
                 }
 
-                // Show coin/gem display left of "Press" (2+ players)
-                if (this.players.length >= 2) {
-                    const coinGemDiv = document.createElement('div');
-                    coinGemDiv.className = 'coin-gem-display coin-gem-inline';
-                    coinGemDiv.dataset.playerId = player.id;
-                    this.buildCoinGemHTML(coinGemDiv, player.id);
-                    tilesContainer.appendChild(coinGemDiv);
-                }
+                // Show coin/gem display left of "Press"
+                const coinGemDiv = document.createElement('div');
+                coinGemDiv.className = 'coin-gem-display coin-gem-inline';
+                coinGemDiv.dataset.playerId = player.id;
+                this.buildCoinGemHTML(coinGemDiv, player.id);
+                tilesContainer.appendChild(coinGemDiv);
 
                 // Add "Press" label
                 if (this.gamePhase === 'sunLevel' && numCards > 0) {
@@ -2821,7 +2792,7 @@ class VicaDominoGame {
     }
 
     renderCoinGemDisplay() {
-        if (!this.combinedGame && this.players.length < 2) return;
+        if (!this.playerCoins) return;
         this.players.forEach(player => {
             const displayEl = document.querySelector(`.coin-gem-display[data-player-id="${player.id}"]`);
             if (displayEl) {
@@ -2845,7 +2816,7 @@ class VicaDominoGame {
     }
 
     _flushPendingExchanges() {
-        if (!this.combinedGame && this.players.length < 2) return;
+        if (!this.playerCoins) return;
         // Cancel pending exchange timeouts
         if (this._exchangeTimeouts) {
             Object.values(this._exchangeTimeouts).forEach(function(id) { clearTimeout(id); });

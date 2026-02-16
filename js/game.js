@@ -1143,7 +1143,7 @@ class VicaDominoGame {
         });
     }
 
-    // Show a finger pushing the domino animation (for keyboard presses in single player)
+    // Show two fingers simultaneously: one pushing the domino and one pressing the keyboard key
     showFingerPush(playerIndex, cardIndex, callback) {
         const playerHand = document.querySelector(`[data-player-id="${this.players[playerIndex].id}"]`);
         if (!playerHand) { callback(); return; }
@@ -1152,16 +1152,69 @@ class VicaDominoGame {
         const wrapper = wrappers[cardIndex];
         if (!wrapper) { callback(); return; }
 
+        // 1. Finger on the domino
         const finger = document.createElement('span');
         finger.className = 'finger-push';
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
-        // Remove finger after animation and fire callback
+        // 2. Finger on the keyboard popup (show popup with the matching key)
+        const keyLabel = wrapper.querySelector('.clickable-key');
+        if (keyLabel) {
+            this.showKeyboardFingerPush(keyLabel.textContent, keyLabel);
+        }
+
+        // Remove domino finger after animation and fire callback
         finger.addEventListener('animationend', () => {
             finger.remove();
+            this.hideKeyboardPopup();
             callback();
         });
+    }
+
+    // Show keyboard popup with a finger pressing down on the highlighted key
+    showKeyboardFingerPush(keyValue, anchorEl) {
+        // Show the keyboard popup
+        this.showKeyboardPopup(keyValue, anchorEl);
+
+        const popup = document.getElementById('keyboard-popup');
+        if (!popup) return;
+
+        // Compute the CSS pixel position of the target key within the popup
+        const scale = 0.3;
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
+        const keyW = 40, keyH = 40, gap = 5, pad = 15, rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+
+        let targetCX = 0, targetCY = 0;
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                if (key === keyValue) {
+                    targetCX = pad + row.offset + i * (keyW + gap) + keyW / 2;
+                    targetCY = pad + rowIdx * (keyH + rowGap) + keyH / 2;
+                }
+            });
+        });
+
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
+        const cssX = (targetCX / totalW) * renderW;
+        const cssY = (targetCY / totalH) * renderH;
+
+        // Add finger overlay on top of the keyboard popup
+        const kbFinger = document.createElement('span');
+        kbFinger.className = 'keyboard-finger-push';
+        kbFinger.textContent = '👆';
+        kbFinger.style.left = cssX + 'px';
+        kbFinger.style.top = cssY + 'px';
+        popup.style.overflow = 'visible';
+        popup.appendChild(kbFinger);
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {
@@ -1735,16 +1788,22 @@ class VicaDominoGame {
                         keyLabel.addEventListener('mouseleave', () => {
                             this.hideKeyboardPopup();
                         });
-                        keyLabel.addEventListener('click', () => {
-                            this.hideKeyboardPopup();
+                        const keyLabelAction = () => {
                             if (this.players.length === 1) {
+                                // showFingerPush will show both keyboard popup + finger and domino finger
                                 this.showFingerPush(playerIndex, cardIndex, () => {
                                     this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                                 });
                             } else {
+                                this.hideKeyboardPopup();
                                 this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                             }
-                        });
+                        };
+                        keyLabel.addEventListener('click', keyLabelAction);
+                        keyLabel.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            keyLabelAction();
+                        }, { passive: false });
                         dominoWrapper.appendChild(keyLabel);
                     }
 

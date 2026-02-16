@@ -1126,10 +1126,20 @@ class VicaDominoGame {
         // Show which was the double
         this.highlightDoubleCard();
 
-        // Add time-up pulse to the timer circle
+        // Add time-up pulse to the timer circle and radiating rings
         const progressCircle = document.querySelector('.timer-progress');
         if (progressCircle) {
             progressCircle.classList.add('timer-expired');
+        }
+        const timerContent = document.querySelector('.xeno-timer-content');
+        if (timerContent) {
+            // Add expanding ripple rings around the timer
+            for (let i = 0; i < 3; i++) {
+                const ring = document.createElement('div');
+                ring.className = 'timer-ripple';
+                ring.style.animationDelay = (i * 0.5) + 's';
+                timerContent.appendChild(ring);
+            }
         }
 
         // Show end game buttons
@@ -1864,6 +1874,8 @@ class VicaDominoGame {
             progressCircle.style.stroke = '#4CAF50';
             progressCircle.style.strokeDashoffset = '0';
         }
+        // Remove ripple rings
+        document.querySelectorAll('.timer-ripple').forEach(r => r.remove());
     }
 
     // Play again with same settings (same players, same level)

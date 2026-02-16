@@ -141,6 +141,7 @@ class VicaDominoGame {
         this.recentDoublePositions = {}; // Track double positions per player (avoid same position 3x)
         this._playerClickBuffers = {}; // Multi-press detection per player
         this._playerClickTimers = {};
+        this._isFirstSunGame = true; // Show tutorial finger on first game
 
         // Combined game state
         this.combinedGame = null; // { config, currentStage }
@@ -864,6 +865,12 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
+        // First game tutorial: show a finger pointing to the double (1-player only)
+        if (this._isFirstSunGame && this.players.length === 1) {
+            this._isFirstSunGame = false;
+            this.showTutorialFinger();
+        }
+
         // Show Xeno timer only if Xeno is included
         if (this.includeXeno) {
             const xenoTimerBox = document.getElementById('xeno-timer-box');
@@ -1168,7 +1175,7 @@ class VicaDominoGame {
         });
     }
 
-    // Show two fingers simultaneously: one pushing the domino and one pressing the keyboard key
+    // Show finger pushing the domino and keyboard popup with the matching key
     showFingerPush(playerIndex, cardIndex, callback) {
         const playerHand = document.querySelector(`[data-player-id="${this.players[playerIndex].id}"]`);
         if (!playerHand) { callback(); return; }
@@ -1183,10 +1190,20 @@ class VicaDominoGame {
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
-        // 2. Finger on the keyboard popup (show popup with the matching key)
-        const keyLabel = wrapper.querySelector('.clickable-key');
-        if (keyLabel) {
-            this.showKeyboardFingerPush(keyLabel.textContent, keyLabel);
+        // 2. Keyboard popup showing which key was pressed
+        const keyValue = String(cardIndex + 1);
+        if (this.players.length === 1) {
+            // Single player: no key labels, show popup below the domino
+            const dominoEl = wrapper.querySelector('.domino');
+            if (dominoEl) {
+                this.showKeyboardPopupBelow(keyValue, dominoEl);
+            }
+        } else {
+            // 2-player: key label exists, show popup with finger on it
+            const keyLabel = wrapper.querySelector('.clickable-key');
+            if (keyLabel) {
+                this.showKeyboardFingerPush(keyLabel.textContent, keyLabel);
+            }
         }
 
         // Remove domino finger after animation and fire callback
@@ -1240,6 +1257,35 @@ class VicaDominoGame {
         kbFinger.style.top = cssY + 'px';
         popup.style.overflow = 'visible';
         popup.appendChild(kbFinger);
+    }
+
+    // First-game tutorial: show a bobbing finger over the double card
+    showTutorialFinger() {
+        const player = this.players[0];
+        const doubleIdx = player.hand.findIndex(c => isDouble(c));
+        if (doubleIdx < 0) return;
+
+        const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
+        if (!playerHand) return;
+        const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+        const wrapper = wrappers[doubleIdx];
+        if (!wrapper) return;
+
+        const finger = document.createElement('span');
+        finger.className = 'tutorial-finger';
+        finger.textContent = '👆';
+        wrapper.appendChild(finger);
+
+        // Remove when player clicks any domino or after a timeout
+        const removeFinger = () => {
+            if (finger.parentNode) finger.remove();
+            playerHand.removeEventListener('click', removeFinger);
+            playerHand.removeEventListener('touchstart', removeFinger);
+        };
+        playerHand.addEventListener('click', removeFinger);
+        playerHand.addEventListener('touchstart', removeFinger);
+        // Also remove after 5 seconds if not clicked
+        setTimeout(removeFinger, 5000);
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {
@@ -1553,6 +1599,21 @@ class VicaDominoGame {
         document.body.appendChild(popup);
     }
 
+    // Show keyboard popup centered below a domino element (for 1-player on domino click)
+    showKeyboardPopupBelow(keyValue, dominoEl) {
+        this.showKeyboardPopup(keyValue, null);
+        const popup = document.getElementById('keyboard-popup');
+        if (!popup || !dominoEl) return;
+
+        const rect = dominoEl.getBoundingClientRect();
+        const popupW = popup.offsetWidth;
+        popup.style.left = Math.round(rect.left + rect.width / 2 - popupW / 2) + 'px';
+        popup.style.top = Math.round(rect.bottom + 6) + 'px';
+
+        // Auto-hide after a short time
+        setTimeout(() => this.hideKeyboardPopup(), 800);
+    }
+
     hideKeyboardPopup() {
         const existing = document.getElementById('keyboard-popup');
         if (existing) {
@@ -1790,20 +1851,31 @@ class VicaDominoGame {
 
                     // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {
-                        dominoEl.addEventListener('click', () => {
-                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                        });
+                        const dominoAction = () => {
+                            if (this.players.length === 1) {
+                                // Single player: show keyboard popup under the domino, then process
+                                const keyValue = String(cardIndex + 1);
+                                this.showKeyboardPopupBelow(keyValue, dominoEl);
+                                // Brief delay so player sees the keyboard, then process
+                                setTimeout(() => {
+                                    this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                                }, 150);
+                            } else {
+                                this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                            }
+                        };
+                        dominoEl.addEventListener('click', dominoAction);
                         // Touch support: touchstart fires for each finger in multi-touch
                         dominoEl.addEventListener('touchstart', (e) => {
                             e.preventDefault(); // Prevent subsequent click from double-firing
-                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                            dominoAction();
                         }, { passive: false });
                     }
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // Add key label under this domino (hover shows keyboard, click selects)
-                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
+                    // Add key label under this domino (2-player only; 1-player shows keyboard on click)
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2) {
                         const keyLabel = document.createElement('span');
                         keyLabel.className = 'key clickable-key';
                         keyLabel.textContent = keys[cardIndex];
@@ -1814,15 +1886,8 @@ class VicaDominoGame {
                             this.hideKeyboardPopup();
                         });
                         const keyLabelAction = () => {
-                            if (this.players.length === 1) {
-                                // showFingerPush will show both keyboard popup + finger and domino finger
-                                this.showFingerPush(playerIndex, cardIndex, () => {
-                                    this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                                });
-                            } else {
-                                this.hideKeyboardPopup();
-                                this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                            }
+                            this.hideKeyboardPopup();
+                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                         };
                         keyLabel.addEventListener('click', keyLabelAction);
                         keyLabel.addEventListener('touchstart', (e) => {

@@ -1832,7 +1832,7 @@ class VicaDominoGame {
                 tilesContainer.appendChild(coinGemDiv);
 
                 // Add "Press" label
-                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                if (numCards > 0) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
@@ -1903,7 +1903,7 @@ class VicaDominoGame {
                 tilesContainer.appendChild(dominoesWithKeys);
 
                 // Add "to select" label on the right
-                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                if (numCards > 0) {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';

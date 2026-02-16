@@ -142,6 +142,7 @@ class VicaDominoGame {
         this._playerClickBuffers = {}; // Multi-press detection per player
         this._playerClickTimers = {};
         this._isFirstSunGame = true; // Show tutorial finger on first game
+        this._gameRound = 0; // Incremented each new game to guard against stale timeouts
 
         // Combined game state
         this.combinedGame = null; // { config, currentStage }
@@ -828,6 +829,7 @@ class VicaDominoGame {
 
     // ==================== SUN LEVEL GAME ====================
     startSunLevelGame() {
+        this._gameRound = (this._gameRound || 0) + 1;
         this.gamePhase = 'sunLevel';
         this.sunLevelTimer = null;
         this.sunLevelTimeLeft = this.currentTimerDuration;
@@ -1320,7 +1322,9 @@ class VicaDominoGame {
         // Clear any existing timer for this player and start fresh
         if (this._playerClickTimers[pid]) clearTimeout(this._playerClickTimers[pid]);
 
+        const clickRound = this._gameRound;
         this._playerClickTimers[pid] = setTimeout(() => {
+            if (this._gameRound !== clickRound) return; // Stale timeout from previous game
             const clicks = this._playerClickBuffers[pid] || [];
             this._playerClickBuffers[pid] = [];
 
@@ -1360,7 +1364,9 @@ class VicaDominoGame {
                 });
             }
             // Delay win processing to let animation play
+            const winRound = this._gameRound;
             setTimeout(() => {
+                if (this._gameRound !== winRound) return; // Stale timeout from previous game
                 this.sunLevelWin(card, player, cardIndex);
             }, 600);
         } else {
@@ -1856,6 +1862,8 @@ class VicaDominoGame {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
+                    pressLabel.style.visibility = 'visible';
+                    pressLabel.style.opacity = '1';
                     tilesContainer.appendChild(pressLabel);
                 }
 
@@ -1927,6 +1935,8 @@ class VicaDominoGame {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';
+                    selectLabel.style.visibility = 'visible';
+                    selectLabel.style.opacity = '1';
                     tilesContainer.appendChild(selectLabel);
                 }
 
@@ -1986,6 +1996,13 @@ class VicaDominoGame {
 
         // Reset sun level state
         this.resetSunLevel();
+
+        // Clear stale click buffers and timers from previous game
+        if (this._playerClickTimers) {
+            Object.values(this._playerClickTimers).forEach(id => clearTimeout(id));
+        }
+        this._playerClickBuffers = {};
+        this._playerClickTimers = {};
 
         // Remove keyboard hint and end game buttons
         this.hideKeyboardPopup();
@@ -2925,7 +2942,9 @@ class VicaDominoGame {
             if (this._exchangeTimeouts[playerId]) clearTimeout(this._exchangeTimeouts[playerId]);
 
             const exchangeDelay = amount * 300 + 700;
+            const roundAtStart = this._gameRound;
             this._exchangeTimeouts[playerId] = setTimeout(() => {
+                if (this._gameRound !== roundAtStart) return; // Stale timeout from previous game
                 // Play glin-glin sound
                 this.playGlinGlinSound();
                 // Mark coins for fall animation
@@ -2934,6 +2953,7 @@ class VicaDominoGame {
                 this.renderCoinGemDisplay();
                 // After fall animation, convert to gem
                 setTimeout(() => {
+                    if (this._gameRound !== roundAtStart) return; // Stale timeout from previous game
                     while (this.playerCoins[playerId] >= 10) {
                         this.playerCoins[playerId] -= 10;
                         this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;

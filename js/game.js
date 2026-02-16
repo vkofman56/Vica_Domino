@@ -1259,7 +1259,7 @@ class VicaDominoGame {
         popup.appendChild(kbFinger);
     }
 
-    // First-game tutorial: show a bobbing finger over the double card
+    // First-game tutorial: show a bobbing finger and keyboard hint on the double card
     showTutorialFinger() {
         const player = this.players[0];
         const doubleIdx = player.hand.findIndex(c => isDouble(c));
@@ -1276,9 +1276,23 @@ class VicaDominoGame {
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
-        // Remove when player clicks any domino or after a timeout
+        // Show keyboard popup below the double (1-player: show which key to press)
+        const dominoEl = wrapper.querySelector('.domino');
+        const keyValue = String(doubleIdx + 1);
+        if (dominoEl) {
+            this.showKeyboardPopupBelow(keyValue, dominoEl);
+            // Override the auto-hide: keep popup visible during tutorial
+            const popup = document.getElementById('keyboard-popup');
+            if (popup) {
+                popup.classList.add('tutorial-keyboard');
+            }
+        }
+
+        // Remove finger and keyboard popup when player clicks any domino or after timeout
+        const self = this;
         const removeFinger = () => {
             if (finger.parentNode) finger.remove();
+            self.hideKeyboardPopup();
             playerHand.removeEventListener('click', removeFinger);
             playerHand.removeEventListener('touchstart', removeFinger);
         };
@@ -1610,13 +1624,19 @@ class VicaDominoGame {
         popup.style.left = Math.round(rect.left + rect.width / 2 - popupW / 2) + 'px';
         popup.style.top = Math.round(rect.bottom + 6) + 'px';
 
-        // Auto-hide after a short time
-        setTimeout(() => this.hideKeyboardPopup(), 800);
+        // Auto-hide after a short time (unless it's a tutorial keyboard)
+        setTimeout(() => {
+            const p = document.getElementById('keyboard-popup');
+            if (p && !p.classList.contains('tutorial-keyboard')) {
+                this.hideKeyboardPopup();
+            }
+        }, 800);
     }
 
     hideKeyboardPopup() {
         const existing = document.getElementById('keyboard-popup');
         if (existing) {
+            existing.classList.remove('tutorial-keyboard');
             existing.classList.add('keyboard-popup-fade');
             setTimeout(() => existing.remove(), 300);
         }

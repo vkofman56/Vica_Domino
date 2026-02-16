@@ -1091,6 +1091,9 @@ class VicaDominoGame {
     }
 
     sunLevelTimeUp() {
+        // Guard against multiple calls from the interval
+        if (this.gamePhase !== 'sunLevel') return;
+
         this.stopSunLevelTimer();
         this.gamePhase = 'sunLevelEnded';
         this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
@@ -1111,14 +1114,23 @@ class VicaDominoGame {
             this.showNextTimerIndicator();
         }
 
-        // Disable clicking on cards
+        // Disable clicking on cards but keep them visible
         document.querySelectorAll('.domino').forEach(d => {
             d.style.pointerEvents = 'none';
-            d.style.opacity = '0.5';
+        });
+        // Also disable key label clicks
+        document.querySelectorAll('.clickable-key').forEach(k => {
+            k.style.pointerEvents = 'none';
         });
 
         // Show which was the double
         this.highlightDoubleCard();
+
+        // Add time-up pulse to the timer circle
+        const progressCircle = document.querySelector('.timer-progress');
+        if (progressCircle) {
+            progressCircle.classList.add('timer-expired');
+        }
 
         // Show end game buttons
         this.showEndGameButtons();
@@ -1129,9 +1141,10 @@ class VicaDominoGame {
         this.players.forEach(player => {
             player.hand.forEach((card, idx) => {
                 if (isDouble(card)) {
-                    const handEl = document.querySelector(`[data-player-id="${player.id}"] .hand-tiles`);
-                    if (handEl) {
-                        const dominoEls = handEl.querySelectorAll('.domino');
+                    // Works for both sun level (.sun-level-tiles-container) and regular (.hand-tiles)
+                    const playerEl = document.querySelector(`[data-player-id="${player.id}"]`);
+                    if (playerEl) {
+                        const dominoEls = playerEl.querySelectorAll('.domino');
                         if (dominoEls[idx]) {
                             dominoEls[idx].style.border = '4px solid #FFD700';
                             dominoEls[idx].style.boxShadow = '0 0 20px #FFD700';
@@ -1844,9 +1857,10 @@ class VicaDominoGame {
         document.getElementById('bank-draw-btn').style.display = '';
         document.getElementById('players-area').classList.remove('single-player-layout');
 
-        // Reset timer progress color
+        // Reset timer progress color and remove expired animation
         const progressCircle = document.querySelector('.timer-progress');
         if (progressCircle) {
+            progressCircle.classList.remove('timer-expired');
             progressCircle.style.stroke = '#4CAF50';
             progressCircle.style.strokeDashoffset = '0';
         }

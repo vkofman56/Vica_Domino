@@ -1133,11 +1133,13 @@ class VicaDominoGame {
         }
         const timerContent = document.querySelector('.xeno-timer-content');
         if (timerContent) {
-            // Add expanding ripple rings around the timer
-            for (let i = 0; i < 3; i++) {
+            // Add expanding ripple rings in different colors
+            const rippleColors = ['#F44336', '#FF9800', '#FFEB3B', '#FF69B4', '#FF5722'];
+            for (let i = 0; i < rippleColors.length; i++) {
                 const ring = document.createElement('div');
                 ring.className = 'timer-ripple';
-                ring.style.animationDelay = (i * 0.5) + 's';
+                ring.style.animationDelay = (i * 0.4) + 's';
+                ring.style.borderColor = rippleColors[i];
                 timerContent.appendChild(ring);
             }
         }

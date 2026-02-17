@@ -1472,6 +1472,9 @@ class VicaDominoGame {
                 this.stopSunLevelTimer();
                 this.adaptiveTimerWin(); // All players won — decrease timer
                 this.showNextTimerIndicator();
+                if (this.players.length === 1) {
+                    this._singlePlayerWins = (this._singlePlayerWins || 0) + 1;
+                }
                 this.gamePhase = 'sunLevelWon';
                 this.showEndGameButtons();
             }

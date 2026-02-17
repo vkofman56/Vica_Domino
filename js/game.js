@@ -1808,6 +1808,18 @@ class VicaDominoGame {
                     const dominoWrapper = document.createElement('div');
                     dominoWrapper.className = 'winner-domino-wrapper';
                     const dominoEl = createDominoElement(player.winningCard, true);
+                    // 1-player mode: hide value squares, show blinking "double" on doubles
+                    if (this.players.length === 1) {
+                        dominoEl.querySelectorAll('.value-display, .custom-face').forEach(el => {
+                            el.style.display = 'none';
+                        });
+                        if (isDouble(player.winningCard)) {
+                            const dblLabel = document.createElement('span');
+                            dblLabel.className = 'domino-double-label';
+                            dblLabel.textContent = 'double';
+                            dominoEl.appendChild(dblLabel);
+                        }
+                    }
                     // Only add animation class if animation hasn't been shown yet
                     if (!player.animationShown) {
                         dominoEl.classList.add('winning-domino');
@@ -1904,6 +1916,19 @@ class VicaDominoGame {
                     dominoWrapper.className = 'domino-key-wrapper';
 
                     const dominoEl = createDominoElement(card, true); // vertical dominoes
+
+                    // 1-player mode: hide value squares, show blinking "double" on doubles
+                    if (this.players.length === 1) {
+                        dominoEl.querySelectorAll('.value-display, .custom-face').forEach(el => {
+                            el.style.display = 'none';
+                        });
+                        if (isDouble(card)) {
+                            const dblLabel = document.createElement('span');
+                            dblLabel.className = 'domino-double-label';
+                            dblLabel.textContent = 'double';
+                            dominoEl.appendChild(dblLabel);
+                        }
+                    }
 
                     // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {

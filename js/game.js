@@ -1294,32 +1294,9 @@ class VicaDominoGame {
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
-        // "double" label above the double domino
-        const doubleLabel = document.createElement('span');
-        doubleLabel.className = 'tutorial-double-label';
-        doubleLabel.textContent = 'double';
-        wrapper.appendChild(doubleLabel);
-
-        // Floating number keys above each domino (1, 2, ... N)
-        const tutorialKeys = [];
-        const numCards = player.hand.length;
-        for (let i = 0; i < wrappers.length && i < numCards; i++) {
-            const keyEl = document.createElement('span');
-            keyEl.className = 'tutorial-key-hint';
-            if (i === doubleIdx) {
-                keyEl.classList.add('tutorial-key-highlight');
-            }
-            keyEl.textContent = String(i + 1);
-            wrappers[i].appendChild(keyEl);
-            tutorialKeys.push(keyEl);
-        }
-
-        // Remove all tutorial elements when player clicks any domino or after timeout
-        const self = this;
+        // Remove tutorial finger when player clicks any domino or after timeout
         const removeTutorial = () => {
             if (finger.parentNode) finger.remove();
-            if (doubleLabel.parentNode) doubleLabel.remove();
-            tutorialKeys.forEach(k => { if (k.parentNode) k.remove(); });
             playerHand.removeEventListener('click', removeTutorial);
             playerHand.removeEventListener('touchstart', removeTutorial);
         };
@@ -1808,18 +1785,6 @@ class VicaDominoGame {
                     const dominoWrapper = document.createElement('div');
                     dominoWrapper.className = 'winner-domino-wrapper';
                     const dominoEl = createDominoElement(player.winningCard, true);
-                    // 1-player mode: hide value squares, show blinking "double" on doubles
-                    if (this.players.length === 1) {
-                        dominoEl.querySelectorAll('.value-display, .custom-face').forEach(el => {
-                            el.style.display = 'none';
-                        });
-                        if (isDouble(player.winningCard)) {
-                            const dblLabel = document.createElement('span');
-                            dblLabel.className = 'domino-double-label';
-                            dblLabel.textContent = 'double';
-                            dominoEl.appendChild(dblLabel);
-                        }
-                    }
                     // Only add animation class if animation hasn't been shown yet
                     if (!player.animationShown) {
                         dominoEl.classList.add('winning-domino');
@@ -1917,19 +1882,6 @@ class VicaDominoGame {
 
                     const dominoEl = createDominoElement(card, true); // vertical dominoes
 
-                    // 1-player mode: hide value squares, show blinking "double" on doubles
-                    if (this.players.length === 1) {
-                        dominoEl.querySelectorAll('.value-display, .custom-face').forEach(el => {
-                            el.style.display = 'none';
-                        });
-                        if (isDouble(card)) {
-                            const dblLabel = document.createElement('span');
-                            dblLabel.className = 'domino-double-label';
-                            dblLabel.textContent = 'double';
-                            dominoEl.appendChild(dblLabel);
-                        }
-                    }
-
                     // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {
                         const dominoAction = () => {
@@ -1944,6 +1896,14 @@ class VicaDominoGame {
                     }
 
                     dominoWrapper.appendChild(dominoEl);
+
+                    // 1-player mode: show blinking "double" label above double dominos
+                    if (this.players.length === 1 && isDouble(card)) {
+                        const dblLabel = document.createElement('span');
+                        dblLabel.className = 'domino-double-label';
+                        dblLabel.textContent = 'double';
+                        dominoWrapper.appendChild(dblLabel);
+                    }
 
                     // Add key label under this domino (2-player only; 1-player shows keyboard on click)
                     if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2) {

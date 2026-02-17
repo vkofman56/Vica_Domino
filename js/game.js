@@ -143,6 +143,7 @@ class VicaDominoGame {
         this._playerClickTimers = {};
         this._isFirstSunGame = true; // Show tutorial finger on first game
         this._gameRound = 0; // Incremented each new game to guard against stale timeouts
+        this._singlePlayerWins = 0; // Track wins to hide "Press to select" after 3
 
         // Combined game state
         this.combinedGame = null; // { config, currentStage }
@@ -1444,6 +1445,7 @@ class VicaDominoGame {
             // No Xeno mode
             if (this.players.length === 1) {
                 // Single player: end game
+                this._singlePlayerWins = (this._singlePlayerWins || 0) + 1;
                 this.gamePhase = 'sunLevelWon';
                 this.renderSunLevel();
                 this.showEndGameButtons();
@@ -1878,13 +1880,12 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label
-                if (numCards > 0) {
+                // Add "Press" label (hide after 3 wins — player has learned)
+                const showHintLabels = numCards > 0 && (this._singlePlayerWins || 0) < 3;
+                if (showHintLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
-                    pressLabel.style.visibility = 'visible';
-                    pressLabel.style.opacity = '1';
                     tilesContainer.appendChild(pressLabel);
                 }
 
@@ -1951,13 +1952,11 @@ class VicaDominoGame {
 
                 tilesContainer.appendChild(dominoesWithKeys);
 
-                // Add "to select" label on the right
-                if (numCards > 0) {
+                // Add "to select" label on the right (hide after 3 wins)
+                if (showHintLabels) {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';
-                    selectLabel.style.visibility = 'visible';
-                    selectLabel.style.opacity = '1';
                     tilesContainer.appendChild(selectLabel);
                 }
 

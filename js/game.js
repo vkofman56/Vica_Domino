@@ -1897,8 +1897,8 @@ class VicaDominoGame {
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // 1-player mode: show blinking "double" label above double dominos
-                    if (this.players.length === 1 && isDouble(card)) {
+                    // 1-player mode: show blinking "double" label only while tutorial finger is present (first 2 wins)
+                    if (this.players.length === 1 && isDouble(card) && (this._singlePlayerWins || 0) < 2) {
                         const dblLabel = document.createElement('span');
                         dblLabel.className = 'domino-double-label';
                         dblLabel.textContent = 'double';

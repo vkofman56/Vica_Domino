@@ -957,6 +957,17 @@ class VicaDominoGame {
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
 
+            // First game tutorial (1-player): place the double as the rightmost card
+            if (this._isFirstSunGame && this.players.length === 1) {
+                const dblIdx = player.hand.findIndex(c => isDouble(c));
+                const lastIdx = player.hand.length - 1;
+                if (dblIdx >= 0 && dblIdx !== lastIdx) {
+                    const temp = player.hand[dblIdx];
+                    player.hand[dblIdx] = player.hand[lastIdx];
+                    player.hand[lastIdx] = temp;
+                }
+            }
+
             // Prevent double from landing on same position 3 times in a row
             const pid = player.id;
             if (!this.recentDoublePositions[pid]) this.recentDoublePositions[pid] = [];
@@ -1278,6 +1289,12 @@ class VicaDominoGame {
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
+        // Add "double" label above the double domino
+        const doubleLabel = document.createElement('span');
+        doubleLabel.className = 'tutorial-double-label';
+        doubleLabel.textContent = 'double';
+        wrapper.appendChild(doubleLabel);
+
         // Show keyboard popup below the double (1-player: show which key to press)
         const dominoEl = wrapper.querySelector('.domino');
         const keyValue = String(doubleIdx + 1);
@@ -1290,18 +1307,19 @@ class VicaDominoGame {
             }
         }
 
-        // Remove finger and keyboard popup when player clicks any domino or after timeout
+        // Remove finger, double label, and keyboard popup when player clicks any domino or after timeout
         const self = this;
-        const removeFinger = () => {
+        const removeTutorial = () => {
             if (finger.parentNode) finger.remove();
+            if (doubleLabel.parentNode) doubleLabel.remove();
             self.hideKeyboardPopup();
-            playerHand.removeEventListener('click', removeFinger);
-            playerHand.removeEventListener('touchstart', removeFinger);
+            playerHand.removeEventListener('click', removeTutorial);
+            playerHand.removeEventListener('touchstart', removeTutorial);
         };
-        playerHand.addEventListener('click', removeFinger);
-        playerHand.addEventListener('touchstart', removeFinger);
+        playerHand.addEventListener('click', removeTutorial);
+        playerHand.addEventListener('touchstart', removeTutorial);
         // Also remove after 5 seconds if not clicked
-        setTimeout(removeFinger, 5000);
+        setTimeout(removeTutorial, 5000);
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {

@@ -870,7 +870,8 @@ class VicaDominoGame {
 
         // Tutorial: show a finger pointing to the double (1-player only, first 3 wins)
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 3) {
-            this.showTutorialFinger();
+            // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
+            requestAnimationFrame(() => this.showTutorialFinger());
         }
 
         // Show Xeno timer only if Xeno is included
@@ -1277,13 +1278,14 @@ class VicaDominoGame {
     showTutorialFinger() {
         const player = this.players[0];
         const doubleIdx = player.hand.findIndex(c => isDouble(c));
-        if (doubleIdx < 0) return;
+        if (doubleIdx < 0) { console.log('[TUTORIAL] No double found in hand'); return; }
 
         const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
-        if (!playerHand) return;
+        if (!playerHand) { console.log('[TUTORIAL] playerHand not found for id:', player.id); return; }
         const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
         const wrapper = wrappers[doubleIdx];
-        if (!wrapper) return;
+        if (!wrapper) { console.log('[TUTORIAL] wrapper not found at doubleIdx:', doubleIdx, 'wrappers.length:', wrappers.length); return; }
+        console.log('[TUTORIAL] Showing finger at doubleIdx:', doubleIdx);
 
         // Finger pointing to the double
         const finger = document.createElement('span');

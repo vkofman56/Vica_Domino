@@ -859,7 +859,9 @@ class VicaDominoGame {
         document.querySelector('.turn-indicator').style.display = 'none';
 
         // Update status
-        if (this.includeXeno) {
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 3) {
+            this.updateStatus('🌞 Select double by pressing it', 'highlight');
+        } else if (this.includeXeno) {
             this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
         } else {
             this.updateStatus('🌞 Find the DOUBLE first! Click on it!', 'highlight');
@@ -868,8 +870,8 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
-        // Tutorial: show a finger pointing to the double (1-player only, first 3 wins)
-        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 3) {
+        // Tutorial: show a finger pointing to the double (1-player only, first 2 wins)
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 2) {
             // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
             requestAnimationFrame(() => this.showTutorialFinger());
         }
@@ -1278,14 +1280,13 @@ class VicaDominoGame {
     showTutorialFinger() {
         const player = this.players[0];
         const doubleIdx = player.hand.findIndex(c => isDouble(c));
-        if (doubleIdx < 0) { console.log('[TUTORIAL] No double found in hand'); return; }
+        if (doubleIdx < 0) return;
 
         const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
-        if (!playerHand) { console.log('[TUTORIAL] playerHand not found for id:', player.id); return; }
+        if (!playerHand) return;
         const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
         const wrapper = wrappers[doubleIdx];
-        if (!wrapper) { console.log('[TUTORIAL] wrapper not found at doubleIdx:', doubleIdx, 'wrappers.length:', wrappers.length); return; }
-        console.log('[TUTORIAL] Showing finger at doubleIdx:', doubleIdx);
+        if (!wrapper) return;
 
         // Finger pointing to the double
         const finger = document.createElement('span');
@@ -1885,8 +1886,8 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label (hide for 1-player after 4 wins)
-                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 4);
+                // Add "Press" label (hide for 1-player after 3 wins)
+                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 3);
                 if (showPressLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
@@ -1907,17 +1908,7 @@ class VicaDominoGame {
                     // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {
                         const dominoAction = () => {
-                            if (this.players.length === 1) {
-                                // Single player: show keyboard popup under the domino, then process
-                                const keyValue = String(cardIndex + 1);
-                                this.showKeyboardPopupBelow(keyValue, dominoEl);
-                                // Brief delay so player sees the keyboard, then process
-                                setTimeout(() => {
-                                    this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                                }, 150);
-                            } else {
-                                this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                            }
+                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
                         };
                         dominoEl.addEventListener('click', dominoAction);
                         // Touch support: touchstart fires for each finger in multi-touch
@@ -3288,6 +3279,7 @@ class VicaDominoGame {
         this.hideKeyboardPopup();
         this.currentTimerDuration = 20; // Reset adaptive timer
         this.consecutiveWinsAtMin = 0;
+        this._singlePlayerWins = 0; // Reset tutorial progression
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';

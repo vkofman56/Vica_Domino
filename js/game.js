@@ -1272,7 +1272,7 @@ class VicaDominoGame {
         popup.appendChild(kbFinger);
     }
 
-    // First-game tutorial: show a bobbing finger and keyboard hint on the double card
+    // First-game tutorial: show a bobbing finger, "double" label, and floating number keys
     showTutorialFinger() {
         const player = this.players[0];
         const doubleIdx = player.hand.findIndex(c => isDouble(c));
@@ -1284,35 +1284,38 @@ class VicaDominoGame {
         const wrapper = wrappers[doubleIdx];
         if (!wrapper) return;
 
+        // Finger pointing to the double
         const finger = document.createElement('span');
         finger.className = 'tutorial-finger';
         finger.textContent = '👆';
         wrapper.appendChild(finger);
 
-        // Add "double" label above the double domino
+        // "double" label above the double domino
         const doubleLabel = document.createElement('span');
         doubleLabel.className = 'tutorial-double-label';
         doubleLabel.textContent = 'double';
         wrapper.appendChild(doubleLabel);
 
-        // Show keyboard popup below the double (1-player: show which key to press)
-        const dominoEl = wrapper.querySelector('.domino');
-        const keyValue = String(doubleIdx + 1);
-        if (dominoEl) {
-            this.showKeyboardPopupBelow(keyValue, dominoEl);
-            // Override the auto-hide: keep popup visible during tutorial
-            const popup = document.getElementById('keyboard-popup');
-            if (popup) {
-                popup.classList.add('tutorial-keyboard');
+        // Floating number keys above each domino (1, 2, ... N)
+        const tutorialKeys = [];
+        const numCards = player.hand.length;
+        for (let i = 0; i < wrappers.length && i < numCards; i++) {
+            const keyEl = document.createElement('span');
+            keyEl.className = 'tutorial-key-hint';
+            if (i === doubleIdx) {
+                keyEl.classList.add('tutorial-key-highlight');
             }
+            keyEl.textContent = String(i + 1);
+            wrappers[i].appendChild(keyEl);
+            tutorialKeys.push(keyEl);
         }
 
-        // Remove finger, double label, and keyboard popup when player clicks any domino or after timeout
+        // Remove all tutorial elements when player clicks any domino or after timeout
         const self = this;
         const removeTutorial = () => {
             if (finger.parentNode) finger.remove();
             if (doubleLabel.parentNode) doubleLabel.remove();
-            self.hideKeyboardPopup();
+            tutorialKeys.forEach(k => { if (k.parentNode) k.remove(); });
             playerHand.removeEventListener('click', removeTutorial);
             playerHand.removeEventListener('touchstart', removeTutorial);
         };

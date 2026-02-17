@@ -868,9 +868,8 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
-        // First game tutorial: show a finger pointing to the double (1-player only)
-        if (this._isFirstSunGame && this.players.length === 1) {
-            this._isFirstSunGame = false;
+        // Tutorial: show a finger pointing to the double (1-player only, every game)
+        if (this.players.length === 1) {
             this.showTutorialFinger();
         }
 
@@ -958,8 +957,9 @@ class VicaDominoGame {
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
 
-            // First game tutorial (1-player): place the double as the rightmost card
+            // First game only (1-player): place the double as the rightmost card
             if (this._isFirstSunGame && this.players.length === 1) {
+                this._isFirstSunGame = false;
                 const dblIdx = player.hand.findIndex(c => isDouble(c));
                 const lastIdx = player.hand.length - 1;
                 if (dblIdx >= 0 && dblIdx !== lastIdx) {

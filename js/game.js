@@ -1880,9 +1880,8 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label (hide after 3 wins — player has learned)
-                const showHintLabels = numCards > 0 && (this._singlePlayerWins || 0) < 3;
-                if (showHintLabels) {
+                // Add "Press" label (2-player only; 1-player uses tutorial finger + number keys)
+                if (numCards > 0 && this.players.length >= 2) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
@@ -1952,8 +1951,8 @@ class VicaDominoGame {
 
                 tilesContainer.appendChild(dominoesWithKeys);
 
-                // Add "to select" label on the right (hide after 3 wins)
-                if (showHintLabels) {
+                // Add "to select" label on the right (2-player only)
+                if (numCards > 0 && this.players.length >= 2) {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';

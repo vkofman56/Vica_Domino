@@ -338,6 +338,17 @@ class VicaDominoGame {
         }
     }
 
+    // Play tutorial voice: "Select double…"
+    playSelectDoubleVoice() {
+        try {
+            const audio = new Audio('audio/select-double.mp3');
+            audio.volume = 0.8;
+            audio.play().catch(() => {});
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
     // Play glin-glin sound when coins convert to gem
     playGlinGlinSound() {
         try {
@@ -874,6 +885,7 @@ class VicaDominoGame {
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 2) {
             // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
             requestAnimationFrame(() => this.showTutorialFinger());
+            this.playSelectDoubleVoice();
         }
 
         // Show Xeno timer only if Xeno is included

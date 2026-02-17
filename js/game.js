@@ -143,7 +143,7 @@ class VicaDominoGame {
         this._playerClickTimers = {};
         this._isFirstSunGame = true; // Show tutorial finger on first game
         this._gameRound = 0; // Incremented each new game to guard against stale timeouts
-        this._singlePlayerWins = 0; // Track wins to hide "Press to select" after 3
+        this._singlePlayerWins = 0; // Track wins to hide tutorial elements progressively
 
         // Combined game state
         this.combinedGame = null; // { config, currentStage }
@@ -868,8 +868,8 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
-        // Tutorial: show a finger pointing to the double (1-player only, every game)
-        if (this.players.length === 1) {
+        // Tutorial: show a finger pointing to the double (1-player only, first 3 wins)
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 3) {
             this.showTutorialFinger();
         }
 
@@ -1880,8 +1880,9 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label (2-player only; 1-player uses tutorial finger + number keys)
-                if (numCards > 0 && this.players.length >= 2) {
+                // Add "Press" label (hide for 1-player after 4 wins)
+                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 4);
+                if (showPressLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
@@ -1951,8 +1952,8 @@ class VicaDominoGame {
 
                 tilesContainer.appendChild(dominoesWithKeys);
 
-                // Add "to select" label on the right (2-player only)
-                if (numCards > 0 && this.players.length >= 2) {
+                // Add "to select" label on the right (hide for 1-player after 4 wins)
+                if (showPressLabels) {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';

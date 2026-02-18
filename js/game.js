@@ -341,7 +341,7 @@ class VicaDominoGame {
     // Play tutorial voice: "Select double…"
     playSelectDoubleVoice() {
         try {
-            const audio = new Audio('audio/select-double.mp3?v=4');
+            const audio = new Audio('audio/select-double.mp3?v=5');
             audio.volume = 0.8;
             audio.play().catch(() => {});
         } catch (e) {

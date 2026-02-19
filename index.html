@@ -3397,37 +3397,56 @@
             var visibleCards = origCards.filter(function(c) { return !!markupMap[c.label]; });
             if (visibleCards.length === 0) return;
 
+            // Generate all unique pairs of different visible cards
+            var allPairs = [];
+            for (var i = 0; i < visibleCards.length; i++) {
+                for (var j = i + 1; j < visibleCards.length; j++) {
+                    allPairs.push([visibleCards[i].label, visibleCards[j].label]);
+                }
+            }
+            // Shuffle pairs for variety
+            for (var i = allPairs.length - 1; i > 0; i--) {
+                var r = Math.floor(Math.random() * (i + 1));
+                var tmp = allPairs[i]; allPairs[i] = allPairs[r]; allPairs[r] = tmp;
+            }
+
             var ns = 'http://www.w3.org/2000/svg';
 
             var svgEls = document.querySelectorAll('.level-dominos-svg');
 
             for (var s = 0; s < svgEls.length; s++) {
                 var svgEl = svgEls[s];
-                // Only iterate direct child <g> elements (domino groups)
+                // Collect all domino groups in this level SVG
+                var groups = [];
                 var children = svgEl.childNodes;
                 for (var c = 0; c < children.length; c++) {
                     var group = children[c];
                     if (group.nodeType !== 1 || group.tagName.toLowerCase() !== 'g') continue;
-
                     var faces = group.querySelectorAll('.level-domino-face');
-                    if (faces.length === 0) continue;
+                    if (faces.length >= 2) groups.push({ el: group, faces: faces });
+                }
+                if (groups.length === 0) continue;
 
-                    // Replace each face with card content using nested <svg>
-                    // Map face indices to visibleCards (wrapping around if needed)
-                    for (var f = 0; f < faces.length; f++) {
+                // Need enough unique pairs for all dominos in this level
+                if (allPairs.length < groups.length) continue;
+
+                // Assign a unique pair to each domino group
+                for (var g = 0; g < groups.length; g++) {
+                    var pair = allPairs[g];
+                    var faces = groups[g].faces;
+                    // Randomly flip which card goes on which half
+                    var flip = Math.random() < 0.5;
+                    var labels = flip ? [pair[1], pair[0]] : [pair[0], pair[1]];
+
+                    for (var f = 0; f < 2 && f < faces.length; f++) {
                         var face = faces[f];
-                        var idx = parseInt(face.getAttribute('data-face'));
-                        if (isNaN(idx)) continue;
-                        // Map to non-empty cards only, wrapping around
-                        var card = visibleCards[idx % visibleCards.length];
-                        var label = card.label;
+                        var label = labels[f];
                         var markup = markupMap[label];
                         var vb = viewBoxMap[label];
                         var x = parseFloat(face.getAttribute('x'));
                         var y = parseFloat(face.getAttribute('y'));
                         var sz = 24;
 
-                        // Use nested <svg> to preserve the card's own coordinate system
                         var nested = document.createElementNS(ns, 'svg');
                         nested.setAttribute('viewBox', vb);
                         nested.setAttribute('x', (x - sz / 2).toString());
@@ -3435,18 +3454,17 @@
                         nested.setAttribute('width', sz.toString());
                         nested.setAttribute('height', sz.toString());
                         nested.setAttribute('class', 'level-domino-img');
-                        nested.setAttribute('data-face', idx.toString());
+                        nested.setAttribute('data-face', f.toString());
                         nested.setAttribute('overflow', 'visible');
 
-                        // Use innerHTML to avoid cloneNode namespace issues
                         nested.innerHTML = markup;
 
-                        group.insertBefore(nested, face);
+                        groups[g].el.insertBefore(nested, face);
                         face.style.display = 'none';
                     }
 
-                    // Hide dots on this fully-replaced domino
-                    var dots = group.querySelectorAll('.level-domino-dot');
+                    // Hide dots on this domino
+                    var dots = groups[g].el.querySelectorAll('.level-domino-dot');
                     for (var d = 0; d < dots.length; d++) {
                         dots[d].style.display = 'none';
                     }

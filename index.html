@@ -3372,19 +3372,30 @@
 
             // Build a markup map: label -> innerHTML string
             // Prefer svgMarkupPools, fall back to serializing from svgPools
+            // Skip empty cards (no visible SVG content)
             var markupMap = {};
             var viewBoxMap = {};
             for (var i = 0; i < origCards.length; i++) {
                 var label = origCards[i].label;
+                var markup = '';
+                var vbox = '0 0 60 60';
                 if (svgMarkupPools && svgMarkupPools[label]) {
-                    markupMap[label] = svgMarkupPools[label];
-                    viewBoxMap[label] = '0 0 60 60';
+                    markup = svgMarkupPools[label];
                 } else if (svgPools[label] && svgPools[label].length > 0) {
                     var svgEl0 = svgPools[label][0];
-                    markupMap[label] = svgEl0.innerHTML;
-                    viewBoxMap[label] = svgEl0.getAttribute('viewBox') || '0 0 60 60';
+                    markup = svgEl0.innerHTML;
+                    vbox = svgEl0.getAttribute('viewBox') || '0 0 60 60';
+                }
+                // Only include non-empty cards
+                if (markup && markup.trim().length > 0) {
+                    markupMap[label] = markup;
+                    viewBoxMap[label] = vbox;
                 }
             }
+
+            // Build list of non-empty cards for face index mapping
+            var visibleCards = origCards.filter(function(c) { return !!markupMap[c.label]; });
+            if (visibleCards.length === 0) return;
 
             var ns = 'http://www.w3.org/2000/svg';
 
@@ -3401,25 +3412,15 @@
                     var faces = group.querySelectorAll('.level-domino-face');
                     if (faces.length === 0) continue;
 
-                    // Check if ALL faces in this domino have markup available
-                    var canReplace = true;
-                    for (var f = 0; f < faces.length; f++) {
-                        var idx = parseInt(faces[f].getAttribute('data-face'));
-                        if (isNaN(idx) || idx >= origCards.length) {
-                            canReplace = false; break;
-                        }
-                        var label = origCards[idx].label;
-                        if (!markupMap[label]) {
-                            canReplace = false; break;
-                        }
-                    }
-                    if (!canReplace) continue;
-
                     // Replace each face with card content using nested <svg>
+                    // Map face indices to visibleCards (wrapping around if needed)
                     for (var f = 0; f < faces.length; f++) {
                         var face = faces[f];
                         var idx = parseInt(face.getAttribute('data-face'));
-                        var label = origCards[idx].label;
+                        if (isNaN(idx)) continue;
+                        // Map to non-empty cards only, wrapping around
+                        var card = visibleCards[idx % visibleCards.length];
+                        var label = card.label;
                         var markup = markupMap[label];
                         var vb = viewBoxMap[label];
                         var x = parseFloat(face.getAttribute('x'));

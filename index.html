@@ -2928,11 +2928,13 @@
 
             var leftHalf = document.createElement('div');
             leftHalf.className = 'game-view-domino-half';
+            leftHalf.setAttribute('data-card-label', domino.leftCard.label);
             var leftSvg = getGameCardSVG(domino.leftCard);
             if (leftSvg) leftHalf.appendChild(leftSvg);
 
             var rightHalf = document.createElement('div');
             rightHalf.className = 'game-view-domino-half';
+            rightHalf.setAttribute('data-card-label', domino.rightCard.label);
             var rightSvg = getGameCardSVG(domino.rightCard);
             if (rightSvg) rightHalf.appendChild(rightSvg);
 
@@ -3737,25 +3739,54 @@
                 applyMppConfigToClone(svgClone, key);
             });
 
-            // Set up delegated click handler on game-view-cards for card picking
+            // Set up capturing click handler on game-view-cards
+            // Capture phase fires BEFORE target handlers, so we can freeze domino
+            // movement and intercept clicks for card picking.
             var gvCards = document.getElementById('game-view-cards');
-            if (mppCardClickHandler) gvCards.removeEventListener('click', mppCardClickHandler);
+            if (mppCardClickHandler) gvCards.removeEventListener('click', mppCardClickHandler, true);
             mppCardClickHandler = function(e) {
+                // Freeze domino-box movement: block .game-view-domino clicks
+                var dominoEl = e.target.closest('.game-view-domino');
+                if (dominoEl) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    // If active selection, try to pick card from clicked domino half
+                    if (mppActiveSelection) {
+                        var halfEl = e.target.closest('.game-view-domino-half');
+                        if (halfEl) {
+                            var label = halfEl.getAttribute('data-card-label');
+                            if (label) {
+                                // Read SVG from the half
+                                var svg = halfEl.querySelector('svg');
+                                if (svg && svg.innerHTML.trim()) {
+                                    mppMarkupMap[label] = svg.innerHTML;
+                                }
+                                if (mppMarkupMap[label]) {
+                                    mppAssignCard(label);
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // Handle card row clicks (.library-card)
                 if (!mppActiveSelection) return;
                 var card = e.target.closest('.library-card');
                 if (!card) return;
                 var lbl = card.querySelector('.library-label');
                 if (!lbl) return;
                 var label = lbl.textContent;
-                // Read SVG markup from the clicked card
                 var svg = card.querySelector('svg');
                 if (svg && svg.innerHTML.trim()) {
                     mppMarkupMap[label] = svg.innerHTML;
                 }
                 if (!mppMarkupMap[label]) return;
+                e.stopPropagation();
                 mppAssignCard(label);
             };
-            gvCards.addEventListener('click', mppCardClickHandler);
+            gvCards.addEventListener('click', mppCardClickHandler, true);
+            gvCards.classList.add('mpp-active');
 
             // Show panel
             var panel = document.getElementById('mpp-panel');
@@ -3912,7 +3943,8 @@
             var gvCards = document.getElementById('game-view-cards');
             if (gvCards) {
                 gvCards.classList.remove('mpp-pick-mode');
-                if (mppCardClickHandler) gvCards.removeEventListener('click', mppCardClickHandler);
+                gvCards.classList.remove('mpp-active');
+                if (mppCardClickHandler) gvCards.removeEventListener('click', mppCardClickHandler, true);
             }
             mppCardClickHandler = null;
             mppActiveSelection = null;

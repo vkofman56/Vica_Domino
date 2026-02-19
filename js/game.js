@@ -1879,8 +1879,8 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label (hide for 1-player after 2 wins)
-                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 2);
+                // Add "Press" label (hide for 1-player after 1 win)
+                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 1);
                 if (showPressLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';

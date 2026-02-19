@@ -144,6 +144,7 @@ class VicaDominoGame {
         this._isFirstSunGame = true; // Show tutorial finger on first game
         this._gameRound = 0; // Incremented each new game to guard against stale timeouts
         this._singlePlayerWins = 0; // Track wins to hide tutorial elements progressively
+        this._multiPlayerWins = 0; // Track completed rounds for 2+ players
 
         // Combined game state
         this.combinedGame = null; // { config, currentStage }
@@ -1466,6 +1467,7 @@ class VicaDominoGame {
 
                 // Check if all players have won
                 if (this.sunLevelWinners.length >= this.players.length) {
+                    this._multiPlayerWins = (this._multiPlayerWins || 0) + 1;
                     // All players found their doubles - start dimming
                     this.startPlayAreaDim();
                 }
@@ -1485,6 +1487,8 @@ class VicaDominoGame {
                 this.showNextTimerIndicator();
                 if (this.players.length === 1) {
                     this._singlePlayerWins = (this._singlePlayerWins || 0) + 1;
+                } else {
+                    this._multiPlayerWins = (this._multiPlayerWins || 0) + 1;
                 }
                 this.gamePhase = 'sunLevelWon';
                 this.showEndGameButtons();
@@ -1894,8 +1898,12 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label (hide for 1-player after 1 win)
-                const showPressLabels = numCards > 0 && (this.players.length >= 2 || (this._singlePlayerWins || 0) < 1);
+                // Add "Press" label: hide for 1-player after Win0, hide for 2+ players after Win1
+                const showPressLabels = numCards > 0 && (
+                    this.players.length >= 2
+                        ? (this._multiPlayerWins || 0) < 2
+                        : (this._singlePlayerWins || 0) < 1
+                );
                 if (showPressLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
@@ -3299,6 +3307,7 @@ class VicaDominoGame {
         this.currentTimerDuration = 20; // Reset adaptive timer
         this.consecutiveWinsAtMin = 0;
         this._singlePlayerWins = 0; // Reset tutorial progression
+        this._multiPlayerWins = 0;
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';

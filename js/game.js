@@ -874,7 +874,7 @@ class VicaDominoGame {
         document.querySelector('.turn-indicator').style.display = 'none';
 
         // Update status
-        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 3) {
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
             this.updateStatus('🌞 Select double by pressing it', 'highlight');
         } else if (this.includeXeno) {
             this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');

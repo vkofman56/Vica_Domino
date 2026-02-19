@@ -1685,6 +1685,9 @@
                         info.originalLabel = card.dataset.originalLabel;
                         info.transform = card.dataset.transform;
                     }
+                    // Store SVG markup for self-contained game data
+                    var cardSvgEl = card.querySelector('svg');
+                    if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
                     gameMakerSelected.push(info);
                 }
                 return;
@@ -2424,6 +2427,9 @@
                                 info.originalLabel = ec.originalLabel;
                                 info.transform = ec.transform;
                             }
+                            // Store SVG markup for self-contained game data
+                            var cardSvgEl = cardEl.querySelector('svg');
+                            if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
                             gameMakerSelected.push(info);
                             matched[ecKey] = true;
                         }
@@ -3260,10 +3266,24 @@
 
             // Build SVG pools: for each card, original + its non-excluded variations
             var svgPools = {};
+            // Also build markup-based pools for level icon previews (more robust)
+            var svgMarkupPools = {};
             origCards.forEach(function(c) {
                 var pool = [];
                 var svg = getGameCardSVG(c);
                 if (svg) pool.push(svg);
+                // Store SVG markup from DOM or from saved game data
+                if (svg) {
+                    svgMarkupPools[c.label] = svg.innerHTML;
+                } else if (c.svgMarkup) {
+                    // Fallback: use stored markup from game data
+                    svgMarkupPools[c.label] = c.svgMarkup;
+                    // Also create an SVG element for the pool
+                    var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    fallbackSvg.setAttribute('viewBox', '0 0 60 60');
+                    fallbackSvg.innerHTML = c.svgMarkup;
+                    pool.push(fallbackSvg);
+                }
                 var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
                 cardVars.forEach(function(v) {
                     var vKey = getVariationKey(v.originalLabel, v.transform);
@@ -3321,9 +3341,8 @@
             });
 
             // Update level button icons with images from this game
-            console.log('[startCustomGame] Calling updateLevelDominoIcons with ' + origCards.length + ' cards, pool keys: ' + Object.keys(svgPools).join(', '));
             try {
-                updateLevelDominoIcons(origCards, svgPools);
+                updateLevelDominoIcons(origCards, svgPools, svgMarkupPools);
             } catch(e) {
                 console.error('[startCustomGame] updateLevelDominoIcons error:', e);
             }
@@ -3343,12 +3362,28 @@
         }
 
         // Update level button domino icons with custom game card images
-        function updateLevelDominoIcons(origCards, svgPools) {
+        function updateLevelDominoIcons(origCards, svgPools, svgMarkupPools) {
             // Reset any previous replacements first
             resetLevelDominoIcons();
 
             if (!origCards || origCards.length === 0) {
                 return;
+            }
+
+            // Build a markup map: label -> innerHTML string
+            // Prefer svgMarkupPools, fall back to serializing from svgPools
+            var markupMap = {};
+            var viewBoxMap = {};
+            for (var i = 0; i < origCards.length; i++) {
+                var label = origCards[i].label;
+                if (svgMarkupPools && svgMarkupPools[label]) {
+                    markupMap[label] = svgMarkupPools[label];
+                    viewBoxMap[label] = '0 0 60 60';
+                } else if (svgPools[label] && svgPools[label].length > 0) {
+                    var svgEl0 = svgPools[label][0];
+                    markupMap[label] = svgEl0.innerHTML;
+                    viewBoxMap[label] = svgEl0.getAttribute('viewBox') || '0 0 60 60';
+                }
             }
 
             var ns = 'http://www.w3.org/2000/svg';
@@ -3366,7 +3401,7 @@
                     var faces = group.querySelectorAll('.level-domino-face');
                     if (faces.length === 0) continue;
 
-                    // Check if ALL faces in this domino have valid SVG pools
+                    // Check if ALL faces in this domino have markup available
                     var canReplace = true;
                     for (var f = 0; f < faces.length; f++) {
                         var idx = parseInt(faces[f].getAttribute('data-face'));
@@ -3374,24 +3409,22 @@
                             canReplace = false; break;
                         }
                         var label = origCards[idx].label;
-                        if (!svgPools[label] || svgPools[label].length === 0) {
+                        if (!markupMap[label]) {
                             canReplace = false; break;
                         }
                     }
                     if (!canReplace) continue;
 
-                    // Replace each face with card content using nested <svg> for robust rendering
+                    // Replace each face with card content using nested <svg>
                     for (var f = 0; f < faces.length; f++) {
                         var face = faces[f];
                         var idx = parseInt(face.getAttribute('data-face'));
                         var label = origCards[idx].label;
-                        var cardSvg = svgPools[label][0];
+                        var markup = markupMap[label];
+                        var vb = viewBoxMap[label];
                         var x = parseFloat(face.getAttribute('x'));
                         var y = parseFloat(face.getAttribute('y'));
                         var sz = 24;
-
-                        // Get viewBox from the card SVG
-                        var vb = cardSvg.getAttribute('viewBox') || '0 0 60 60';
 
                         // Use nested <svg> to preserve the card's own coordinate system
                         var nested = document.createElementNS(ns, 'svg');
@@ -3403,17 +3436,9 @@
                         nested.setAttribute('class', 'level-domino-img');
                         nested.setAttribute('data-face', idx.toString());
                         nested.setAttribute('overflow', 'visible');
-                        // Inline style to prevent parent CSS from overriding dimensions
-                        nested.style.width = sz + 'px';
-                        nested.style.height = sz + 'px';
-                        nested.style.display = 'inline';
 
-                        // Clone all card SVG children into nested svg
-                        var cloned = cardSvg.cloneNode(true);
-                        var kids = Array.from(cloned.childNodes);
-                        for (var k = 0; k < kids.length; k++) {
-                            nested.appendChild(kids[k]);
-                        }
+                        // Use innerHTML to avoid cloneNode namespace issues
+                        nested.innerHTML = markup;
 
                         group.insertBefore(nested, face);
                         face.style.display = 'none';

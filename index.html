@@ -3348,14 +3348,12 @@
             resetLevelDominoIcons();
 
             if (!origCards || origCards.length === 0) {
-                console.log('[LevelIcons] No origCards, skipping');
                 return;
             }
 
             var ns = 'http://www.w3.org/2000/svg';
 
             var svgEls = document.querySelectorAll('.level-dominos-svg');
-            console.log('[LevelIcons] Found ' + svgEls.length + ' level SVGs, origCards: ' + origCards.length);
 
             for (var s = 0; s < svgEls.length; s++) {
                 var svgEl = svgEls[s];
@@ -3373,18 +3371,16 @@
                     for (var f = 0; f < faces.length; f++) {
                         var idx = parseInt(faces[f].getAttribute('data-face'));
                         if (isNaN(idx) || idx >= origCards.length) {
-                            console.log('[LevelIcons] Face idx ' + idx + ' out of range (origCards.length=' + origCards.length + ')');
                             canReplace = false; break;
                         }
                         var label = origCards[idx].label;
                         if (!svgPools[label] || svgPools[label].length === 0) {
-                            console.log('[LevelIcons] No pool for label "' + label + '"');
                             canReplace = false; break;
                         }
                     }
                     if (!canReplace) continue;
 
-                    // Replace each face with card content in a positioned/scaled <g>
+                    // Replace each face with card content using nested <svg> for robust rendering
                     for (var f = 0; f < faces.length; f++) {
                         var face = faces[f];
                         var idx = parseInt(face.getAttribute('data-face'));
@@ -3394,28 +3390,28 @@
                         var y = parseFloat(face.getAttribute('y'));
                         var sz = 24;
 
-                        // Get viewBox dimensions for scaling
-                        var vb = (cardSvg.getAttribute('viewBox') || '0 0 60 60').split(/[\s,]+/);
-                        var vbW = parseFloat(vb[2]) || 60;
-                        var vbH = parseFloat(vb[3]) || 60;
-                        var scale = sz / Math.max(vbW, vbH);
+                        // Get viewBox from the card SVG
+                        var vb = cardSvg.getAttribute('viewBox') || '0 0 60 60';
 
-                        // Create wrapper <g> that positions and scales card content
-                        var wrapper = document.createElementNS(ns, 'g');
-                        var tx = x - (vbW * scale / 2);
-                        var ty = y - (vbH * scale / 2);
-                        wrapper.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + scale + ')');
-                        wrapper.setAttribute('class', 'level-domino-img');
-                        wrapper.setAttribute('data-face', idx.toString());
+                        // Use nested <svg> to preserve the card's own coordinate system
+                        var nested = document.createElementNS(ns, 'svg');
+                        nested.setAttribute('viewBox', vb);
+                        nested.setAttribute('x', (x - sz / 2).toString());
+                        nested.setAttribute('y', (y - sz / 2).toString());
+                        nested.setAttribute('width', sz.toString());
+                        nested.setAttribute('height', sz.toString());
+                        nested.setAttribute('class', 'level-domino-img');
+                        nested.setAttribute('data-face', idx.toString());
+                        nested.setAttribute('overflow', 'visible');
 
-                        // Clone card SVG children into wrapper
+                        // Clone all card SVG children into nested svg
                         var cloned = cardSvg.cloneNode(true);
                         var kids = Array.from(cloned.childNodes);
                         for (var k = 0; k < kids.length; k++) {
-                            if (kids[k].nodeType === 1) wrapper.appendChild(kids[k]);
+                            nested.appendChild(kids[k]);
                         }
 
-                        group.insertBefore(wrapper, face);
+                        group.insertBefore(nested, face);
                         face.style.display = 'none';
                     }
 
@@ -3424,7 +3420,6 @@
                     for (var d = 0; d < dots.length; d++) {
                         dots[d].style.display = 'none';
                     }
-                    console.log('[LevelIcons] Replaced ' + faces.length + ' faces in a domino group');
                 }
             }
         }

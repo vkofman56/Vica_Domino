@@ -855,6 +855,9 @@ class VicaDominoGame {
         this.firstWinTimestamp = null;
         this.isTie = false;
 
+        // Save first-game state before dealing (dealing clears _isFirstSunGame)
+        this._isFirstSunGameRound = this._isFirstSunGame;
+
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
         this.dealSunLevelCards();
 
@@ -885,11 +888,18 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
-        // Tutorial: show a finger pointing to the double (1-player only, first win)
+        // Tutorial: show a finger pointing to the double (first game / Win0)
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
             // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
-            requestAnimationFrame(() => this.showTutorialFinger());
+            requestAnimationFrame(() => this.showTutorialFinger(0));
             this.playSelectDoubleVoice();
+        } else if (this.players.length >= 2 && this._isFirstSunGameRound) {
+            // 2+ players: show tutorial finger for each player on Win0
+            requestAnimationFrame(() => {
+                for (let i = 0; i < this.players.length; i++) {
+                    this.showTutorialFinger(i);
+                }
+            });
         }
 
         // Show Xeno timer only if Xeno is included
@@ -976,9 +986,8 @@ class VicaDominoGame {
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
 
-            // First game only (1-player): place the double as the rightmost card
-            if (this._isFirstSunGame && this.players.length === 1) {
-                this._isFirstSunGame = false;
+            // First game only: place the double as the rightmost card (all modes)
+            if (this._isFirstSunGame) {
                 const dblIdx = player.hand.findIndex(c => isDouble(c));
                 const lastIdx = player.hand.length - 1;
                 if (dblIdx >= 0 && dblIdx !== lastIdx) {
@@ -1014,6 +1023,11 @@ class VicaDominoGame {
                 if (recent.length > 2) recent.shift();
             }
         });
+
+        // Clear first-game flag after dealing to all players
+        if (this._isFirstSunGame) {
+            this._isFirstSunGame = false;
+        }
 
         // Update recent history: doubles keep last 2 rounds, non-doubles keep last 1 round
         this.recentDoubles = this.recentDoubles.concat(thisRoundDoubles);
@@ -1293,8 +1307,9 @@ class VicaDominoGame {
     }
 
     // First-game tutorial: show a bobbing finger, "double" label, and floating number keys
-    showTutorialFinger() {
-        const player = this.players[0];
+    showTutorialFinger(playerIndex = 0) {
+        const player = this.players[playerIndex];
+        if (!player) return;
         const doubleIdx = player.hand.findIndex(c => isDouble(c));
         if (doubleIdx < 0) return;
 
@@ -1913,8 +1928,11 @@ class VicaDominoGame {
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // 1-player mode: show blinking "double" label only while tutorial finger is present (first win)
-                    if (this.players.length === 1 && isDouble(card) && (this._singlePlayerWins || 0) < 1) {
+                    // Show blinking "double" label on first game (Win0) for all modes
+                    const isFirstGame = this.players.length === 1
+                        ? (this._singlePlayerWins || 0) < 1
+                        : this._isFirstSunGameRound;
+                    if (isDouble(card) && isFirstGame) {
                         const dblLabel = document.createElement('span');
                         dblLabel.className = 'domino-double-label';
                         dblLabel.textContent = 'double';
@@ -1924,24 +1942,24 @@ class VicaDominoGame {
                     // Add key label under this domino (2-player only; 1-player shows keyboard on click)
                     if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2) {
                         const keyLabel = document.createElement('span');
-                        keyLabel.className = 'key clickable-key';
+                        keyLabel.className = 'key';
                         keyLabel.textContent = keys[cardIndex];
+                        // Keyboard popup on hover over key label
                         keyLabel.addEventListener('mouseenter', () => {
                             this.showKeyboardPopup(keys[cardIndex], keyLabel);
                         });
                         keyLabel.addEventListener('mouseleave', () => {
                             this.hideKeyboardPopup();
                         });
-                        const keyLabelAction = () => {
-                            this.hideKeyboardPopup();
-                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                        };
-                        keyLabel.addEventListener('click', keyLabelAction);
-                        keyLabel.addEventListener('touchstart', (e) => {
-                            e.preventDefault();
-                            keyLabelAction();
-                        }, { passive: false });
                         dominoWrapper.appendChild(keyLabel);
+
+                        // Keyboard popup on hover over domino image
+                        dominoEl.addEventListener('mouseenter', () => {
+                            this.showKeyboardPopup(keys[cardIndex], keyLabel);
+                        });
+                        dominoEl.addEventListener('mouseleave', () => {
+                            this.hideKeyboardPopup();
+                        });
                     }
 
                     dominoesWithKeys.appendChild(dominoWrapper);

@@ -1947,8 +1947,8 @@ class VicaDominoGame {
                         dominoWrapper.appendChild(dblLabel);
                     }
 
-                    // Add key label under this domino (2-player only; 1-player shows keyboard on click)
-                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2) {
+                    // Add key label under this domino (2-player only; hide from Win2 onward)
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2 && (this._multiPlayerWins || 0) < 2) {
                         const keyLabel = document.createElement('span');
                         keyLabel.className = 'key';
                         keyLabel.textContent = keys[cardIndex];

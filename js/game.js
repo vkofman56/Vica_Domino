@@ -255,9 +255,13 @@ class VicaDominoGame {
                 const cardIndex = player1Keys[key];
                 const player = this.players[0];
                 if (player.hand[cardIndex]) {
-                    this.showFingerPush(0, cardIndex, () => {
+                    if ((this._singlePlayerWins || 0) < 1) {
+                        this.showFingerPush(0, cardIndex, () => {
+                            this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                        });
+                    } else {
                         this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
-                    });
+                    }
                 }
             }
         } else if (this.players.length === 2) {
@@ -881,8 +885,8 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
-        // Tutorial: show a finger pointing to the double (1-player only, first 2 wins)
-        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 2) {
+        // Tutorial: show a finger pointing to the double (1-player only, first win)
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
             // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
             requestAnimationFrame(() => this.showTutorialFinger());
             this.playSelectDoubleVoice();
@@ -1909,8 +1913,8 @@ class VicaDominoGame {
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // 1-player mode: show blinking "double" label only while tutorial finger is present (first 2 wins)
-                    if (this.players.length === 1 && isDouble(card) && (this._singlePlayerWins || 0) < 2) {
+                    // 1-player mode: show blinking "double" label only while tutorial finger is present (first win)
+                    if (this.players.length === 1 && isDouble(card) && (this._singlePlayerWins || 0) < 1) {
                         const dblLabel = document.createElement('span');
                         dblLabel.className = 'domino-double-label';
                         dblLabel.textContent = 'double';

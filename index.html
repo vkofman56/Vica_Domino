@@ -3401,21 +3401,26 @@
                 return;
             }
 
-            // Build a markup map: label -> innerHTML string
+            // Build maps: label -> innerHTML string and label -> SVG element
             // Prefer svgMarkupPools, fall back to serializing from svgPools
             // Skip empty cards (no visible SVG content)
             var markupMap = {};
             var viewBoxMap = {};
+            var svgElementMap = {};
             for (var i = 0; i < origCards.length; i++) {
                 var label = origCards[i].label;
                 var markup = '';
                 var vbox = '0 0 60 60';
                 if (svgMarkupPools && svgMarkupPools[label]) {
                     markup = svgMarkupPools[label];
-                } else if (svgPools[label] && svgPools[label].length > 0) {
+                }
+                if (svgPools[label] && svgPools[label].length > 0) {
                     var svgEl0 = svgPools[label][0];
-                    markup = svgEl0.innerHTML;
+                    if (!markup) {
+                        markup = svgEl0.innerHTML;
+                    }
                     vbox = svgEl0.getAttribute('viewBox') || '0 0 60 60';
+                    svgElementMap[label] = svgEl0;
                 }
                 if (markup && markup.trim().length > 0) {
                     markupMap[label] = markup;
@@ -3517,7 +3522,17 @@
                         nested.setAttribute('data-face', f.toString());
                         nested.setAttribute('overflow', 'visible');
 
-                        nested.innerHTML = markup;
+                        // Clone SVG children directly to preserve namespaces
+                        // (innerHTML can lose SVG namespace on <text> elements)
+                        var srcEl = svgElementMap[label];
+                        if (srcEl) {
+                            var srcClone = srcEl.cloneNode(true);
+                            while (srcClone.firstChild) {
+                                nested.appendChild(srcClone.firstChild);
+                            }
+                        } else {
+                            nested.innerHTML = markup;
+                        }
 
                         groups[g].el.insertBefore(nested, face);
                         face.style.display = 'none';
@@ -3582,9 +3597,10 @@
         // === Main Page Pictures (MPP) Editor ===
         var mppGameIndex = -1;
         var mppConfig = {}; // { circle: [{top,bottom},...], triangle: [...], star: [...] }
-        var mppMarkupMap = {}; // label -> svgInnerHTML
+        var mppMarkupMap = {}; // label -> svgInnerHTML (for existence checking)
+        var mppSvgElements = {}; // label -> SVG element reference (for cloning)
         var mppActiveSelection = null; // { levelKey, dominoIdx, half } or null
-        var mppCardClickHandler = null; // delegated click handler on game-view-cards
+        var mppCardClickHandler = null; // capture-phase click handler on game-view-cards
 
         function openMppFromStart() {
             if (activeCustomGameIndex < 0) return;
@@ -3602,8 +3618,9 @@
             mppGameIndex = gameIndex;
             mppActiveSelection = null;
 
-            // Build markup map from game view cards (they're already rendered)
+            // Build maps from game view cards (they're already rendered)
             mppMarkupMap = {};
+            mppSvgElements = {};
             var gameViewCards = document.querySelectorAll('#game-view-cards .library-card');
             gameViewCards.forEach(function(cardEl) {
                 var lbl = cardEl.querySelector('.library-label');
@@ -3612,6 +3629,7 @@
                 var svg = cardEl.querySelector('svg');
                 if (svg && svg.innerHTML.trim().length > 0) {
                     mppMarkupMap[label] = svg.innerHTML;
+                    mppSvgElements[label] = svg;
                 }
             });
 
@@ -3756,10 +3774,10 @@
                         if (halfEl) {
                             var label = halfEl.getAttribute('data-card-label');
                             if (label) {
-                                // Read SVG from the half
                                 var svg = halfEl.querySelector('svg');
                                 if (svg && svg.innerHTML.trim()) {
                                     mppMarkupMap[label] = svg.innerHTML;
+                                    mppSvgElements[label] = svg;
                                 }
                                 if (mppMarkupMap[label]) {
                                     mppAssignCard(label);
@@ -3780,6 +3798,7 @@
                 var svg = card.querySelector('svg');
                 if (svg && svg.innerHTML.trim()) {
                     mppMarkupMap[label] = svg.innerHTML;
+                    mppSvgElements[label] = svg;
                 }
                 if (!mppMarkupMap[label]) return;
                 e.stopPropagation();
@@ -3866,7 +3885,6 @@
                         return;
                     }
 
-                    var markup = mppMarkupMap[h.label];
                     var x = parseFloat(h.face.getAttribute('x'));
                     var y = parseFloat(h.face.getAttribute('y'));
                     var sz = 24;
@@ -3881,7 +3899,18 @@
                     nested.setAttribute('data-mpp-face', h.dataFace);
                     nested.setAttribute('data-mpp-domino', dominoIdx.toString());
                     nested.setAttribute('overflow', 'visible');
-                    nested.innerHTML = markup;
+
+                    // Clone SVG children directly to preserve namespaces
+                    // (innerHTML can lose SVG namespace on <text> elements)
+                    var srcSvg = mppSvgElements[h.label];
+                    if (srcSvg) {
+                        var srcClone = srcSvg.cloneNode(true);
+                        while (srcClone.firstChild) {
+                            nested.appendChild(srcClone.firstChild);
+                        }
+                    } else if (mppMarkupMap[h.label]) {
+                        nested.innerHTML = mppMarkupMap[h.label];
+                    }
 
                     grp.insertBefore(nested, h.face);
                     h.face.style.display = 'none';
@@ -3948,6 +3977,7 @@
             }
             mppCardClickHandler = null;
             mppActiveSelection = null;
+            mppSvgElements = {};
             mppGameIndex = -1;
         }
 

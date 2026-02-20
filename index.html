@@ -1764,6 +1764,62 @@
             header.appendChild(closeBtn);
             box.appendChild(header);
 
+            // Color palette
+            var palette = document.createElement('div');
+            palette.className = 'color-palette-section';
+
+            var palModeRow = document.createElement('div');
+            palModeRow.className = 'color-palette-modes';
+            var palModes = [
+                { key: 'picture', label: 'Picture' },
+                { key: 'text', label: 'Text' }
+            ];
+            var activePalMode = 'picture';
+            palModes.forEach(function(m) {
+                var btn = document.createElement('button');
+                btn.className = 'color-palette-mode-btn' + (m.key === activePalMode ? ' active' : '');
+                btn.textContent = m.label;
+                btn.dataset.mode = m.key;
+                btn.onclick = function(e) {
+                    e.stopPropagation();
+                    activePalMode = m.key;
+                    palModeRow.querySelectorAll('.color-palette-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                };
+                palModeRow.appendChild(btn);
+            });
+            palette.appendChild(palModeRow);
+
+            var colors = [
+                { color: '#333333', name: 'Black' },
+                { color: '#CC0000', name: 'Red' },
+                { color: '#0066CC', name: 'Blue' },
+                { color: '#008800', name: 'Green' },
+                { color: '#FF8C00', name: 'Orange' },
+                { color: '#8B008B', name: 'Purple' },
+                { color: '#8B4513', name: 'Brown' },
+                { color: '#FF69B4', name: 'Pink' },
+                { color: '#808080', name: 'Gray' },
+                { color: '#FFFFFF', name: 'White' }
+            ];
+
+            var swatchRow = document.createElement('div');
+            swatchRow.className = 'color-palette-swatches';
+            colors.forEach(function(c) {
+                var swatch = document.createElement('button');
+                swatch.className = 'color-swatch';
+                swatch.style.background = c.color;
+                if (c.color === '#FFFFFF') swatch.style.border = '1px solid #999';
+                swatch.title = c.name;
+                swatch.onclick = function(e) {
+                    e.stopPropagation();
+                    applyColorToCard(card, c.color, activePalMode);
+                };
+                swatchRow.appendChild(swatch);
+            });
+            palette.appendChild(swatchRow);
+            box.appendChild(palette);
+
             // Variation previews
             const items = document.createElement('div');
             items.className = 'variation-items';
@@ -1815,6 +1871,48 @@
                 activeVariationBox.remove();
                 activeVariationBox = null;
                 activeVariationCard = null;
+            }
+        }
+
+        function applyColorToCard(card, color, mode) {
+            var svg = card.querySelector('svg');
+            if (!svg) return;
+
+            var elements = svg.querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline');
+            var textElements = svg.querySelectorAll('text');
+
+            if (mode === 'picture') {
+                for (var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    var fill = el.getAttribute('fill');
+                    var stroke = el.getAttribute('stroke');
+                    // Hollow elements (fill=none): change stroke color
+                    if (fill === 'none' && stroke) {
+                        el.setAttribute('stroke', color);
+                    } else if (fill && fill !== 'none') {
+                        el.setAttribute('fill', color);
+                    }
+                }
+                // Also color stamp <g> children (polygons, circles inside groups)
+                var stampGroups = svg.querySelectorAll('g.draw-placed');
+                for (var g = 0; g < stampGroups.length; g++) {
+                    var innerEls = stampGroups[g].querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline');
+                    for (var j = 0; j < innerEls.length; j++) {
+                        var el = innerEls[j];
+                        var fill = el.getAttribute('fill');
+                        if (fill && fill !== 'none') {
+                            el.setAttribute('fill', color);
+                        }
+                        var stroke = el.getAttribute('stroke');
+                        if (stroke) {
+                            el.setAttribute('stroke', color);
+                        }
+                    }
+                }
+            } else if (mode === 'text') {
+                for (var i = 0; i < textElements.length; i++) {
+                    textElements[i].setAttribute('fill', color);
+                }
             }
         }
 

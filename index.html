@@ -4653,6 +4653,46 @@
             container.appendChild(btn);
         }
 
+        // === Create built-in ABC game if it doesn't exist ===
+        function ensureAbcGameExists() {
+            var games = loadCustomGames();
+            // Check if ABC game already exists
+            for (var i = 0; i < games.length; i++) {
+                if (games[i].name === 'ABC') return;
+            }
+            // Build the ABC game from card library (groups A through E)
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!content) return;
+            var abcCards = [];
+            var targetGroups = ['A', 'B', 'C', 'D', 'E'];
+            var allCards = content.querySelectorAll('.library-card');
+            allCards.forEach(function(card) {
+                var labelEl = card.querySelector('.library-label');
+                if (!labelEl) return;
+                var label = labelEl.textContent;
+                var firstChar = label.charAt(0).toUpperCase();
+                if (targetGroups.indexOf(firstChar) < 0) return;
+                // Skip variation cards
+                if (card.classList.contains('variation')) return;
+                var svg = card.querySelector('svg');
+                var markup = svg ? svg.innerHTML : '';
+                abcCards.push({
+                    label: label,
+                    isVariation: false,
+                    svgMarkup: markup
+                });
+            });
+            if (abcCards.length === 0) return;
+            games.push({
+                name: 'ABC',
+                description: 'Numbers and dots, 0-4',
+                cards: abcCards,
+                flipEnabled: false
+            });
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+        }
+        ensureAbcGameExists();
+
         // Initialize game lists on page load
         populateLibraryGames();
         populateStartScreenGames();

@@ -551,6 +551,16 @@
 
                 <div id="card-set-abc" class="card-set-content" style="display:none;"></div>
             </div>
+            <!-- Save/Cancel overlay for Card Maker -->
+            <div id="card-maker-save-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+                <div style="background:#2a2a3e; border-radius:16px; padding:28px 32px; text-align:center; color:white; max-width:320px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                    <p style="font-size:1.15rem; margin:0 0 20px;">Save your changes?</p>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button onclick="saveAndLeaveCardMaker()" style="padding:10px 28px; border-radius:10px; border:none; background:#4CAF50; color:white; font-size:1rem; font-weight:600; cursor:pointer;">Save</button>
+                        <button onclick="discardAndLeaveCardMaker()" style="padding:10px 28px; border-radius:10px; border:none; background:#e74c3c; color:white; font-size:1rem; font-weight:600; cursor:pointer;">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Game Screen -->
@@ -1901,7 +1911,7 @@
                 addNewDrawnCard(cleanSvg, pendingNewCardName);
                 pendingNewCardName = null;
             }
-            // Save variations (triggers localStorage save)
+            // Save variations (triggers localStorage save + marks dirty)
             if (typeof saveVariations === 'function') saveVariations();
             drawHistory = [];
             hasEditedExisting = false;
@@ -2594,6 +2604,8 @@
             localStorage.setItem('cardMakerVariations', JSON.stringify(data));
             // Also save custom drawn cards and edited built-in cards
             saveCustomCards();
+            // Mark as dirty for save/cancel prompt
+            cardMakerDirty = true;
         }
 
         // --- Persistence: save/load custom drawn cards to localStorage ---
@@ -3746,7 +3758,8 @@
                 if (numbersDiv) numbersDiv.style.display = '';
                 if (abcDiv) abcDiv.style.display = 'none';
             }
-            // Navigate to Card Maker
+            // Snapshot state before editing, navigate to Card Maker
+            snapshotCardMakerState();
             document.getElementById('card-library-screen').style.display = 'none';
             document.getElementById('domino-library-screen').style.display = 'block';
         }
@@ -3757,6 +3770,16 @@
             container.innerHTML = '';
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
+            // Load saved edits for ABC cards
+            var editMap = {};
+            try {
+                var edits = localStorage.getItem('editedBuiltinCards');
+                if (edits) {
+                    JSON.parse(edits).forEach(function(item) {
+                        editMap[item.label] = item.svgContent;
+                    });
+                }
+            } catch(e) {}
             letters.forEach(function(letter, li) {
                 // Red separator line between groups
                 var section = document.createElement('div');
@@ -3778,7 +3801,11 @@
                     preview.className = 'domino-half-preview';
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    if (n <= 2) {
+                    if (editMap[label]) {
+                        // Restore saved edit
+                        svg.innerHTML = editMap[label];
+                        card.dataset.edited = 'true';
+                    } else if (n <= 2) {
                         var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                         text.setAttribute('x', '30');
                         text.setAttribute('y', '46');
@@ -3799,6 +3826,119 @@
                 }
                 container.appendChild(row);
             });
+        }
+
+        // === Sync ABC Card Maker edits to the savedCustomGames entry ===
+        // Card Maker uses labels A1,A2..., game uses A01,A02... to avoid conflicts with Numbers set
+        function cardMakerLabelToGameLabel(cmLabel) {
+            // A1 -> A01, B2 -> B02, etc.
+            var m = cmLabel.match(/^([A-E])(\d)$/);
+            return m ? m[1] + '0' + m[2] : cmLabel;
+        }
+        function syncAbcCardsToGame() {
+            var container = document.getElementById('card-set-abc');
+            if (!container) return;
+            var games = loadCustomGames();
+            var abcIdx = -1;
+            for (var i = 0; i < games.length; i++) {
+                if (games[i].name === 'ABC') { abcIdx = i; break; }
+            }
+            if (abcIdx < 0) return;
+            // Build a map of current Card Maker card markups keyed by game label
+            var markupMap = {};
+            container.querySelectorAll('.library-card').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                var svg = card.querySelector('svg');
+                if (!lbl || !svg) return;
+                var markup = svg.innerHTML.trim();
+                if (!markup) return;
+                var gameLabel = cardMakerLabelToGameLabel(lbl.textContent);
+                markupMap[gameLabel] = markup;
+            });
+            // Update svgMarkup on existing game cards (preserve labels and structure)
+            var changed = false;
+            games[abcIdx].cards.forEach(function(c) {
+                if (markupMap[c.label] && markupMap[c.label] !== c.svgMarkup) {
+                    c.svgMarkup = markupMap[c.label];
+                    changed = true;
+                }
+            });
+            if (changed) {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
+        }
+
+        // === Card Maker dirty tracking & save/cancel on leave ===
+        var cardMakerDirty = false;
+        var _cmSnapshot = {}; // localStorage snapshot taken on entry
+
+        // Take a snapshot of Card Maker-related localStorage on entry
+        function snapshotCardMakerState() {
+            _cmSnapshot = {
+                editedBuiltinCards: localStorage.getItem('editedBuiltinCards'),
+                customDrawnCards: localStorage.getItem('customDrawnCards'),
+                cardMakerVariations: localStorage.getItem('cardMakerVariations')
+            };
+            cardMakerDirty = false;
+        }
+
+        // Restore localStorage from snapshot (discard session changes)
+        function restoreCardMakerSnapshot() {
+            ['editedBuiltinCards', 'customDrawnCards', 'cardMakerVariations'].forEach(function(key) {
+                if (_cmSnapshot[key] === null || _cmSnapshot[key] === undefined) {
+                    localStorage.removeItem(key);
+                } else {
+                    localStorage.setItem(key, _cmSnapshot[key]);
+                }
+            });
+        }
+
+        // Called when user presses back from Card Maker
+        function leaveCardMaker() {
+            if (cardMakerDirty) {
+                showCardMakerSavePrompt();
+                return;
+            }
+            // No changes — just leave
+            document.getElementById('domino-library-screen').style.display = 'none';
+            document.getElementById('card-library-screen').style.display = 'block';
+        }
+
+        function saveAndLeaveCardMaker() {
+            // edits are already saved to editedBuiltinCards/etc by drawSave
+            // Also sync ABC cards to savedCustomGames if ABC set is active
+            if (activeCardSet === 'abc') {
+                syncAbcCardsToGame();
+            }
+            cardMakerDirty = false;
+            hideCardMakerSavePrompt();
+            document.getElementById('domino-library-screen').style.display = 'none';
+            document.getElementById('card-library-screen').style.display = 'block';
+        }
+
+        function discardAndLeaveCardMaker() {
+            // Restore localStorage to pre-editing state
+            restoreCardMakerSnapshot();
+            cardMakerDirty = false;
+            hideCardMakerSavePrompt();
+            // Rebuild DOM from restored state
+            if (activeCardSet === 'abc') {
+                buildAbcCardSet();
+            } else {
+                loadCustomCards();
+            }
+            document.getElementById('domino-library-screen').style.display = 'none';
+            document.getElementById('card-library-screen').style.display = 'block';
+        }
+
+        function showCardMakerSavePrompt() {
+            var overlay = document.getElementById('card-maker-save-overlay');
+            if (overlay) overlay.style.display = 'flex';
+        }
+
+        function hideCardMakerSavePrompt() {
+            var overlay = document.getElementById('card-maker-save-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
 
         // === Introductory Page ===
@@ -4841,8 +4981,9 @@
             container.appendChild(btn);
         }
 
-        // === Create or update built-in ABC game ===
-        function buildAbcCards() {
+        // === Create built-in ABC game (only if it does not exist) ===
+        // Game card labels use "A01" format to avoid clashing with Numbers & Dots "A1"
+        function buildDefaultAbcGameCards() {
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
             var abcCards = [];
@@ -4862,27 +5003,32 @@
         }
         function ensureAbcGameExists() {
             var games = loadCustomGames();
-            var abcCards = buildAbcCards();
-            // Find existing ABC game
             for (var i = 0; i < games.length; i++) {
                 if (games[i].name === 'ABC') {
-                    // Ensure cards have svgMarkup (migrate old data)
-                    var needsUpdate = false;
+                    // Ensure all cards have svgMarkup (one-time migration for old data)
+                    var hasMissing = false;
                     for (var j = 0; j < games[i].cards.length; j++) {
-                        if (!games[i].cards[j].svgMarkup) { needsUpdate = true; break; }
+                        if (!games[i].cards[j].svgMarkup) { hasMissing = true; break; }
                     }
-                    if (needsUpdate || games[i].cards.length === 0) {
-                        games[i].cards = abcCards;
+                    if (hasMissing) {
+                        // Only fill in missing svgMarkup, preserve user labels and structure
+                        var defaults = {};
+                        buildDefaultAbcGameCards().forEach(function(c) { defaults[c.label] = c.svgMarkup; });
+                        games[i].cards.forEach(function(c) {
+                            if (!c.svgMarkup && defaults[c.label]) {
+                                c.svgMarkup = defaults[c.label];
+                            }
+                        });
                         localStorage.setItem('savedCustomGames', JSON.stringify(games));
                     }
                     return;
                 }
             }
-            // Create new ABC game
+            // Create new ABC game with defaults
             games.push({
                 name: 'ABC',
                 description: 'Letters A through E',
-                cards: abcCards,
+                cards: buildDefaultAbcGameCards(),
                 flipEnabled: false
             });
             localStorage.setItem('savedCustomGames', JSON.stringify(games));

@@ -207,7 +207,13 @@ class VicaDominoGame {
         document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());
 
         // Back from domino library screen (Card Maker -> Library)
-        document.getElementById('back-from-library-btn').addEventListener('click', () => this.hideDominoLibrary());
+        document.getElementById('back-from-library-btn').addEventListener('click', () => {
+            if (typeof leaveCardMaker === 'function') {
+                leaveCardMaker();
+            } else {
+                this.hideDominoLibrary();
+            }
+        });
 
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
@@ -2985,6 +2991,7 @@ class VicaDominoGame {
     }
 
     showDominoLibrary() {
+        if (typeof snapshotCardMakerState === 'function') snapshotCardMakerState();
         document.getElementById('create-edit-screen').style.display = 'none';
         document.getElementById('domino-library-screen').style.display = 'block';
     }

@@ -2959,9 +2959,10 @@ class VicaDominoGame {
     }
 
     showCreateEdit() {
+        // Go directly to card library screen, skipping the intermediate menu
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'none';
-        document.getElementById('create-edit-screen').style.display = 'block';
+        document.getElementById('card-library-screen').style.display = 'block';
     }
 
     hideCreateEdit() {
@@ -2975,8 +2976,9 @@ class VicaDominoGame {
     }
 
     hideCardLibrary() {
+        // Go back to intro screen directly
         document.getElementById('card-library-screen').style.display = 'none';
-        document.getElementById('create-edit-screen').style.display = 'block';
+        document.getElementById('intro-screen').style.display = 'flex';
     }
 
     showLibrarySet() {

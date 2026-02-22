@@ -3863,9 +3863,17 @@
                 var idx = parseInt(selectedIntroGame.replace('combined-', ''), 10);
                 startCombinedGameFromMenu(idx, null);
             } else if (selectedIntroGame === 'dots-and-numbers') {
+                // Default domino deck (numbers & dots from Card Maker)
                 document.querySelector('#start-screen .subtitle').textContent = 'Game: Dots and Numbers';
             } else {
-                // Default
+                // Default = ABC game
+                var games = loadCustomGames();
+                for (var gi = 0; gi < games.length; gi++) {
+                    if (games[gi].name === 'ABC') {
+                        startCustomGame(gi, null);
+                        break;
+                    }
+                }
             }
         }
 
@@ -4833,19 +4841,12 @@
             container.appendChild(btn);
         }
 
-        // === Create built-in ABC game if it doesn't exist ===
-        function ensureAbcGameExists() {
-            var games = loadCustomGames();
-            // Check if ABC game already exists
-            for (var i = 0; i < games.length; i++) {
-                if (games[i].name === 'ABC') return;
-            }
-            // Build the ABC game with letter-only cards (A, B, C, D, E)
+        // === Create or update built-in ABC game ===
+        function buildAbcCards() {
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
             var abcCards = [];
             letters.forEach(function(letter) {
-                // Create 2 cards per letter (for doubles and variety)
                 for (var n = 1; n <= 2; n++) {
                     var label = letter + '0' + n;
                     var color = colors[letter] || '#333';
@@ -4857,6 +4858,27 @@
                     });
                 }
             });
+            return abcCards;
+        }
+        function ensureAbcGameExists() {
+            var games = loadCustomGames();
+            var abcCards = buildAbcCards();
+            // Find existing ABC game
+            for (var i = 0; i < games.length; i++) {
+                if (games[i].name === 'ABC') {
+                    // Ensure cards have svgMarkup (migrate old data)
+                    var needsUpdate = false;
+                    for (var j = 0; j < games[i].cards.length; j++) {
+                        if (!games[i].cards[j].svgMarkup) { needsUpdate = true; break; }
+                    }
+                    if (needsUpdate || games[i].cards.length === 0) {
+                        games[i].cards = abcCards;
+                        localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                    }
+                    return;
+                }
+            }
+            // Create new ABC game
             games.push({
                 name: 'ABC',
                 description: 'Letters A through E',

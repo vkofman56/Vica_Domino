@@ -343,6 +343,38 @@ class VicaDominoGame {
         }
     }
 
+    // Play sad "wah-wah" disapproval sound for game loss
+    playLossSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const t = ctx.currentTime;
+
+            // Three descending tones: wah - wah - wahhh
+            const notes = [
+                { freq: 440, start: 0,    dur: 0.35 },
+                { freq: 370, start: 0.4,  dur: 0.35 },
+                { freq: 260, start: 0.85, dur: 0.7  }
+            ];
+
+            notes.forEach(function(n) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'triangle';
+                // Slight downward slide within each note
+                osc.frequency.setValueAtTime(n.freq, t + n.start);
+                osc.frequency.exponentialRampToValueAtTime(n.freq * 0.85, t + n.start + n.dur);
+                gain.gain.setValueAtTime(0.3, t + n.start);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + n.start + n.dur);
+                osc.start(t + n.start);
+                osc.stop(t + n.start + n.dur);
+            });
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
     // Play tutorial voice: "Select double…"
     playSelectDoubleVoice() {
         try {
@@ -1152,6 +1184,9 @@ class VicaDominoGame {
         this.stopSunLevelTimer();
         this.gamePhase = 'sunLevelEnded';
         this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
+
+        // Play disapproval sound on loss
+        this.playLossSound();
 
         // Adaptive timer: on loss (time up = at least one player didn't win)
         if (this.includeXeno) {

@@ -2928,12 +2928,13 @@ class VicaDominoGame {
 
     showCreateEdit() {
         document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('intro-screen').style.display = 'none';
         document.getElementById('create-edit-screen').style.display = 'block';
     }
 
     hideCreateEdit() {
         document.getElementById('create-edit-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'flex';
+        document.getElementById('intro-screen').style.display = 'flex';
     }
 
     showCardLibrary() {
@@ -3311,7 +3312,8 @@ class VicaDominoGame {
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'flex';
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('intro-screen').style.display = 'flex';
         document.getElementById('player-names').style.display = 'none';
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
 

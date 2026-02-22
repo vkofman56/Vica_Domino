@@ -8,11 +8,24 @@
 </head>
 <body>
     <div class="game-container">
+        <!-- Introductory Page: Choose Game -->
+        <div class="screen" id="intro-screen">
+            <h1>Pinky-Math Domino</h1>
+            <p class="intro-tagline">Play with dominos</p>
+            <div class="intro-panel">
+                <h3>Choose the game:</h3>
+                <div class="intro-games">
+                    <button class="intro-game-btn intro-default-btn" id="intro-dots-numbers-btn" onclick="selectIntroGame('dots-and-numbers')">Dots and Numbers</button>
+                    <div id="intro-custom-games"></div>
+                </div>
+                <button class="btn btn-primary intro-play-btn" id="intro-play-btn" onclick="goToMainPage()">Play</button>
+            </div>
+        </div>
+
         <!-- Start Screen -->
-        <div class="screen" id="start-screen">
+        <div class="screen" id="start-screen" style="display:none;">
             <h1>Pinky-Math Domino</h1>
             <p class="subtitle">Game: Find the Double!</p>
-            <div class="custom-game-btns" id="start-custom-games"></div>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
             <div class="setup-panel">
@@ -3624,25 +3637,75 @@
         }
 
         function populateStartScreenGames() {
-            var container = document.getElementById('start-custom-games');
+            // Also populate the intro screen game list
+            populateIntroGames();
+        }
+
+        // === Introductory Page ===
+        var selectedIntroGame = null; // null = default ABC, 'dots-and-numbers', or game index
+
+        function populateIntroGames() {
+            var container = document.getElementById('intro-custom-games');
+            if (!container) return;
             container.innerHTML = '';
             var games = loadCustomGames();
             games.forEach(function(game, i) {
                 var btn = document.createElement('button');
-                btn.className = 'custom-game-btn';
+                btn.className = 'intro-game-btn';
                 btn.textContent = game.name;
-                btn.onclick = function() { startCustomGame(i, btn); };
+                btn.onclick = function() { selectIntroGame('custom-' + i, btn); };
                 container.appendChild(btn);
             });
             // Add combined games
             var combinedGames = loadCombinedGames();
             combinedGames.forEach(function(cg, ci) {
                 var btn = document.createElement('button');
-                btn.className = 'custom-game-btn combined-game-btn';
+                btn.className = 'intro-game-btn';
                 btn.textContent = cg.name;
-                btn.onclick = function() { startCombinedGameFromMenu(ci, btn); };
+                btn.onclick = function() { selectIntroGame('combined-' + ci, btn); };
                 container.appendChild(btn);
             });
+        }
+
+        function selectIntroGame(gameId, btnEl) {
+            // Deselect all
+            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) {
+                b.classList.remove('selected');
+            });
+            if (selectedIntroGame === gameId) {
+                // Toggle off = back to default
+                selectedIntroGame = null;
+                return;
+            }
+            selectedIntroGame = gameId;
+            // Highlight the clicked button
+            if (btnEl) {
+                btnEl.classList.add('selected');
+            } else if (gameId === 'dots-and-numbers') {
+                var dnBtn = document.getElementById('intro-dots-numbers-btn');
+                if (dnBtn) dnBtn.classList.add('selected');
+            }
+        }
+
+        function goToMainPage() {
+            document.getElementById('intro-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+
+            // Apply the selected game
+            if (selectedIntroGame && selectedIntroGame.indexOf('custom-') === 0) {
+                var idx = parseInt(selectedIntroGame.replace('custom-', ''), 10);
+                startCustomGame(idx, null);
+            } else if (selectedIntroGame && selectedIntroGame.indexOf('combined-') === 0) {
+                var idx = parseInt(selectedIntroGame.replace('combined-', ''), 10);
+                startCombinedGameFromMenu(idx, null);
+            } else if (selectedIntroGame === 'dots-and-numbers') {
+                // Use the default built-in game (DOMINO_CARDS with ABC values)
+                clearCustomGame();
+                document.querySelector('#start-screen .subtitle').textContent = 'Game: Dots and Numbers';
+            } else {
+                // Default: ABC game (built-in DOMINO_CARDS)
+                clearCustomGame();
+            }
         }
 
         // === Custom game: build domino deck from saved game cards ===

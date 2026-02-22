@@ -248,7 +248,6 @@
                 <h1>Create and Edit</h1>
                 <div class="create-edit-buttons">
                     <button class="create-edit-menu-btn" id="card-library-btn">Library</button>
-                    <button class="create-edit-menu-btn" id="make-new-cards-btn">Make New Cards</button>
                 </div>
             </div>
         </div>
@@ -258,10 +257,15 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
                 <h1 class="library-title">Library</h1>
-                <div class="library-set-list">
-                    <div class="library-set-item">
-                        <button class="library-set-link" id="open-set-1-btn">Numbers and dots, 0 - 6</button>
-                        <div class="library-set-games" id="library-set-1-games" style="display:none;"></div>
+                <div class="library-two-columns">
+                    <div class="library-col library-col-sets">
+                        <h3 class="library-col-heading">Card Sets</h3>
+                        <button class="library-set-btn selected" id="set-numbers-btn" onclick="selectCardSet('numbers')">Numbers and Dots</button>
+                        <button class="library-set-btn" id="set-abc-btn" onclick="selectCardSet('abc')">ABC</button>
+                    </div>
+                    <div class="library-col library-col-games">
+                        <h3 class="library-col-heading">Games</h3>
+                        <div id="library-set-1-games"></div>
                     </div>
                 </div>
             </div>
@@ -460,9 +464,9 @@
                 <div class="ruler-handle ruler-l"></div>
             </div>
             <div class="domino-library-content compact-view">
-                <h1 class="library-title">Card Maker</h1>
-                <h2 class="library-subtitle" id="card-maker-subtitle">Numbers and dots, 0 - 6</h2>
+                <h1 class="library-title">Card Maker - <span id="card-maker-set-title">Numbers and Dots</span></h1>
 
+                <div id="card-set-numbers" class="card-set-content">
                 <div class="library-section"></div>
                 <div class="library-row">
                     <div class="library-card"><div class="library-label">A1</div><div class="domino-half-preview"><svg viewBox="0 0 60 60"><text x="30" y="51" text-anchor="middle" font-size="59" font-family="Arial, sans-serif" font-weight="400" fill="#333" transform="translate(0,30) scale(1,0.9849) translate(0,-30)">0</text></svg></div><div class="library-desc">Number "0"</div></div>
@@ -543,6 +547,9 @@
                     <div class="library-card"><div class="library-label">I4</div><div class="domino-half-preview"><svg viewBox="0 0 60 60"><circle cx="8" cy="20" r="4.5" fill="#333"/><circle cx="19" cy="20" r="4.5" fill="#333"/><circle cx="30" cy="20" r="4.5" fill="#333"/><circle cx="41" cy="20" r="4.5" fill="#333"/><circle cx="52" cy="20" r="4.5" fill="#333"/><circle cx="8" cy="40" r="4.5" fill="#333"/><circle cx="19" cy="40" r="4.5" fill="#333"/><circle cx="30" cy="40" r="4.5" fill="#333"/><circle cx="41" cy="40" r="4.5" fill="#333"/><circle cx="52" cy="40" r="4.5" fill="#333"/></svg></div><div class="library-desc">10 dots (2 rows)</div></div>
                     <div class="library-card"><div class="library-label">I5</div><div class="domino-half-preview"><svg viewBox="0 0 60 60"><circle cx="30" cy="8" r="4.5" fill="#333"/><circle cx="22" cy="20" r="4.5" fill="#333"/><circle cx="38" cy="20" r="4.5" fill="#333"/><circle cx="14" cy="32" r="4.5" fill="#333"/><circle cx="30" cy="32" r="4.5" fill="#333"/><circle cx="46" cy="32" r="4.5" fill="#333"/><circle cx="8" cy="44" r="4.5" fill="#333"/><circle cx="24" cy="44" r="4.5" fill="#333"/><circle cx="40" cy="44" r="4.5" fill="#333"/><circle cx="56" cy="44" r="4.5" fill="#333"/></svg></div><div class="library-desc">10 dots (triangle)</div></div>
                 </div>
+                </div><!-- end card-set-numbers -->
+
+                <div id="card-set-abc" class="card-set-content" style="display:none;"></div>
             </div>
         </div>
 
@@ -2876,14 +2883,14 @@
                     });
                 });
             }
-            // Show game name in subtitle
-            var subtitle = document.getElementById('card-maker-subtitle');
+            // Show game name in title span
+            var titleSpan = document.getElementById('card-maker-set-title');
             if (gameMakerEditIndex >= 0) {
-                subtitle.textContent = 'Editing: ' + gameMakerName;
-                subtitle.style.color = '#FFD700';
+                titleSpan.textContent = 'Editing: ' + gameMakerName;
+                titleSpan.style.color = '#FFD700';
             } else {
-                subtitle.textContent = 'New game: ' + gameMakerName;
-                subtitle.style.color = '#FFD700';
+                titleSpan.textContent = 'New game: ' + gameMakerName;
+                titleSpan.style.color = '#FFD700';
             }
             // Red box around unselected cards when editing existing game
             var cmContent = document.querySelector('#domino-library-screen .domino-library-content');
@@ -2908,10 +2915,10 @@
             // Remove red box styling
             var cmContent = document.querySelector('#domino-library-screen .domino-library-content');
             cmContent.classList.remove('game-maker-editing');
-            // Restore original subtitle
-            var subtitle = document.getElementById('card-maker-subtitle');
-            subtitle.textContent = 'Numbers and dots, 0 - 6';
-            subtitle.style.color = '';
+            // Restore original title
+            var titleSpan = document.getElementById('card-maker-set-title');
+            titleSpan.textContent = activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots';
+            titleSpan.style.color = '';
         }
 
         function completeGame() {
@@ -3651,6 +3658,82 @@
         function populateStartScreenGames() {
             // Also populate the intro screen game list
             populateIntroGames();
+        }
+
+        // === Card Set Selection ===
+        var activeCardSet = 'numbers'; // 'numbers' or 'abc'
+
+        function selectCardSet(setName) {
+            activeCardSet = setName;
+            // Update button highlights
+            document.getElementById('set-numbers-btn').classList.toggle('selected', setName === 'numbers');
+            document.getElementById('set-abc-btn').classList.toggle('selected', setName === 'abc');
+            // Update Card Maker title
+            var titleSpan = document.getElementById('card-maker-set-title');
+            if (titleSpan) titleSpan.textContent = setName === 'abc' ? 'ABC' : 'Numbers and Dots';
+            // Show/hide card set content
+            var numbersDiv = document.getElementById('card-set-numbers');
+            var abcDiv = document.getElementById('card-set-abc');
+            if (setName === 'abc') {
+                if (numbersDiv) numbersDiv.style.display = 'none';
+                if (abcDiv) { abcDiv.style.display = ''; buildAbcCardSet(); }
+            } else {
+                if (numbersDiv) numbersDiv.style.display = '';
+                if (abcDiv) abcDiv.style.display = 'none';
+            }
+            // Navigate to Card Maker
+            document.getElementById('card-library-screen').style.display = 'none';
+            document.getElementById('domino-library-screen').style.display = 'block';
+        }
+
+        function buildAbcCardSet() {
+            var container = document.getElementById('card-set-abc');
+            if (!container) return;
+            container.innerHTML = '';
+            var letters = ['A', 'B', 'C', 'D', 'E'];
+            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
+            letters.forEach(function(letter, li) {
+                // Red separator line between groups
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                container.appendChild(section);
+                // Row of cards for this letter
+                var row = document.createElement('div');
+                row.className = 'library-row';
+                // Generate 5 card slots per letter (2 pre-filled, 3 empty)
+                for (var n = 1; n <= 5; n++) {
+                    var label = letter + n;
+                    var card = document.createElement('div');
+                    card.className = 'library-card';
+                    var labelDiv = document.createElement('div');
+                    labelDiv.className = 'library-label';
+                    labelDiv.textContent = label;
+                    card.appendChild(labelDiv);
+                    var preview = document.createElement('div');
+                    preview.className = 'domino-half-preview';
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    if (n <= 2) {
+                        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', '30');
+                        text.setAttribute('y', '46');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('font-size', '48');
+                        text.setAttribute('font-weight', 'bold');
+                        text.setAttribute('fill', colors[letter] || '#333');
+                        text.textContent = letter;
+                        svg.appendChild(text);
+                    }
+                    preview.appendChild(svg);
+                    card.appendChild(preview);
+                    var desc = document.createElement('div');
+                    desc.className = 'library-desc';
+                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : 'Empty';
+                    card.appendChild(desc);
+                    row.appendChild(card);
+                }
+                container.appendChild(row);
+            });
         }
 
         // === Introductory Page ===

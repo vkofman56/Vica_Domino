@@ -203,26 +203,10 @@ class VicaDominoGame {
         // Back from card library screen
         document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
 
-        // Toggle games under set box, and open set view
-        document.getElementById('open-set-1-btn').addEventListener('click', () => {
-            var gamesDiv = document.getElementById('library-set-1-games');
-            var btn = document.getElementById('open-set-1-btn');
-            if (gamesDiv.style.display === 'none') {
-                gamesDiv.style.display = 'block';
-                btn.classList.add('active');
-            } else {
-                gamesDiv.style.display = 'none';
-                btn.classList.remove('active');
-            }
-        });
-
         // Back from library set view
         document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());
 
-        // "Make New Cards" button -> open domino library screen
-        document.getElementById('make-new-cards-btn').addEventListener('click', () => this.showDominoLibrary());
-
-        // Back from domino library screen
+        // Back from domino library screen (Card Maker -> Library)
         document.getElementById('back-from-library-btn').addEventListener('click', () => this.hideDominoLibrary());
 
         // Keyboard controls for Sun level game
@@ -3007,7 +2991,7 @@ class VicaDominoGame {
 
     hideDominoLibrary() {
         document.getElementById('domino-library-screen').style.display = 'none';
-        document.getElementById('create-edit-screen').style.display = 'block';
+        document.getElementById('card-library-screen').style.display = 'block';
     }
 
     // === Combined Game Methods ===

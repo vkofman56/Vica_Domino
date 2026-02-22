@@ -343,33 +343,40 @@ class VicaDominoGame {
         }
     }
 
-    // Play sad "wah-wah" disapproval sound for game loss
+    // Play continuous descending disapproval sound for game loss
     playLossSound() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const t = ctx.currentTime;
+            const duration = 2.0;
 
-            // Three descending tones: wah - wah - wahhh
-            const notes = [
-                { freq: 440, start: 0,    dur: 0.35 },
-                { freq: 370, start: 0.4,  dur: 0.35 },
-                { freq: 260, start: 0.85, dur: 0.7  }
-            ];
+            // Main tone: continuous smooth descending slide
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(500, t);
+            osc1.frequency.exponentialRampToValueAtTime(120, t + duration);
+            gain1.gain.setValueAtTime(0.25, t);
+            gain1.gain.setValueAtTime(0.25, t + duration * 0.6);
+            gain1.gain.exponentialRampToValueAtTime(0.01, t + duration);
+            osc1.start(t);
+            osc1.stop(t + duration);
 
-            notes.forEach(function(n) {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.type = 'triangle';
-                // Slight downward slide within each note
-                osc.frequency.setValueAtTime(n.freq, t + n.start);
-                osc.frequency.exponentialRampToValueAtTime(n.freq * 0.85, t + n.start + n.dur);
-                gain.gain.setValueAtTime(0.3, t + n.start);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + n.start + n.dur);
-                osc.start(t + n.start);
-                osc.stop(t + n.start + n.dur);
-            });
+            // Second voice: lower octave for depth
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(250, t);
+            osc2.frequency.exponentialRampToValueAtTime(60, t + duration);
+            gain2.gain.setValueAtTime(0.15, t);
+            gain2.gain.setValueAtTime(0.15, t + duration * 0.6);
+            gain2.gain.exponentialRampToValueAtTime(0.01, t + duration);
+            osc2.start(t);
+            osc2.stop(t + duration);
         } catch (e) {
             console.log('Audio not supported');
         }

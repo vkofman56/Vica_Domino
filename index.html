@@ -1594,11 +1594,19 @@
             var container = document.getElementById('loupe-card-container');
 
             // --- mousedown: only used to start dragging an existing element ---
+            var lastMouseDownTime = 0;
             drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
                 var target = e.target;
                 if (!isSelectableElement(target)) return;
                 target = getSelectableElement(target);
+                // Detect rapid clicks (dblclick) — don't start drag
+                var now = Date.now();
+                if (now - lastMouseDownTime < 400) {
+                    lastMouseDownTime = now;
+                    return; // let dblclick fire cleanly
+                }
+                lastMouseDownTime = now;
                 // Start drag on existing element
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
@@ -1695,17 +1703,74 @@
 
             // --- Double-click to edit text content ---
             container.addEventListener('dblclick', function(e) {
-                if (!drawModeActive || drawTool !== 'select') return;
+                if (!drawModeActive) return;
+                // Auto-switch to select tool on dblclick
+                if (drawTool !== 'select') selectDrawTool('select');
                 var target = e.target;
                 if (target.tagName.toLowerCase() === 'text' && isSelectableElement(target)) {
-                    var newText = prompt('Edit text:', target.textContent);
-                    if (newText !== null && newText !== target.textContent) {
-                        target.textContent = newText;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openInlineTextEditor(target, container);
+                }
+            });
+
+            // --- Inline text editor (replaces prompt) ---
+            function openInlineTextEditor(textEl, parentContainer) {
+                // Remove any existing editor
+                var old = document.getElementById('inline-text-editor');
+                if (old) old.remove();
+                // Create overlay
+                var overlay = document.createElement('div');
+                overlay.id = 'inline-text-editor';
+                overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:9999;';
+                var box = document.createElement('div');
+                box.style.cssText = 'background:#2a2a3a;border:2px solid #FFD700;border-radius:10px;padding:16px 20px;min-width:220px;text-align:center;';
+                var label = document.createElement('div');
+                label.style.cssText = 'color:#ccc;font-size:13px;margin-bottom:8px;';
+                label.textContent = 'Edit text:';
+                box.appendChild(label);
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.value = textEl.textContent;
+                input.style.cssText = 'width:100%;padding:8px 10px;font-size:16px;border:1px solid #555;border-radius:6px;background:#1a1a2a;color:white;outline:none;box-sizing:border-box;';
+                box.appendChild(input);
+                var btns = document.createElement('div');
+                btns.style.cssText = 'display:flex;gap:8px;margin-top:10px;justify-content:center;';
+                var okBtn = document.createElement('button');
+                okBtn.textContent = 'OK';
+                okBtn.style.cssText = 'padding:6px 20px;border-radius:6px;border:none;background:#FFD700;color:#222;font-weight:bold;cursor:pointer;';
+                var cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.cssText = 'padding:6px 20px;border-radius:6px;border:1px solid #555;background:transparent;color:#ccc;cursor:pointer;';
+                btns.appendChild(okBtn);
+                btns.appendChild(cancelBtn);
+                box.appendChild(btns);
+                overlay.appendChild(box);
+                parentContainer.style.position = 'relative';
+                parentContainer.appendChild(overlay);
+                input.focus();
+                input.select();
+                function confirm() {
+                    var newText = input.value;
+                    if (newText !== textEl.textContent) {
+                        textEl.textContent = newText;
                         hasEditedExisting = true;
                         updateSelectionRing();
                     }
+                    overlay.remove();
                 }
-            });
+                function cancel() { overlay.remove(); }
+                okBtn.addEventListener('click', confirm);
+                cancelBtn.addEventListener('click', cancel);
+                input.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); confirm(); }
+                    if (ev.key === 'Escape') cancel();
+                    ev.stopPropagation(); // prevent arrow keys from moving elements
+                });
+                overlay.addEventListener('click', function(ev) {
+                    if (ev.target === overlay) cancel();
+                });
+            }
 
             // --- Mouse move for dragging ---
             drawMouseMoveHandler = function(e) {

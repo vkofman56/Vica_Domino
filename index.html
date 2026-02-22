@@ -11,7 +11,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <h1>Pinky-Math Domino</h1>
-            <p class="intro-tagline">Play with dominos</p>
+            <p class="intro-tagline"></p>
             <div class="intro-panel">
                 <h3>Choose the game:</h3>
                 <div class="intro-games">
@@ -260,8 +260,10 @@
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
-                        <button class="library-set-btn selected" id="set-numbers-btn" onclick="selectCardSet('numbers')">Numbers and Dots</button>
-                        <button class="library-set-btn" id="set-abc-btn" onclick="selectCardSet('abc')">ABC</button>
+                        <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers')">Numbers and Dots</button>
+                        <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc')">ABC</button>
+                        <div id="card-set-preview" class="card-set-preview"></div>
+                        <button class="library-edit-btn" id="edit-card-set-btn" style="display:none;" onclick="editCurrentCardSet()">Edit Card Set</button>
                     </div>
                     <div class="library-col library-col-games">
                         <h3 class="library-col-heading">Games</h3>
@@ -3739,6 +3741,108 @@
 
         // === Card Set Selection ===
         var activeCardSet = 'numbers'; // 'numbers' or 'abc'
+        var previewedCardSet = null; // which set is currently previewed inline
+
+        // Show compact card preview inline in the Library page
+        function previewCardSet(setName) {
+            var numbersBtn = document.getElementById('set-numbers-btn');
+            var abcBtn = document.getElementById('set-abc-btn');
+            var preview = document.getElementById('card-set-preview');
+            var editBtn = document.getElementById('edit-card-set-btn');
+
+            // Toggle: clicking same set hides preview
+            if (previewedCardSet === setName) {
+                previewedCardSet = null;
+                numbersBtn.classList.remove('selected');
+                abcBtn.classList.remove('selected');
+                preview.innerHTML = '';
+                preview.style.display = 'none';
+                if (editBtn) editBtn.style.display = 'none';
+                return;
+            }
+
+            previewedCardSet = setName;
+            activeCardSet = setName;
+            numbersBtn.classList.toggle('selected', setName === 'numbers');
+            abcBtn.classList.toggle('selected', setName === 'abc');
+
+            // Build compact card preview
+            preview.innerHTML = '';
+            preview.style.display = '';
+            if (setName === 'numbers') {
+                buildNumbersPreview(preview);
+            } else {
+                buildAbcPreview(preview);
+            }
+            if (editBtn) editBtn.style.display = '';
+        }
+
+        function buildNumbersPreview(container) {
+            var source = document.querySelector('#domino-library-screen #card-set-numbers');
+            if (!source) return;
+            source.querySelectorAll('.library-row').forEach(function(row) {
+                var previewRow = document.createElement('div');
+                previewRow.className = 'card-preview-row';
+                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var svg = card.querySelector('svg');
+                    if (!svg) return;
+                    var thumb = document.createElement('div');
+                    thumb.className = 'card-preview-thumb';
+                    var clone = svg.cloneNode(true);
+                    thumb.appendChild(clone);
+                    previewRow.appendChild(thumb);
+                });
+                if (previewRow.children.length > 0) container.appendChild(previewRow);
+            });
+        }
+
+        function buildAbcPreview(container) {
+            var letters = ['A', 'B', 'C', 'D', 'E'];
+            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
+            // Load saved edits
+            var editMap = {};
+            try {
+                var edits = localStorage.getItem('editedBuiltinCards');
+                if (edits) {
+                    JSON.parse(edits).forEach(function(item) {
+                        editMap[item.label] = item.svgContent;
+                    });
+                }
+            } catch(e) {}
+            letters.forEach(function(letter) {
+                var previewRow = document.createElement('div');
+                previewRow.className = 'card-preview-row';
+                for (var n = 1; n <= 2; n++) {
+                    var label = letter + n;
+                    var thumb = document.createElement('div');
+                    thumb.className = 'card-preview-thumb';
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    if (editMap[label]) {
+                        svg.innerHTML = editMap[label];
+                    } else {
+                        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', '30');
+                        text.setAttribute('y', '46');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('font-size', '48');
+                        text.setAttribute('font-weight', 'bold');
+                        text.setAttribute('fill', colors[letter] || '#333');
+                        text.textContent = letter;
+                        svg.appendChild(text);
+                    }
+                    thumb.appendChild(svg);
+                    previewRow.appendChild(thumb);
+                }
+                container.appendChild(previewRow);
+            });
+        }
+
+        // Open the full Card Maker editor for the currently previewed set
+        function editCurrentCardSet() {
+            if (!previewedCardSet) return;
+            selectCardSet(previewedCardSet);
+        }
 
         function selectCardSet(setName) {
             activeCardSet = setName;
@@ -3894,14 +3998,26 @@
         }
 
         // Called when user presses back from Card Maker
+        function returnToLibrary() {
+            document.getElementById('domino-library-screen').style.display = 'none';
+            document.getElementById('card-library-screen').style.display = 'block';
+            // Refresh the inline preview if a card set is previewed
+            if (previewedCardSet) {
+                var preview = document.getElementById('card-set-preview');
+                if (preview) {
+                    preview.innerHTML = '';
+                    if (previewedCardSet === 'numbers') buildNumbersPreview(preview);
+                    else buildAbcPreview(preview);
+                }
+            }
+        }
+
         function leaveCardMaker() {
             if (cardMakerDirty) {
                 showCardMakerSavePrompt();
                 return;
             }
-            // No changes — just leave
-            document.getElementById('domino-library-screen').style.display = 'none';
-            document.getElementById('card-library-screen').style.display = 'block';
+            returnToLibrary();
         }
 
         function saveAndLeaveCardMaker() {
@@ -3912,8 +4028,7 @@
             }
             cardMakerDirty = false;
             hideCardMakerSavePrompt();
-            document.getElementById('domino-library-screen').style.display = 'none';
-            document.getElementById('card-library-screen').style.display = 'block';
+            returnToLibrary();
         }
 
         function discardAndLeaveCardMaker() {
@@ -3927,8 +4042,7 @@
             } else {
                 loadCustomCards();
             }
-            document.getElementById('domino-library-screen').style.display = 'none';
-            document.getElementById('card-library-screen').style.display = 'block';
+            returnToLibrary();
         }
 
         function showCardMakerSavePrompt() {

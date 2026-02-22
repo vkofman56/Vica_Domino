@@ -3197,14 +3197,16 @@ class VicaDominoGame {
         const stageLabel = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][nextStageIndex] || '?';
 
         // Get game name
-        let gameName = 'Game ' + stageLabel;
-        try {
-            const gd = localStorage.getItem('savedCustomGames');
-            if (gd) {
-                const parsed = JSON.parse(gd);
-                if (parsed[nextStage.gameIndex]) gameName = parsed[nextStage.gameIndex].name;
-            }
-        } catch(e) {}
+        let gameName = nextStage.gameName || ('Game ' + stageLabel);
+        if (!nextStage.gameName) {
+            try {
+                const gd = localStorage.getItem('savedCustomGames');
+                if (gd) {
+                    const parsed = JSON.parse(gd);
+                    if (parsed[nextStage.gameIndex]) gameName = parsed[nextStage.gameIndex].name;
+                }
+            } catch(e) {}
+        }
 
         // Show transition overlay
         const overlay = document.createElement('div');
@@ -3232,7 +3234,7 @@ class VicaDominoGame {
 
             // Load next game's deck
             if (window.loadGameDeckForStage) {
-                window.loadGameDeckForStage(nextStage.gameIndex);
+                window.loadGameDeckForStage(nextStage);
             }
 
             // Reset player states

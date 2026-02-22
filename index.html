@@ -3557,6 +3557,18 @@
             // Remove excluded dominos and variations for this game
             localStorage.removeItem('excludedDominos_' + gameIndex);
             localStorage.removeItem('excludedVariations_' + gameIndex);
+            // Update combined games: shift gameIndex values to account for removal
+            var combinedGames = loadCombinedGames();
+            var changed = false;
+            combinedGames.forEach(function(cg) {
+                cg.stages.forEach(function(stage) {
+                    if (stage.gameIndex > gameIndex) {
+                        stage.gameIndex--;
+                        changed = true;
+                    }
+                });
+            });
+            if (changed) saveCombinedGames(combinedGames);
             populateLibraryGames();
             populateStartScreenGames();
             populateCardMakerGames();
@@ -3691,6 +3703,10 @@
             document.getElementById('intro-screen').style.display = 'none';
             document.getElementById('start-screen').style.display = 'flex';
 
+            // Always clear previous game state first to prevent toggle interference
+            clearCustomGame();
+            activeCustomGameIndex = -1;
+
             // Apply the selected game
             if (selectedIntroGame && selectedIntroGame.indexOf('custom-') === 0) {
                 var idx = parseInt(selectedIntroGame.replace('custom-', ''), 10);
@@ -3699,12 +3715,9 @@
                 var idx = parseInt(selectedIntroGame.replace('combined-', ''), 10);
                 startCombinedGameFromMenu(idx, null);
             } else if (selectedIntroGame === 'dots-and-numbers') {
-                // Use the default built-in game (DOMINO_CARDS with ABC values)
-                clearCustomGame();
                 document.querySelector('#start-screen .subtitle').textContent = 'Game: Dots and Numbers';
             } else {
-                // Default: ABC game (built-in DOMINO_CARDS)
-                clearCustomGame();
+                // Default
             }
         }
 
@@ -4552,10 +4565,13 @@
 
         function confirmCombineGames() {
             var inputs = document.querySelectorAll('.combine-gem-input');
+            var games = loadCustomGames();
             var gameStages = [];
             inputs.forEach(function(input) {
+                var gi = parseInt(input.dataset.gameIndex);
                 gameStages.push({
-                    gameIndex: parseInt(input.dataset.gameIndex),
+                    gameIndex: gi,
+                    gameName: (games[gi] && games[gi].name) || '',
                     gemsNeeded: parseInt(input.value) || 2
                 });
             });
@@ -4592,6 +4608,20 @@
             localStorage.setItem('savedCombinedGames', JSON.stringify(games));
         }
 
+        // Resolve a combined game stage to actual game index (by name first, then stored index)
+        function resolveStageGameIndex(stage) {
+            var games = loadCustomGames();
+            // First try to find by name (robust against index shifts from deletes)
+            if (stage.gameName) {
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i].name === stage.gameName) return i;
+                }
+            }
+            // Fallback to stored index
+            if (games[stage.gameIndex]) return stage.gameIndex;
+            return -1;
+        }
+
         function startCombinedGameFromMenu(combinedIndex, btnEl) {
             var combinedGames = loadCombinedGames();
             var cg = combinedGames[combinedIndex];
@@ -4614,9 +4644,10 @@
             if (btnEl) btnEl.classList.add('active');
             window._activeCombinedIndex = combinedIndex;
 
-            // Load the first stage's game deck
+            // Load the first stage's game deck (resolve by name)
             var firstStage = cg.stages[0];
-            startCustomGame(firstStage.gameIndex, null);
+            var resolvedIdx = resolveStageGameIndex(firstStage);
+            if (resolvedIdx >= 0) startCustomGame(resolvedIdx, null);
 
             // Store combined game config globally for game.js to read
             window.combinedGameConfig = cg;
@@ -4627,8 +4658,9 @@
         }
 
         // Expose function for game.js to switch game decks during combined game
-        window.loadGameDeckForStage = function(gameIndex) {
-            startCustomGame(gameIndex, null);
+        window.loadGameDeckForStage = function(stage) {
+            var idx = resolveStageGameIndex(stage);
+            if (idx >= 0) startCustomGame(idx, null);
         };
 
         // Close celebration handler
@@ -4686,6 +4718,22 @@
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
         }
         ensureAbcGameExists();
+
+        // Migrate: add gameName to combined game stages that don't have it yet
+        (function migrateCombinedGameNames() {
+            var games = loadCustomGames();
+            var combinedGames = loadCombinedGames();
+            var changed = false;
+            combinedGames.forEach(function(cg) {
+                cg.stages.forEach(function(stage) {
+                    if (!stage.gameName && games[stage.gameIndex]) {
+                        stage.gameName = games[stage.gameIndex].name;
+                        changed = true;
+                    }
+                });
+            });
+            if (changed) saveCombinedGames(combinedGames);
+        })();
 
         // Initialize game lists on page load
         populateLibraryGames();

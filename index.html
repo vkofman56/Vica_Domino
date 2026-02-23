@@ -1469,6 +1469,33 @@
 
         var selectionRing = null; // SVG rect/circle showing selection
 
+        // Get bounding box in SVG root coordinate space (handles <g> transforms)
+        function getSvgSpaceBBox(el) {
+            var bbox = el.getBBox();
+            if (el.tagName.toLowerCase() !== 'g') return bbox;
+            var t = el.getAttribute('transform') || '';
+            var tm = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
+            var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+            if (tm && sm) {
+                var tx = +tm[1], ty = +tm[2], s = +sm[1];
+                return {
+                    x: tx + bbox.x * s,
+                    y: ty + bbox.y * s,
+                    width: bbox.width * s,
+                    height: bbox.height * s
+                };
+            }
+            return bbox;
+        }
+
+        function applySelectionRingFromBBox(bbox) {
+            var pad = 0.5;
+            selectionRing.setAttribute('x', bbox.x - pad);
+            selectionRing.setAttribute('y', bbox.y - pad);
+            selectionRing.setAttribute('width', bbox.width + pad * 2);
+            selectionRing.setAttribute('height', bbox.height + pad * 2);
+        }
+
         function selectElement(el) {
             deselectElement();
             selectedElement = el;
@@ -1476,19 +1503,15 @@
             var cardSvg = el.closest('svg');
             if (cardSvg) {
                 var bbox;
-                try { bbox = el.getBBox(); } catch(e) { bbox = null; }
+                try { bbox = getSvgSpaceBBox(el); } catch(e) { bbox = null; }
                 if (bbox) {
                     selectionRing = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    var pad = 2;
-                    selectionRing.setAttribute('x', bbox.x - pad);
-                    selectionRing.setAttribute('y', bbox.y - pad);
-                    selectionRing.setAttribute('width', bbox.width + pad * 2);
-                    selectionRing.setAttribute('height', bbox.height + pad * 2);
+                    applySelectionRingFromBBox(bbox);
                     selectionRing.setAttribute('fill', 'none');
                     selectionRing.setAttribute('stroke', '#FFD700');
-                    selectionRing.setAttribute('stroke-width', '1');
-                    selectionRing.setAttribute('stroke-dasharray', '2,1');
-                    selectionRing.setAttribute('rx', '1');
+                    selectionRing.setAttribute('stroke-width', '0.5');
+                    selectionRing.setAttribute('stroke-dasharray', '1.5,1');
+                    selectionRing.setAttribute('rx', '0.5');
                     selectionRing.classList.add('draw-sel-ring');
                     selectionRing.style.pointerEvents = 'none';
                     cardSvg.appendChild(selectionRing);
@@ -1504,12 +1527,8 @@
         function updateSelectionRing() {
             if (!selectionRing || !selectedElement) return;
             try {
-                var bbox = selectedElement.getBBox();
-                var pad = 2;
-                selectionRing.setAttribute('x', bbox.x - pad);
-                selectionRing.setAttribute('y', bbox.y - pad);
-                selectionRing.setAttribute('width', bbox.width + pad * 2);
-                selectionRing.setAttribute('height', bbox.height + pad * 2);
+                var bbox = getSvgSpaceBBox(selectedElement);
+                applySelectionRingFromBBox(bbox);
             } catch(e) {}
         }
 

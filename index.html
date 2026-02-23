@@ -2625,9 +2625,13 @@
         // --- Persistence: save/load custom drawn cards to localStorage ---
         function saveCustomCards() {
             var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var numbersDiv = document.getElementById('card-set-numbers');
+            var abcDiv = document.getElementById('card-set-abc');
             var data = [];
             // Save newly created custom cards (have 'Custom card' description or data-custom)
-            content.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+            // Only save custom cards from Numbers set (ABC cards are managed by buildAbcCardSet)
+            var customScope = numbersDiv || content;
+            customScope.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
                 var lbl = card.querySelector('.library-label');
                 var svg = card.querySelector('svg');
                 if (lbl && svg) {
@@ -2638,21 +2642,53 @@
                     });
                 }
             });
+            // Also save custom cards from orphaned rows (appended outside card-set containers)
+            var children = content.children;
+            for (var ci = 0; ci < children.length; ci++) {
+                var ch = children[ci];
+                if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc') continue;
+                if (!ch.classList.contains('library-row')) continue;
+                ch.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    var svg = card.querySelector('svg');
+                    if (lbl && svg) {
+                        data.push({
+                            label: lbl.textContent,
+                            svgContent: svg.innerHTML,
+                            desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                        });
+                    }
+                });
+            }
             localStorage.setItem('customDrawnCards', JSON.stringify(data));
 
-            // Save edits to built-in cards (track which built-in cards were modified)
-            var edits = [];
-            content.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
-                var lbl = card.querySelector('.library-label');
-                var svg = card.querySelector('svg');
-                if (lbl && svg) {
-                    edits.push({
-                        label: lbl.textContent,
-                        svgContent: svg.innerHTML
-                    });
-                }
-            });
-            localStorage.setItem('editedBuiltinCards', JSON.stringify(edits));
+            // Save edits to built-in cards — separate per card set
+            var numbersEdits = [];
+            if (numbersDiv) {
+                numbersDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    var svg = card.querySelector('svg');
+                    if (lbl && svg) {
+                        numbersEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
+                    }
+                });
+            }
+            localStorage.setItem('editedBuiltinCards_numbers', JSON.stringify(numbersEdits));
+
+            var abcEdits = [];
+            if (abcDiv) {
+                abcDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    var svg = card.querySelector('svg');
+                    if (lbl && svg) {
+                        abcEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
+                    }
+                });
+            }
+            localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
+
+            // Keep legacy key in sync (union of both) for any code that still reads it
+            localStorage.setItem('editedBuiltinCards', JSON.stringify(numbersEdits.concat(abcEdits)));
         }
 
         function loadCustomCards() {
@@ -2675,18 +2711,43 @@
                 } catch(e) {}
             }
 
-            // Load edits to built-in cards
-            var edits = localStorage.getItem('editedBuiltinCards');
+            // Load edits to built-in Numbers cards only (ABC edits are applied by buildAbcCardSet)
+            var numbersDiv = document.getElementById('card-set-numbers');
+            // Prefer set-specific key; fall back to legacy key filtered to Numbers labels
+            var edits = localStorage.getItem('editedBuiltinCards_numbers');
+            if (!edits) {
+                // Migration: read from legacy key, keep only labels that exist in Numbers set
+                var legacy = localStorage.getItem('editedBuiltinCards');
+                if (legacy) {
+                    try {
+                        var allEdits = JSON.parse(legacy);
+                        var numbersLabels = {};
+                        if (numbersDiv) {
+                            numbersDiv.querySelectorAll('.library-label').forEach(function(lbl) {
+                                numbersLabels[lbl.textContent] = true;
+                            });
+                        }
+                        var numbersOnly = allEdits.filter(function(item) { return numbersLabels[item.label]; });
+                        edits = JSON.stringify(numbersOnly);
+                    } catch(e) {}
+                }
+            }
             if (edits) {
                 try {
                     var editData = JSON.parse(edits);
                     editData.forEach(function(item) {
-                        var card = findCardByLabel(item.label);
-                        if (card) {
-                            var svg = card.querySelector('svg');
-                            if (svg) {
-                                svg.innerHTML = item.svgContent;
-                                card.dataset.edited = 'true';
+                        // Only apply to cards inside the Numbers container
+                        if (!numbersDiv) return;
+                        var cards = numbersDiv.querySelectorAll('.library-card:not(.variation)');
+                        for (var i = 0; i < cards.length; i++) {
+                            var lbl = cards[i].querySelector('.library-label');
+                            if (lbl && lbl.textContent === item.label) {
+                                var svg = cards[i].querySelector('svg');
+                                if (svg) {
+                                    svg.innerHTML = item.svgContent;
+                                    cards[i].dataset.edited = 'true';
+                                }
+                                break;
                             }
                         }
                     });
@@ -3811,13 +3872,15 @@
         function buildAbcPreview(container) {
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits
+            // Load saved edits (prefer ABC-specific key, fall back to legacy)
             var editMap = {};
             try {
-                var edits = localStorage.getItem('editedBuiltinCards');
+                var edits = localStorage.getItem('editedBuiltinCards_abc') || localStorage.getItem('editedBuiltinCards');
                 if (edits) {
+                    var abcLabels = {};
+                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
                     JSON.parse(edits).forEach(function(item) {
-                        editMap[item.label] = item.svgContent;
+                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
                     });
                 }
             } catch(e) {}
@@ -3898,13 +3961,15 @@
             container.innerHTML = '';
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits for ABC cards
+            // Load saved edits for ABC cards (prefer ABC-specific key, fall back to legacy)
             var editMap = {};
             try {
-                var edits = localStorage.getItem('editedBuiltinCards');
+                var edits = localStorage.getItem('editedBuiltinCards_abc') || localStorage.getItem('editedBuiltinCards');
                 if (edits) {
+                    var abcLabels = {};
+                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
                     JSON.parse(edits).forEach(function(item) {
-                        editMap[item.label] = item.svgContent;
+                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
                     });
                 }
             } catch(e) {}
@@ -4004,6 +4069,8 @@
         function snapshotCardMakerState() {
             _cmSnapshot = {
                 editedBuiltinCards: localStorage.getItem('editedBuiltinCards'),
+                editedBuiltinCards_numbers: localStorage.getItem('editedBuiltinCards_numbers'),
+                editedBuiltinCards_abc: localStorage.getItem('editedBuiltinCards_abc'),
                 customDrawnCards: localStorage.getItem('customDrawnCards'),
                 cardMakerVariations: localStorage.getItem('cardMakerVariations')
             };
@@ -4012,7 +4079,7 @@
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            ['editedBuiltinCards', 'customDrawnCards', 'cardMakerVariations'].forEach(function(key) {
+            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations'].forEach(function(key) {
                 if (_cmSnapshot[key] === null || _cmSnapshot[key] === undefined) {
                     localStorage.removeItem(key);
                 } else {

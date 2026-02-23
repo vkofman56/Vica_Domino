@@ -402,14 +402,14 @@
                     </div>
                 </div>
                 <div class="draw-size-row">
-                    <label>r</label>
-                    <input type="range" id="draw-size-slider" min="10" max="30" value="10" step="10" oninput="onDrawRadiusChange(+this.value)">
-                    <span id="draw-r-val" class="draw-val">10</span>
+                    <label style="font-size:11px;">Aa</label>
+                    <input type="range" id="draw-coarse-slider" min="0" max="100" value="30" step="10" oninput="onDrawCoarseChange(+this.value)">
+                    <span id="draw-coarse-val" class="draw-val">30</span>
                 </div>
                 <div class="draw-size-row">
-                    <label style="font-size:11px;">Aa</label>
-                    <input type="range" id="draw-font-slider" min="0" max="99" value="66" step="1" oninput="onDrawFontSizeChange(+this.value)">
-                    <span id="draw-f-val" class="draw-val">66</span>
+                    <label>r</label>
+                    <input type="range" id="draw-fine-slider" min="0" max="10" value="0" step="1" oninput="onDrawFineChange(+this.value)">
+                    <span id="draw-fine-val" class="draw-val">0</span>
                 </div>
                 <div class="draw-font-row">
                     <select id="draw-font-select" onchange="onDrawFontFamilyChange(this.value)" title="Font">
@@ -1006,8 +1006,10 @@
         function gridToSvg(gridVal) { return gridVal * GRID_UNIT; }
         function svgToGrid(svgVal) { return svgVal / GRID_UNIT; }
 
-        var drawCircleRadius = 10;  // in grid units (10 × 0.6 = 6 SVG)
-        var drawFontSize = 66;      // in grid units (66 × 0.6 ≈ 40 SVG)
+        var drawSizeCoarse = 30;    // Aa slider (0-100, step 10)
+        var drawSizeFine = 0;       // r slider (0-10, step 1)
+        // Combined size: 0-100 where 100 = fill card in one direction (60 SVG units)
+        function getEffectiveSize() { return Math.min(drawSizeCoarse + drawSizeFine, 100); }
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
         var pendingNewCardName = null; // name for card being drawn
@@ -1285,37 +1287,6 @@
             if (tool !== 'select') {
                 deselectElement();
             }
-            // Adjust slider range (stamp tools get wider range)
-            adjustSliderForTool(tool);
-        }
-
-        // Adjust size slider range for stamp vs circle tools
-        function adjustSliderForTool(tool) {
-            var slider = document.getElementById('draw-size-slider');
-            if (!slider) return;
-            if (stampSVGs[tool]) {
-                // Stamps: 10, 20, 30, ..., 100 (max = full card)
-                slider.min = 10;
-                slider.max = 100;
-                slider.step = 10;
-                var snapped = Math.round(drawCircleRadius / 10) * 10;
-                if (snapped < 10) snapped = 10;
-                if (snapped > 100) snapped = 100;
-                drawCircleRadius = snapped;
-                slider.value = snapped;
-                document.getElementById('draw-r-val').textContent = snapped;
-            } else {
-                // Circles: 10, 20, 30 (step 10)
-                slider.min = 10;
-                slider.max = 30;
-                slider.step = 10;
-                var snapped = Math.round(drawCircleRadius / 10) * 10;
-                if (snapped < 10) snapped = 10;
-                if (snapped > 30) snapped = 30;
-                drawCircleRadius = snapped;
-                slider.value = snapped;
-                document.getElementById('draw-r-val').textContent = snapped;
-            }
         }
 
         // --- T submenu (text, numbers, math) ---
@@ -1408,8 +1379,6 @@
             selectedStampTool = tool;
             selectDrawTool(tool);
             closeAllSubmenus();
-            // Adjust slider range for stamp tools (max = full card = 100 grid units)
-            adjustSliderForTool(tool);
         }
         function toggleStampsSubmenu() {
             var menu = document.getElementById('stamps-submenu');
@@ -1558,52 +1527,36 @@
 
         function populatePropsFromElement(el) {
             var tag = el.tagName.toLowerCase();
+            var sz = 0;
             if (tag === 'circle') {
-                var isHollow = el.getAttribute('fill') === 'none';
-                var r;
-                if (isHollow) {
-                    // Hollow circle: stored radius is r * 0.9, reverse it
-                    r = Math.round(svgToGrid(+el.getAttribute('r')) / 0.9);
-                } else {
-                    r = Math.round(svgToGrid(+el.getAttribute('r')));
+                // Read size from data attr or compute from radius
+                sz = +el.getAttribute('data-draw-size');
+                if (!sz) {
+                    var isHollow = el.getAttribute('fill') === 'none';
+                    var r;
+                    if (isHollow) {
+                        r = svgToGrid(+el.getAttribute('r') / 0.9);
+                    } else {
+                        r = svgToGrid(+el.getAttribute('r'));
+                    }
+                    sz = Math.round(r * 2); // radius → diameter = full size
                 }
-                // Snap to nearest 10
-                r = Math.round(r / 10) * 10;
-                if (r < 10) r = 10;
-                if (r > 30) r = 30;
-                drawCircleRadius = r;
-                var slider = document.getElementById('draw-size-slider');
-                if (slider) { slider.min = 10; slider.max = 30; slider.step = 10; slider.value = r; }
-                document.getElementById('draw-r-val').textContent = r;
             } else if (tag === 'g') {
-                // Stamp element: read size from data attribute or compute from transform
-                var sz = +el.getAttribute('data-stamp-size');
+                sz = +el.getAttribute('data-draw-size');
+                if (!sz) {
+                    // Legacy: try data-stamp-size
+                    sz = +el.getAttribute('data-stamp-size');
+                }
                 if (!sz) {
                     var t = el.getAttribute('transform') || '';
                     var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     if (sm) sz = Math.round(svgToGrid(+sm[1] * 100));
                 }
-                if (!sz) sz = 30;
-                // Snap to nearest 10
-                sz = Math.round(sz / 10) * 10;
-                if (sz < 10) sz = 10;
-                if (sz > 100) sz = 100;
-                // Adjust slider range for stamps then set value
-                var slider = document.getElementById('draw-size-slider');
-                if (slider) {
-                    slider.min = 10;
-                    slider.max = 100;
-                    slider.step = 10;
-                    slider.value = sz;
-                }
-                drawCircleRadius = sz;
-                document.getElementById('draw-r-val').textContent = sz;
             } else if (tag === 'text') {
-                var fs = Math.round(svgToGrid(+el.getAttribute('font-size')));
-                drawFontSize = fs;
-                var fSlider = document.getElementById('draw-font-slider');
-                if (fSlider) { fSlider.value = fs; }
-                document.getElementById('draw-f-val').textContent = fs;
+                sz = +el.getAttribute('data-draw-size');
+                if (!sz) {
+                    sz = Math.round(svgToGrid(+el.getAttribute('font-size')));
+                }
                 var ff = el.getAttribute('font-family') || 'Arial, sans-serif';
                 drawFontFamily = ff;
                 var sel = document.getElementById('draw-font-select');
@@ -1613,52 +1566,71 @@
                     }
                 }
             }
+            if (!sz) sz = 30;
+            if (sz > 100) sz = 100;
+            // Split into coarse (tens) + fine (ones)
+            var coarse = Math.floor(sz / 10) * 10;
+            var fine = sz - coarse;
+            if (fine > 10) { fine = 10; coarse = sz - 10; }
+            drawSizeCoarse = coarse;
+            drawSizeFine = fine;
+            var cSlider = document.getElementById('draw-coarse-slider');
+            if (cSlider) cSlider.value = coarse;
+            document.getElementById('draw-coarse-val').textContent = coarse;
+            var fSlider = document.getElementById('draw-fine-slider');
+            if (fSlider) fSlider.value = fine;
+            document.getElementById('draw-fine-val').textContent = fine;
         }
 
         // --- Property change handlers (update selected element live) ---
-        function onDrawRadiusChange(val) {
-            drawCircleRadius = val;
-            document.getElementById('draw-r-val').textContent = val;
-            if (selectedElement) {
-                var tag = selectedElement.tagName.toLowerCase();
-                if (tag === 'circle') {
-                    hasEditedExisting = true;
-                    var isHollow = selectedElement.getAttribute('fill') === 'none';
-                    if (isHollow) {
-                        selectedElement.setAttribute('r', gridToSvg(val * 0.9));
-                        selectedElement.setAttribute('stroke-width', gridToSvg(Math.max(2, Math.round(val * 0.4))));
-                    } else {
-                        selectedElement.setAttribute('r', gridToSvg(val));
-                    }
-                    updateSelectionRing();
-                } else if (tag === 'g') {
-                    // Resize stamp: recalculate transform with new size
-                    hasEditedExisting = true;
-                    var stampSize = gridToSvg(val);
-                    if (stampSize < 1) stampSize = 1;
-                    if (stampSize > 60) stampSize = 60;
-                    var scale = stampSize / 100;
-                    // Get current center from existing transform
-                    var t = selectedElement.getAttribute('transform') || '';
-                    var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
-                    var oldScale = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
-                    if (m && oldScale) {
-                        var oldSz = +oldScale[1] * 100;
-                        var cx = +m[1] + oldSz / 2;
-                        var cy = +m[2] + oldSz / 2;
-                        selectedElement.setAttribute('transform', 'translate(' + (cx - stampSize / 2) + ',' + (cy - stampSize / 2) + ') scale(' + scale + ')');
-                        selectedElement.setAttribute('data-stamp-size', val);
-                    }
-                    updateSelectionRing();
-                }
-            }
+        function onDrawCoarseChange(val) {
+            drawSizeCoarse = +val;
+            document.getElementById('draw-coarse-val').textContent = val;
+            applyEffectiveSize();
         }
-        function onDrawFontSizeChange(val) {
-            drawFontSize = val;
-            document.getElementById('draw-f-val').textContent = val;
-            if (selectedElement && selectedElement.tagName.toLowerCase() === 'text') {
+        function onDrawFineChange(val) {
+            drawSizeFine = +val;
+            document.getElementById('draw-fine-val').textContent = val;
+            applyEffectiveSize();
+        }
+        // Apply the combined size (coarse + fine) to the currently selected element
+        function applyEffectiveSize() {
+            if (!selectedElement) return;
+            var sz = getEffectiveSize();
+            var tag = selectedElement.tagName.toLowerCase();
+            if (tag === 'circle') {
                 hasEditedExisting = true;
-                selectedElement.setAttribute('font-size', gridToSvg(val));
+                var halfSz = sz / 2;
+                var isHollow = selectedElement.getAttribute('fill') === 'none';
+                if (isHollow) {
+                    selectedElement.setAttribute('r', gridToSvg(halfSz * 0.9));
+                    selectedElement.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
+                } else {
+                    selectedElement.setAttribute('r', gridToSvg(halfSz));
+                }
+                selectedElement.setAttribute('data-draw-size', sz);
+                updateSelectionRing();
+            } else if (tag === 'g') {
+                hasEditedExisting = true;
+                var stampSizeSvg = gridToSvg(sz);
+                if (stampSizeSvg < 1) stampSizeSvg = 1;
+                if (stampSizeSvg > 60) stampSizeSvg = 60;
+                var scale = stampSizeSvg / 100;
+                var t = selectedElement.getAttribute('transform') || '';
+                var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
+                var oldScale = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+                if (m && oldScale) {
+                    var oldSz = +oldScale[1] * 100;
+                    var cx = +m[1] + oldSz / 2;
+                    var cy = +m[2] + oldSz / 2;
+                    selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
+                }
+                selectedElement.setAttribute('data-draw-size', sz);
+                updateSelectionRing();
+            } else if (tag === 'text') {
+                hasEditedExisting = true;
+                selectedElement.setAttribute('font-size', gridToSvg(sz));
+                selectedElement.setAttribute('data-draw-size', sz);
                 updateSelectionRing();
             }
         }
@@ -1753,24 +1725,27 @@
                 var cardSvg = container.querySelector('svg:not(.loupe-grid)');
                 if (!cardSvg) return;
 
-                var svgRadius = gridToSvg(drawCircleRadius);
-                var svgFontSize = gridToSvg(drawFontSize);
+                var sz = getEffectiveSize();
 
                 var el;
                 if (drawTool === 'circle') {
+                    var halfSz = sz / 2;
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     el.setAttribute('cx', x);
                     el.setAttribute('cy', y);
-                    el.setAttribute('r', svgRadius);
+                    el.setAttribute('r', gridToSvg(halfSz));
                     el.setAttribute('fill', '#333');
+                    el.setAttribute('data-draw-size', sz);
                 } else if (drawTool === 'hollow') {
+                    var halfSz = sz / 2;
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     el.setAttribute('cx', x);
                     el.setAttribute('cy', y);
-                    el.setAttribute('r', gridToSvg(drawCircleRadius * 0.9));
+                    el.setAttribute('r', gridToSvg(halfSz * 0.9));
                     el.setAttribute('fill', 'none');
                     el.setAttribute('stroke', '#333');
-                    el.setAttribute('stroke-width', gridToSvg(Math.max(2, Math.round(drawCircleRadius * 0.4))));
+                    el.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
+                    el.setAttribute('data-draw-size', sz);
                 } else if (drawTool === 'text') {
                     var ch = selectedTextChar;
                     if (!ch) return;
@@ -1778,22 +1753,22 @@
                     el.setAttribute('x', x);
                     el.setAttribute('y', y);
                     el.setAttribute('text-anchor', 'middle');
-                    el.setAttribute('font-size', svgFontSize);
+                    el.setAttribute('font-size', gridToSvg(sz));
                     el.setAttribute('font-family', drawFontFamily);
                     el.setAttribute('font-weight', '500');
                     el.setAttribute('fill', '#333');
+                    el.setAttribute('data-draw-size', sz);
                     el.textContent = ch;
                 } else if (stampSVGs[drawTool]) {
-                    // Stamp tool: place icon at click position, sized by radius slider
-                    var stampSize = gridToSvg(drawCircleRadius);
-                    if (stampSize < 1) stampSize = 1;
-                    if (stampSize > 60) stampSize = 60;
-                    var scale = stampSize / 100;
+                    var stampSizeSvg = gridToSvg(sz);
+                    if (stampSizeSvg < 1) stampSizeSvg = 1;
+                    if (stampSizeSvg > 60) stampSizeSvg = 60;
+                    var scale = stampSizeSvg / 100;
                     var ns = 'http://www.w3.org/2000/svg';
                     el = document.createElementNS(ns, 'g');
-                    el.setAttribute('transform', 'translate(' + (x - stampSize / 2) + ',' + (y - stampSize / 2) + ') scale(' + scale + ')');
+                    el.setAttribute('transform', 'translate(' + (x - stampSizeSvg / 2) + ',' + (y - stampSizeSvg / 2) + ') scale(' + scale + ')');
                     el.innerHTML = stampSVGs[drawTool];
-                    el.setAttribute('data-stamp-size', drawCircleRadius);
+                    el.setAttribute('data-draw-size', sz);
                 }
                 if (el) {
                     el.classList.add('draw-placed');

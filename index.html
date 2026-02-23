@@ -403,12 +403,12 @@
                 </div>
                 <div class="draw-size-row">
                     <label>r</label>
-                    <input type="range" id="draw-size-slider" min="1" max="30" value="10" oninput="onDrawRadiusChange(+this.value)">
+                    <input type="range" id="draw-size-slider" min="10" max="30" value="10" step="10" oninput="onDrawRadiusChange(+this.value)">
                     <span id="draw-r-val" class="draw-val">10</span>
                 </div>
                 <div class="draw-size-row">
                     <label style="font-size:11px;">Aa</label>
-                    <input type="range" id="draw-font-slider" min="5" max="99" value="66" oninput="onDrawFontSizeChange(+this.value)">
+                    <input type="range" id="draw-font-slider" min="0" max="99" value="66" step="1" oninput="onDrawFontSizeChange(+this.value)">
                     <span id="draw-f-val" class="draw-val">66</span>
                 </div>
                 <div class="draw-font-row">
@@ -1294,21 +1294,27 @@
             var slider = document.getElementById('draw-size-slider');
             if (!slider) return;
             if (stampSVGs[tool]) {
-                // Stamps: max = 100 grid units = 60 SVG units = full card
+                // Stamps: 10, 20, 30, ..., 100 (max = full card)
+                slider.min = 10;
                 slider.max = 100;
-                if (drawCircleRadius > 100) {
-                    drawCircleRadius = 100;
-                    slider.value = 100;
-                    document.getElementById('draw-r-val').textContent = 100;
-                }
+                slider.step = 10;
+                var snapped = Math.round(drawCircleRadius / 10) * 10;
+                if (snapped < 10) snapped = 10;
+                if (snapped > 100) snapped = 100;
+                drawCircleRadius = snapped;
+                slider.value = snapped;
+                document.getElementById('draw-r-val').textContent = snapped;
             } else {
-                // Circles: max = 30
+                // Circles: 10, 20, 30 (step 10)
+                slider.min = 10;
                 slider.max = 30;
-                if (drawCircleRadius > 30) {
-                    drawCircleRadius = 30;
-                    slider.value = 30;
-                    document.getElementById('draw-r-val').textContent = 30;
-                }
+                slider.step = 10;
+                var snapped = Math.round(drawCircleRadius / 10) * 10;
+                if (snapped < 10) snapped = 10;
+                if (snapped > 30) snapped = 30;
+                drawCircleRadius = snapped;
+                slider.value = snapped;
+                document.getElementById('draw-r-val').textContent = snapped;
             }
         }
 
@@ -1561,9 +1567,13 @@
                 } else {
                     r = Math.round(svgToGrid(+el.getAttribute('r')));
                 }
+                // Snap to nearest 10
+                r = Math.round(r / 10) * 10;
+                if (r < 10) r = 10;
+                if (r > 30) r = 30;
                 drawCircleRadius = r;
                 var slider = document.getElementById('draw-size-slider');
-                if (slider) { slider.value = r; }
+                if (slider) { slider.min = 10; slider.max = 30; slider.step = 10; slider.value = r; }
                 document.getElementById('draw-r-val').textContent = r;
             } else if (tag === 'g') {
                 // Stamp element: read size from data attribute or compute from transform
@@ -1574,10 +1584,16 @@
                     if (sm) sz = Math.round(svgToGrid(+sm[1] * 100));
                 }
                 if (!sz) sz = 30;
+                // Snap to nearest 10
+                sz = Math.round(sz / 10) * 10;
+                if (sz < 10) sz = 10;
+                if (sz > 100) sz = 100;
                 // Adjust slider range for stamps then set value
                 var slider = document.getElementById('draw-size-slider');
                 if (slider) {
+                    slider.min = 10;
                     slider.max = 100;
+                    slider.step = 10;
                     slider.value = sz;
                 }
                 drawCircleRadius = sz;

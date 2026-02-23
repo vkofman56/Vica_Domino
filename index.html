@@ -2662,33 +2662,33 @@
             }
             localStorage.setItem('customDrawnCards', JSON.stringify(data));
 
-            // Save edits to built-in cards — separate per card set
-            var numbersEdits = [];
-            if (numbersDiv) {
-                numbersDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
-                    var lbl = card.querySelector('.library-label');
-                    var svg = card.querySelector('svg');
-                    if (lbl && svg) {
-                        numbersEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
-                    }
-                });
+            // Save edits to built-in cards — only save the ACTIVE set to avoid
+            // wiping the other set's data when its container is empty/hidden
+            if (activeCardSet === 'abc') {
+                var abcEdits = [];
+                if (abcDiv) {
+                    abcDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
+                        var lbl = card.querySelector('.library-label');
+                        var svg = card.querySelector('svg');
+                        if (lbl && svg) {
+                            abcEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
+                        }
+                    });
+                }
+                localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
+            } else {
+                var numbersEdits = [];
+                if (numbersDiv) {
+                    numbersDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
+                        var lbl = card.querySelector('.library-label');
+                        var svg = card.querySelector('svg');
+                        if (lbl && svg) {
+                            numbersEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
+                        }
+                    });
+                }
+                localStorage.setItem('editedBuiltinCards_numbers', JSON.stringify(numbersEdits));
             }
-            localStorage.setItem('editedBuiltinCards_numbers', JSON.stringify(numbersEdits));
-
-            var abcEdits = [];
-            if (abcDiv) {
-                abcDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
-                    var lbl = card.querySelector('.library-label');
-                    var svg = card.querySelector('svg');
-                    if (lbl && svg) {
-                        abcEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
-                    }
-                });
-            }
-            localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
-
-            // Keep legacy key in sync (union of both) for any code that still reads it
-            localStorage.setItem('editedBuiltinCards', JSON.stringify(numbersEdits.concat(abcEdits)));
         }
 
         function loadCustomCards() {
@@ -2714,7 +2714,8 @@
             // Load edits to built-in Numbers cards only (ABC edits are applied by buildAbcCardSet)
             var numbersDiv = document.getElementById('card-set-numbers');
             // Prefer set-specific key; fall back to legacy key filtered to Numbers labels
-            var edits = localStorage.getItem('editedBuiltinCards_numbers');
+            var _numRaw = localStorage.getItem('editedBuiltinCards_numbers');
+            var edits = (_numRaw && _numRaw !== '[]') ? _numRaw : null;
             if (!edits) {
                 // Migration: read from legacy key, keep only labels that exist in Numbers set
                 var legacy = localStorage.getItem('editedBuiltinCards');
@@ -3875,7 +3876,8 @@
             // Load saved edits (prefer ABC-specific key, fall back to legacy)
             var editMap = {};
             try {
-                var edits = localStorage.getItem('editedBuiltinCards_abc') || localStorage.getItem('editedBuiltinCards');
+                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
+                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
                 if (edits) {
                     var abcLabels = {};
                     letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
@@ -3990,7 +3992,8 @@
             // Load saved edits for ABC cards (prefer ABC-specific key, fall back to legacy)
             var editMap = {};
             try {
-                var edits = localStorage.getItem('editedBuiltinCards_abc') || localStorage.getItem('editedBuiltinCards');
+                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
+                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
                 if (edits) {
                     var abcLabels = {};
                     letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });

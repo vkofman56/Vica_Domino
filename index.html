@@ -3566,31 +3566,84 @@
             enterSelectionMode();
         }
 
+        function buildCardFromMarkup(cardInfo) {
+            if (!cardInfo.svgMarkup) return null;
+            var card = document.createElement('div');
+            card.className = 'library-card';
+            var labelDiv = document.createElement('div');
+            labelDiv.className = 'library-label';
+            labelDiv.textContent = cardInfo.label;
+            card.appendChild(labelDiv);
+            var preview = document.createElement('div');
+            preview.className = 'domino-half-preview';
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 60 60');
+            svg.innerHTML = cardInfo.svgMarkup;
+            if (cardInfo.isVariation && cardInfo.transform) {
+                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('transform', cardInfo.transform);
+                while (svg.firstChild) g.appendChild(svg.firstChild);
+                svg.appendChild(g);
+            }
+            preview.appendChild(svg);
+            card.appendChild(preview);
+            var desc = document.createElement('div');
+            desc.className = 'library-desc';
+            desc.textContent = '';
+            card.appendChild(desc);
+            return card;
+        }
+
         function buildGameViewCard(cardInfo) {
             if (!cardInfo.isVariation) {
                 var original = findCardByLabel(cardInfo.label);
-                if (!original) return null;
-                var clone = original.cloneNode(true);
-                clone.classList.remove('card-selected');
-                var del = clone.querySelector('.variation-delete-btn');
-                if (del) del.remove();
-                return clone;
+                if (original) {
+                    var clone = original.cloneNode(true);
+                    clone.classList.remove('card-selected');
+                    var del = clone.querySelector('.variation-delete-btn');
+                    if (del) del.remove();
+                    return clone;
+                }
+                // Fallback: build from stored svgMarkup
+                return buildCardFromMarkup(cardInfo);
             } else {
                 var original = findCardByLabel(cardInfo.originalLabel);
-                if (!original) return null;
-                var clone = original.cloneNode(true);
-                clone.classList.remove('card-selected');
-                var svg = clone.querySelector('svg');
-                if (svg && cardInfo.transform) {
+                if (original) {
+                    var clone = original.cloneNode(true);
+                    clone.classList.remove('card-selected');
+                    var svg = clone.querySelector('svg');
+                    if (svg && cardInfo.transform) {
+                        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        g.setAttribute('transform', cardInfo.transform);
+                        while (svg.firstChild) g.appendChild(svg.firstChild);
+                        svg.appendChild(g);
+                    }
+                    var lbl = clone.querySelector('.library-label');
+                    if (lbl) lbl.textContent = cardInfo.label;
+                    return clone;
+                }
+                // Fallback: build from stored svgMarkup
+                return buildCardFromMarkup(cardInfo);
+            }
+        }
+
+        function getGameCardSVGWithFallback(cardInfo) {
+            var svg = getGameCardSVG(cardInfo);
+            if (svg) return svg;
+            // Fallback: build from stored svgMarkup
+            if (cardInfo.svgMarkup) {
+                var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                fallbackSvg.setAttribute('viewBox', '0 0 60 60');
+                fallbackSvg.innerHTML = cardInfo.svgMarkup;
+                if (cardInfo.isVariation && cardInfo.transform) {
                     var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('transform', cardInfo.transform);
-                    while (svg.firstChild) g.appendChild(svg.firstChild);
-                    svg.appendChild(g);
+                    while (fallbackSvg.firstChild) g.appendChild(fallbackSvg.firstChild);
+                    fallbackSvg.appendChild(g);
                 }
-                var lbl = clone.querySelector('.library-label');
-                if (lbl) lbl.textContent = cardInfo.label;
-                return clone;
+                return fallbackSvg;
             }
+            return null;
         }
 
         function buildGameViewDomino(domino) {
@@ -3601,13 +3654,13 @@
             var leftHalf = document.createElement('div');
             leftHalf.className = 'game-view-domino-half';
             leftHalf.setAttribute('data-card-label', domino.leftCard.label);
-            var leftSvg = getGameCardSVG(domino.leftCard);
+            var leftSvg = getGameCardSVGWithFallback(domino.leftCard);
             if (leftSvg) leftHalf.appendChild(leftSvg);
 
             var rightHalf = document.createElement('div');
             rightHalf.className = 'game-view-domino-half';
             rightHalf.setAttribute('data-card-label', domino.rightCard.label);
-            var rightSvg = getGameCardSVG(domino.rightCard);
+            var rightSvg = getGameCardSVGWithFallback(domino.rightCard);
             if (rightSvg) rightHalf.appendChild(rightSvg);
 
             el.appendChild(leftHalf);
@@ -5367,6 +5420,30 @@
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
         }
         ensureAbcGameExists();
+
+        // Migrate: ensure all game cards have svgMarkup (backfill from DOM for older games)
+        (function migrateAllGameSvgMarkup() {
+            var games = loadCustomGames();
+            var changed = false;
+            games.forEach(function(game) {
+                if (!game.cards) return;
+                game.cards.forEach(function(c) {
+                    if (c.svgMarkup) return; // already has markup
+                    // Try to find card in DOM
+                    var domCard = findCardByLabel(c.label);
+                    if (domCard) {
+                        var svg = domCard.querySelector('svg');
+                        if (svg && svg.innerHTML.trim()) {
+                            c.svgMarkup = svg.innerHTML;
+                            changed = true;
+                        }
+                    }
+                });
+            });
+            if (changed) {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
+        })();
 
         // Migrate: add gameName to combined game stages that don't have it yet
         (function migrateCombinedGameNames() {

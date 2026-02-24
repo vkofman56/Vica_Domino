@@ -2027,12 +2027,14 @@
                 }
             });
             if (!targetRow) {
+                var numbersContainer = document.getElementById('card-set-numbers');
+                var appendTarget = numbersContainer || content;
                 var section = document.createElement('div');
                 section.className = 'library-section';
-                content.appendChild(section);
+                appendTarget.appendChild(section);
                 targetRow = document.createElement('div');
                 targetRow.className = 'library-row';
-                content.appendChild(targetRow);
+                appendTarget.appendChild(targetRow);
             }
 
             // Build card element
@@ -2179,6 +2181,8 @@
                         info.originalLabel = card.dataset.originalLabel;
                         info.transform = card.dataset.transform;
                     }
+                    // Track which card set this card belongs to
+                    info.cardSet = activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots';
                     // Store SVG markup for self-contained game data
                     var cardSvgEl = card.querySelector('svg');
                     if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
@@ -2730,7 +2734,8 @@
                     data.push({
                         label: lbl.textContent,
                         svgContent: svg.innerHTML,
-                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card',
+                        cardSet: 'Numbers and Dots'
                     });
                 }
             });
@@ -2747,7 +2752,8 @@
                         data.push({
                             label: lbl.textContent,
                             svgContent: svg.innerHTML,
-                            desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                            desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card',
+                            cardSet: 'Numbers and Dots'
                         });
                     }
                 });
@@ -2951,6 +2957,23 @@
         // Load saved custom/edited cards and variations on startup
         loadCustomCards();
         loadVariations();
+
+        // Migrate orphaned custom card rows into #card-set-numbers
+        // (fixes cards created by old addNewDrawnCard that placed new rows outside the container)
+        (function migrateOrphanedCustomCards() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var numbersDiv = document.getElementById('card-set-numbers');
+            if (!content || !numbersDiv) return;
+            var children = Array.from(content.children);
+            children.forEach(function(ch) {
+                if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc') return;
+                if (ch.classList.contains('library-title')) return;
+                if (ch.classList.contains('library-section') || ch.classList.contains('library-row')) {
+                    numbersDiv.appendChild(ch);
+                }
+            });
+        })();
+
         addDeleteButtonsToAllCards();
 
         // Restore variations that were wrongly removed from Card Maker
@@ -3119,6 +3142,8 @@
                                 info.originalLabel = ec.originalLabel;
                                 info.transform = ec.transform;
                             }
+                            // Preserve card set from existing data, or determine from active set
+                            info.cardSet = ec.cardSet || (activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots');
                             // Store SVG markup for self-contained game data
                             var cardSvgEl = cardEl.querySelector('svg');
                             if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
@@ -4013,6 +4038,29 @@
                 });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
+            // Also include orphaned custom card rows (outside #card-set-numbers)
+            // for backward compatibility with cards saved before the fix
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (content) {
+                var children = content.children;
+                for (var ci = 0; ci < children.length; ci++) {
+                    var ch = children[ci];
+                    if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc') continue;
+                    if (!ch.classList.contains('library-row')) continue;
+                    var previewRow = document.createElement('div');
+                    previewRow.className = 'card-preview-row';
+                    ch.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                        var svg = card.querySelector('svg');
+                        if (!svg) return;
+                        var thumb = document.createElement('div');
+                        thumb.className = 'card-preview-thumb';
+                        var clone = svg.cloneNode(true);
+                        thumb.appendChild(clone);
+                        previewRow.appendChild(thumb);
+                    });
+                    if (previewRow.children.length > 0) container.appendChild(previewRow);
+                }
+            }
         }
 
         function buildAbcPreview(container) {
@@ -5381,7 +5429,8 @@
                     abcCards.push({
                         label: label,
                         isVariation: false,
-                        svgMarkup: markup
+                        svgMarkup: markup,
+                        cardSet: 'ABC'
                     });
                 }
             });
@@ -5437,6 +5486,25 @@
                             c.svgMarkup = svg.innerHTML;
                             changed = true;
                         }
+                    }
+                });
+            });
+            if (changed) {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
+        })();
+
+        // Migrate: backfill cardSet property on existing game cards
+        (function migrateCardSetProperty() {
+            var games = loadCustomGames();
+            var changed = false;
+            games.forEach(function(game) {
+                if (!game.cards) return;
+                var setName = game.name === 'ABC' ? 'ABC' : 'Numbers and Dots';
+                game.cards.forEach(function(c) {
+                    if (!c.cardSet) {
+                        c.cardSet = setName;
+                        changed = true;
                     }
                 });
             });

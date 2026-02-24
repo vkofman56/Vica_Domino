@@ -1473,21 +1473,36 @@
                 el.setAttribute('transform', newT);
             }
         }
+        var selectableTags = { circle:1, text:1, line:1, ellipse:1, path:1, rect:1, polygon:1, polyline:1, image:1, use:1 };
         function isSelectableElement(el) {
             var tag = el.tagName.toLowerCase();
-            if ((tag === 'circle' || tag === 'text') && el.closest('svg:not(.loupe-grid)')) return true;
-            // For stamps: check if element or parent <g> has draw-placed
-            if (tag === 'g' && el.classList.contains('draw-placed')) return true;
-            var parentG = el.closest('g.draw-placed');
-            if (parentG) return true;
+            var cardSvg = el.closest('svg:not(.loupe-grid)');
+            if (!cardSvg) return false;
+            // Any shape element inside the card SVG
+            if (selectableTags[tag]) return true;
+            // A <g> group inside the card SVG (stamp groups, transform groups, etc.)
+            if (tag === 'g' && el !== cardSvg && el.parentNode !== null) return true;
             return false;
         }
-        // Get the actual selectable element (for stamp children, return parent <g>)
+        // Get the actual selectable element (for children of a <g>, return the <g>)
         function getSelectableElement(el) {
             var tag = el.tagName.toLowerCase();
-            if ((tag === 'circle' || tag === 'text' || tag === 'g') && el.classList.contains('draw-placed')) return el;
-            var parentG = el.closest('g.draw-placed');
-            if (parentG) return parentG;
+            // If the element is inside a <g> that is a direct child of the card SVG, select the <g>
+            var parentG = el.closest('g');
+            if (parentG) {
+                var parentOfG = parentG.parentNode;
+                if (parentOfG && parentOfG.tagName && parentOfG.tagName.toLowerCase() === 'svg') {
+                    return parentG;
+                }
+                // Nested <g>: walk up to the outermost <g> that is a direct child of <svg>
+                while (parentOfG && parentOfG.tagName && parentOfG.tagName.toLowerCase() === 'g') {
+                    parentG = parentOfG;
+                    parentOfG = parentG.parentNode;
+                }
+                if (parentOfG && parentOfG.tagName && parentOfG.tagName.toLowerCase() === 'svg') {
+                    return parentG;
+                }
+            }
             return el;
         }
 

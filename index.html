@@ -350,7 +350,8 @@
                 <button class="draw-tool-btn" id="draw-select-btn" onclick="selectDrawTool('select')" title="Select / Move symbol">
                     <svg viewBox="0 0 20 20" width="18" height="18"><path d="M4 2 L4 16 L8 12 L12 18 L14 17 L10 11 L15 11 Z" fill="white" stroke="none"/></svg>
                 </button>
-                <!-- T button (text/numbers/math) -->
+                <!-- T button (text/numbers/math) + Stamps button (icons + dots) side by side -->
+                <div class="draw-transform-row">
                 <div class="draw-tool-group">
                     <button class="draw-tool-btn" id="draw-text-group-btn" onclick="toggleTextSubmenu()" title="Text: numbers, letters, math">T</button>
                     <div class="draw-submenu" id="text-submenu" style="display:none;">
@@ -368,8 +369,6 @@
                         </div>
                     </div>
                 </div>
-                <span class="draw-tool-sep">|</span>
-                <!-- Stamps button (icons + dots) -->
                 <div class="draw-tool-group">
                     <button class="draw-tool-btn" id="draw-stamps-group-btn" onclick="toggleStampsSubmenu()" title="Stamps: dots and icons">
                         <svg viewBox="0 0 20 20" width="18" height="18"><circle cx="10" cy="10" r="7" fill="white"/><circle cx="7" cy="8" r="1.2" fill="#333"/><circle cx="13" cy="8" r="1.2" fill="#333"/><path d="M7 13 Q10 16 13 13" stroke="#333" stroke-width="1" fill="none"/></svg>
@@ -377,6 +376,7 @@
                     <div class="draw-submenu" id="stamps-submenu" style="display:none;">
                         <div class="draw-submenu-grid draw-stamps-grid" id="stamps-grid"></div>
                     </div>
+                </div>
                 </div>
                 <div class="draw-size-row">
                     <label style="font-size:11px;">Aa</label>
@@ -403,12 +403,8 @@
                 </div>
                 <button class="draw-tool-btn draw-delete-btn" id="draw-delete-btn" onclick="drawDeleteSelected()" title="Delete selected" style="display:none;">&#10005;</button>
                 <span class="draw-tool-sep">|</span>
-                <!-- Color palette (Picture / Text mode) -->
+                <!-- Color palette -->
                 <div class="draw-color-section" id="draw-color-section">
-                    <div class="draw-color-modes">
-                        <button class="draw-color-mode-btn active" data-mode="picture" onclick="setDrawColorMode('picture',this)">Pic</button>
-                        <button class="draw-color-mode-btn" data-mode="text" onclick="setDrawColorMode('text',this)">Txt</button>
-                    </div>
                     <div class="draw-color-swatches" id="draw-color-swatches"></div>
                 </div>
                 <span class="draw-tool-sep">|</span>
@@ -2040,7 +2036,6 @@
         }
 
         // --- Loupe color palette ---
-        var drawColorMode = 'picture';
         var drawColorList = [
             { color: '#333333', name: 'Black' },
             { color: '#CC0000', name: 'Red' },
@@ -2069,46 +2064,47 @@
                 container.appendChild(swatch);
             });
         }
-        function setDrawColorMode(mode, btn) {
-            drawColorMode = mode;
-            document.querySelectorAll('.draw-color-mode-btn').forEach(function(b) { b.classList.remove('active'); });
-            if (btn) btn.classList.add('active');
-        }
         function applyColorInLoupe(color) {
+            // If an element is selected, color only that element
+            if (selectedElement) {
+                colorOneElement(selectedElement, color);
+                hasEditedExisting = true;
+                return;
+            }
+            // Nothing selected — color everything on the card
             var container = document.getElementById('loupe-card-container');
             var svg = container.querySelector('svg:not(.loupe-grid)');
             if (!svg) return;
-            var elements = svg.querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline');
-            var textElements = svg.querySelectorAll('text');
-            if (drawColorMode === 'picture') {
-                for (var i = 0; i < elements.length; i++) {
-                    var el = elements[i];
-                    if (el.closest('.draw-sel-ring')) continue;
-                    var fill = el.getAttribute('fill');
-                    var stroke = el.getAttribute('stroke');
-                    if (fill === 'none' && stroke) {
-                        el.setAttribute('stroke', color);
-                    } else if (fill && fill !== 'none') {
-                        el.setAttribute('fill', color);
-                    }
-                }
-                var stampGroups = svg.querySelectorAll('g.draw-placed');
-                for (var g = 0; g < stampGroups.length; g++) {
-                    var innerEls = stampGroups[g].querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline');
-                    for (var j = 0; j < innerEls.length; j++) {
-                        var el = innerEls[j];
-                        var fill = el.getAttribute('fill');
-                        if (fill && fill !== 'none') el.setAttribute('fill', color);
-                        var stroke = el.getAttribute('stroke');
-                        if (stroke) el.setAttribute('stroke', color);
-                    }
-                }
-            } else {
-                for (var i = 0; i < textElements.length; i++) {
-                    textElements[i].setAttribute('fill', color);
+            var all = svg.querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline, text');
+            for (var i = 0; i < all.length; i++) {
+                if (all[i].closest('.draw-sel-ring')) continue;
+                colorOneElement(all[i], color);
+            }
+            var stampGroups = svg.querySelectorAll('g.draw-placed');
+            for (var g = 0; g < stampGroups.length; g++) {
+                var innerEls = stampGroups[g].querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline, text');
+                for (var j = 0; j < innerEls.length; j++) {
+                    colorOneElement(innerEls[j], color);
                 }
             }
             hasEditedExisting = true;
+        }
+        function colorOneElement(el, color) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'text') {
+                el.setAttribute('fill', color);
+                return;
+            }
+            var fill = el.getAttribute('fill');
+            var stroke = el.getAttribute('stroke');
+            if (fill === 'none' && stroke) {
+                el.setAttribute('stroke', color);
+            } else if (fill && fill !== 'none') {
+                el.setAttribute('fill', color);
+            }
+            if (stroke && stroke !== 'none') {
+                el.setAttribute('stroke', color);
+            }
         }
 
         // --- Loupe reflect/rotate → create card copy ---

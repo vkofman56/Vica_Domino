@@ -2251,6 +2251,7 @@
 
             addCardDeleteButton(card);
             addVarButton(card);
+            addCopyButton(card);
             // Save immediately
             if (typeof saveVariations === 'function') saveVariations();
         }
@@ -2302,6 +2303,7 @@
             targetRow.appendChild(card);
             addCardDeleteButton(card);
             addVarButton(card);
+            addCopyButton(card);
 
             // Apply current zoom
             if (libZoom !== 1) {
@@ -2396,8 +2398,10 @@
         document.querySelector('#domino-library-screen .domino-library-content').addEventListener('click', function(e) {
             // Ignore clicks inside the variation box itself
             if (e.target.closest('.variation-box')) return;
-            // Ignore clicks on delete buttons
-            if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn')) return;
+            // Ignore clicks on action buttons
+            if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn') || e.target.closest('.card-copy-btn')) return;
+            // Ignore if a drag just ended
+            if (cardDragJustEnded) { cardDragJustEnded = false; return; }
             // Ignore clicks on letter labels (new card mode)
             if (e.target.closest('.row-letter-label') || e.target.closest('.new-group-row')) return;
 
@@ -2468,7 +2472,8 @@
         // Double-click on a card: open in loupe with draw mode
         document.querySelector('#domino-library-screen .domino-library-content').addEventListener('dblclick', function(e) {
             if (e.target.closest('.variation-box')) return;
-            if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn')) return;
+            if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn') || e.target.closest('.card-copy-btn')) return;
+            if (cardDragJustEnded) return;
             var card = e.target.closest('.library-card');
             if (!card) return;
             // Don't interfere with Game Maker selection
@@ -2485,6 +2490,91 @@
                 toggleDrawMode();
             }
         });
+
+        // --- Drag-to-move cards between rows ---
+        var cardDragJustEnded = false;
+        (function() {
+            var contentEl = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!contentEl) return;
+            var dragCard = null, dragStartX = 0, dragStartY = 0;
+            var dragActive = false, dragPending = false;
+            var dragSourceRow = null, dragOverRow = null;
+            var DRAG_THRESHOLD = 8;
+
+            contentEl.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0) return; // left button only
+                // Don't drag from buttons
+                if (e.target.closest('.card-delete-btn') || e.target.closest('.card-var-btn') ||
+                    e.target.closest('.card-copy-btn') || e.target.closest('.variation-delete-btn') ||
+                    e.target.closest('.variation-box')) return;
+                var card = e.target.closest('.library-card');
+                if (!card) return;
+                dragCard = card;
+                dragSourceRow = card.closest('.library-row');
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragPending = true;
+                dragActive = false;
+            });
+
+            document.addEventListener('pointermove', function(e) {
+                if (!dragPending) return;
+                var dx = e.clientX - dragStartX;
+                var dy = e.clientY - dragStartY;
+                if (!dragActive && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+                    dragActive = true;
+                    dragCard.classList.add('dragging');
+                }
+                if (!dragActive) return;
+                // Find which row the pointer is over
+                var rows = contentEl.querySelectorAll('.library-row');
+                var newOver = null;
+                rows.forEach(function(row) {
+                    var rect = row.getBoundingClientRect();
+                    if (e.clientY >= rect.top && e.clientY <= rect.bottom &&
+                        e.clientX >= rect.left && e.clientX <= rect.right) {
+                        newOver = row;
+                    }
+                });
+                if (newOver !== dragOverRow) {
+                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
+                    dragOverRow = newOver;
+                    if (dragOverRow && dragOverRow !== dragSourceRow) {
+                        dragOverRow.classList.add('drag-over');
+                    }
+                }
+            });
+
+            document.addEventListener('pointerup', function(e) {
+                if (!dragPending) return;
+                if (dragActive) {
+                    // Perform move if dropped on a different row
+                    if (dragOverRow && dragOverRow !== dragSourceRow) {
+                        dragOverRow.appendChild(dragCard);
+                        // Clean up empty source row
+                        if (dragSourceRow && dragSourceRow.querySelectorAll('.library-card').length === 0) {
+                            var prevSection = dragSourceRow.previousElementSibling;
+                            if (prevSection && prevSection.classList.contains('library-section')) {
+                                prevSection.remove();
+                            }
+                            dragSourceRow.remove();
+                        }
+                        // Persist the new order
+                        if (typeof saveVariations === 'function') saveVariations();
+                    }
+                    dragCard.classList.remove('dragging');
+                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
+                    // Prevent the click handler from firing
+                    cardDragJustEnded = true;
+                    setTimeout(function() { cardDragJustEnded = false; }, 50);
+                }
+                dragCard = null;
+                dragSourceRow = null;
+                dragOverRow = null;
+                dragPending = false;
+                dragActive = false;
+            });
+        })();
 
         function showVariations(card) {
             hideVariations();
@@ -2841,11 +2931,103 @@
             card.appendChild(btn);
         }
 
+        function addCopyButton(card) {
+            if (card.querySelector('.card-copy-btn') || card.classList.contains('variation')) return;
+            var btn = document.createElement('button');
+            btn.className = 'card-copy-btn';
+            btn.textContent = '\u29C9'; // ⧉
+            btn.title = 'Copy card';
+            btn.onclick = function(e) {
+                e.stopPropagation();
+                copyCardInRow(card);
+            };
+            card.appendChild(btn);
+        }
+
+        function copyCardInRow(sourceCard) {
+            var row = sourceCard.closest('.library-row');
+            if (!row) return;
+            var labelEl = sourceCard.querySelector('.library-label');
+            var baseLabel = labelEl ? labelEl.textContent : '';
+            var descEl = sourceCard.querySelector('.library-desc');
+            var descText = descEl ? descEl.textContent : '';
+            var svgEl = sourceCard.querySelector('svg');
+            if (!svgEl) return;
+
+            // Generate unique label
+            var existing = {};
+            row.querySelectorAll('.library-label').forEach(function(l) {
+                existing[l.textContent] = true;
+            });
+            var copyLabel = baseLabel + '_c';
+            var suffixes = 'abcdefghijklmnopqrstuvwxyz';
+            for (var i = 0; i < suffixes.length; i++) {
+                var candidate = baseLabel + suffixes[i];
+                if (!existing[candidate]) { copyLabel = candidate; break; }
+            }
+
+            // Build the new card element
+            var card = document.createElement('div');
+            card.className = 'library-card';
+            card.dataset.custom = 'true';
+
+            var newLabel = document.createElement('div');
+            newLabel.className = 'library-label';
+            newLabel.textContent = copyLabel;
+            card.appendChild(newLabel);
+
+            var preview = document.createElement('div');
+            preview.className = 'domino-half-preview';
+            var clonedSvg = svgEl.cloneNode(true);
+            clonedSvg.setAttribute('viewBox', '0 0 60 60');
+            clonedSvg.removeAttribute('width');
+            clonedSvg.removeAttribute('height');
+            clonedSvg.style.width = '';
+            clonedSvg.style.height = '';
+            preview.appendChild(clonedSvg);
+            card.appendChild(preview);
+
+            var newDesc = document.createElement('div');
+            newDesc.className = 'library-desc';
+            newDesc.textContent = descText || 'Copy';
+            card.appendChild(newDesc);
+
+            // Insert after source card and its copies/variations
+            var insertAfter = sourceCard;
+            var next = sourceCard.nextElementSibling;
+            while (next && next.classList.contains('library-card')) {
+                var nl = next.querySelector('.library-label');
+                if (nl && nl.textContent.indexOf(baseLabel) === 0) {
+                    insertAfter = next;
+                    next = next.nextElementSibling;
+                } else {
+                    break;
+                }
+            }
+            row.insertBefore(card, insertAfter.nextSibling);
+
+            // Apply current zoom
+            if (typeof libZoom !== 'undefined' && libZoom !== 1) {
+                var cardSize = Math.round(70 * libZoom);
+                var svgSize = Math.round(60 * libZoom);
+                preview.style.width = cardSize + 'px';
+                preview.style.height = cardSize + 'px';
+                var s = preview.querySelector('svg');
+                if (s) { s.style.width = svgSize + 'px'; s.style.height = svgSize + 'px'; }
+            }
+
+            addCardDeleteButton(card);
+            addVarButton(card);
+            addCopyButton(card);
+            if (typeof saveVariations === 'function') saveVariations();
+        }
+
         function addDeleteButtonsToAllCards() {
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             content.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
                 addCardDeleteButton(card);
                 addVarButton(card);
+                addCopyButton(card);
             });
         }
 

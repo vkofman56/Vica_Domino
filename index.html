@@ -2260,14 +2260,18 @@
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             var label = cardName || 'X1';
 
-            // Find row whose first card starts with the same letter, or create a new row
+            // Find row matching this letter (by data-row-letter or first card label), or create one
             var firstChar = label.charAt(0).toUpperCase();
             var rows = content.querySelectorAll('.library-row');
             var targetRow = null;
             rows.forEach(function(r) {
-                var firstLabel = r.querySelector('.library-label');
-                if (firstLabel && firstLabel.textContent.charAt(0).toUpperCase() === firstChar) {
+                if ((r.dataset.rowLetter || '').toUpperCase() === firstChar) {
                     targetRow = r;
+                } else {
+                    var firstLabel = r.querySelector('.library-label');
+                    if (firstLabel && firstLabel.textContent.charAt(0).toUpperCase() === firstChar) {
+                        targetRow = r;
+                    }
                 }
             });
             if (!targetRow) {
@@ -2275,10 +2279,10 @@
                 var appendTarget = numbersContainer || content;
                 var section = document.createElement('div');
                 section.className = 'library-section';
-                appendTarget.appendChild(section);
                 targetRow = document.createElement('div');
                 targetRow.className = 'library-row';
-                appendTarget.appendChild(targetRow);
+                targetRow.dataset.rowLetter = firstChar;
+                insertRowAlphabetically(appendTarget, section, targetRow, firstChar);
             }
 
             // Build card element
@@ -2301,6 +2305,7 @@
             desc.textContent = 'Custom card';
             card.appendChild(desc);
             targetRow.appendChild(card);
+            updateRowEmptyState(targetRow);
             addCardDeleteButton(card);
             addVarButton(card);
             addCopyButton(card);
@@ -2551,14 +2556,9 @@
                     // Perform move if dropped on a different row
                     if (dragOverRow && dragOverRow !== dragSourceRow) {
                         dragOverRow.appendChild(dragCard);
-                        // Clean up empty source row
-                        if (dragSourceRow && dragSourceRow.querySelectorAll('.library-card').length === 0) {
-                            var prevSection = dragSourceRow.previousElementSibling;
-                            if (prevSection && prevSection.classList.contains('library-section')) {
-                                prevSection.remove();
-                            }
-                            dragSourceRow.remove();
-                        }
+                        // Update empty-row visual state for source and target
+                        updateRowEmptyState(dragSourceRow);
+                        updateRowEmptyState(dragOverRow);
                         // Persist the new order
                         if (typeof saveVariations === 'function') saveVariations();
                     }
@@ -3038,6 +3038,75 @@
             deleteCard(card);
         }
 
+        // --- Row letter labels & empty-row management ---
+        // Ensure a row has a data-row-letter and update its empty/non-empty visual state
+        function getRowLetter(row) {
+            if (row.dataset.rowLetter) return row.dataset.rowLetter;
+            var firstLabel = row.querySelector('.library-label');
+            if (firstLabel) return firstLabel.textContent.charAt(0).toUpperCase();
+            return '';
+        }
+        function updateRowEmptyState(row) {
+            if (!row) return;
+            var hasCards = row.querySelectorAll('.library-card').length > 0;
+            row.classList.toggle('empty-row', !hasCards);
+        }
+        // Assign data-row-letter to every row and set initial empty state
+        function initRowLetters() {
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                var letter = getRowLetter(row);
+                if (letter) row.dataset.rowLetter = letter;
+                updateRowEmptyState(row);
+            });
+        }
+        // Sort rows inside a container alphabetically by data-row-letter
+        function sortRowsAlphabetically() {
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
+            // Collect section+row pairs
+            var pairs = [];
+            var rows = container.querySelectorAll('.library-row');
+            rows.forEach(function(row) {
+                var section = row.previousElementSibling;
+                if (section && section.classList.contains('library-section')) {
+                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z').toUpperCase() });
+                } else {
+                    // Create a section if missing
+                    section = document.createElement('div');
+                    section.className = 'library-section';
+                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z').toUpperCase() });
+                }
+            });
+            pairs.sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; });
+            pairs.forEach(function(p) {
+                container.appendChild(p.section);
+                container.appendChild(p.row);
+            });
+        }
+        // Insert a new row at the correct alphabetical position
+        function insertRowAlphabetically(container, section, row, letter) {
+            var existingRows = container.querySelectorAll('.library-row');
+            var insertBefore = null;
+            for (var i = 0; i < existingRows.length; i++) {
+                var rl = (existingRows[i].dataset.rowLetter || '').toUpperCase();
+                if (rl > letter.toUpperCase()) {
+                    // Insert before this row's section
+                    var prevSec = existingRows[i].previousElementSibling;
+                    insertBefore = (prevSec && prevSec.classList.contains('library-section')) ? prevSec : existingRows[i];
+                    break;
+                }
+            }
+            if (insertBefore) {
+                container.insertBefore(section, insertBefore);
+                container.insertBefore(row, insertBefore);
+            } else {
+                container.appendChild(section);
+                container.appendChild(row);
+            }
+        }
+
         function deleteCard(card) {
             var row = card.closest('.library-row');
             var label = card.querySelector('.library-label');
@@ -3062,14 +3131,8 @@
 
             card.remove();
 
-            // Clean up empty rows
-            if (row && row.querySelectorAll('.library-card').length === 0) {
-                var prevSection = row.previousElementSibling;
-                if (prevSection && prevSection.classList.contains('library-section')) {
-                    prevSection.remove();
-                }
-                row.remove();
-            }
+            // Update empty-row visual state (row stays, shows letter placeholder)
+            if (row) updateRowEmptyState(row);
 
             saveVariations();
         }
@@ -3333,24 +3396,25 @@
             }
         }
 
-        // Remove previously deleted built-in cards on startup
+        // Assign row letters before deleting cards (so empty rows keep their letter)
+        initRowLetters();
+
+        // Remove previously deleted built-in cards on startup (keep empty rows)
         (function removeDeletedCards() {
             var deleted = [];
             try { deleted = JSON.parse(localStorage.getItem('deletedCards') || '[]'); } catch(e) {}
             if (deleted.length === 0) return;
             var content = document.querySelector('#domino-library-screen .domino-library-content');
+            var affectedRows = [];
             content.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
                 var lbl = card.querySelector('.library-label');
                 if (lbl && deleted.indexOf(lbl.textContent) !== -1) {
                     var row = card.closest('.library-row');
+                    if (row && affectedRows.indexOf(row) === -1) affectedRows.push(row);
                     card.remove();
-                    if (row && row.querySelectorAll('.library-card').length === 0) {
-                        var prev = row.previousElementSibling;
-                        if (prev && prev.classList.contains('library-section')) prev.remove();
-                        row.remove();
-                    }
                 }
             });
+            affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         })();
 
         // Load saved custom/edited cards and variations on startup
@@ -3374,6 +3438,8 @@
         })();
 
         addDeleteButtonsToAllCards();
+        initRowLetters();
+        sortRowsAlphabetically();
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)

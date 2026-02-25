@@ -2559,7 +2559,8 @@
                         // Update empty-row visual state for source and target
                         updateRowEmptyState(dragSourceRow);
                         updateRowEmptyState(dragOverRow);
-                        // Persist the new order
+                        // Persist the card's new row assignment
+                        saveCardRowOverride(dragCard, dragOverRow);
                         if (typeof saveVariations === 'function') saveVariations();
                     }
                     dragCard.classList.remove('dragging');
@@ -3107,10 +3108,65 @@
             }
         }
 
+        // --- Persist card-to-row overrides (for cards moved between rows) ---
+        function loadCardRowOverrides() {
+            try { return JSON.parse(localStorage.getItem('cardRowOverrides') || '{}'); } catch(e) { return {}; }
+        }
+        function saveCardRowOverride(card, targetRow) {
+            var lbl = card.querySelector('.library-label');
+            if (!lbl) return;
+            var label = lbl.textContent;
+            var rowLetter = targetRow.dataset.rowLetter || getRowLetter(targetRow);
+            var overrides = loadCardRowOverrides();
+            overrides[label] = rowLetter;
+            localStorage.setItem('cardRowOverrides', JSON.stringify(overrides));
+        }
+        function removeCardRowOverride(label) {
+            var overrides = loadCardRowOverrides();
+            if (overrides[label]) {
+                delete overrides[label];
+                localStorage.setItem('cardRowOverrides', JSON.stringify(overrides));
+            }
+        }
+        // Move cards to their saved rows after all cards are loaded
+        function applyCardRowOverrides() {
+            var overrides = loadCardRowOverrides();
+            var labels = Object.keys(overrides);
+            if (labels.length === 0) return;
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
+            var affectedRows = [];
+            labels.forEach(function(label) {
+                var targetLetter = overrides[label].toUpperCase();
+                // Find the card by label
+                var card = null;
+                container.querySelectorAll('.library-card .library-label').forEach(function(lbl) {
+                    if (lbl.textContent === label) card = lbl.closest('.library-card');
+                });
+                if (!card) return;
+                var currentRow = card.closest('.library-row');
+                var currentLetter = (currentRow && currentRow.dataset.rowLetter || '').toUpperCase();
+                if (currentLetter === targetLetter) return; // already in correct row
+                // Find target row by letter
+                var targetRow = null;
+                container.querySelectorAll('.library-row').forEach(function(r) {
+                    if ((r.dataset.rowLetter || '').toUpperCase() === targetLetter) targetRow = r;
+                });
+                if (!targetRow) return;
+                targetRow.appendChild(card);
+                if (currentRow && affectedRows.indexOf(currentRow) === -1) affectedRows.push(currentRow);
+                if (affectedRows.indexOf(targetRow) === -1) affectedRows.push(targetRow);
+            });
+            affectedRows.forEach(function(row) { updateRowEmptyState(row); });
+        }
+
         function deleteCard(card) {
             var row = card.closest('.library-row');
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
+
+            // Clean up any row override for this card
+            if (labelText) removeCardRowOverride(labelText);
 
             // Track deleted built-in cards so they stay deleted after refresh
             if (!card.dataset.custom && labelText) {
@@ -3440,6 +3496,7 @@
         addDeleteButtonsToAllCards();
         initRowLetters();
         sortRowsAlphabetically();
+        applyCardRowOverrides();
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)

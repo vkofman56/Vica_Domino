@@ -2507,6 +2507,7 @@
             var dragCard = null, dragStartX = 0, dragStartY = 0;
             var dragActive = false, dragPending = false;
             var dragSourceRow = null, dragOverRow = null;
+            var dragCardSet = null;   // the card-set container the drag started in
             var dropIndicator = null; // vertical line between cards
             var dropRefCard = null;   // card before which we'll insert
             var dropAtEnd = false;    // insert at end of row
@@ -2566,6 +2567,8 @@
                 if (!card) return;
                 dragCard = card;
                 dragSourceRow = card.closest('.library-row');
+                // Determine which card set this card belongs to (only allow dragging within the same set)
+                dragCardSet = card.closest('.card-set-content') || contentEl;
                 dragStartX = e.clientX;
                 dragStartY = e.clientY;
                 dragPending = true;
@@ -2581,8 +2584,8 @@
                     dragCard.classList.add('dragging');
                 }
                 if (!dragActive) return;
-                // Find which row the pointer is over
-                var rows = contentEl.querySelectorAll('.library-row');
+                // Find which row the pointer is over (only within the same card set)
+                var rows = (dragCardSet || contentEl).querySelectorAll('.library-row');
                 var newOver = null;
                 rows.forEach(function(row) {
                     var rect = row.getBoundingClientRect();
@@ -2656,6 +2659,7 @@
                 dragCard = null;
                 dragSourceRow = null;
                 dragOverRow = null;
+                dragCardSet = null;
                 dragPending = false;
                 dragActive = false;
             });
@@ -3244,12 +3248,12 @@
             affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         }
 
-        // --- Persist card order within rows ---
+        // --- Persist card order within rows (Numbers set only) ---
         function saveCardOrderInRows() {
-            var content = document.querySelector('#domino-library-screen .domino-library-content');
-            if (!content) return;
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
             var order = {};
-            content.querySelectorAll('.library-row').forEach(function(row) {
+            container.querySelectorAll('.library-row').forEach(function(row) {
                 var letter = row.dataset.rowLetter;
                 if (!letter) return;
                 var labels = [];
@@ -3265,9 +3269,9 @@
             var data;
             try { data = JSON.parse(localStorage.getItem('cardOrderInRows') || '{}'); } catch(e) { return; }
             if (!data || Object.keys(data).length === 0) return;
-            var content = document.querySelector('#domino-library-screen .domino-library-content');
-            if (!content) return;
-            content.querySelectorAll('.library-row').forEach(function(row) {
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
+            container.querySelectorAll('.library-row').forEach(function(row) {
                 var letter = row.dataset.rowLetter;
                 if (!letter || !data[letter]) return;
                 var savedOrder = data[letter];

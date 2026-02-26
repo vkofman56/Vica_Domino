@@ -3408,11 +3408,6 @@
                         svg.setAttribute('viewBox', '0 0 60 60');
                         svg.innerHTML = item.svgContent;
                         addNewDrawnCard(svg, item.label);
-                        // Mark the card we just added as custom
-                        var content = document.querySelector('#domino-library-screen .domino-library-content');
-                        var cards = content.querySelectorAll('.library-card');
-                        var lastCard = cards[cards.length - 1];
-                        if (lastCard) lastCard.dataset.custom = 'true';
                     });
                 } catch(e) {}
             }
@@ -3564,9 +3559,54 @@
             affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         })();
 
+        // Clean corrupted customDrawnCards: remove entries that duplicate built-in card labels
+        (function cleanCustomDrawnCards() {
+            var numbersDiv = document.getElementById('card-set-numbers');
+            if (!numbersDiv) return;
+            var builtinLabels = {};
+            numbersDiv.querySelectorAll('.library-card .library-label').forEach(function(lbl) {
+                builtinLabels[lbl.textContent] = true;
+            });
+            var saved = localStorage.getItem('customDrawnCards');
+            if (!saved) return;
+            try {
+                var data = JSON.parse(saved);
+                var cleaned = data.filter(function(item) { return !builtinLabels[item.label]; });
+                if (cleaned.length !== data.length) {
+                    localStorage.setItem('customDrawnCards', JSON.stringify(cleaned));
+                }
+            } catch(e) {}
+        })();
+
         // Load saved custom/edited cards and variations on startup
         loadCustomCards();
         loadVariations();
+
+        // Remove data-custom from any built-in cards that were wrongly marked
+        (function fixWrongCustomMarks() {
+            var numbersDiv = document.getElementById('card-set-numbers');
+            if (!numbersDiv) return;
+            // Find duplicate labels — if two cards share a label, remove the custom one
+            var labelMap = {};
+            numbersDiv.querySelectorAll('.library-card:not(.variation) .library-label').forEach(function(lbl) {
+                var card = lbl.closest('.library-card');
+                var text = lbl.textContent;
+                if (labelMap[text]) {
+                    // Duplicate found — remove the one marked custom, keep the built-in
+                    if (card.dataset.custom === 'true') {
+                        card.remove();
+                    } else if (labelMap[text].dataset.custom === 'true') {
+                        labelMap[text].remove();
+                        labelMap[text] = card;
+                    } else {
+                        // Both built-in? Remove the second one
+                        card.remove();
+                    }
+                } else {
+                    labelMap[text] = card;
+                }
+            });
+        })();
 
         // Migrate orphaned custom card rows into #card-set-numbers
         // (fixes cards created by old addNewDrawnCard that placed new rows outside the container)

@@ -2634,7 +2634,6 @@
                             }
                             updateRowEmptyState(dragSourceRow);
                             updateRowEmptyState(dragOverRow);
-                            saveCardRowOverride(dragCard, dragOverRow);
                             moved = true;
                             crossRowMove = true;
                         } else {
@@ -2648,6 +2647,7 @@
                         }
                     }
                     if (moved) {
+                        saveCardArrangement();
                         if (crossRowMove) {
                             if (typeof saveVariations === 'function') saveVariations();
                         }
@@ -3199,65 +3199,62 @@
             }
         }
 
-        // --- Persist card-to-row overrides (for cards moved between rows) ---
-        function loadCardRowOverrides() {
-            try { return JSON.parse(localStorage.getItem('cardRowOverrides') || '{}'); } catch(e) { return {}; }
-        }
-        function saveCardRowOverride(card, targetRow) {
-            var lbl = card.querySelector('.library-label');
-            if (!lbl) return;
-            var label = lbl.textContent;
-            var rowLetter = targetRow.dataset.rowLetter || getRowLetter(targetRow);
-            var overrides = loadCardRowOverrides();
-            overrides[label] = rowLetter;
-            localStorage.setItem('cardRowOverrides', JSON.stringify(overrides));
-        }
-        function removeCardRowOverride(label) {
-            var overrides = loadCardRowOverrides();
-            if (overrides[label]) {
-                delete overrides[label];
-                localStorage.setItem('cardRowOverrides', JSON.stringify(overrides));
-            }
-        }
-        // Move cards to their saved rows after all cards are loaded
-        function applyCardRowOverrides() {
-            var overrides = loadCardRowOverrides();
-            var labels = Object.keys(overrides);
-            if (labels.length === 0) return;
+        // --- Unified card arrangement persistence (row + order) ---
+        function saveCardArrangement() {
             var container = document.getElementById('card-set-numbers');
             if (!container) return;
-            var affectedRows = [];
-            labels.forEach(function(label) {
-                var targetLetter = overrides[label].toUpperCase();
-                // Find the card by label
-                var card = null;
-                container.querySelectorAll('.library-card .library-label').forEach(function(lbl) {
-                    if (lbl.textContent === label) card = lbl.closest('.library-card');
+            var arrangement = {};
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                var letter = row.dataset.rowLetter;
+                if (!letter) return;
+                var labels = [];
+                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    if (lbl) labels.push(lbl.textContent);
                 });
-                if (!card) return;
-                var currentRow = card.closest('.library-row');
-                var currentLetter = (currentRow && currentRow.dataset.rowLetter || '').toUpperCase();
-                if (currentLetter === targetLetter) return; // already in correct row
-                // Find target row by letter
-                var targetRow = null;
-                container.querySelectorAll('.library-row').forEach(function(r) {
-                    if ((r.dataset.rowLetter || '').toUpperCase() === targetLetter) targetRow = r;
-                });
-                if (!targetRow) return;
-                targetRow.appendChild(card);
-                if (currentRow && affectedRows.indexOf(currentRow) === -1) affectedRows.push(currentRow);
-                if (affectedRows.indexOf(targetRow) === -1) affectedRows.push(targetRow);
+                arrangement[letter] = labels;
             });
-            affectedRows.forEach(function(row) { updateRowEmptyState(row); });
+            localStorage.setItem('cardArrangement', JSON.stringify(arrangement));
+        }
+        function applyCardArrangement() {
+            var data;
+            try { data = JSON.parse(localStorage.getItem('cardArrangement') || '{}'); } catch(e) { return; }
+            if (!data || Object.keys(data).length === 0) return;
+            var container = document.getElementById('card-set-numbers');
+            if (!container) return;
+            // Build map of all card elements by label
+            var allCards = {};
+            container.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                if (lbl) allCards[lbl.textContent] = card;
+            });
+            // Build map of all rows by letter
+            var rowMap = {};
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                if (row.dataset.rowLetter) rowMap[row.dataset.rowLetter] = row;
+            });
+            // Move cards to their saved rows in saved order
+            Object.keys(data).forEach(function(letter) {
+                var targetRow = rowMap[letter];
+                if (!targetRow) return;
+                var labels = data[letter];
+                labels.forEach(function(label) {
+                    var card = allCards[label];
+                    if (!card) return;
+                    targetRow.appendChild(card);
+                    delete allCards[label]; // mark as placed
+                });
+            });
+            // Update empty states for all rows
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                updateRowEmptyState(row);
+            });
         }
 
         function deleteCard(card) {
             var row = card.closest('.library-row');
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
-
-            // Clean up any row override for this card
-            if (labelText) removeCardRowOverride(labelText);
 
             // Track deleted built-in cards so they stay deleted after refresh
             if (!card.dataset.custom && labelText) {
@@ -3282,6 +3279,7 @@
             if (row) updateRowEmptyState(row);
 
             saveVariations();
+            saveCardArrangement();
         }
 
         function renumberVariations(row, originalLabel) {
@@ -3309,6 +3307,8 @@
             localStorage.setItem('cardMakerVariations', JSON.stringify(data));
             // Also save custom drawn cards and edited built-in cards
             saveCustomCards();
+            // Persist current card arrangement (row assignments + order)
+            saveCardArrangement();
             // Mark as dirty for save/cancel prompt
             cardMakerDirty = true;
         }
@@ -3627,9 +3627,11 @@
         addDeleteButtonsToAllCards();
         initRowLetters();
         sortRowsAlphabetically();
-        applyCardRowOverrides();
-        // Clear stale card order data from previous versions (caused corruption)
+        // Use unified arrangement (replaces old cardRowOverrides + cardOrderInRows)
+        applyCardArrangement();
+        // Clear stale data from previous versions (caused corruption)
         localStorage.removeItem('cardOrderInRows');
+        localStorage.removeItem('cardRowOverrides');
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)
@@ -5022,14 +5024,15 @@
                 editedBuiltinCards_numbers: localStorage.getItem('editedBuiltinCards_numbers'),
                 editedBuiltinCards_abc: localStorage.getItem('editedBuiltinCards_abc'),
                 customDrawnCards: localStorage.getItem('customDrawnCards'),
-                cardMakerVariations: localStorage.getItem('cardMakerVariations')
+                cardMakerVariations: localStorage.getItem('cardMakerVariations'),
+                cardArrangement: localStorage.getItem('cardArrangement')
             };
             cardMakerDirty = false;
         }
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations'].forEach(function(key) {
+            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations', 'cardArrangement'].forEach(function(key) {
                 if (_cmSnapshot[key] === null || _cmSnapshot[key] === undefined) {
                     localStorage.removeItem(key);
                 } else {

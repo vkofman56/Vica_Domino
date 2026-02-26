@@ -2623,6 +2623,7 @@
                 if (!dragPending) return;
                 if (dragActive) {
                     var moved = false;
+                    var crossRowMove = false;
                     if (dragOverRow) {
                         if (dragOverRow !== dragSourceRow) {
                             // Cross-row move: insert at indicated position
@@ -2635,6 +2636,7 @@
                             updateRowEmptyState(dragOverRow);
                             saveCardRowOverride(dragCard, dragOverRow);
                             moved = true;
+                            crossRowMove = true;
                         } else {
                             // Same-row reorder: insert at indicated position
                             if (dropRefCard) {
@@ -2646,8 +2648,9 @@
                         }
                     }
                     if (moved) {
-                        saveCardOrderInRows();
-                        if (typeof saveVariations === 'function') saveVariations();
+                        if (crossRowMove) {
+                            if (typeof saveVariations === 'function') saveVariations();
+                        }
                     }
                     dragCard.classList.remove('dragging');
                     if (dragOverRow) dragOverRow.classList.remove('drag-over');
@@ -3248,54 +3251,6 @@
             affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         }
 
-        // --- Persist card order within rows (Numbers set only) ---
-        function saveCardOrderInRows() {
-            var container = document.getElementById('card-set-numbers');
-            if (!container) return;
-            var order = {};
-            container.querySelectorAll('.library-row').forEach(function(row) {
-                var letter = row.dataset.rowLetter;
-                if (!letter) return;
-                var labels = [];
-                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
-                    var lbl = card.querySelector('.library-label');
-                    if (lbl) labels.push(lbl.textContent);
-                });
-                if (labels.length > 0) order[letter] = labels;
-            });
-            localStorage.setItem('cardOrderInRows', JSON.stringify(order));
-        }
-        function applyCardOrderInRows() {
-            var data;
-            try { data = JSON.parse(localStorage.getItem('cardOrderInRows') || '{}'); } catch(e) { return; }
-            if (!data || Object.keys(data).length === 0) return;
-            var container = document.getElementById('card-set-numbers');
-            if (!container) return;
-            container.querySelectorAll('.library-row').forEach(function(row) {
-                var letter = row.dataset.rowLetter;
-                if (!letter || !data[letter]) return;
-                var savedOrder = data[letter];
-                // Build a map of label -> card element
-                var cardMap = {};
-                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
-                    var lbl = card.querySelector('.library-label');
-                    if (lbl) cardMap[lbl.textContent] = card;
-                });
-                // Re-insert cards in saved order, then append any remaining cards not in saved order
-                var inserted = {};
-                savedOrder.forEach(function(label) {
-                    if (cardMap[label]) {
-                        row.appendChild(cardMap[label]);
-                        inserted[label] = true;
-                    }
-                });
-                // Append cards that weren't in the saved order (e.g. newly created)
-                Object.keys(cardMap).forEach(function(label) {
-                    if (!inserted[label]) row.appendChild(cardMap[label]);
-                });
-            });
-        }
-
         function deleteCard(card) {
             var row = card.closest('.library-row');
             var label = card.querySelector('.library-label');
@@ -3633,7 +3588,8 @@
         initRowLetters();
         sortRowsAlphabetically();
         applyCardRowOverrides();
-        applyCardOrderInRows();
+        // Clear stale card order data from previous versions (caused corruption)
+        localStorage.removeItem('cardOrderInRows');
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)

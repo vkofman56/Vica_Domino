@@ -2499,7 +2499,7 @@
             }
         });
 
-        // --- Drag-to-move cards between rows ---
+        // --- Drag-to-move cards between rows AND reorder within rows ---
         var cardDragJustEnded = false;
         (function() {
             var contentEl = document.querySelector('#domino-library-screen .domino-library-content');
@@ -2507,7 +2507,54 @@
             var dragCard = null, dragStartX = 0, dragStartY = 0;
             var dragActive = false, dragPending = false;
             var dragSourceRow = null, dragOverRow = null;
+            var dropIndicator = null; // vertical line between cards
+            var dropRefCard = null;   // card before which we'll insert
+            var dropAtEnd = false;    // insert at end of row
             var DRAG_THRESHOLD = 8;
+
+            // Create the drop indicator element (vertical line)
+            dropIndicator = document.createElement('div');
+            dropIndicator.className = 'card-drop-indicator';
+            dropIndicator.style.display = 'none';
+            document.body.appendChild(dropIndicator);
+
+            function hideDropIndicator() {
+                dropIndicator.style.display = 'none';
+                dropRefCard = null;
+                dropAtEnd = false;
+            }
+
+            function findInsertPosition(row, pointerX) {
+                // Get all non-variation cards in this row (skip the dragged card)
+                var cards = Array.prototype.slice.call(
+                    row.querySelectorAll('.library-card:not(.variation)')
+                ).filter(function(c) { return c !== dragCard; });
+                if (cards.length === 0) return { refCard: null, atEnd: true, indicatorX: 0, indicatorTop: 0, indicatorHeight: 0 };
+
+                // Find the gap the pointer is in
+                for (var i = 0; i < cards.length; i++) {
+                    var rect = cards[i].getBoundingClientRect();
+                    var midX = rect.left + rect.width / 2;
+                    if (pointerX < midX) {
+                        return {
+                            refCard: cards[i],
+                            atEnd: false,
+                            indicatorX: rect.left - 4,
+                            indicatorTop: rect.top,
+                            indicatorHeight: rect.height
+                        };
+                    }
+                }
+                // Past the last card — insert at end
+                var lastRect = cards[cards.length - 1].getBoundingClientRect();
+                return {
+                    refCard: null,
+                    atEnd: true,
+                    indicatorX: lastRect.right + 2,
+                    indicatorTop: lastRect.top,
+                    indicatorHeight: lastRect.height
+                };
+            }
 
             contentEl.addEventListener('pointerdown', function(e) {
                 if (e.button !== 0) return; // left button only
@@ -2551,23 +2598,57 @@
                         dragOverRow.classList.add('drag-over');
                     }
                 }
+                // Show drop indicator for within-row reorder or cross-row insert position
+                if (dragOverRow) {
+                    var pos = findInsertPosition(dragOverRow, e.clientX);
+                    dropRefCard = pos.refCard;
+                    dropAtEnd = pos.atEnd;
+                    if (pos.indicatorHeight > 0) {
+                        dropIndicator.style.display = 'block';
+                        dropIndicator.style.left = pos.indicatorX + 'px';
+                        dropIndicator.style.top = pos.indicatorTop + 'px';
+                        dropIndicator.style.height = pos.indicatorHeight + 'px';
+                    } else {
+                        hideDropIndicator();
+                    }
+                } else {
+                    hideDropIndicator();
+                }
             });
 
             document.addEventListener('pointerup', function(e) {
                 if (!dragPending) return;
                 if (dragActive) {
-                    // Perform move if dropped on a different row
-                    if (dragOverRow && dragOverRow !== dragSourceRow) {
-                        dragOverRow.appendChild(dragCard);
-                        // Update empty-row visual state for source and target
-                        updateRowEmptyState(dragSourceRow);
-                        updateRowEmptyState(dragOverRow);
-                        // Persist the card's new row assignment
-                        saveCardRowOverride(dragCard, dragOverRow);
+                    var moved = false;
+                    if (dragOverRow) {
+                        if (dragOverRow !== dragSourceRow) {
+                            // Cross-row move: insert at indicated position
+                            if (dropRefCard) {
+                                dragOverRow.insertBefore(dragCard, dropRefCard);
+                            } else {
+                                dragOverRow.appendChild(dragCard);
+                            }
+                            updateRowEmptyState(dragSourceRow);
+                            updateRowEmptyState(dragOverRow);
+                            saveCardRowOverride(dragCard, dragOverRow);
+                            moved = true;
+                        } else {
+                            // Same-row reorder: insert at indicated position
+                            if (dropRefCard) {
+                                dragOverRow.insertBefore(dragCard, dropRefCard);
+                            } else {
+                                dragOverRow.appendChild(dragCard);
+                            }
+                            moved = true;
+                        }
+                    }
+                    if (moved) {
+                        saveCardOrderInRows();
                         if (typeof saveVariations === 'function') saveVariations();
                     }
                     dragCard.classList.remove('dragging');
                     if (dragOverRow) dragOverRow.classList.remove('drag-over');
+                    hideDropIndicator();
                     // Prevent the click handler from firing
                     cardDragJustEnded = true;
                     setTimeout(function() { cardDragJustEnded = false; }, 50);
@@ -3163,6 +3244,54 @@
             affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         }
 
+        // --- Persist card order within rows ---
+        function saveCardOrderInRows() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!content) return;
+            var order = {};
+            content.querySelectorAll('.library-row').forEach(function(row) {
+                var letter = row.dataset.rowLetter;
+                if (!letter) return;
+                var labels = [];
+                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    if (lbl) labels.push(lbl.textContent);
+                });
+                if (labels.length > 0) order[letter] = labels;
+            });
+            localStorage.setItem('cardOrderInRows', JSON.stringify(order));
+        }
+        function applyCardOrderInRows() {
+            var data;
+            try { data = JSON.parse(localStorage.getItem('cardOrderInRows') || '{}'); } catch(e) { return; }
+            if (!data || Object.keys(data).length === 0) return;
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!content) return;
+            content.querySelectorAll('.library-row').forEach(function(row) {
+                var letter = row.dataset.rowLetter;
+                if (!letter || !data[letter]) return;
+                var savedOrder = data[letter];
+                // Build a map of label -> card element
+                var cardMap = {};
+                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    if (lbl) cardMap[lbl.textContent] = card;
+                });
+                // Re-insert cards in saved order, then append any remaining cards not in saved order
+                var inserted = {};
+                savedOrder.forEach(function(label) {
+                    if (cardMap[label]) {
+                        row.appendChild(cardMap[label]);
+                        inserted[label] = true;
+                    }
+                });
+                // Append cards that weren't in the saved order (e.g. newly created)
+                Object.keys(cardMap).forEach(function(label) {
+                    if (!inserted[label]) row.appendChild(cardMap[label]);
+                });
+            });
+        }
+
         function deleteCard(card) {
             var row = card.closest('.library-row');
             var label = card.querySelector('.library-label');
@@ -3500,6 +3629,7 @@
         initRowLetters();
         sortRowsAlphabetically();
         applyCardRowOverrides();
+        applyCardOrderInRows();
 
         // Restore variations that were wrongly removed from Card Maker
         // (due to old bug where game view delete removed from Card Maker globally)

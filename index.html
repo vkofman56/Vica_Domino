@@ -3257,12 +3257,15 @@
             var labelText = label ? label.textContent : '';
 
             // Track deleted built-in cards so they stay deleted after refresh
+            // Use separate key for ABC set since labels overlap with Numbers set
             if (!card.dataset.custom && labelText) {
+                var inAbc = !!card.closest('#card-set-abc');
+                var delKey = inAbc ? 'deletedCards_abc' : 'deletedCards';
                 var deleted = [];
-                try { deleted = JSON.parse(localStorage.getItem('deletedCards') || '[]'); } catch(e) {}
+                try { deleted = JSON.parse(localStorage.getItem(delKey) || '[]'); } catch(e) {}
                 if (deleted.indexOf(labelText) === -1) {
                     deleted.push(labelText);
-                    localStorage.setItem('deletedCards', JSON.stringify(deleted));
+                    localStorage.setItem(delKey, JSON.stringify(deleted));
                 }
             }
 
@@ -4971,9 +4974,9 @@
                     });
                 }
             } catch(e) {}
-            // Remove previously deleted cards so they don't reappear
+            // Remove previously deleted ABC cards so they don't reappear
             try {
-                var deletedRaw = localStorage.getItem('deletedCards');
+                var deletedRaw = localStorage.getItem('deletedCards_abc');
                 if (deletedRaw) {
                     var deletedList = JSON.parse(deletedRaw);
                     if (deletedList.length > 0) {
@@ -5044,14 +5047,15 @@
                 editedBuiltinCards_abc: localStorage.getItem('editedBuiltinCards_abc'),
                 customDrawnCards: localStorage.getItem('customDrawnCards'),
                 cardMakerVariations: localStorage.getItem('cardMakerVariations'),
-                cardArrangement: localStorage.getItem('cardArrangement')
+                cardArrangement: localStorage.getItem('cardArrangement'),
+                deletedCards_abc: localStorage.getItem('deletedCards_abc')
             };
             cardMakerDirty = false;
         }
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations', 'cardArrangement'].forEach(function(key) {
+            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations', 'cardArrangement', 'deletedCards_abc'].forEach(function(key) {
                 if (_cmSnapshot[key] === null || _cmSnapshot[key] === undefined) {
                     localStorage.removeItem(key);
                 } else {

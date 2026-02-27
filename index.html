@@ -2431,6 +2431,9 @@
                     card.classList.remove('card-selected');
                     gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
                 } else {
+                    // Don't allow selecting cards with empty SVG content
+                    var cardSvgEl = card.querySelector('svg');
+                    if (cardSvgEl && !cardSvgEl.innerHTML.trim()) return;
                     card.classList.add('card-selected');
                     var info = { label: labelText, isVariation: card.classList.contains('variation') };
                     if (info.isVariation) {
@@ -2440,7 +2443,6 @@
                     // Track which card set this card belongs to
                     info.cardSet = activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots';
                     // Store SVG markup for self-contained game data
-                    var cardSvgEl = card.querySelector('svg');
                     if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
                     gameMakerSelected.push(info);
                 }
@@ -2508,6 +2510,7 @@
             var dragActive = false, dragPending = false;
             var dragSourceRow = null, dragOverRow = null;
             var dragCardSet = null;   // the card-set container the drag started in
+            var dragPointerId = null; // pointer ID for capture
             var dropIndicator = null; // vertical line between cards
             var dropRefCard = null;   // card before which we'll insert
             var dropAtEnd = false;    // insert at end of row
@@ -2573,6 +2576,7 @@
                 dragStartY = e.clientY;
                 dragPending = true;
                 dragActive = false;
+                dragPointerId = e.pointerId;
             });
 
             document.addEventListener('pointermove', function(e) {
@@ -2582,11 +2586,17 @@
                 if (!dragActive && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
                     dragActive = true;
                     dragCard.classList.add('dragging');
+                    // Capture pointer for reliable touch drag
+                    try { contentEl.setPointerCapture(dragPointerId); } catch(ex) {}
                 }
                 if (!dragActive) return;
                 // Find which row the pointer is over (only within the same card set)
+                // Use expanded horizontal bounds so dragging to position 0 (left edge) is easier
+                var ROW_HIT_MARGIN_X = 40;
+                var ROW_HIT_MARGIN_Y = 10;
                 var rows = (dragCardSet || contentEl).querySelectorAll('.library-row');
                 var newOver = null;
+                // First pass: check exact row bounds
                 rows.forEach(function(row) {
                     var rect = row.getBoundingClientRect();
                     if (e.clientY >= rect.top && e.clientY <= rect.bottom &&
@@ -2594,6 +2604,23 @@
                         newOver = row;
                     }
                 });
+                // Second pass: if not inside any row, check expanded bounds
+                if (!newOver) {
+                    var bestDist = Infinity;
+                    rows.forEach(function(row) {
+                        var rect = row.getBoundingClientRect();
+                        if (e.clientY >= rect.top - ROW_HIT_MARGIN_Y && e.clientY <= rect.bottom + ROW_HIT_MARGIN_Y &&
+                            e.clientX >= rect.left - ROW_HIT_MARGIN_X && e.clientX <= rect.right + ROW_HIT_MARGIN_X) {
+                            // Pick closest row by vertical distance
+                            var centerY = (rect.top + rect.bottom) / 2;
+                            var dist = Math.abs(e.clientY - centerY);
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                newOver = row;
+                            }
+                        }
+                    });
+                }
                 if (newOver !== dragOverRow) {
                     if (dragOverRow) dragOverRow.classList.remove('drag-over');
                     dragOverRow = newOver;
@@ -2655,6 +2682,8 @@
                     dragCard.classList.remove('dragging');
                     if (dragOverRow) dragOverRow.classList.remove('drag-over');
                     hideDropIndicator();
+                    // Release pointer capture
+                    try { contentEl.releasePointerCapture(dragPointerId); } catch(ex) {}
                     // Prevent the click handler from firing
                     cardDragJustEnded = true;
                     setTimeout(function() { cardDragJustEnded = false; }, 50);
@@ -2663,6 +2692,7 @@
                 dragSourceRow = null;
                 dragOverRow = null;
                 dragCardSet = null;
+                dragPointerId = null;
                 dragPending = false;
                 dragActive = false;
             });
@@ -3796,7 +3826,6 @@
                             ecKey = lbl.textContent; // use current label
                         }
                         if (found && !matched[ecKey]) {
-                            cardEl.classList.add('card-selected');
                             var info = { label: lbl.textContent, isVariation: ec.isVariation };
                             if (ec.isVariation) {
                                 info.originalLabel = ec.originalLabel;
@@ -3807,8 +3836,14 @@
                             // Store SVG markup for self-contained game data
                             var cardSvgEl = cardEl.querySelector('svg');
                             if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
-                            gameMakerSelected.push(info);
-                            matched[ecKey] = true;
+                            // Skip cards with empty SVG content
+                            if (info.svgMarkup && !info.svgMarkup.trim()) {
+                                found = false;
+                            } else {
+                                cardEl.classList.add('card-selected');
+                                gameMakerSelected.push(info);
+                                matched[ecKey] = true;
+                            }
                         }
                     });
                 });
@@ -3856,6 +3891,41 @@
                 alert('Please select at least one card.');
                 return;
             }
+            // Reorder gameMakerSelected to match Card Maker DOM order
+            // so the game view matches the visual card arrangement
+            var selectedByLabel = {};
+            gameMakerSelected.forEach(function(info) { selectedByLabel[info.label] = info; });
+            var ordered = [];
+            var cardSetContainer = activeCardSet === 'abc'
+                ? document.getElementById('card-set-abc')
+                : document.getElementById('card-set-numbers');
+            // Scan all visible library cards in DOM order (includes orphaned rows for Numbers set)
+            var contentArea = document.querySelector('#domino-library-screen .domino-library-content');
+            var scanRoot = cardSetContainer || contentArea;
+            if (scanRoot) {
+                scanRoot.querySelectorAll('.library-card').forEach(function(cardEl) {
+                    var lbl = cardEl.querySelector('.library-label');
+                    if (!lbl) return;
+                    var labelText = lbl.textContent;
+                    if (selectedByLabel[labelText]) {
+                        ordered.push(selectedByLabel[labelText]);
+                        delete selectedByLabel[labelText];
+                    }
+                });
+            }
+            // Append any remaining cards not found in DOM (shouldn't happen, but be safe)
+            Object.keys(selectedByLabel).forEach(function(label) {
+                ordered.push(selectedByLabel[label]);
+            });
+            // Filter out cards with empty SVG content (e.g. unfilled ABC slots)
+            gameMakerSelected = ordered.filter(function(info) {
+                return info.svgMarkup && info.svgMarkup.trim().length > 0;
+            });
+            if (gameMakerSelected.length === 0) {
+                alert('Please select at least one card with visual content.');
+                return;
+            }
+
             // Save the game
             var games = loadCustomGames();
             if (gameMakerEditIndex >= 0) {
@@ -3941,10 +4011,12 @@
             var container = document.getElementById('game-view-cards');
             container.innerHTML = '';
 
-            // Group cards by row letter
+            // Group cards by row letter (skip cards with empty SVG content)
             var cardsByRow = {};
             var rowOrder = [];
             game.cards.forEach(function(c) {
+                // Skip cards with no visual content
+                if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
                 var row = c.label.charAt(0);
                 if (!cardsByRow[row]) {
                     cardsByRow[row] = [];
@@ -4778,12 +4850,12 @@
                 previewRow.className = 'card-preview-row';
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
-                    var thumb = document.createElement('div');
-                    thumb.className = 'card-preview-thumb';
+                    var hasContent = false;
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
                     if (editMap[label]) {
                         svg.innerHTML = editMap[label];
+                        hasContent = true;
                     } else if (n <= 2) {
                         var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                         text.setAttribute('x', '30');
@@ -4794,13 +4866,19 @@
                         text.setAttribute('fill', colors[letter] || '#333');
                         text.textContent = letter;
                         svg.appendChild(text);
+                        hasContent = true;
                     } else if (n === 3 && abcIcons[letter]) {
                         svg.innerHTML = abcIcons[letter].markup;
+                        hasContent = true;
                     }
+                    // Skip empty card slots (no visual content)
+                    if (!hasContent) continue;
+                    var thumb = document.createElement('div');
+                    thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
                     previewRow.appendChild(thumb);
                 }
-                container.appendChild(previewRow);
+                if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
         }
 
@@ -5228,10 +5306,13 @@
             document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
             // Collect original (non-variation) cards, deduplicated by label
+            // Skip cards with empty SVG content (unfilled placeholder slots)
             var origCards = [];
             var seenLabels = {};
             game.cards.forEach(function(c) {
                 if (!c.isVariation && !seenLabels[c.label]) {
+                    // Skip cards with no visual content
+                    if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
                     seenLabels[c.label] = true;
                     origCards.push(c);
                 }

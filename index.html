@@ -2283,9 +2283,20 @@
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             var label = cardName || 'X1';
 
-            // Find row matching this letter (by data-row-letter or first card label), or create one
+            // Determine which container this card belongs to
+            var appendTarget;
+            if (isCustomCardSet(activeCardSet)) {
+                appendTarget = document.getElementById('card-set-custom') || content;
+            } else if (activeCardSet === 'abc') {
+                appendTarget = document.getElementById('card-set-abc') || content;
+            } else {
+                appendTarget = document.getElementById('card-set-numbers') || content;
+            }
+
+            // Find row matching this letter within the ACTIVE card set only
+            // (searching across all sets could place cards in a hidden container)
             var firstChar = label.charAt(0).toUpperCase();
-            var rows = content.querySelectorAll('.library-row');
+            var rows = appendTarget.querySelectorAll('.library-row');
             var targetRow = null;
             rows.forEach(function(r) {
                 if ((r.dataset.rowLetter || '').toUpperCase() === firstChar) {
@@ -2298,12 +2309,6 @@
                 }
             });
             if (!targetRow) {
-                var appendTarget;
-                if (isCustomCardSet(activeCardSet)) {
-                    appendTarget = document.getElementById('card-set-custom') || content;
-                } else {
-                    appendTarget = document.getElementById('card-set-numbers') || content;
-                }
                 var section = document.createElement('div');
                 section.className = 'library-section';
                 targetRow = document.createElement('div');

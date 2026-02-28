@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=xeno-tweaks-1">
+    <link rel="stylesheet" href="css/style.css?v=card-sets-create-1">
 </head>
 <body>
     <div class="game-container">
@@ -260,6 +260,7 @@
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
+                        <button class="library-create-btn" id="create-card-set-btn" onclick="createNewCardSet()">Create</button>
                         <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers')">Numbers and Dots</button>
                         <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc')">ABC</button>
                         <div id="card-set-preview" class="card-set-preview"></div>
@@ -4881,6 +4882,83 @@
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
         }
+
+        // --- Create new card set ---
+        function createNewCardSet() {
+            var col = document.querySelector('.library-col-sets');
+            // Don't create another if there's already a pending input
+            if (col.querySelector('.new-set-input')) return;
+
+            // Count all existing set buttons (built-in + custom)
+            var existingCount = col.querySelectorAll('.library-set-btn').length;
+            var n = existingCount + 1;
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'new-set-input';
+            input.placeholder = "Enter the title of the " + n + "'s card set";
+
+            var committed = false;
+            function commitSet() {
+                if (committed) return;
+                committed = true;
+                var name = input.value.trim();
+                if (!name) {
+                    name = 'Card Set Number ' + n;
+                }
+                // Create a button for the new set
+                var btn = document.createElement('button');
+                btn.className = 'library-set-btn';
+                btn.textContent = name;
+                input.replaceWith(btn);
+
+                // Save to localStorage
+                var sets = loadCardSets();
+                sets.push(name);
+                saveCardSets(sets);
+            }
+
+            input.addEventListener('blur', function() {
+                commitSet();
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitSet();
+                }
+            });
+
+            // Insert before the preview area
+            var preview = document.getElementById('card-set-preview');
+            col.insertBefore(input, preview);
+            input.focus();
+        }
+
+        function loadCardSets() {
+            try {
+                var data = localStorage.getItem('savedCardSets');
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveCardSets(sets) {
+            localStorage.setItem('savedCardSets', JSON.stringify(sets));
+        }
+
+        // Restore saved card sets on load
+        (function() {
+            var sets = loadCardSets();
+            if (!sets.length) return;
+            var col = document.querySelector('.library-col-sets');
+            var preview = document.getElementById('card-set-preview');
+            sets.forEach(function(name) {
+                var btn = document.createElement('button');
+                btn.className = 'library-set-btn';
+                btn.textContent = name;
+                col.insertBefore(btn, preview);
+            });
+        })();
 
         // Open the full Card Maker editor for the currently previewed set
         function editCurrentCardSet() {

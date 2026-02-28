@@ -1,4 +1,5 @@
 # Vica Domino Project Memory
+**Last Updated**: February 28, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -7,16 +8,18 @@
 - **First standalone apps**: "Find the Double" — a family of domino-based games (various versions)
 - **Type**: Educational math game generator, single-page web app
 - **Vision**: Each completed game is extracted as a standalone application; the generator continues developing new games
-- **Development**: 199 commits over Feb 1-14, 2026 (most active: Feb 7 with 68 commits)
-- **Detailed notes**: See [project-details.md](project-details.md)
+- **Development**: 484+ commits over Feb 1-27, 2026 (most active: Feb 7 with 68 commits)
+- **Detailed notes**: See [project-details.md](project-details.md) and [STATUS_NOTES.md](STATUS_NOTES.md)
 
-## Project Structure
-- `index.html` (3435 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
-- `js/game.js` (3211 lines): `VicaDominoGame` class - all gameplay logic
-- `js/domino.js` (~200 lines): Card definitions, utility functions (isDouble, canPlayOn, etc.)
-- `css/style.css` (3772 lines): All styling, animations, responsive layouts
+## Project Structure (current sizes)
+- `index.html` (6,373 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
+- `js/game.js` (3,617 lines): `VicaDominoGame` class - all gameplay logic
+- `js/domino.js` (185 lines): Card definitions, utility functions (isDouble, canPlayOn, etc.)
+- `css/style.css` (4,584 lines): All styling, animations, responsive layouts
+- `audio/select-double.mp3`: Voice instruction for tutorial
 - Inline script in index.html runs BEFORE game.js loads
 - `game.js` uses `DOMContentLoaded` to instantiate `VicaDominoGame`
+- **Total**: ~14,759 lines of code
 
 ## Game Modes
 1. **Sun Level (Find the Double)**: Primary mode - each player gets N dominos, must find the double
@@ -24,23 +27,46 @@
 2. **Classic Domino**: Traditional domino gameplay with board placement (left/right)
 3. **Combined Games**: Multi-stage progression with coin/gem economy
 
+## Card Sets
+1. **Numbers & Dots** — 5 values (A-E) with 6 representations each, 15 domino pairs
+2. **ABC Card Set** — 25 letter cards (A-Y), 5 values × 5 representations, with animal icons (Ant, Brain, Cat, Dog, Egg)
+
 ## Key Features
 - **1-2 player** support + optional **Xeno** computer opponent (pink alien AI)
 - **Adaptive Xeno Timer**: Starts at 20s, decreases on wins, increases on losses
 - **Keyboard controls**: Number keys 1-4 (player 1) and 7-0 (player 2) for card selection
 - **W/P shortcuts** for Play Again in end-game state
 - **Tie detection** (within 500ms for 2-player)
-- **Card Maker**: Create/edit custom card designs with draw tools, font selector, SVG-based
-- **Game Maker**: Create custom games, select cards, manage domino pairs
-- **Card Library**: Browse card sets with zoom, loupe mode, grid overlay
-- **Card Variations**: Multiple visual representations per card value, with duplicate detection
+- **Progressive tutorial**: finger animation, "double" label, voice instruction, keyboard hints — all hide after N wins
+- **Card Maker**: Create/edit custom card designs with draw tools (pencil, eraser, shapes, text, stamps), font selector, SVG-based, Aa/r sliders, color palette, reflect/rotate
+- **Game Maker**: Create custom games, select cards, manage domino pairs, per-game variation exclusions, flip mode
+- **Card Library**: Two-column layout (Card Sets + Games), browse with zoom, loupe mode, grid overlay
+- **Card Variations**: Multiple visual representations per card value, with pixel-based duplicate detection
+- **Drag-and-drop**: Copy cards, move between rows, reorder within rows, persistent arrangement
+- **Main Page Pictures (MPP)**: Custom domino level preview icons
+- **Introductory page**: Game selection before main setup
 - **Combined Games**: Chain multiple games into stages with coin (5 coins = 1 gem) progression
-- **LocalStorage persistence** for custom games, variations, card data
+- **Coin/Gem economy**: Gold coin visuals, vertical stacking, stage stones in header
+- **LocalStorage persistence** for custom games, variations, card data, arrangements
+- **Responsive design**: iPad landscape/portrait, tablet, mobile
+
+## localStorage Keys
+| Key | Purpose |
+|-----|---------|
+| `savedCustomGames` | Custom game definitions |
+| `customCards` / `customCards_abc` | Custom card SVG data per set |
+| `deletedCards_abc` | Deleted ABC cards tracking |
+| `cardArrangement` | Card row/order persistence |
+| `cardVariations` | Card variation definitions |
+| `combinedGameConfig` | Combined game stages |
+| `_singlePlayerWins` | Tutorial progression counter |
 
 ## Debugging Lessons
 - **Always validate JS syntax first** when user reports "nothing works" / "frozen". Use: `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"`
 - A SyntaxError in a `<script src="...">` file prevents the ENTIRE file from executing
 - `const` redeclaration in the same scope is a SyntaxError
+- **Card corruption**: Be careful with localStorage persistence of drag/order data — scope to active card set, use unified `cardArrangement` key
+- **ABC vs Numbers mixing**: Always check active card set before saving/loading custom cards
 
 ## Known Fixed Issues
 - **Duplicate ID `draw-btn`**: Card Maker draw button and game's "Draw from Bank" shared ID. Fixed: game's button → `bank-draw-btn`
@@ -48,3 +74,8 @@
 - **Duplicate `const key`** in handleKeyPress caused SyntaxError freezing everything
 - **Domino disappearing** on second 2-player game
 - **Xeno timer box overlapping** game board (fixed for both normal and iPad landscape)
+- **Card corruption from drag/order**: Fixed with unified `cardArrangement` persistence scoped to active card set
+- **ABC cards reappearing after deletion**: Fixed with separate `deletedCards_abc` key
+- **Cards disappearing from Game View**: Fixed with `svgMarkup` fallback
+- **ABC game showing wrong cards**: Fixed card set mixing in Card Maker
+- **Text editing hanging**: Fixed multiple Enter press issue

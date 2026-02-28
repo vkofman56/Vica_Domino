@@ -2063,6 +2063,7 @@
                     if (!name || !name.trim()) return;
                     pendingNewCardName = name.trim();
                 }
+                var _newLabel = pendingNewCardName;
                 addNewDrawnCard(cleanSvg, pendingNewCardName);
                 pendingNewCardName = null;
             }
@@ -2071,6 +2072,19 @@
             drawHistory = [];
             hasEditedExisting = false;
             closeLoupe();
+            // Scroll the new card into view so the user can see it
+            if (typeof _newLabel === 'string') {
+                var _contentEl = document.querySelector('#domino-library-screen .domino-library-content');
+                if (_contentEl) {
+                    var _allLabels = _contentEl.querySelectorAll('.library-card .library-label');
+                    for (var _li = 0; _li < _allLabels.length; _li++) {
+                        if (_allLabels[_li].textContent === _newLabel) {
+                            _allLabels[_li].closest('.library-card').scrollIntoView({block: 'center'});
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         // --- Loupe color palette ---
@@ -3639,6 +3653,14 @@
 
         // Assign row letters before deleting cards (so empty rows keep their letter)
         initRowLetters();
+
+        // One-time recovery: restore all deleted built-in cards
+        // (custom cards placed in wrong container were lost, leaving empty rows)
+        if (!localStorage.getItem('deletedCardsRestored_v1')) {
+            localStorage.removeItem('deletedCards');
+            localStorage.removeItem('deletedCards_abc');
+            localStorage.setItem('deletedCardsRestored_v1', 'true');
+        }
 
         // Remove previously deleted built-in cards on startup (keep empty rows)
         (function removeDeletedCards() {

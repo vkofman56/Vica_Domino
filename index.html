@@ -262,11 +262,11 @@
                         <h3 class="library-col-heading">Card Sets</h3>
                         <button class="library-create-btn" id="create-card-set-btn" onclick="createNewCardSet()">Create</button>
                         <div class="library-set-row">
-                            <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers')">Numbers and Dots</button>
+                            <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers')" ondblclick="event.preventDefault(); renameCardSet(this, 'numbers', true)">Numbers and Dots</button>
                             <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('numbers', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
                         <div class="library-set-row">
-                            <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc')">ABC</button>
+                            <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc')" ondblclick="event.preventDefault(); renameCardSet(this, 'abc', true)">ABC</button>
                             <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('abc', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
                         <div id="card-set-preview" class="card-set-preview"></div>
@@ -4974,6 +4974,83 @@
             updateGameVisibility();
         }
 
+        function renameCardSet(btn, oldName, isBuiltin) {
+            // Replace button with input for inline editing
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'new-set-input';
+            input.value = btn.textContent;
+            input.style.marginBottom = '0';
+            btn.style.display = 'none';
+            btn.parentNode.insertBefore(input, btn);
+            input.focus();
+            input.select();
+
+            var committed = false;
+            function commitRename() {
+                if (committed) return;
+                committed = true;
+                var newName = input.value.trim();
+                if (!newName) newName = oldName; // keep old name if empty
+                input.remove();
+                btn.style.display = '';
+                btn.textContent = newName;
+
+                if (newName === oldName) return;
+
+                if (isBuiltin) {
+                    // Store renamed built-in set name
+                    var renames = {};
+                    try { renames = JSON.parse(localStorage.getItem('renamedBuiltinSets') || '{}'); } catch(e) {}
+                    renames[oldName] = newName;
+                    localStorage.setItem('renamedBuiltinSets', JSON.stringify(renames));
+                } else {
+                    // Update custom sets list
+                    var sets = loadCardSets();
+                    var idx = sets.indexOf(oldName);
+                    if (idx !== -1) sets[idx] = newName;
+                    saveCardSets(sets);
+                    // Rename card data key
+                    var oldData = localStorage.getItem('customDrawnCards_' + oldName);
+                    if (oldData) {
+                        localStorage.setItem('customDrawnCards_' + newName, oldData);
+                        localStorage.removeItem('customDrawnCards_' + oldName);
+                    }
+                    // Update references in the button's click handler
+                    btn.onclick = null;
+                    btn.addEventListener('click', function() {
+                        selectCustomSet(btn, newName);
+                    });
+                    // Update delete button reference
+                    var wrapper = btn.parentNode;
+                    var delBtn = wrapper.querySelector('.library-set-delete-btn');
+                    if (delBtn) {
+                        delBtn.onclick = null;
+                        delBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            deleteCardSet(newName, wrapper);
+                        });
+                    }
+                    // Update dblclick handler
+                    btn.ondblclick = null;
+                    btn.addEventListener('dblclick', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        renameCardSet(btn, newName, false);
+                    });
+                    // Update active/previewed references
+                    if (previewedCardSet === oldName) previewedCardSet = newName;
+                    if (activeCardSet === oldName) activeCardSet = newName;
+                }
+            }
+
+            input.addEventListener('blur', function() { commitRename(); });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+                if (e.key === 'Escape') { e.preventDefault(); input.value = oldName; commitRename(); }
+            });
+        }
+
         function deleteCardSet(setName, wrapper) {
             if (!confirm('Delete card set "' + setName + '"? This will also erase all cards in the set.')) return;
             // Remove from saved sets list
@@ -5031,6 +5108,11 @@
             btn.textContent = setName;
             btn.addEventListener('click', function() {
                 selectCustomSet(btn, setName);
+            });
+            btn.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                renameCardSet(btn, setName, false);
             });
             wrapper.appendChild(btn);
             var delBtn = document.createElement('button');
@@ -5107,6 +5189,13 @@
 
         // Restore saved card sets on load
         (function() {
+            // Restore renamed built-in sets
+            try {
+                var renames = JSON.parse(localStorage.getItem('renamedBuiltinSets') || '{}');
+                if (renames.numbers) document.getElementById('set-numbers-btn').textContent = renames.numbers;
+                if (renames.abc) document.getElementById('set-abc-btn').textContent = renames.abc;
+            } catch(e) {}
+
             var sets = loadCardSets();
             if (!sets.length) return;
             var col = document.querySelector('.library-col-sets');

@@ -4972,18 +4972,32 @@
                     var cards = JSON.parse(raw);
                     if (cards.length > 0) {
                         hasCards = true;
-                        var previewRow = document.createElement('div');
-                        previewRow.className = 'card-preview-row';
+                        // Group cards by row letter (first character of label)
+                        var rowMap = {};
+                        var rowOrder = [];
                         cards.forEach(function(item) {
-                            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                            svg.setAttribute('viewBox', '0 0 60 60');
-                            svg.innerHTML = item.svgContent;
-                            var thumb = document.createElement('div');
-                            thumb.className = 'card-preview-thumb';
-                            thumb.appendChild(svg);
-                            previewRow.appendChild(thumb);
+                            var letter = item.label.charAt(0).toUpperCase();
+                            if (!rowMap[letter]) {
+                                rowMap[letter] = [];
+                                rowOrder.push(letter);
+                            }
+                            rowMap[letter].push(item);
                         });
-                        preview.appendChild(previewRow);
+                        rowOrder.sort();
+                        rowOrder.forEach(function(letter) {
+                            var previewRow = document.createElement('div');
+                            previewRow.className = 'card-preview-row';
+                            rowMap[letter].forEach(function(item) {
+                                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                svg.setAttribute('viewBox', '0 0 60 60');
+                                svg.innerHTML = item.svgContent;
+                                var thumb = document.createElement('div');
+                                thumb.className = 'card-preview-thumb';
+                                thumb.appendChild(svg);
+                                previewRow.appendChild(thumb);
+                            });
+                            preview.appendChild(previewRow);
+                        });
                     }
                 }
             } catch(e) {}

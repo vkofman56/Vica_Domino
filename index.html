@@ -4968,10 +4968,48 @@
             updateGameVisibility();
         }
 
-        function wireCustomSetBtn(btn, setName) {
+        function deleteCardSet(setName, wrapper) {
+            if (!confirm('Delete card set "' + setName + '"? This will also erase all cards in the set.')) return;
+            // Remove from saved sets list
+            var sets = loadCardSets();
+            var idx = sets.indexOf(setName);
+            if (idx !== -1) sets.splice(idx, 1);
+            saveCardSets(sets);
+            // Remove card data
+            localStorage.removeItem('customDrawnCards_' + setName);
+            // Clear preview/selection if this set was selected
+            if (previewedCardSet === setName) {
+                previewedCardSet = null;
+                activeCardSet = 'numbers';
+                var preview = document.getElementById('card-set-preview');
+                if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+                var editBtn = document.getElementById('edit-card-set-btn');
+                if (editBtn) editBtn.style.display = 'none';
+            }
+            // Remove from DOM
+            wrapper.remove();
+        }
+
+        function createCustomSetElement(setName) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'library-set-item-custom';
+            var btn = document.createElement('button');
+            btn.className = 'library-set-btn';
+            btn.textContent = setName;
             btn.addEventListener('click', function() {
                 selectCustomSet(btn, setName);
             });
+            wrapper.appendChild(btn);
+            var delBtn = document.createElement('button');
+            delBtn.className = 'library-set-delete-btn';
+            delBtn.title = 'Delete card set';
+            delBtn.innerHTML = '&#10005;';
+            delBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                deleteCardSet(setName, wrapper);
+            });
+            wrapper.appendChild(delBtn);
+            return { wrapper: wrapper, btn: btn };
         }
 
         function createNewCardSet() {
@@ -4997,11 +5035,8 @@
                     name = 'Card Set Number ' + n;
                 }
                 // Create a button for the new set
-                var btn = document.createElement('button');
-                btn.className = 'library-set-btn';
-                btn.textContent = name;
-                wireCustomSetBtn(btn, name);
-                input.replaceWith(btn);
+                var el = createCustomSetElement(name);
+                input.replaceWith(el.wrapper);
 
                 // Save to localStorage
                 var sets = loadCardSets();
@@ -5044,11 +5079,8 @@
             var col = document.querySelector('.library-col-sets');
             var preview = document.getElementById('card-set-preview');
             sets.forEach(function(name) {
-                var btn = document.createElement('button');
-                btn.className = 'library-set-btn';
-                btn.textContent = name;
-                wireCustomSetBtn(btn, name);
-                col.insertBefore(btn, preview);
+                var el = createCustomSetElement(name);
+                col.insertBefore(el.wrapper, preview);
             });
         })();
 

@@ -4949,6 +4949,12 @@
                 var editBtn = document.getElementById('edit-card-set-btn');
                 if (editBtn) editBtn.style.display = 'none';
             }
+            // Persist deletion so built-in set stays hidden after reload
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deleted.indexOf(setName) === -1) deleted.push(setName);
+                localStorage.setItem('deletedBuiltinSets', JSON.stringify(deleted));
+            } catch(e) {}
             // Remove from DOM
             wrapper.remove();
         }
@@ -5062,6 +5068,16 @@
 
         // Restore saved card sets on load
         (function() {
+            // Hide previously deleted built-in sets
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                deleted.forEach(function(setName) {
+                    var btnId = setName === 'abc' ? 'set-abc-btn' : 'set-numbers-btn';
+                    var btn = document.getElementById(btnId);
+                    if (btn && btn.parentNode) btn.parentNode.remove();
+                });
+            } catch(e) {}
+
             // Restore renamed built-in sets
             try {
                 var renames = JSON.parse(localStorage.getItem('renamedBuiltinSets') || '{}');

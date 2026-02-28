@@ -3290,8 +3290,19 @@
             // Move cards to their saved rows in saved order
             Object.keys(data).forEach(function(letter) {
                 var targetRow = rowMap[letter];
+                var labels = data[letter];
                 if (!targetRow) {
-                    // Create the missing row so cards can be placed in it
+                    // Only create a missing row if it has at least one card that
+                    // genuinely belongs here (custom card or label matching this
+                    // row's letter). This prevents emptying built-in rows by
+                    // pulling their cards into a row whose custom cards were lost.
+                    var hasNativeCard = labels.some(function(label) {
+                        var card = allCards[label];
+                        if (!card) return false;
+                        if (card.dataset.custom === 'true') return true;
+                        return label.charAt(0).toUpperCase() === letter.toUpperCase();
+                    });
+                    if (!hasNativeCard) return; // skip — would only steal cards from other rows
                     var section = document.createElement('div');
                     section.className = 'library-section';
                     targetRow = document.createElement('div');
@@ -3300,7 +3311,6 @@
                     insertRowAlphabetically(container, section, targetRow, letter);
                     rowMap[letter] = targetRow;
                 }
-                var labels = data[letter];
                 labels.forEach(function(label) {
                     var card = allCards[label];
                     if (!card) return;
@@ -3713,6 +3723,9 @@
         sortRowsAlphabetically();
         // Use unified arrangement (replaces old cardRowOverrides + cardOrderInRows)
         applyCardArrangement();
+        // Re-save arrangement so localStorage stays in sync with the actual DOM
+        // (removes stale entries for rows that no longer exist)
+        saveCardArrangement();
         // Clear stale data from previous versions (caused corruption)
         localStorage.removeItem('cardOrderInRows');
         localStorage.removeItem('cardRowOverrides');

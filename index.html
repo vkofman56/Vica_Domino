@@ -576,6 +576,7 @@
                 </div><!-- end card-set-numbers -->
 
                 <div id="card-set-abc" class="card-set-content" style="display:none;"></div>
+                <div id="card-set-custom" class="card-set-content" style="display:none;"></div>
             </div>
             <!-- Save/Cancel overlay for Card Maker -->
             <div id="card-maker-save-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
@@ -2279,8 +2280,12 @@
                 }
             });
             if (!targetRow) {
-                var numbersContainer = document.getElementById('card-set-numbers');
-                var appendTarget = numbersContainer || content;
+                var appendTarget;
+                if (isCustomCardSet(activeCardSet)) {
+                    appendTarget = document.getElementById('card-set-custom') || content;
+                } else {
+                    appendTarget = document.getElementById('card-set-numbers') || content;
+                }
                 var section = document.createElement('div');
                 section.className = 'library-section';
                 targetRow = document.createElement('div');
@@ -3416,6 +3421,24 @@
                 }
                 localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
                 localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
+            } else if (isCustomCardSet(activeCardSet)) {
+                // Save custom set cards
+                var customDiv = document.getElementById('card-set-custom');
+                var customData = [];
+                if (customDiv) {
+                    customDiv.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                        var lbl = card.querySelector('.library-label');
+                        var svg = card.querySelector('svg');
+                        if (lbl && svg) {
+                            customData.push({
+                                label: lbl.textContent,
+                                svgContent: svg.innerHTML,
+                                desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                            });
+                        }
+                    });
+                }
+                localStorage.setItem('customDrawnCards_' + activeCardSet, JSON.stringify(customData));
             } else {
                 var numbersEdits = [];
                 if (numbersDiv) {
@@ -4910,9 +4933,38 @@
             btn.classList.add('selected');
             previewedCardSet = setName;
             activeCardSet = setName;
-            preview.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:0.9rem;margin:10px 0;">Empty card set</p>';
+
+            // Build preview of existing cards, or show empty message
+            preview.innerHTML = '';
             preview.style.display = '';
-            if (editBtn) editBtn.style.display = 'none';
+            var hasCards = false;
+            try {
+                var raw = localStorage.getItem('customDrawnCards_' + setName);
+                if (raw) {
+                    var cards = JSON.parse(raw);
+                    if (cards.length > 0) {
+                        hasCards = true;
+                        var previewRow = document.createElement('div');
+                        previewRow.className = 'card-preview-row';
+                        cards.forEach(function(item) {
+                            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                            svg.setAttribute('viewBox', '0 0 60 60');
+                            svg.innerHTML = item.svgContent;
+                            var thumb = document.createElement('div');
+                            thumb.className = 'card-preview-thumb';
+                            thumb.appendChild(svg);
+                            previewRow.appendChild(thumb);
+                        });
+                        preview.appendChild(previewRow);
+                    }
+                }
+            } catch(e) {}
+            if (!hasCards) {
+                preview.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:0.9rem;margin:10px 0;">Empty card set</p>';
+            }
+
+            // Show Edit button for custom sets
+            if (editBtn) editBtn.style.display = '';
             updateGameVisibility();
         }
 
@@ -5006,6 +5058,68 @@
             selectCardSet(previewedCardSet);
         }
 
+        function isCustomCardSet(setName) {
+            return setName !== 'numbers' && setName !== 'abc';
+        }
+
+        function buildCustomCardSet(setName) {
+            var container = document.getElementById('card-set-custom');
+            if (!container) return;
+            container.innerHTML = '';
+            // Load saved cards for this custom set
+            var key = 'customDrawnCards_' + setName;
+            try {
+                var raw = localStorage.getItem(key);
+                if (raw) {
+                    var cards = JSON.parse(raw);
+                    var rowMap = {};
+                    var rowOrder = [];
+                    cards.forEach(function(item) {
+                        var firstChar = item.label.charAt(0).toUpperCase();
+                        if (!rowMap[firstChar]) {
+                            rowMap[firstChar] = [];
+                            rowOrder.push(firstChar);
+                        }
+                        rowMap[firstChar].push(item);
+                    });
+                    rowOrder.sort();
+                    rowOrder.forEach(function(letter) {
+                        var section = document.createElement('div');
+                        section.className = 'library-section';
+                        container.appendChild(section);
+                        var row = document.createElement('div');
+                        row.className = 'library-row';
+                        row.dataset.rowLetter = letter;
+                        rowMap[letter].forEach(function(item) {
+                            var card = document.createElement('div');
+                            card.className = 'library-card';
+                            card.dataset.custom = 'true';
+                            var labelEl = document.createElement('div');
+                            labelEl.className = 'library-label';
+                            labelEl.textContent = item.label;
+                            card.appendChild(labelEl);
+                            var preview = document.createElement('div');
+                            preview.className = 'domino-half-preview';
+                            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                            svg.setAttribute('viewBox', '0 0 60 60');
+                            svg.innerHTML = item.svgContent;
+                            preview.appendChild(svg);
+                            card.appendChild(preview);
+                            var desc = document.createElement('div');
+                            desc.className = 'library-desc';
+                            desc.textContent = item.desc || 'Custom card';
+                            card.appendChild(desc);
+                            row.appendChild(card);
+                            addCardDeleteButton(card);
+                            addVarButton(card);
+                            addCopyButton(card);
+                        });
+                        container.appendChild(row);
+                    });
+                }
+            } catch(e) {}
+        }
+
         function selectCardSet(setName) {
             activeCardSet = setName;
             // Update button highlights
@@ -5013,28 +5127,33 @@
             document.getElementById('set-abc-btn').classList.toggle('selected', setName === 'abc');
             // Update Card Maker title
             var titleSpan = document.getElementById('card-maker-set-title');
-            if (titleSpan) titleSpan.textContent = setName === 'abc' ? 'ABC' : 'Numbers and Dots';
+            if (titleSpan) titleSpan.textContent = isCustomCardSet(setName) ? setName : (setName === 'abc' ? 'ABC' : 'Numbers and Dots');
             // Show/hide card set content — hide ALL content, then show only the active set
             var contentArea = document.querySelector('#domino-library-screen .domino-library-content');
             var numbersDiv = document.getElementById('card-set-numbers');
             var abcDiv = document.getElementById('card-set-abc');
+            var customDiv = document.getElementById('card-set-custom');
             // Hide orphaned rows/sections that live outside card-set containers
             // (custom cards and variations added at the content level belong to Numbers set)
             var children = contentArea.children;
             for (var ci = 0; ci < children.length; ci++) {
                 var ch = children[ci];
-                if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc') continue;
+                if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc' || ch.id === 'card-set-custom') continue;
                 if (ch.classList.contains('library-title')) continue;
                 if (ch.classList.contains('library-section') || ch.classList.contains('library-row')) {
                     ch.style.display = setName === 'numbers' ? '' : 'none';
                 }
             }
+            if (numbersDiv) numbersDiv.style.display = 'none';
+            if (abcDiv) abcDiv.style.display = 'none';
+            if (customDiv) customDiv.style.display = 'none';
+
             if (setName === 'abc') {
-                if (numbersDiv) numbersDiv.style.display = 'none';
                 if (abcDiv) { abcDiv.style.display = ''; buildAbcCardSet(); }
+            } else if (isCustomCardSet(setName)) {
+                if (customDiv) { customDiv.style.display = ''; buildCustomCardSet(setName); }
             } else {
                 if (numbersDiv) numbersDiv.style.display = '';
-                if (abcDiv) abcDiv.style.display = 'none';
             }
             // Snapshot state before editing, navigate to Card Maker
             snapshotCardMakerState();
@@ -5246,12 +5365,22 @@
                 cardArrangement: localStorage.getItem('cardArrangement'),
                 deletedCards_abc: localStorage.getItem('deletedCards_abc')
             };
+            // Also snapshot custom set data if editing a custom set
+            if (isCustomCardSet(activeCardSet)) {
+                var customKey = 'customDrawnCards_' + activeCardSet;
+                _cmSnapshot[customKey] = localStorage.getItem(customKey);
+            }
             cardMakerDirty = false;
         }
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations', 'cardArrangement', 'deletedCards_abc'].forEach(function(key) {
+            var keys = ['editedBuiltinCards', 'editedBuiltinCards_numbers', 'editedBuiltinCards_abc', 'customDrawnCards', 'cardMakerVariations', 'cardArrangement', 'deletedCards_abc'];
+            // Include custom set key if present in snapshot
+            Object.keys(_cmSnapshot).forEach(function(k) {
+                if (keys.indexOf(k) === -1) keys.push(k);
+            });
+            keys.forEach(function(key) {
                 if (_cmSnapshot[key] === null || _cmSnapshot[key] === undefined) {
                     localStorage.removeItem(key);
                 } else {
@@ -5270,7 +5399,19 @@
                 if (preview) {
                     preview.innerHTML = '';
                     if (previewedCardSet === 'numbers') buildNumbersPreview(preview);
-                    else buildAbcPreview(preview);
+                    else if (previewedCardSet === 'abc') buildAbcPreview(preview);
+                    else {
+                        // Custom set: re-trigger selection to rebuild preview
+                        var col = document.querySelector('.library-col-sets');
+                        var btns = col.querySelectorAll('.library-set-btn');
+                        var setName = previewedCardSet;
+                        previewedCardSet = null; // reset so selectCustomSet doesn't toggle off
+                        btns.forEach(function(b) {
+                            if (b.textContent === setName) {
+                                selectCustomSet(b, setName);
+                            }
+                        });
+                    }
                 }
             }
         }

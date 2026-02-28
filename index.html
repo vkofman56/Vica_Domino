@@ -3672,47 +3672,30 @@
             affectedRows.forEach(function(row) { updateRowEmptyState(row); });
         })();
 
-        // Clean corrupted customDrawnCards: remove entries that duplicate built-in card labels
-        (function cleanCustomDrawnCards() {
-            var numbersDiv = document.getElementById('card-set-numbers');
-            if (!numbersDiv) return;
-            var builtinLabels = {};
-            numbersDiv.querySelectorAll('.library-card .library-label').forEach(function(lbl) {
-                builtinLabels[lbl.textContent] = true;
-            });
-            var saved = localStorage.getItem('customDrawnCards');
-            if (!saved) return;
-            try {
-                var data = JSON.parse(saved);
-                var cleaned = data.filter(function(item) { return !builtinLabels[item.label]; });
-                if (cleaned.length !== data.length) {
-                    localStorage.setItem('customDrawnCards', JSON.stringify(cleaned));
-                }
-            } catch(e) {}
-        })();
-
         // Load saved custom/edited cards and variations on startup
         loadCustomCards();
         loadVariations();
 
-        // Remove data-custom from any built-in cards that were wrongly marked
+        // Handle duplicate labels: when a custom card and a built-in card share
+        // the same label, keep the user's custom/edited card and remove the
+        // plain built-in one (the custom card is intentional user work).
         (function fixWrongCustomMarks() {
             var numbersDiv = document.getElementById('card-set-numbers');
             if (!numbersDiv) return;
-            // Find duplicate labels — if two cards share a label, remove the custom one
             var labelMap = {};
             numbersDiv.querySelectorAll('.library-card:not(.variation) .library-label').forEach(function(lbl) {
                 var card = lbl.closest('.library-card');
                 var text = lbl.textContent;
                 if (labelMap[text]) {
-                    // Duplicate found — remove the one marked custom, keep the built-in
-                    if (card.dataset.custom === 'true') {
-                        card.remove();
-                    } else if (labelMap[text].dataset.custom === 'true') {
+                    // Duplicate found — prefer user-modified cards over plain built-in
+                    var prevModified = labelMap[text].dataset.custom === 'true' || labelMap[text].dataset.edited === 'true';
+                    var currModified = card.dataset.custom === 'true' || card.dataset.edited === 'true';
+                    if (currModified && !prevModified) {
+                        // Current card is user work, previous is plain built-in — keep current
                         labelMap[text].remove();
                         labelMap[text] = card;
                     } else {
-                        // Both built-in? Remove the second one
+                        // Keep previous (it's user-modified, or both are same type)
                         card.remove();
                     }
                 } else {

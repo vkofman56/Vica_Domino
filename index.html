@@ -265,14 +265,14 @@
                             <button class="library-delete-mode-btn" id="delete-mode-btn" onclick="toggleDeleteMode()">-</button>
                         </div>
                         <div class="library-set-row">
-                            <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers')" ondblclick="event.preventDefault(); renameCardSet(this, 'numbers', true)">Numbers and Dots</button>
+                            <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'numbers', true)">Numbers and Dots</button>
                             <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('numbers', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
                         <div class="library-set-row">
-                            <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc')" ondblclick="event.preventDefault(); renameCardSet(this, 'abc', true)">ABC</button>
+                            <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'abc', true)">ABC</button>
                             <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('abc', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
-                        <div id="card-set-preview" class="card-set-preview"></div>
+                        <div id="card-set-preview" class="card-set-preview" style="display:none;"></div>
                         <button class="library-edit-btn" id="edit-card-set-btn" style="display:none;" onclick="editCurrentCardSet()">Edit Card Set</button>
                     </div>
                     <div class="library-col library-col-games">
@@ -4785,7 +4785,18 @@
         var previewedCardSet = null; // which set is currently previewed inline
 
         // Show compact card preview inline in the Library page
-        function previewCardSet(setName) {
+        function movePreviewAfterRow(row) {
+            var preview = document.getElementById('card-set-preview');
+            var editBtn = document.getElementById('edit-card-set-btn');
+            // Insert preview right after the clicked row
+            row.parentNode.insertBefore(preview, row.nextSibling);
+            // Insert edit button right after the preview
+            if (editBtn) {
+                preview.parentNode.insertBefore(editBtn, preview.nextSibling);
+            }
+        }
+
+        function previewCardSet(setName, clickedBtn) {
             var numbersBtn = document.getElementById('set-numbers-btn');
             var abcBtn = document.getElementById('set-abc-btn');
             var preview = document.getElementById('card-set-preview');
@@ -4811,6 +4822,10 @@
             activeCardSet = setName;
             numbersBtn.classList.toggle('selected', setName === 'numbers');
             abcBtn.classList.toggle('selected', setName === 'abc');
+
+            // Move preview after the clicked row
+            var row = clickedBtn ? clickedBtn.closest('.library-set-row') : null;
+            if (row) movePreviewAfterRow(row);
 
             // Build compact card preview
             preview.innerHTML = '';
@@ -4942,6 +4957,10 @@
             btn.classList.add('selected');
             previewedCardSet = setName;
             activeCardSet = setName;
+
+            // Move preview after the clicked row
+            var row = btn.closest('.library-set-item-custom') || btn.closest('.library-set-row');
+            if (row) movePreviewAfterRow(row);
 
             // Build preview of existing cards, or show empty message
             preview.innerHTML = '';
@@ -5187,9 +5206,8 @@
                 }
             });
 
-            // Insert before the preview area
-            var preview = document.getElementById('card-set-preview');
-            col.insertBefore(input, preview);
+            // Insert at the end of the sets column
+            col.appendChild(input);
             input.focus();
         }
 
@@ -5216,10 +5234,9 @@
             var sets = loadCardSets();
             if (!sets.length) return;
             var col = document.querySelector('.library-col-sets');
-            var preview = document.getElementById('card-set-preview');
             sets.forEach(function(name) {
                 var el = createCustomSetElement(name);
-                col.insertBefore(el.wrapper, preview);
+                col.appendChild(el.wrapper);
             });
         })();
 

@@ -4759,11 +4759,15 @@
             var preview = document.getElementById('card-set-preview');
             var editBtn = document.getElementById('edit-card-set-btn');
 
+            // Deselect all custom set buttons
+            var col = document.querySelector('.library-col-sets');
+            if (col) col.querySelectorAll('.library-set-btn').forEach(function(b) {
+                b.classList.remove('selected');
+            });
+
             // Toggle: clicking same set hides preview
             if (previewedCardSet === setName) {
                 previewedCardSet = null;
-                numbersBtn.classList.remove('selected');
-                abcBtn.classList.remove('selected');
                 preview.innerHTML = '';
                 preview.style.display = 'none';
                 if (editBtn) editBtn.style.display = 'none';
@@ -4884,6 +4888,40 @@
         }
 
         // --- Create new card set ---
+        function selectCustomSet(btn, setName) {
+            // Deselect all set buttons
+            var col = document.querySelector('.library-col-sets');
+            col.querySelectorAll('.library-set-btn').forEach(function(b) {
+                b.classList.remove('selected');
+            });
+            var preview = document.getElementById('card-set-preview');
+            var editBtn = document.getElementById('edit-card-set-btn');
+
+            // Toggle: clicking same set deselects
+            if (previewedCardSet === setName) {
+                previewedCardSet = null;
+                preview.innerHTML = '';
+                preview.style.display = 'none';
+                if (editBtn) editBtn.style.display = 'none';
+                updateGameVisibility();
+                return;
+            }
+
+            btn.classList.add('selected');
+            previewedCardSet = setName;
+            activeCardSet = setName;
+            preview.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:0.9rem;margin:10px 0;">Empty card set</p>';
+            preview.style.display = '';
+            if (editBtn) editBtn.style.display = 'none';
+            updateGameVisibility();
+        }
+
+        function wireCustomSetBtn(btn, setName) {
+            btn.addEventListener('click', function() {
+                selectCustomSet(btn, setName);
+            });
+        }
+
         function createNewCardSet() {
             var col = document.querySelector('.library-col-sets');
             // Don't create another if there's already a pending input
@@ -4910,6 +4948,7 @@
                 var btn = document.createElement('button');
                 btn.className = 'library-set-btn';
                 btn.textContent = name;
+                wireCustomSetBtn(btn, name);
                 input.replaceWith(btn);
 
                 // Save to localStorage
@@ -4956,6 +4995,7 @@
                 var btn = document.createElement('button');
                 btn.className = 'library-set-btn';
                 btn.textContent = name;
+                wireCustomSetBtn(btn, name);
                 col.insertBefore(btn, preview);
             });
         })();

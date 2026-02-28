@@ -3290,7 +3290,16 @@
             // Move cards to their saved rows in saved order
             Object.keys(data).forEach(function(letter) {
                 var targetRow = rowMap[letter];
-                if (!targetRow) return;
+                if (!targetRow) {
+                    // Create the missing row so cards can be placed in it
+                    var section = document.createElement('div');
+                    section.className = 'library-section';
+                    targetRow = document.createElement('div');
+                    targetRow.className = 'library-row';
+                    targetRow.dataset.rowLetter = letter;
+                    insertRowAlphabetically(container, section, targetRow, letter);
+                    rowMap[letter] = targetRow;
+                }
                 var labels = data[letter];
                 labels.forEach(function(label) {
                     var card = allCards[label];
@@ -5636,8 +5645,8 @@
         }
 
         function leaveCardMaker() {
-            // All changes (card edits, arrangement, variations) are auto-saved
-            // to localStorage as the user makes them — no prompt needed.
+            // Final save to ensure all changes are persisted before leaving
+            if (typeof saveVariations === 'function') saveVariations();
             if (activeCardSet === 'abc') {
                 syncAbcCardsToGame();
             }

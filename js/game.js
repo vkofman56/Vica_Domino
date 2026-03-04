@@ -191,6 +191,12 @@ class VicaDominoGame {
         // Back arrow button (player names/icon selection screen)
         document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
 
+        // Back arrow button (start screen -> intro screen)
+        document.getElementById('back-to-intro-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+        });
+
         // "Create and Edit" button -> open create-edit screen
         document.getElementById('create-edit-btn').addEventListener('click', () => this.showCreateEdit());
 

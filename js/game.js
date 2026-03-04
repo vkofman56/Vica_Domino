@@ -868,15 +868,6 @@ class VicaDominoGame {
         }
 
         el.textContent = gameName;
-        el.classList.remove('fade-out');
-
-        // Fade out after 5 seconds
-        if (this._gameNameFadeTimer) clearTimeout(this._gameNameFadeTimer);
-        if (gameName) {
-            this._gameNameFadeTimer = setTimeout(() => {
-                el.classList.add('fade-out');
-            }, 5000);
-        }
     }
 
     // ==================== SUN LEVEL GAME ====================

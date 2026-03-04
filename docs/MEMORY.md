@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: February 28, 2026
+**Last Updated**: March 4, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -67,6 +67,9 @@
 - `const` redeclaration in the same scope is a SyntaxError
 - **Card corruption**: Be careful with localStorage persistence of drag/order data — scope to active card set, use unified `cardArrangement` key
 - **ABC vs Numbers mixing**: Always check active card set before saving/loading custom cards
+- **findCardByLabel must be scoped by cardSet**: Both ABC and Numbers sets share the same label format (A1, B1, etc.) — searching the whole DOM returns the wrong card if the wrong set appears first
+- **Card set DOM may not be built**: The ABC card set DOM (`#card-set-abc`) starts empty and is only populated when the user opens it in the card maker. Game loading must fall back to stored `svgMarkup` when DOM lookup fails — don't skip cards just because they're not in the DOM
+- **Auto-creation functions defeat deletion**: `ensureAbcGameExists()` recreated the ABC game on every page load, making deletion impossible. Replaced with a one-time migration that only backfills data on existing games
 
 ## Known Fixed Issues
 - **Duplicate ID `draw-btn`**: Card Maker draw button and game's "Draw from Bank" shared ID. Fixed: game's button → `bank-draw-btn`
@@ -79,3 +82,8 @@
 - **Cards disappearing from Game View**: Fixed with `svgMarkup` fallback
 - **ABC game showing wrong cards**: Fixed card set mixing in Card Maker
 - **Text editing hanging**: Fixed multiple Enter press issue
+- **Deleted cards appearing in gameplay**: Game data stored stale card SVGs. Fixed: cards included only if they have stored `svgMarkup` OR exist in the DOM (March 4)
+- **Wrong card set shown in games**: `findCardByLabel()` now accepts optional `cardSet` param to search only the correct container (`#card-set-numbers` or `#card-set-abc`) (March 4)
+- **Hardcoded "Dots and Numbers" intro button**: Removed — intro screen now only shows user-created games dynamically (March 4)
+- **ABC game not rendering (plain letters)**: ABC card set DOM not built at game start time. Fixed: SVG pool building uses stored `svgMarkup` fallback (March 4)
+- **ABC game re-created after deletion**: `ensureAbcGameExists()` removed; replaced with one-time migration (March 4)

@@ -1,8 +1,8 @@
 # Vica Domino - Project Status Notes
-**Date**: February 28, 2026
-**Branch**: `claude/read-todays-notes-zfR1g`
-**Total Commits**: 484 (199 original + 148 post-Feb-14 + PR merges)
-**Codebase Size**: ~14,759 lines across 4 main files
+**Date**: March 4, 2026
+**Branch**: `claude/review-project-docs-QNagl`
+**Total Commits**: 490+
+**Codebase Size**: ~14,800 lines across 4 main files
 
 ---
 
@@ -114,7 +114,7 @@ Vica_Domino/
 - [x] **Inline card previews** — merged Library into single page
 - [x] **Dim games** that don't belong to selected card set
 - [x] **Custom game buttons** on start screen launch playable games
-- [x] **Auto-generate ABC game** from card library on first load
+- [x] ~~**Auto-generate ABC game** from card library on first load~~ (removed March 4 — ABC game no longer auto-recreated after deletion)
 
 ### Main Page Pictures (MPP) Editor
 - [x] **Custom domino level previews** — assign card images to level buttons
@@ -278,10 +278,59 @@ Card Maker UX (double-click edit, save/cancel, letter labels), separate ABC stor
 
 ---
 
+---
+
+## March 4, 2026 Session — Card/Game Identity & Deletion Fixes
+
+### Summary
+Fixed a cluster of related bugs around game/card identity, cross-set confusion, and deletion not sticking. The root cause was that both card sets (ABC and Numbers & Dots) share the same label format (A1, B1, C1...), and several systems didn't distinguish between them.
+
+### Changes Made (5 commits)
+
+1. **Skip deleted cards when building game deck** (`startCustomGame`)
+   - Cards removed from card sets but still stored in saved game data appeared during gameplay
+   - Now cards are included only if they have stored `svgMarkup` OR exist in the card library DOM
+   - Cards with neither (truly deleted, no fallback) are skipped
+   - Key code: `index.html` lines ~5647-5650
+
+2. **Scope `findCardByLabel` to the correct card set**
+   - `findCardByLabel(label)` searched the entire DOM and returned the first match — wrong set if ABC appears before Numbers
+   - Added optional `cardSet` parameter: `findCardByLabel(label, cardSet)`
+   - When `cardSet` is `'ABC'`, searches only `#card-set-abc`; when `'Numbers and Dots'`, searches only `#card-set-numbers`; when omitted, searches everything (backward compatible)
+   - Updated all callers that have `cardSet` info: `buildGameViewCard`, `getGameCardSVG`, `getGameVariationSVG`, `startCustomGame`, `buildGameViewVariations`, migration code
+   - Callers without `cardSet` (variation restoration) still search all sets
+
+3. **Removed hardcoded "Dots and Numbers" button from intro screen**
+   - Line 18 had a hardcoded `<button>` that always showed regardless of user's games
+   - Removed the button, the `selectIntroGame('dots-and-numbers')` highlight code, and the `goToMainPage()` branch for it
+   - Intro screen now only shows dynamically populated games from `savedCustomGames` and `savedCombinedGames`
+
+4. **Fixed ABC game cards not loading (plain letters instead of SVGs)**
+   - The ABC card set DOM (`#card-set-abc`) is only populated when the user opens it in the card maker via `buildAbcCardSet()`
+   - When starting a game, `findCardByLabel(label, 'ABC')` found nothing in the empty container
+   - Original code skipped all cards → empty SVG map → dominos showed plain text fallback
+   - Fixed: card inclusion now checks `hasMarkup || inDom` — cards with stored `svgMarkup` are included even if not in the DOM
+
+5. **Stopped auto-recreating the ABC game on every page load**
+   - `ensureAbcGameExists()` ran on every page load and re-created the ABC game if deleted
+   - Replaced with `migrateAbcGameMarkup()` — a one-time migration that only backfills missing `svgMarkup` on an *existing* ABC game, never re-creates a deleted one
+
+### Key Architecture Insights
+
+- **Card identity is label + cardSet**: Labels like "A1" are NOT unique across the app. The `cardSet` property (`'ABC'` or `'Numbers and Dots'`) is required to disambiguate.
+- **DOM vs stored data**: Card SVGs live in two places: (1) the card library DOM (built lazily per set), and (2) `svgMarkup` stored in `savedCustomGames`. Game loading must try DOM first, then fall back to stored markup.
+- **Game data is a snapshot**: When a game is created, card data (including SVG markup) is copied into `savedCustomGames`. Deleting cards from a set doesn't automatically clean up game data — the game uses its stored copy as fallback.
+- **ABC DOM is lazy**: `#card-set-abc` starts empty. `buildAbcCardSet()` populates it only when the user opens the ABC set in the card maker. Any code that needs ABC cards at startup must handle the empty-DOM case.
+
+### Potential Follow-up Issues
+- **Combined games referencing deleted games**: If a user deletes a game that's part of a combined game, the combined game still appears on the intro screen. `resolveStageGameIndex` looks up by name — if the game is gone, it returns -1 and `startCustomGame` silently fails. Could show a warning or auto-clean.
+- **Orphaned localStorage keys**: When a game is deleted, `excludedDominos_N` and `excludedVariations_N` keys are removed for the deleted index, but indices shift — keys for games after the deleted one may become misaligned.
+- **Custom card sets**: The `findCardByLabel` fix only handles `'ABC'` and `'Numbers and Dots'` containers. If custom card sets (stored in `#card-set-custom`) are used in games, they'd fall through to searching the full DOM.
+
 ## Quick Start for New Session
 
-1. The project is at `/home/user/Vica_Domino` on branch `claude/read-todays-notes-zfR1g`
+1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-QNagl`
 2. Main files: `index.html` (UI + inline scripts), `js/game.js` (game logic), `js/domino.js` (card data), `css/style.css` (styles)
 3. No build step — open `index.html` directly in a browser
 4. All state persisted in localStorage
-5. Most recent work: Card arrangement persistence, drag-and-drop reordering, ABC card deletion fixes, card corruption fixes
+5. Most recent work (March 4): Card/game identity fixes — `findCardByLabel` scoped by card set, deleted cards skipped from game deck, hardcoded intro button removed, ABC game no longer auto-recreated

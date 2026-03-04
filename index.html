@@ -3444,9 +3444,15 @@
             } catch(e) {}
         }
 
-        function findCardByLabel(label) {
-            var content = document.querySelector('#domino-library-screen .domino-library-content');
-            var cards = content.querySelectorAll('.library-card:not(.variation)');
+        function findCardByLabel(label, cardSet) {
+            var root;
+            if (cardSet === 'ABC') {
+                root = document.getElementById('card-set-abc');
+            } else if (cardSet === 'Numbers and Dots') {
+                root = document.getElementById('card-set-numbers');
+            }
+            if (!root) root = document.querySelector('#domino-library-screen .domino-library-content');
+            var cards = root.querySelectorAll('.library-card:not(.variation)');
             for (var i = 0; i < cards.length; i++) {
                 var lbl = cards[i].querySelector('.library-label');
                 if (lbl && lbl.textContent === label) return cards[i];
@@ -4230,7 +4236,7 @@
 
         function buildGameViewCard(cardInfo) {
             if (!cardInfo.isVariation) {
-                var original = findCardByLabel(cardInfo.label);
+                var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
                 if (original) {
                     var clone = original.cloneNode(true);
                     clone.classList.remove('card-selected');
@@ -4241,7 +4247,7 @@
                 // Fallback: build from stored svgMarkup
                 return buildCardFromMarkup(cardInfo);
             } else {
-                var original = findCardByLabel(cardInfo.originalLabel);
+                var original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
                 if (original) {
                     var clone = original.cloneNode(true);
                     clone.classList.remove('card-selected');
@@ -4307,7 +4313,8 @@
 
             // Collect all variation cards from Card Maker DOM that belong to this game's cards
             var origLabels = {};
-            origCards.forEach(function(c) { origLabels[c.label] = true; });
+            var labelCardSet = {};
+            origCards.forEach(function(c) { origLabels[c.label] = true; labelCardSet[c.label] = c.cardSet; });
 
             // Load per-game excluded variations
             var excludedVars = getExcludedVariations(gameIndex);
@@ -4345,7 +4352,7 @@
                 row.className = 'library-row';
 
                 // Show original card first
-                var origCard = findCardByLabel(label);
+                var origCard = findCardByLabel(label, labelCardSet[label]);
                 if (origCard) {
                     var origClone = origCard.cloneNode(true);
                     origClone.classList.remove('card-selected');
@@ -5647,7 +5654,7 @@
                     // Skip cards with no visual content
                     if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
                     // Skip cards that no longer exist in the card library
-                    if (!findCardByLabel(c.label)) return;
+                    if (!findCardByLabel(c.label, c.cardSet)) return;
                     seenLabels[c.label] = true;
                     origCards.push(c);
                 }
@@ -5939,12 +5946,12 @@
 
         function getGameCardSVG(cardInfo) {
             if (!cardInfo.isVariation) {
-                var card = findCardByLabel(cardInfo.label);
+                var card = findCardByLabel(cardInfo.label, cardInfo.cardSet);
                 if (!card) return null;
                 var svg = card.querySelector('svg');
                 return svg ? svg.cloneNode(true) : null;
             } else {
-                var original = findCardByLabel(cardInfo.originalLabel);
+                var original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
                 if (!original) return null;
                 var svg = original.querySelector('svg');
                 if (!svg) return null;
@@ -5955,9 +5962,9 @@
         function getGameVariationSVG(cardInfo, transform) {
             var original;
             if (cardInfo.isVariation) {
-                original = findCardByLabel(cardInfo.originalLabel);
+                original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
             } else {
-                original = findCardByLabel(cardInfo.label);
+                original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
             }
             if (!original) return null;
             var svg = original.querySelector('svg');
@@ -6647,7 +6654,7 @@
                 game.cards.forEach(function(c) {
                     if (c.svgMarkup) return; // already has markup
                     // Try to find card in DOM
-                    var domCard = findCardByLabel(c.label);
+                    var domCard = findCardByLabel(c.label, c.cardSet);
                     if (domCard) {
                         var svg = domCard.querySelector('svg');
                         if (svg && svg.innerHTML.trim()) {

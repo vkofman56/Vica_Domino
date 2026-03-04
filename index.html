@@ -6604,17 +6604,16 @@
             });
             return abcCards;
         }
-        function ensureAbcGameExists() {
+        // One-time migration: backfill missing svgMarkup on ABC game cards
+        (function migrateAbcGameMarkup() {
             var games = loadCustomGames();
             for (var i = 0; i < games.length; i++) {
                 if (games[i].name === 'ABC') {
-                    // Ensure all cards have svgMarkup (one-time migration for old data)
                     var hasMissing = false;
                     for (var j = 0; j < games[i].cards.length; j++) {
                         if (!games[i].cards[j].svgMarkup) { hasMissing = true; break; }
                     }
                     if (hasMissing) {
-                        // Only fill in missing svgMarkup, preserve user labels and structure
                         var defaults = {};
                         buildDefaultAbcGameCards().forEach(function(c) { defaults[c.label] = c.svgMarkup; });
                         games[i].cards.forEach(function(c) {
@@ -6627,16 +6626,7 @@
                     return;
                 }
             }
-            // Create new ABC game with defaults
-            games.push({
-                name: 'ABC',
-                description: 'Letters A through E',
-                cards: buildDefaultAbcGameCards(),
-                flipEnabled: false
-            });
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
-        }
-        ensureAbcGameExists();
+        })();
 
         // Migrate: ensure all game cards have svgMarkup (backfill from DOM for older games)
         (function migrateAllGameSvgMarkup() {

@@ -2622,16 +2622,11 @@
                             } else {
                                 dragOverRow.appendChild(dragCard);
                             }
-                            // Rename card to match target row letter
-                            var targetLetter = dragOverRow.dataset.rowLetter;
-                            if (targetLetter) {
-                                var cardLbl = dragCard.querySelector('.library-label');
-                                if (cardLbl) {
-                                    cardLbl.textContent = targetLetter + getNextNumber(targetLetter);
-                                }
-                            }
                             updateRowEmptyState(dragSourceRow);
                             updateRowEmptyState(dragOverRow);
+                            // Renumber both source and target rows
+                            renumberRow(dragSourceRow);
+                            renumberRow(dragOverRow);
                             moved = true;
                             crossRowMove = true;
                         } else {
@@ -2641,6 +2636,8 @@
                             } else {
                                 dragOverRow.appendChild(dragCard);
                             }
+                            // Renumber to reflect new order
+                            renumberRow(dragOverRow);
                             moved = true;
                         }
                     }
@@ -3272,8 +3269,24 @@
             // Update empty-row visual state (row stays, shows letter placeholder)
             if (row) updateRowEmptyState(row);
 
+            // Renumber remaining cards sequentially
+            if (row) renumberRow(row);
+
             saveVariations();
             saveCardArrangement();
+        }
+
+        // Renumber all cards in a row sequentially: A1, A2, A3...
+        function renumberRow(row) {
+            var letter = row.dataset.rowLetter;
+            if (!letter) return;
+            var cards = row.querySelectorAll('.library-card:not(.variation)');
+            var num = 1;
+            cards.forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                if (lbl) lbl.textContent = letter + num;
+                num++;
+            });
         }
 
         function renumberVariations(row, originalLabel) {

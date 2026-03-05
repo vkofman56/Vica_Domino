@@ -4772,39 +4772,83 @@
                     });
                 }
             } catch(e) {}
+            // Load deleted cards
+            var deletedSet = {};
+            try {
+                var delRaw = localStorage.getItem('deletedCards_abc');
+                if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
+            } catch(e) {}
+            // Load custom cards, grouped by row letter
+            var customByRow = {};
+            letters.forEach(function(l) { customByRow[l] = []; });
+            try {
+                var custRaw = localStorage.getItem('customDrawnCards_abc');
+                if (custRaw) {
+                    JSON.parse(custRaw).forEach(function(item) {
+                        var ch = item.label.charAt(0).toUpperCase();
+                        if (customByRow[ch]) customByRow[ch].push(item);
+                    });
+                }
+            } catch(e) {}
+            // Load arrangement
+            var arrangement = {};
+            try {
+                var arrRaw = localStorage.getItem('cardArrangement_abc');
+                if (arrRaw) arrangement = JSON.parse(arrRaw);
+            } catch(e) {}
             letters.forEach(function(letter) {
-                var previewRow = document.createElement('div');
-                previewRow.className = 'card-preview-row';
+                // Build card data for this row: label -> svgContent
+                var cardMap = {};
+                var defaultOrder = [];
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
-                    var hasContent = false;
-                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svg.setAttribute('viewBox', '0 0 60 60');
+                    if (deletedSet[label]) continue;
+                    var svgContent = '';
                     if (editMap[label]) {
-                        svg.innerHTML = editMap[label];
-                        hasContent = true;
+                        svgContent = editMap[label];
                     } else if (n <= 2) {
-                        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', '30');
-                        text.setAttribute('y', '46');
-                        text.setAttribute('text-anchor', 'middle');
-                        text.setAttribute('font-size', '48');
-                        text.setAttribute('font-weight', 'bold');
-                        text.setAttribute('fill', colors[letter] || '#333');
-                        text.textContent = letter;
-                        svg.appendChild(text);
-                        hasContent = true;
+                        svgContent = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + (colors[letter] || '#333') + '">' + letter + '</text>';
                     } else if (n === 3 && abcIcons[letter]) {
-                        svg.innerHTML = abcIcons[letter].markup;
-                        hasContent = true;
+                        svgContent = abcIcons[letter].markup;
                     }
                     // Skip empty card slots (no visual content)
-                    if (!hasContent) continue;
+                    if (!svgContent) continue;
+                    cardMap[label] = svgContent;
+                    defaultOrder.push(label);
+                }
+                // Add custom cards
+                customByRow[letter].forEach(function(item) {
+                    if (deletedSet[item.label]) return;
+                    cardMap[item.label] = item.svgContent;
+                    defaultOrder.push(item.label);
+                });
+                // Apply arrangement order if available
+                var orderedLabels;
+                if (arrangement[letter]) {
+                    orderedLabels = [];
+                    var inArrangement = {};
+                    arrangement[letter].forEach(function(l) {
+                        inArrangement[l] = true;
+                        if (cardMap[l]) orderedLabels.push(l);
+                    });
+                    // Append any cards not in the arrangement
+                    defaultOrder.forEach(function(l) {
+                        if (!inArrangement[l] && cardMap[l]) orderedLabels.push(l);
+                    });
+                } else {
+                    orderedLabels = defaultOrder;
+                }
+                var previewRow = document.createElement('div');
+                previewRow.className = 'card-preview-row';
+                orderedLabels.forEach(function(label) {
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    svg.innerHTML = cardMap[label];
                     var thumb = document.createElement('div');
                     thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
                     previewRow.appendChild(thumb);
-                }
+                });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
         }

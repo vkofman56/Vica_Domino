@@ -2645,7 +2645,7 @@
                         }
                     }
                     if (moved) {
-                        saveCardArrangement();
+                        saveCardArrangement(dragCardSet ? dragCardSet.id : undefined);
                         if (crossRowMove) {
                             if (typeof saveVariations === 'function') saveVariations();
                         }
@@ -3193,8 +3193,9 @@
         }
 
         // --- Unified card arrangement persistence (row + order) ---
-        function saveCardArrangement() {
-            var container = document.getElementById('card-set-numbers');
+        function saveCardArrangement(setId) {
+            var id = setId || 'card-set-numbers';
+            var container = document.getElementById(id);
             if (!container) return;
             var arrangement = {};
             container.querySelectorAll('.library-row').forEach(function(row) {
@@ -3207,13 +3208,16 @@
                 });
                 arrangement[letter] = labels;
             });
-            localStorage.setItem('cardArrangement', JSON.stringify(arrangement));
+            var storageKey = id === 'card-set-abc' ? 'cardArrangement_abc' : 'cardArrangement';
+            localStorage.setItem(storageKey, JSON.stringify(arrangement));
         }
-        function applyCardArrangement() {
+        function applyCardArrangement(setId) {
+            var id = setId || 'card-set-numbers';
+            var storageKey = id === 'card-set-abc' ? 'cardArrangement_abc' : 'cardArrangement';
             var data;
-            try { data = JSON.parse(localStorage.getItem('cardArrangement') || '{}'); } catch(e) { return; }
+            try { data = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch(e) { return; }
             if (!data || Object.keys(data).length === 0) return;
-            var container = document.getElementById('card-set-numbers');
+            var container = document.getElementById(id);
             if (!container) return;
             // Build map of all card elements by label
             var allCards = {};
@@ -3276,7 +3280,7 @@
             if (row) renumberRow(row);
 
             saveVariations();
-            saveCardArrangement();
+            saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
         }
 
         // Renumber all cards in a row sequentially: A1, A2, A3...
@@ -3320,7 +3324,7 @@
             // Also save custom drawn cards
             saveCustomCards();
             // Persist current card arrangement (row assignments + order)
-            saveCardArrangement();
+            saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
             // Mark as dirty for save/cancel prompt
             cardMakerDirty = true;
         }
@@ -5292,6 +5296,7 @@
                 // Row of cards for this letter
                 var row = document.createElement('div');
                 row.className = 'library-row';
+                row.dataset.rowLetter = letter;
                 // Generate 5 card slots per letter (2 pre-filled, 3 empty)
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
@@ -5388,6 +5393,8 @@
                     }
                 }
             } catch(e) {}
+            // Apply saved card arrangement for ABC set
+            applyCardArrangement('card-set-abc');
         }
 
         // === Sync ABC Card Maker edits to the savedCustomGames entry ===

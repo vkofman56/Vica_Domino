@@ -3254,11 +3254,21 @@
                     insertRowAlphabetically(container, section, targetRow, letter);
                     rowMap[letter] = targetRow;
                 }
+                var labelSet = {};
                 labels.forEach(function(label) {
+                    labelSet[label] = true;
                     var card = allCards[label];
                     if (!card) return;
                     targetRow.appendChild(card);
                     delete allCards[label]; // mark as placed
+                });
+                // Append any untracked cards (new/custom cards not in saved arrangement)
+                // to the end of the row so they don't float to the beginning
+                targetRow.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    if (lbl && !labelSet[lbl.textContent]) {
+                        targetRow.appendChild(card);
+                    }
                 });
             });
             // Update empty states for all rows
@@ -5403,6 +5413,8 @@
             } catch(e) {}
             // Apply saved card arrangement for ABC set
             applyCardArrangement('card-set-abc');
+            // Re-save so new/custom cards are tracked in the arrangement
+            saveCardArrangement('card-set-abc');
         }
 
         // === Sync ABC Card Maker edits to the savedCustomGames entry ===

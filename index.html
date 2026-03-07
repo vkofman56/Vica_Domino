@@ -3283,6 +3283,16 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
+            // Persist deletion so the card doesn't reappear on rebuild
+            if (labelText && activeCardSet === 'abc') {
+                try {
+                    var delRaw = localStorage.getItem('deletedCards_abc');
+                    var deleted = delRaw ? JSON.parse(delRaw) : [];
+                    if (deleted.indexOf(labelText) === -1) deleted.push(labelText);
+                    localStorage.setItem('deletedCards_abc', JSON.stringify(deleted));
+                } catch(e) {}
+            }
+
             // Also remove any variations of this card
             if (row && labelText) {
                 row.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) {
@@ -4832,6 +4842,10 @@
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
                     if (deletedSet[label]) continue;
+                    // Skip empty placeholder slots (4-5) unless user edited them
+                    if (n >= 4 && !editMap[label]) continue;
+                    // Skip position 3 if no icon and not edited
+                    if (n === 3 && !abcIcons[letter] && !editMap[label]) continue;
                     var svgContent = '';
                     if (editMap[label]) {
                         svgContent = editMap[label];
@@ -5402,9 +5416,13 @@
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
-                // Generate 5 card slots per letter (2 pre-filled, 1 icon, 2 empty)
+                // Generate cards per letter: positions 1-2 (letters), 3 (icon), 4-5 (only if user edited them)
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
+                    // Skip empty placeholder slots (4-5) unless user has drawn on them
+                    if (n >= 4 && !editMap[label]) continue;
+                    // Skip position 3 if no icon available and not edited
+                    if (n === 3 && !abcIcons[letter] && !editMap[label]) continue;
                     var card = document.createElement('div');
                     card.className = 'library-card';
                     var labelDiv = document.createElement('div');
@@ -5436,7 +5454,7 @@
                     card.appendChild(preview);
                     var desc = document.createElement('div');
                     desc.className = 'library-desc';
-                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Empty');
+                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Custom');
                     card.appendChild(desc);
                     row.appendChild(card);
                 }

@@ -332,7 +332,7 @@ Fixed a cluster of related bugs around game/card identity, cross-set confusion, 
 ### Summary
 Two UI improvements: (1) reorganized the variation toolbar from a single row into a 2×4 grid, and (2) made non-double dominos in the Game View visually match the doubles' "joined pair" style using a copper outline.
 
-### Changes Made (2 commits)
+### Changes Made (3 commits)
 
 1. **Variation toolbar 2×4 layout** (`index.html`, `css/style.css`)
    - The variation toolbar had 8 buttons in a single horizontal row (4 reflections, 3 rotations, 1 symbol toggle) separated by `<div class="var-tool-sep">` dividers
@@ -352,6 +352,16 @@ Two UI improvements: (1) reorganized the variation toolbar from a single row int
    - Added `.game-view-domino:not(.double-domino) .game-view-domino-half { box-shadow: 0 0 0 2px #CD7F32; }` — a copper outline
    - Now all domino pairs look visually joined: **gold (#FFD700) for doubles, copper (#CD7F32) for non-doubles**
    - Key location: `css/style.css` lines ~1828-1835
+
+3. **Symbol toggle button implemented** (`index.html`)
+   - The symbol toggle button (bottom-right in V toolbar, shows "1↔2" icon) was disabled (`var-tool-disabled` class, `pointer-events:none`) and non-functional
+   - Removed disabled state so button matches styling of other toolbar buttons
+   - Implemented `applySymbolToggle()`: finds all placed elements (text, circles, stamps, etc.) in the card SVG and rotates their positions — element 0 moves to element 1's position, element 1 to element 2's, etc.
+   - Helper functions: `getElementPosition()`, `setElementPosition()`, `collectCardElements()` handle different SVG element types (text x/y, circle cx/cy, rect x/y+size, group translate)
+   - `collectCardElements()` unwraps one level of `<g>` wrapper (from previous variation transforms) to find the actual placed elements
+   - The toggle silently does nothing if a card has fewer than 2 elements
+   - Creates a proper variation (with duplicate detection) just like reflection/rotation tools
+   - Key location: `index.html` — `createVariationSVG` and new helper functions after it
 
 ### Design Decisions
 - **Copper vs gold distinction**: User requested a different color for non-doubles to distinguish them from doubles while still looking like proper dominos. Copper (#CD7F32) was chosen as a warm, complementary tone to gold.

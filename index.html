@@ -5381,9 +5381,11 @@
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
-                // Generate 5 card slots per letter (2 pre-filled, 3 empty)
+                // Generate card slots per letter — only create cards with content
+                // (positions 1-2: letters, position 3: icon, positions 4-5: only if user edited them)
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
+                    var hasContent = false;
                     var card = document.createElement('div');
                     card.className = 'library-card';
                     var labelDiv = document.createElement('div');
@@ -5398,6 +5400,7 @@
                         // Restore saved edit
                         svg.innerHTML = editMap[label];
                         card.dataset.edited = 'true';
+                        hasContent = true;
                     } else if (n <= 2) {
                         var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                         text.setAttribute('x', '30');
@@ -5408,14 +5411,18 @@
                         text.setAttribute('fill', colors[letter] || '#333');
                         text.textContent = letter;
                         svg.appendChild(text);
+                        hasContent = true;
                     } else if (n === 3 && abcIcons[letter]) {
                         svg.innerHTML = abcIcons[letter].markup;
+                        hasContent = true;
                     }
+                    // Skip empty card slots (no visual content)
+                    if (!hasContent) continue;
                     preview.appendChild(svg);
                     card.appendChild(preview);
                     var desc = document.createElement('div');
                     desc.className = 'library-desc';
-                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Empty');
+                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Custom');
                     card.appendChild(desc);
                     row.appendChild(card);
                 }

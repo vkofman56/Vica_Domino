@@ -342,7 +342,7 @@
             <!-- Variation creation toolbar -->
             <div class="variation-toolbar" id="variation-toolbar" style="display:none;">
                 <button class="var-tool-btn" id="vt-symbol-toggle" onclick="selectVariationTool(7, this)" title="Toggle symbols (for cards with 2+ numbers)" style="opacity:0.3;pointer-events:none;">
-                    <svg viewBox="0 0 24 24" width="22" height="22"><text x="4" y="20" font-size="14" font-weight="bold" fill="#666">1</text><text x="14" y="20" font-size="14" font-weight="bold" fill="#666">2</text><path d="M6 6 L18 6" fill="none" stroke="#666" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 3" fill="none" stroke="#666" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 9" fill="none" stroke="#666" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 3" fill="none" stroke="#666" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 9" fill="none" stroke="#666" stroke-width="2.5" stroke-linecap="round"/></svg>
+                    <svg viewBox="0 0 24 24" width="22" height="22"><text x="4" y="20" font-size="14" font-weight="bold" fill="#2255aa">1</text><text x="14" y="20" font-size="14" font-weight="bold" fill="#2255aa">2</text><path d="M6 6 L18 6" fill="none" stroke="#2255aa" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 3" fill="none" stroke="#2255aa" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 9" fill="none" stroke="#2255aa" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 3" fill="none" stroke="#2255aa" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 9" fill="none" stroke="#2255aa" stroke-width="2.5" stroke-linecap="round"/></svg>
                 </button>
             </div>
             <!-- Duplicate variation confirmation dialog -->
@@ -3283,8 +3283,10 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
-            // Persist deletion so the card doesn't reappear on rebuild
-            if (labelText && activeCardSet === 'abc') {
+            // Persist deletion so built-in cards don't reappear on rebuild
+            // Only track built-in card deletions — custom cards are managed
+            // via customDrawnCards_abc and don't need deletion tracking.
+            if (labelText && activeCardSet === 'abc' && card.dataset.custom !== 'true') {
                 try {
                     var delRaw = localStorage.getItem('deletedCards_abc');
                     var deleted = delRaw ? JSON.parse(delRaw) : [];
@@ -3564,6 +3566,11 @@
         // Load saved custom cards and variations on startup
         loadCustomCards();
         loadVariations();
+
+        // Auto-save all card data before page unload (prevents data loss on refresh)
+        window.addEventListener('beforeunload', function() {
+            if (typeof saveVariations === 'function') saveVariations();
+        });
 
         // Migrate orphaned custom card rows into #card-set-numbers
         // (fixes cards created by old addNewDrawnCard that placed new rows outside the container)
@@ -5511,13 +5518,22 @@
                     });
                 }
             } catch(e) {}
+            // Add interactive buttons to restored custom cards
+            container.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                addCardDeleteButton(card);
+                addVarButton(card);
+                addCopyButton(card);
+            });
             // Remove previously deleted ABC cards so they don't reappear
+            // IMPORTANT: skip custom cards — deletedCards_abc tracks built-in card
+            // deletions only; renumbering can cause custom cards to inherit a
+            // deleted label, so we must never remove data-custom cards here.
             try {
                 var deletedRaw = localStorage.getItem('deletedCards_abc');
                 if (deletedRaw) {
                     var deletedList = JSON.parse(deletedRaw);
                     if (deletedList.length > 0) {
-                        container.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                        container.querySelectorAll('.library-card:not(.variation):not([data-custom="true"])').forEach(function(card) {
                             var lbl = card.querySelector('.library-label');
                             if (lbl && deletedList.indexOf(lbl.textContent) !== -1) {
                                 card.remove();
@@ -5530,6 +5546,12 @@
                     }
                 }
             } catch(e) {}
+            // Also add interactive buttons to all built-in cards
+            container.querySelectorAll('.library-card:not([data-custom="true"])').forEach(function(card) {
+                addCardDeleteButton(card);
+                addVarButton(card);
+                addCopyButton(card);
+            });
             // Apply saved card arrangement for ABC set
             applyCardArrangement('card-set-abc');
             // Re-save so new/custom cards are tracked in the arrangement

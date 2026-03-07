@@ -4932,7 +4932,13 @@
             } catch(e) {}
 
             if (snapshot) {
-                letters.forEach(function(letter) {
+                // Include any extra letters beyond A-E (e.g. F, G, ...) from the snapshot
+                var allLetters = letters.slice();
+                Object.keys(snapshot).forEach(function(k) {
+                    if (allLetters.indexOf(k) === -1) allLetters.push(k);
+                });
+                allLetters.sort();
+                allLetters.forEach(function(letter) {
                     var cards = snapshot[letter];
                     if (!cards || cards.length === 0) return;
                     var previewRow = document.createElement('div');
@@ -5628,8 +5634,22 @@
                         var letterIdx = letters.indexOf(firstChar);
                         if (letterIdx >= 0 && rows[letterIdx]) {
                             targetRow = rows[letterIdx];
+                        } else {
+                            // Try to find any existing row with this letter
+                            rows.forEach(function(r) {
+                                if ((r.dataset.rowLetter || '').toUpperCase() === firstChar) targetRow = r;
+                            });
                         }
-                        if (!targetRow) return;
+                        if (!targetRow) {
+                            // Create a new row for letters beyond A-E (e.g. F, G, ...)
+                            var section = document.createElement('div');
+                            section.className = 'library-section';
+                            container.appendChild(section);
+                            targetRow = document.createElement('div');
+                            targetRow.className = 'library-row';
+                            targetRow.dataset.rowLetter = firstChar;
+                            container.appendChild(targetRow);
+                        }
                         var card = document.createElement('div');
                         card.className = 'library-card';
                         card.dataset.custom = 'true';
@@ -5717,7 +5737,7 @@
         // Card Maker uses labels A1,A2..., game uses A01,A02... to avoid conflicts with Numbers set
         function cardMakerLabelToGameLabel(cmLabel) {
             // A1 -> A01, B2 -> B02, etc.
-            var m = cmLabel.match(/^([A-E])(\d)$/);
+            var m = cmLabel.match(/^([A-Z])(\d)$/);
             return m ? m[1] + '0' + m[2] : cmLabel;
         }
         function syncAbcCardsToGame() {

@@ -369,7 +369,7 @@
                     <button class="var-tool-btn" onclick="selectVariationTool(6, this)" title="Rotate 270°">
                         <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 4 A8 8 0 0 0 4 12" fill="none" stroke="currentColor" stroke-width="2"/><polygon points="4,10 4,16 8,12" fill="currentColor"/><text x="11" y="18" font-size="7" fill="currentColor" font-weight="bold">270</text></svg>
                     </button>
-                    <button class="var-tool-btn var-tool-disabled" id="vt-symbol-toggle" onclick="selectVariationTool(7, this)" title="Toggle symbols (for cards with 2+ numbers)" style="pointer-events:none;">
+                    <button class="var-tool-btn" id="vt-symbol-toggle" onclick="selectVariationTool(7, this)" title="Toggle symbols (swap element positions)">
                         <svg viewBox="0 0 24 24" width="20" height="20"><text x="4" y="20" font-size="14" font-weight="bold" fill="currentColor">1</text><text x="14" y="20" font-size="14" font-weight="bold" fill="currentColor">2</text><path d="M6 6 L18 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M6 6 L9 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M18 6 L15 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
                     </button>
                 </div>
@@ -2465,7 +2465,12 @@
             if (variationToolbarOpen && selectedVariationToolIndex >= 0) {
                 var tool = variationTools[selectedVariationToolIndex];
                 if (tool.transform === '__symbol_toggle__') {
-                    // Symbol toggle - only for cards with 2+ numbers (future)
+                    // Symbol toggle - swap element positions
+                    var svg = card.querySelector('svg');
+                    if (!svg) return;
+                    var elems = collectCardElements(svg);
+                    if (elems.length < 2) return;
+                    checkDuplicateAndAdd(card, tool.transform, tool.desc);
                     return;
                 }
                 checkDuplicateAndAdd(card, tool.transform, tool.desc);
@@ -2841,6 +2846,13 @@
             // Remove any inline size styles (from zoom)
             svg.style.width = '';
             svg.style.height = '';
+
+            if (transformStr === '__symbol_toggle__') {
+                // Symbol toggle: swap positions of placed elements
+                applySymbolToggle(svg);
+                return svg;
+            }
+
             var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('transform', transformStr);
             while (svg.firstChild) {
@@ -2848,6 +2860,97 @@
             }
             svg.appendChild(g);
             return svg;
+        }
+
+        // Get the position of an SVG element (center point)
+        function getElementPosition(el) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'text') {
+                return { x: parseFloat(el.getAttribute('x')) || 0, y: parseFloat(el.getAttribute('y')) || 0 };
+            } else if (tag === 'circle') {
+                return { x: parseFloat(el.getAttribute('cx')) || 0, y: parseFloat(el.getAttribute('cy')) || 0 };
+            } else if (tag === 'ellipse') {
+                return { x: parseFloat(el.getAttribute('cx')) || 0, y: parseFloat(el.getAttribute('cy')) || 0 };
+            } else if (tag === 'rect') {
+                var w = parseFloat(el.getAttribute('width')) || 0;
+                var h = parseFloat(el.getAttribute('height')) || 0;
+                return { x: (parseFloat(el.getAttribute('x')) || 0) + w / 2, y: (parseFloat(el.getAttribute('y')) || 0) + h / 2 };
+            } else if (tag === 'g') {
+                var t = el.getAttribute('transform') || '';
+                var m = t.match(/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+                if (m) return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+                return { x: 0, y: 0 };
+            }
+            return { x: 0, y: 0 };
+        }
+
+        // Set position of an SVG element
+        function setElementPosition(el, pos) {
+            var tag = el.tagName.toLowerCase();
+            if (tag === 'text') {
+                el.setAttribute('x', pos.x);
+                el.setAttribute('y', pos.y);
+            } else if (tag === 'circle' || tag === 'ellipse') {
+                el.setAttribute('cx', pos.x);
+                el.setAttribute('cy', pos.y);
+            } else if (tag === 'rect') {
+                var w = parseFloat(el.getAttribute('width')) || 0;
+                var h = parseFloat(el.getAttribute('height')) || 0;
+                el.setAttribute('x', pos.x - w / 2);
+                el.setAttribute('y', pos.y - h / 2);
+            } else if (tag === 'g') {
+                var t = el.getAttribute('transform') || '';
+                var m = t.match(/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+                if (m) {
+                    var oldX = parseFloat(m[1]), oldY = parseFloat(m[2]);
+                    var newT = t.replace(/translate\(\s*[-\d.]+\s*,\s*[-\d.]+\s*\)/, 'translate(' + pos.x + ',' + pos.y + ')');
+                    el.setAttribute('transform', newT);
+                }
+            }
+        }
+
+        // Collect top-level placed elements from an SVG card
+        function collectCardElements(svg) {
+            var elements = [];
+            // Get direct children of the SVG (or unwrap one level of <g> wrapper from previous transforms)
+            var searchRoot = svg;
+            var children = searchRoot.children;
+            for (var i = 0; i < children.length; i++) {
+                var ch = children[i];
+                var tag = ch.tagName.toLowerCase();
+                if (tag === 'text' || tag === 'circle' || tag === 'ellipse' || tag === 'rect' || tag === 'g') {
+                    elements.push(ch);
+                }
+            }
+            // If we only found one <g> wrapper (from a previous variation transform), look inside it
+            if (elements.length === 1 && elements[0].tagName.toLowerCase() === 'g') {
+                var inner = [];
+                var innerChildren = elements[0].children;
+                for (var j = 0; j < innerChildren.length; j++) {
+                    var ich = innerChildren[j];
+                    var itag = ich.tagName.toLowerCase();
+                    if (itag === 'text' || itag === 'circle' || itag === 'ellipse' || itag === 'rect' || itag === 'g') {
+                        inner.push(ich);
+                    }
+                }
+                if (inner.length >= 2) return inner;
+            }
+            return elements;
+        }
+
+        // Apply symbol toggle: swap positions of elements in the SVG
+        function applySymbolToggle(svg) {
+            var elements = collectCardElements(svg);
+            if (elements.length < 2) return;
+
+            // Collect all positions
+            var positions = elements.map(function(el) { return getElementPosition(el); });
+
+            // Rotate positions: element 0 gets position of element 1, element 1 gets position of 2, ... last gets position of 0
+            for (var i = 0; i < elements.length; i++) {
+                var nextIdx = (i + 1) % elements.length;
+                setElementPosition(elements[i], positions[nextIdx]);
+            }
         }
 
         // --- Duplicate variation detection ---

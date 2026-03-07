@@ -2938,18 +2938,34 @@
             return elements;
         }
 
-        // Apply symbol toggle: swap positions of elements in the SVG
+        // Check if an SVG element is a math operator (not a numeral/letter)
+        function isMathOperator(el) {
+            if (el.tagName.toLowerCase() !== 'text') return false;
+            var ch = (el.textContent || '').trim();
+            return ch === '+' || ch === '-' || ch === '\u00D7' || ch === '\u00F7' || ch === '=';
+        }
+
+        // Apply symbol toggle: swap positions of numeral/symbol elements, leaving operators in place
         function applySymbolToggle(svg) {
             var elements = collectCardElements(svg);
             if (elements.length < 2) return;
 
-            // Collect all positions
-            var positions = elements.map(function(el) { return getElementPosition(el); });
-
-            // Rotate positions: element 0 gets position of element 1, element 1 gets position of 2, ... last gets position of 0
+            // Separate numerals/symbols from operators
+            var numerals = [];
             for (var i = 0; i < elements.length; i++) {
-                var nextIdx = (i + 1) % elements.length;
-                setElementPosition(elements[i], positions[nextIdx]);
+                if (!isMathOperator(elements[i])) {
+                    numerals.push(elements[i]);
+                }
+            }
+            if (numerals.length < 2) return;
+
+            // Collect positions of numerals only
+            var positions = numerals.map(function(el) { return getElementPosition(el); });
+
+            // Rotate positions of numerals: element 0 gets position of element 1, etc.
+            for (var i = 0; i < numerals.length; i++) {
+                var nextIdx = (i + 1) % numerals.length;
+                setElementPosition(numerals[i], positions[nextIdx]);
             }
         }
 

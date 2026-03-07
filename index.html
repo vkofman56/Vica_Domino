@@ -266,9 +266,11 @@
                         </div>
                         <div class="library-set-row">
                             <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'numbers', true)">Numbers and Dots</button>
+                            <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('numbers', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
                         <div class="library-set-row">
                             <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'abc', true)">ABC</button>
+                            <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('abc', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
                         <div id="card-set-preview" class="card-set-preview" style="display:none;"></div>
                         <button class="library-edit-btn" id="edit-card-set-btn" style="display:none;" onclick="editCurrentCardSet()">Edit Card Set</button>
@@ -3624,6 +3626,17 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
+            // Persist deletion so built-in cards don't reappear on rebuild
+            // Only track built-in card deletions — custom cards are managed
+            // via customDrawnCards_abc and don't need deletion tracking.
+            if (labelText && activeCardSet === 'abc' && card.dataset.custom !== 'true') {
+                try {
+                    var delRaw = localStorage.getItem('deletedCards_abc');
+                    var deleted = delRaw ? JSON.parse(delRaw) : [];
+                    if (deleted.indexOf(labelText) === -1) deleted.push(labelText);
+                    localStorage.setItem('deletedCards_abc', JSON.stringify(deleted));
+                } catch(e) {}
+            }
 
             // Also remove any variations of this card
             if (row && labelText) {
@@ -5479,6 +5492,37 @@
             wrapper.remove();
         }
 
+        function deleteBuiltinCardSet(setName, wrapper) {
+            var displayName = setName === 'abc' ? 'ABC' : 'Numbers and Dots';
+            if (!confirm('Delete card set "' + displayName + '"? This will also erase all edits and custom cards in this set.')) return;
+            // Clear related localStorage data
+            if (setName === 'numbers') {
+                localStorage.removeItem('customDrawnCards');
+                localStorage.removeItem('cardArrangement');
+            } else if (setName === 'abc') {
+                localStorage.removeItem('editedBuiltinCards_abc');
+                localStorage.removeItem('customDrawnCards_abc');
+                localStorage.removeItem('deletedCards_abc');
+                localStorage.removeItem('abcCardSnapshot');
+            }
+            // Clear preview/selection if this set was selected
+            if (previewedCardSet === setName) {
+                previewedCardSet = null;
+                activeCardSet = 'numbers';
+                var preview = document.getElementById('card-set-preview');
+                if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+                var editBtn = document.getElementById('edit-card-set-btn');
+                if (editBtn) editBtn.style.display = 'none';
+            }
+            // Persist deletion so built-in set stays hidden after reload
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deleted.indexOf(setName) === -1) deleted.push(setName);
+                localStorage.setItem('deletedBuiltinSets', JSON.stringify(deleted));
+            } catch(e) {}
+            // Remove from DOM
+            wrapper.remove();
+        }
 
         function createCustomSetElement(setName) {
             var wrapper = document.createElement('div');
@@ -5589,9 +5633,15 @@
 
         // Restore saved card sets on load
         (function() {
-            // Clear any stale deletion tracking for built-in sets
-            localStorage.removeItem('deletedBuiltinSets');
-            localStorage.removeItem('deletedCards_abc');
+            // Hide previously deleted built-in sets
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                deleted.forEach(function(setName) {
+                    var btnId = setName === 'abc' ? 'set-abc-btn' : 'set-numbers-btn';
+                    var btn = document.getElementById(btnId);
+                    if (btn && btn.parentNode) btn.parentNode.remove();
+                });
+            } catch(e) {}
 
             // Restore renamed built-in sets
             try {

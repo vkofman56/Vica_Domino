@@ -2654,6 +2654,7 @@
                     }
                     if (moved) {
                         saveCardArrangement(dragCardSet ? dragCardSet.id : undefined);
+                        if (dragCardSet && dragCardSet.id === 'card-set-abc') saveAbcSnapshot();
                         if (crossRowMove) {
                             if (typeof saveVariations === 'function') saveVariations();
                         }
@@ -3299,6 +3300,7 @@
 
             saveVariations();
             saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
+            if (activeCardSet === 'abc') saveAbcSnapshot();
         }
 
         // Renumber all cards in a row sequentially: A1, A2, A3...
@@ -3343,6 +3345,7 @@
             saveCustomCards();
             // Persist current card arrangement (row assignments + order)
             saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
+            if (activeCardSet === 'abc') saveAbcSnapshot();
             // Mark as dirty for save/cancel prompt
             cardMakerDirty = true;
         }
@@ -3416,6 +3419,7 @@
                 }
                 localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
                 localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
+                saveAbcSnapshot();
             } else if (isCustomCardSet(activeCardSet)) {
                 // Save custom set cards
                 var customDiv = document.getElementById('card-set-custom');
@@ -4757,119 +4761,56 @@
         }
 
         function buildAbcPreview(container) {
-            // Mirror the exact same logic as buildAbcCardSet + applyCardArrangement
-            // so the Library preview always matches the Card Maker.
+            // Use the snapshot saved by the Card Maker — this guarantees the Library
+            // preview shows the exact same cards in the exact same order.
             var letters = ['A', 'B', 'C', 'D', 'E'];
-            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits
-            var editMap = {};
+            var snapshot = null;
             try {
-                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
-                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
-                if (edits) {
-                    var abcLabels = {};
-                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
-                    JSON.parse(edits).forEach(function(item) {
-                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
-                    });
-                }
-            } catch(e) {}
-            // Load deleted cards
-            var deletedSet = {};
-            try {
-                var delRaw = localStorage.getItem('deletedCards_abc');
-                if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
-            } catch(e) {}
-            // Load custom cards
-            var customCards = [];
-            try {
-                var custRaw = localStorage.getItem('customDrawnCards_abc');
-                if (custRaw) customCards = JSON.parse(custRaw);
-            } catch(e) {}
-            // Load arrangement
-            var arrangement = {};
-            try {
-                var arrRaw = localStorage.getItem('cardArrangement_abc');
-                if (arrRaw) arrangement = JSON.parse(arrRaw);
+                var snapRaw = localStorage.getItem('abcCardSnapshot');
+                if (snapRaw) snapshot = JSON.parse(snapRaw);
             } catch(e) {}
 
-            // Step 1: Build all cards into their default rows (same as buildAbcCardSet)
-            // Global card pool: label -> { svg, row }
-            var allCards = {};
-            var rowCards = {}; // letter -> [labels] in default order
+            if (snapshot) {
+                letters.forEach(function(letter) {
+                    var cards = snapshot[letter];
+                    if (!cards || cards.length === 0) return;
+                    var previewRow = document.createElement('div');
+                    previewRow.className = 'card-preview-row';
+                    cards.forEach(function(svgContent) {
+                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('viewBox', '0 0 60 60');
+                        if (svgContent) svg.innerHTML = svgContent;
+                        var thumb = document.createElement('div');
+                        thumb.className = 'card-preview-thumb';
+                        thumb.appendChild(svg);
+                        previewRow.appendChild(thumb);
+                    });
+                    container.appendChild(previewRow);
+                });
+                return;
+            }
+
+            // Fallback: reconstruct from individual localStorage keys (first load before Card Maker opened)
+            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
             letters.forEach(function(letter) {
-                rowCards[letter] = [];
+                var previewRow = document.createElement('div');
+                previewRow.className = 'card-preview-row';
                 for (var n = 1; n <= 5; n++) {
-                    var label = letter + n;
                     var svgContent = '';
-                    if (editMap[label]) {
-                        svgContent = editMap[label];
-                    } else if (n <= 2) {
+                    if (n <= 2) {
                         svgContent = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + (colors[letter] || '#333') + '">' + letter + '</text>';
                     } else if (n === 3 && abcIcons[letter]) {
                         svgContent = abcIcons[letter].markup;
                     }
-                    allCards[label] = { svg: svgContent, row: letter };
-                    rowCards[letter].push(label);
-                }
-            });
-
-            // Step 2: Add custom cards to their rows (by label first char)
-            customCards.forEach(function(item) {
-                var ch = item.label.charAt(0).toUpperCase();
-                if (letters.indexOf(ch) < 0) return;
-                allCards[item.label] = { svg: item.svgContent, row: ch };
-                rowCards[ch].push(item.label);
-            });
-
-            // Step 3: Remove deleted cards
-            Object.keys(deletedSet).forEach(function(label) {
-                delete allCards[label];
-            });
-
-            // Step 4: Apply arrangement (mirrors applyCardArrangement — can move cards between rows)
-            if (Object.keys(arrangement).length > 0) {
-                var finalRows = {};
-                var placed = {};
-                letters.forEach(function(l) { finalRows[l] = []; });
-                // Place cards according to arrangement order (may cross rows)
-                Object.keys(arrangement).forEach(function(letter) {
-                    if (!finalRows[letter]) finalRows[letter] = [];
-                    arrangement[letter].forEach(function(label) {
-                        if (allCards[label] && !placed[label]) {
-                            finalRows[letter].push(label);
-                            placed[label] = true;
-                        }
-                    });
-                });
-                // Append unplaced cards to their default rows
-                letters.forEach(function(letter) {
-                    rowCards[letter].forEach(function(label) {
-                        if (allCards[label] && !placed[label]) {
-                            finalRows[letter].push(label);
-                            placed[label] = true;
-                        }
-                    });
-                });
-                rowCards = finalRows;
-            }
-
-            // Step 5: Render
-            letters.forEach(function(letter) {
-                var previewRow = document.createElement('div');
-                previewRow.className = 'card-preview-row';
-                (rowCards[letter] || []).forEach(function(label) {
-                    var card = allCards[label];
-                    if (!card) return;
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    if (card.svg) svg.innerHTML = card.svg;
+                    if (svgContent) svg.innerHTML = svgContent;
                     var thumb = document.createElement('div');
                     thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
                     previewRow.appendChild(thumb);
-                });
-                if (previewRow.children.length > 0) container.appendChild(previewRow);
+                }
+                container.appendChild(previewRow);
             });
         }
 
@@ -5059,6 +5000,7 @@
                 localStorage.removeItem('editedBuiltinCards_abc');
                 localStorage.removeItem('customDrawnCards_abc');
                 localStorage.removeItem('deletedCards_abc');
+                localStorage.removeItem('abcCardSnapshot');
             }
             // Clear preview/selection if this set was selected
             if (previewedCardSet === setName) {
@@ -5479,6 +5421,27 @@
             applyCardArrangement('card-set-abc');
             // Re-save so new/custom cards are tracked in the arrangement
             saveCardArrangement('card-set-abc');
+            // Save a snapshot of the rendered cards so the Library preview shows the exact same thing
+            saveAbcSnapshot();
+        }
+
+        // Save a snapshot of the Card Maker's rendered state so the Library preview
+        // can show the exact same cards without independent reconstruction.
+        function saveAbcSnapshot() {
+            var container = document.getElementById('card-set-abc');
+            if (!container) return;
+            var snapshot = {};
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                var letter = row.dataset.rowLetter;
+                if (!letter) return;
+                var cards = [];
+                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                    var svg = card.querySelector('svg');
+                    cards.push(svg ? svg.innerHTML : '');
+                });
+                snapshot[letter] = cards;
+            });
+            try { localStorage.setItem('abcCardSnapshot', JSON.stringify(snapshot)); } catch(e) {}
         }
 
         // === Sync ABC Card Maker edits to the savedCustomGames entry ===

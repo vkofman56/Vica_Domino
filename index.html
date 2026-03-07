@@ -874,6 +874,8 @@
         }
 
         var loupeSourceCard = null; // reference to the original card element in loupe
+        var loupeVariationMatrix = null; // SVGMatrix for the variation transform <g>
+        var loupeVariationInverse = null; // inverse SVGMatrix for coordinate conversion
 
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
@@ -919,6 +921,21 @@
             svgClone.removeAttribute('height');
             container.appendChild(svgClone);
 
+            // Compute variation transform matrices for coordinate conversion
+            loupeVariationMatrix = null;
+            loupeVariationInverse = null;
+            var varG = svgClone.querySelector('g[data-variation-transform]');
+            if (varG) {
+                try {
+                    var baseVal = varG.transform.baseVal;
+                    if (baseVal.numberOfItems > 0) {
+                        baseVal.consolidate();
+                        loupeVariationMatrix = baseVal.getItem(0).matrix;
+                        loupeVariationInverse = loupeVariationMatrix.inverse();
+                    }
+                } catch(ex) {}
+            }
+
             // Add grid overlay (99 lines each direction = 10000 squares)
             var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             gridSvg.setAttribute('viewBox', '0 0 100 100');
@@ -952,6 +969,8 @@
             // Exit draw mode if active
             if (drawModeActive) toggleDrawMode();
             loupeSourceCard = null;
+            loupeVariationMatrix = null;
+            loupeVariationInverse = null;
 
             document.getElementById('loupe-overlay').style.display = 'none';
             document.getElementById('loupe-overlay').style.paddingLeft = '';
@@ -998,6 +1017,38 @@
         function getEffectiveSize() { return Math.min(drawSizeCoarse + drawSizeFine, 100); }
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
+
+        // Convert SVG root-space coordinates to variation <g> local-space coordinates
+        function toVariationLocalCoords(rawX, rawY) {
+            if (!loupeVariationInverse) return { x: rawX, y: rawY };
+            return {
+                x: loupeVariationInverse.a * rawX + loupeVariationInverse.c * rawY + loupeVariationInverse.e,
+                y: loupeVariationInverse.b * rawX + loupeVariationInverse.d * rawY + loupeVariationInverse.f
+            };
+        }
+        // Transform a bbox from variation local-space to SVG root-space
+        function variationBBoxToRoot(bbox) {
+            if (!loupeVariationMatrix) return bbox;
+            var m = loupeVariationMatrix;
+            var corners = [
+                { x: bbox.x, y: bbox.y },
+                { x: bbox.x + bbox.width, y: bbox.y },
+                { x: bbox.x, y: bbox.y + bbox.height },
+                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+            ];
+            var txArr = [], tyArr = [];
+            for (var i = 0; i < 4; i++) {
+                txArr.push(m.a * corners[i].x + m.c * corners[i].y + m.e);
+                tyArr.push(m.b * corners[i].x + m.d * corners[i].y + m.f);
+            }
+            var minX = Math.min.apply(null, txArr), maxX = Math.max.apply(null, txArr);
+            var minY = Math.min.apply(null, tyArr), maxY = Math.max.apply(null, tyArr);
+            return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        }
+        // Check if an element is inside a variation transform <g>
+        function isInsideVariationG(el) {
+            return el && !!el.closest('g[data-variation-transform]');
+        }
         var pendingNewCardName = null; // name for card being drawn
 
         // === Select / Edit mode state ===
@@ -1464,6 +1515,8 @@
             var tag = el.tagName.toLowerCase();
             var cardSvg = el.closest('svg:not(.loupe-grid)');
             if (!cardSvg) return false;
+            // The variation transform <g> wrapper is NOT selectable itself
+            if (tag === 'g' && el.hasAttribute('data-variation-transform')) return false;
             // Any shape element inside the card SVG
             if (selectableTags[tag]) return true;
             // A <g> group inside the card SVG (stamp groups, transform groups, etc.)
@@ -1477,11 +1530,23 @@
             var parentG = el.closest('g');
             if (parentG) {
                 var parentOfG = parentG.parentNode;
+                // If parentG is the variation transform wrapper, treat it as transparent
+                // and select the element (or its inner <g>) that is a direct child of the wrapper
+                if (parentG.hasAttribute('data-variation-transform')) {
+                    // el is inside the variation wrapper — select the direct child of the wrapper
+                    var child = el;
+                    while (child.parentNode !== parentG) child = child.parentNode;
+                    return child;
+                }
                 if (parentOfG && parentOfG.tagName && parentOfG.tagName.toLowerCase() === 'svg') {
                     return parentG;
                 }
                 // Nested <g>: walk up to the outermost <g> that is a direct child of <svg>
+                // but stop at the variation transform wrapper (treat it like <svg>)
                 while (parentOfG && parentOfG.tagName && parentOfG.tagName.toLowerCase() === 'g') {
+                    if (parentOfG.hasAttribute('data-variation-transform')) {
+                        return parentG; // select the <g> just below the variation wrapper
+                    }
                     parentG = parentOfG;
                     parentOfG = parentG.parentNode;
                 }
@@ -1497,18 +1562,23 @@
         // Get bounding box in SVG root coordinate space (handles <g> transforms)
         function getSvgSpaceBBox(el) {
             var bbox = el.getBBox();
-            if (el.tagName.toLowerCase() !== 'g') return bbox;
-            var t = el.getAttribute('transform') || '';
-            var tm = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
-            var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
-            if (tm && sm) {
-                var tx = +tm[1], ty = +tm[2], s = +sm[1];
-                return {
-                    x: tx + bbox.x * s,
-                    y: ty + bbox.y * s,
-                    width: bbox.width * s,
-                    height: bbox.height * s
-                };
+            if (el.tagName.toLowerCase() === 'g' && !el.hasAttribute('data-variation-transform')) {
+                var t = el.getAttribute('transform') || '';
+                var tm = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
+                var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+                if (tm && sm) {
+                    var tx = +tm[1], ty = +tm[2], s = +sm[1];
+                    bbox = {
+                        x: tx + bbox.x * s,
+                        y: ty + bbox.y * s,
+                        width: bbox.width * s,
+                        height: bbox.height * s
+                    };
+                }
+            }
+            // If inside a variation transform <g>, transform bbox to SVG root space
+            if (isInsideVariationG(el)) {
+                bbox = variationBBoxToRoot(bbox);
             }
             return bbox;
         }
@@ -1733,6 +1803,11 @@
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // Transform to variation local coords if inside a variation <g>
+                if (loupeVariationInverse && isInsideVariationG(target)) {
+                    var local = toVariationLocalCoords(rawX, rawY);
+                    rawX = local.x; rawY = local.y;
+                }
                 selectElement(target);
                 selectDrawTool('select');
                 isDragging = true;
@@ -1771,6 +1846,11 @@
                 }
 
                 // --- Drawing tools (only on empty space) ---
+                // Transform coordinates to variation local space if applicable
+                if (loupeVariationInverse) {
+                    var local = toVariationLocalCoords(rawX, rawY);
+                    rawX = local.x; rawY = local.y;
+                }
                 var x = snapToGrid(Math.max(-15, Math.min(60, rawX)));
                 var y = snapToGrid(Math.max(-15, Math.min(60, rawY)));
                 var cardSvg = container.querySelector('svg:not(.loupe-grid)');
@@ -1823,7 +1903,9 @@
                 }
                 if (el) {
                     el.classList.add('draw-placed');
-                    cardSvg.appendChild(el);
+                    // Append inside variation <g> if present, otherwise on SVG root
+                    var appendTarget = cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
+                    appendTarget.appendChild(el);
                     drawHistory.push(el);
                 }
             };
@@ -1906,6 +1988,11 @@
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // Transform to variation local coords if dragging inside a variation <g>
+                if (loupeVariationInverse && isInsideVariationG(selectedElement)) {
+                    var local = toVariationLocalCoords(rawX, rawY);
+                    rawX = local.x; rawY = local.y;
+                }
                 var dx = rawX - dragStartX;
                 var dy = rawY - dragStartY;
                 var newX = snapToGrid(Math.max(-15, Math.min(60, elemStartX + dx)));
@@ -1932,17 +2019,33 @@
                 var step = GRID_UNIT; // 1 grid unit
                 if (e.shiftKey) step = GRID_UNIT * 5; // 5 grid units with shift
                 var pos = getElementPos(selectedElement);
+                // For elements inside a variation <g>, transform arrow directions
+                // so visual movement matches the arrow keys
+                var dxR = 0, dyR = 0, dxL = 0, dyL = 0, dxU = 0, dyU = 0, dxD = 0, dyD = 0;
+                if (loupeVariationInverse && isInsideVariationG(selectedElement)) {
+                    var inv = loupeVariationInverse;
+                    // Transform unit vectors from root space to local space
+                    dxR = inv.a * step; dyR = inv.b * step;      // ArrowRight = (+step, 0) in root
+                    dxL = inv.a * -step; dyL = inv.b * -step;    // ArrowLeft = (-step, 0) in root
+                    dxU = inv.c * -step; dyU = inv.d * -step;    // ArrowUp = (0, -step) in root
+                    dxD = inv.c * step; dyD = inv.d * step;      // ArrowDown = (0, +step) in root
+                } else {
+                    dxR = step; dyR = 0;
+                    dxL = -step; dyL = 0;
+                    dxU = 0; dyU = -step;
+                    dxD = 0; dyD = step;
+                }
                 if (e.key === 'ArrowLeft') {
-                    setElementPos(selectedElement, Math.max(-15, pos.x - step), pos.y);
+                    setElementPos(selectedElement, Math.max(-15, pos.x + dxL), Math.max(-15, Math.min(60, pos.y + dyL)));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowRight') {
-                    setElementPos(selectedElement, Math.min(60, pos.x + step), pos.y);
+                    setElementPos(selectedElement, Math.min(60, pos.x + dxR), Math.max(-15, Math.min(60, pos.y + dyR)));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowUp') {
-                    setElementPos(selectedElement, pos.x, Math.max(-15, pos.y - step));
+                    setElementPos(selectedElement, Math.max(-15, Math.min(60, pos.x + dxU)), Math.max(-15, pos.y + dyU));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowDown') {
-                    setElementPos(selectedElement, pos.x, Math.min(60, pos.y + step));
+                    setElementPos(selectedElement, Math.max(-15, Math.min(60, pos.x + dxD)), Math.min(60, pos.y + dyD));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'Delete' || e.key === 'Backspace') {
                     drawDeleteSelected();
@@ -2458,11 +2561,10 @@
                 clearCardClicked();
                 return;
             }
-            // Don't open variations for already-added variation cards
-            if (card.classList.contains('variation')) return;
+            var isVariation = card.classList.contains('variation');
 
-            // Variation toolbar mode: apply selected tool to clicked card
-            if (variationToolbarOpen && selectedVariationToolIndex >= 0) {
+            // Variation toolbar mode: apply selected tool to clicked card (not for variations)
+            if (!isVariation && variationToolbarOpen && selectedVariationToolIndex >= 0) {
                 var tool = variationTools[selectedVariationToolIndex];
                 if (tool.transform === '__symbol_toggle__') {
                     // Symbol toggle - swap element positions
@@ -2855,6 +2957,7 @@
 
             var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('transform', transformStr);
+            g.setAttribute('data-variation-transform', '1');
             while (svg.firstChild) {
                 g.appendChild(svg.firstChild);
             }
@@ -3078,7 +3181,7 @@
             });
         }
 
-        function addVariation(originalCard, transform, desc, skipSave) {
+        function addVariation(originalCard, transform, desc, skipSave, editedSvgContent) {
             var row = originalCard.closest('.library-row');
             var label = originalCard.querySelector('.library-label') ? originalCard.querySelector('.library-label').textContent : '';
             var svg = originalCard.querySelector('svg');
@@ -3097,7 +3200,17 @@
 
             var preview = document.createElement('div');
             preview.className = 'domino-half-preview';
-            preview.appendChild(createVariationSVG(svg, transform));
+            if (editedSvgContent) {
+                // Use previously edited SVG content
+                var editedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                editedSvg.setAttribute('viewBox', '0 0 60 60');
+                editedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                editedSvg.innerHTML = editedSvgContent;
+                preview.appendChild(editedSvg);
+                card.dataset.edited = 'true';
+            } else {
+                preview.appendChild(createVariationSVG(svg, transform));
+            }
             card.appendChild(preview);
 
             // Delete button
@@ -3158,8 +3271,8 @@
 
         // --- Delete any card (built-in or custom) with confirmation ---
         function addCardDeleteButton(card) {
-            // Don't double-add, and skip variations (they have their own button)
-            if (card.querySelector('.card-delete-btn') || card.classList.contains('variation')) return;
+            // Don't double-add; variations already have their own delete button
+            if (card.querySelector('.card-delete-btn') || (card.classList.contains('variation') && card.querySelector('.variation-delete-btn'))) return;
             var btn = document.createElement('button');
             btn.className = 'card-delete-btn';
             btn.textContent = '\u2715';
@@ -3184,7 +3297,7 @@
         }
 
         function addCopyButton(card) {
-            if (card.querySelector('.card-copy-btn') || card.classList.contains('variation')) return;
+            if (card.querySelector('.card-copy-btn')) return;
             var btn = document.createElement('button');
             btn.className = 'card-copy-btn';
             btn.textContent = '\u29C9'; // ⧉
@@ -3504,12 +3617,18 @@
                     else if (parent.id === 'card-set-custom') cardSetId = 'custom';
                     else cardSetId = 'numbers';
                 }
-                data.push({
+                var entry = {
                     originalLabel: v.dataset.originalLabel,
                     transform: v.dataset.transform,
                     desc: v.dataset.desc || '',
                     cardSet: cardSetId
-                });
+                };
+                // Save edited SVG content for variations that have been modified
+                if (v.dataset.edited) {
+                    var svgEl = v.querySelector('svg');
+                    if (svgEl) entry.svgContent = svgEl.innerHTML;
+                }
+                data.push(entry);
             });
             localStorage.setItem('cardMakerVariations', JSON.stringify(data));
             // Also save custom drawn cards
@@ -3647,7 +3766,7 @@
                     }
                     var originalCard = findCardByLabel(v.originalLabel);
                     if (originalCard) {
-                        addVariation(originalCard, v.transform, v.desc, true);
+                        addVariation(originalCard, v.transform, v.desc, true, v.svgContent);
                     } else if (!v.cardSet) {
                         // Backward compat: old data without cardSet — card might be
                         // in ABC or custom set which isn't built yet; defer for both
@@ -3664,7 +3783,7 @@
             deferred.forEach(function(v) {
                 var originalCard = findCardByLabel(v.originalLabel, cardSetName);
                 if (originalCard) {
-                    addVariation(originalCard, v.transform, v.desc, true);
+                    addVariation(originalCard, v.transform, v.desc, true, v.svgContent);
                 }
             });
             _deferredVariations[setType] = [];

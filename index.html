@@ -3496,10 +3496,19 @@
             var vars = content.querySelectorAll('.library-card.variation');
             var data = [];
             vars.forEach(function(v) {
+                // Determine which card set this variation belongs to
+                var cardSetId = '';
+                var parent = v.closest('.card-set-content');
+                if (parent) {
+                    if (parent.id === 'card-set-abc') cardSetId = 'abc';
+                    else if (parent.id === 'card-set-custom') cardSetId = 'custom';
+                    else cardSetId = 'numbers';
+                }
                 data.push({
                     originalLabel: v.dataset.originalLabel,
                     transform: v.dataset.transform,
-                    desc: v.dataset.desc || ''
+                    desc: v.dataset.desc || '',
+                    cardSet: cardSetId
                 });
             });
             localStorage.setItem('cardMakerVariations', JSON.stringify(data));
@@ -3620,18 +3629,45 @@
 
         }
 
+        var _deferredVariations = { abc: [], custom: [] };
         function loadVariations() {
             var saved = localStorage.getItem('cardMakerVariations');
             if (!saved) return;
             try {
                 var data = JSON.parse(saved);
                 data.forEach(function(v) {
+                    // Defer ABC and custom card set variations until those sets are built
+                    if (v.cardSet === 'abc') {
+                        _deferredVariations.abc.push(v);
+                        return;
+                    }
+                    if (v.cardSet === 'custom') {
+                        _deferredVariations.custom.push(v);
+                        return;
+                    }
                     var originalCard = findCardByLabel(v.originalLabel);
                     if (originalCard) {
                         addVariation(originalCard, v.transform, v.desc, true);
+                    } else if (!v.cardSet) {
+                        // Backward compat: old data without cardSet — card might be
+                        // in ABC or custom set which isn't built yet; defer for both
+                        _deferredVariations.abc.push(v);
+                        _deferredVariations.custom.push(v);
                     }
                 });
             } catch(e) {}
+        }
+        function loadDeferredVariations(setType) {
+            var deferred = _deferredVariations[setType] || [];
+            if (deferred.length === 0) return;
+            var cardSetName = setType === 'abc' ? 'ABC' : undefined;
+            deferred.forEach(function(v) {
+                var originalCard = findCardByLabel(v.originalLabel, cardSetName);
+                if (originalCard) {
+                    addVariation(originalCard, v.transform, v.desc, true);
+                }
+            });
+            _deferredVariations[setType] = [];
         }
 
         function findCardByLabel(label, cardSet) {
@@ -5492,6 +5528,8 @@
                     });
                 }
             } catch(e) {}
+            // Restore any variations that were deferred until custom cards were built
+            loadDeferredVariations('custom');
         }
 
         function selectCardSet(setName) {
@@ -5728,6 +5766,8 @@
             saveCardArrangement('card-set-abc');
             // Save a snapshot of the rendered cards so the Library preview shows the exact same thing
             saveAbcSnapshot();
+            // Restore any variations that were deferred until ABC cards were built
+            loadDeferredVariations('abc');
         }
 
         // Save a snapshot of the Card Maker's rendered state so the Library preview

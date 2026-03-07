@@ -4790,27 +4790,108 @@
                 return;
             }
 
-            // Fallback: reconstruct from individual localStorage keys (first load before Card Maker opened)
+            // Fallback: reconstruct from individual localStorage keys (before Card Maker has been opened)
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
+            // Load saved edits
+            var editMap = {};
+            try {
+                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
+                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
+                if (edits) {
+                    var abcLabels = {};
+                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
+                    JSON.parse(edits).forEach(function(item) {
+                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
+                    });
+                }
+            } catch(e) {}
+            // Load deleted cards
+            var deletedSet = {};
+            try {
+                var delRaw = localStorage.getItem('deletedCards_abc');
+                if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
+            } catch(e) {}
+            // Load custom cards
+            var customCards = [];
+            try {
+                var custRaw = localStorage.getItem('customDrawnCards_abc');
+                if (custRaw) customCards = JSON.parse(custRaw);
+            } catch(e) {}
+            // Load arrangement
+            var arrangement = {};
+            try {
+                var arrRaw = localStorage.getItem('cardArrangement_abc');
+                if (arrRaw) arrangement = JSON.parse(arrRaw);
+            } catch(e) {}
+
+            // Build all cards into their default rows
+            var allCards = {};
+            var rowCards = {};
             letters.forEach(function(letter) {
-                var previewRow = document.createElement('div');
-                previewRow.className = 'card-preview-row';
+                rowCards[letter] = [];
                 for (var n = 1; n <= 5; n++) {
+                    var label = letter + n;
+                    if (deletedSet[label]) continue;
                     var svgContent = '';
-                    if (n <= 2) {
+                    if (editMap[label]) {
+                        svgContent = editMap[label];
+                    } else if (n <= 2) {
                         svgContent = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + (colors[letter] || '#333') + '">' + letter + '</text>';
                     } else if (n === 3 && abcIcons[letter]) {
                         svgContent = abcIcons[letter].markup;
                     }
+                    allCards[label] = { svg: svgContent };
+                    rowCards[letter].push(label);
+                }
+            });
+            // Add custom cards
+            customCards.forEach(function(item) {
+                if (deletedSet[item.label]) return;
+                var ch = item.label.charAt(0).toUpperCase();
+                if (letters.indexOf(ch) < 0) return;
+                allCards[item.label] = { svg: item.svgContent };
+                rowCards[ch].push(item.label);
+            });
+            // Apply arrangement
+            if (Object.keys(arrangement).length > 0) {
+                var finalRows = {};
+                var placed = {};
+                letters.forEach(function(l) { finalRows[l] = []; });
+                Object.keys(arrangement).forEach(function(letter) {
+                    if (!finalRows[letter]) finalRows[letter] = [];
+                    arrangement[letter].forEach(function(label) {
+                        if (allCards[label] && !placed[label]) {
+                            finalRows[letter].push(label);
+                            placed[label] = true;
+                        }
+                    });
+                });
+                letters.forEach(function(letter) {
+                    rowCards[letter].forEach(function(label) {
+                        if (allCards[label] && !placed[label]) {
+                            finalRows[letter].push(label);
+                            placed[label] = true;
+                        }
+                    });
+                });
+                rowCards = finalRows;
+            }
+            // Render
+            letters.forEach(function(letter) {
+                var previewRow = document.createElement('div');
+                previewRow.className = 'card-preview-row';
+                (rowCards[letter] || []).forEach(function(label) {
+                    var card = allCards[label];
+                    if (!card) return;
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    if (svgContent) svg.innerHTML = svgContent;
+                    if (card.svg) svg.innerHTML = card.svg;
                     var thumb = document.createElement('div');
                     thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
                     previewRow.appendChild(thumb);
-                }
-                container.appendChild(previewRow);
+                });
+                if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
         }
 

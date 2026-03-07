@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: March 4, 2026
+**Last Updated**: March 7, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -12,14 +12,14 @@
 - **Detailed notes**: See [project-details.md](project-details.md) and [STATUS_NOTES.md](STATUS_NOTES.md)
 
 ## Project Structure (current sizes)
-- `index.html` (6,373 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
-- `js/game.js` (3,617 lines): `VicaDominoGame` class - all gameplay logic
+- `index.html` (~6,946 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
+- `js/game.js` (3,614 lines): `VicaDominoGame` class - all gameplay logic
 - `js/domino.js` (185 lines): Card definitions, utility functions (isDouble, canPlayOn, etc.)
-- `css/style.css` (4,584 lines): All styling, animations, responsive layouts
+- `css/style.css` (~4,731 lines): All styling, animations, responsive layouts
 - `audio/select-double.mp3`: Voice instruction for tutorial
 - Inline script in index.html runs BEFORE game.js loads
 - `game.js` uses `DOMContentLoaded` to instantiate `VicaDominoGame`
-- **Total**: ~14,759 lines of code
+- **Total**: ~15,476 lines of code
 
 ## Game Modes
 1. **Sun Level (Find the Double)**: Primary mode - each player gets N dominos, must find the double
@@ -39,6 +39,7 @@
 - **Tie detection** (within 500ms for 2-player)
 - **Progressive tutorial**: finger animation, "double" label, voice instruction, keyboard hints — all hide after N wins
 - **Card Maker**: Create/edit custom card designs with draw tools (pencil, eraser, shapes, text, stamps), font selector, SVG-based, Aa/r sliders, color palette, reflect/rotate
+- **Variation toolbar**: 2×4 grid layout — top row: 4 reflections, bottom row: 3 rotations + symbol toggle; SVG icons use `currentColor`
 - **Game Maker**: Create custom games, select cards, manage domino pairs, per-game variation exclusions, flip mode
 - **Card Library**: Two-column layout (Card Sets + Games), browse with zoom, loupe mode, grid overlay
 - **Card Variations**: Multiple visual representations per card value, with pixel-based duplicate detection
@@ -87,3 +88,7 @@
 - **Hardcoded "Dots and Numbers" intro button**: Removed — intro screen now only shows user-created games dynamically (March 4)
 - **ABC game not rendering (plain letters)**: ABC card set DOM not built at game start time. Fixed: SVG pool building uses stored `svgMarkup` fallback (March 4)
 - **ABC game re-created after deletion**: `ensureAbcGameExists()` removed; replaced with one-time migration (March 4)
+
+## March 7 Session Notes
+- **Variation toolbar**: Reorganized from single row into 2×4 grid (2 rows of 4 buttons). Removed separator divs. All SVG icons changed from hardcoded `#2255aa` to `currentColor`. Key: `index.html` ~line 343, `css/style.css` ~line 623.
+- **Non-double domino styling**: Added copper outline (`#CD7F32`) to non-double dominos in Game View, matching the gold outline (`#FFD700`) on doubles. Both now look like proper joined domino pairs. Key: `css/style.css` ~line 1832, selector `.game-view-domino:not(.double-domino) .game-view-domino-half`.

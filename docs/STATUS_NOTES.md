@@ -327,10 +327,47 @@ Fixed a cluster of related bugs around game/card identity, cross-set confusion, 
 - **Orphaned localStorage keys**: When a game is deleted, `excludedDominos_N` and `excludedVariations_N` keys are removed for the deleted index, but indices shift — keys for games after the deleted one may become misaligned.
 - **Custom card sets**: The `findCardByLabel` fix only handles `'ABC'` and `'Numbers and Dots'` containers. If custom card sets (stored in `#card-set-custom`) are used in games, they'd fall through to searching the full DOM.
 
+## March 7, 2026 Session — Variation Toolbar Layout & Domino Display Improvements
+
+### Summary
+Two UI improvements: (1) reorganized the variation toolbar from a single row into a 2×4 grid, and (2) made non-double dominos in the Game View visually match the doubles' "joined pair" style using a copper outline.
+
+### Changes Made (2 commits)
+
+1. **Variation toolbar 2×4 layout** (`index.html`, `css/style.css`)
+   - The variation toolbar had 8 buttons in a single horizontal row (4 reflections, 3 rotations, 1 symbol toggle) separated by `<div class="var-tool-sep">` dividers
+   - Reorganized into two rows of 4 buttons each using `<div class="var-tool-row">` wrappers:
+     - **Top row**: 4 reflection buttons (vertical, horizontal, diagonal \, diagonal /)
+     - **Bottom row**: 3 rotation buttons (90°, 180°, 270°) + symbol toggle button
+   - Removed the `<div class="var-tool-sep">` separators (rows provide visual grouping now)
+   - CSS: `.variation-toolbar` changed from `flex-direction: row` to `flex-direction: column`
+   - CSS: Added `.var-tool-row` class (`display: flex; flex-direction: row; gap: 4px`)
+   - Also changed all SVG icon colors from hardcoded `#2255aa` to `currentColor` so icons inherit CSS color consistently (including the symbol toggle button which previously had a mismatched color)
+   - Symbol toggle SVG size normalized from `width="22" height="22"` to `width="20" height="20"` to match other buttons
+   - Key locations: `index.html` lines ~343-370, `css/style.css` lines ~623-641
+
+2. **Copper outline for non-double dominos in Game View** (`css/style.css`)
+   - In the Game View domino display, doubles had a gold `box-shadow: 0 0 0 2px #FFD700` outline making them look like joined domino pairs
+   - Non-doubles had no outline, making the two card halves look disconnected ("too big distance, no distinct line")
+   - Added `.game-view-domino:not(.double-domino) .game-view-domino-half { box-shadow: 0 0 0 2px #CD7F32; }` — a copper outline
+   - Now all domino pairs look visually joined: **gold (#FFD700) for doubles, copper (#CD7F32) for non-doubles**
+   - Key location: `css/style.css` lines ~1828-1835
+
+### Design Decisions
+- **Copper vs gold distinction**: User requested a different color for non-doubles to distinguish them from doubles while still looking like proper dominos. Copper (#CD7F32) was chosen as a warm, complementary tone to gold.
+- **`currentColor` for SVG icons**: Rather than hardcoding `#2255aa` in every SVG element, using `currentColor` means the icons automatically pick up whatever `color` property is set on the button via CSS. This makes future theming/color changes easier.
+- **No separator divs needed**: With two rows, the spatial grouping is self-evident. The old `<div class="var-tool-sep">` vertical lines were removed as unnecessary.
+
+### File Sizes After Changes
+- `index.html`: ~6,946 lines (was ~6,938)
+- `css/style.css`: ~4,731 lines (was ~4,726)
+
+---
+
 ## Quick Start for New Session
 
 1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-QNagl`
 2. Main files: `index.html` (UI + inline scripts), `js/game.js` (game logic), `js/domino.js` (card data), `css/style.css` (styles)
 3. No build step — open `index.html` directly in a browser
 4. All state persisted in localStorage
-5. Most recent work (March 4): Card/game identity fixes — `findCardByLabel` scoped by card set, deleted cards skipped from game deck, hardcoded intro button removed, ABC game no longer auto-recreated
+5. Most recent work (March 7): Variation toolbar reorganized into 2×4 grid layout, non-double dominos given copper outline to match doubles' joined-pair style

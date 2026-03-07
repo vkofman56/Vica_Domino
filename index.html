@@ -4861,11 +4861,9 @@
                 (rowCards[letter] || []).forEach(function(label) {
                     var card = allCards[label];
                     if (!card) return;
-                    // Skip cards with no visual content (empty slots 4,5)
-                    if (!card.svg) return;
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    svg.innerHTML = card.svg;
+                    if (card.svg) svg.innerHTML = card.svg;
                     var thumb = document.createElement('div');
                     thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
@@ -5381,11 +5379,9 @@
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
-                // Generate card slots per letter — only create cards with content
-                // (positions 1-2: letters, position 3: icon, positions 4-5: only if user edited them)
+                // Generate 5 card slots per letter (2 pre-filled, 1 icon, 2 empty)
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
-                    var hasContent = false;
                     var card = document.createElement('div');
                     card.className = 'library-card';
                     var labelDiv = document.createElement('div');
@@ -5400,7 +5396,6 @@
                         // Restore saved edit
                         svg.innerHTML = editMap[label];
                         card.dataset.edited = 'true';
-                        hasContent = true;
                     } else if (n <= 2) {
                         var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                         text.setAttribute('x', '30');
@@ -5411,18 +5406,14 @@
                         text.setAttribute('fill', colors[letter] || '#333');
                         text.textContent = letter;
                         svg.appendChild(text);
-                        hasContent = true;
                     } else if (n === 3 && abcIcons[letter]) {
                         svg.innerHTML = abcIcons[letter].markup;
-                        hasContent = true;
                     }
-                    // Skip empty card slots (no visual content)
-                    if (!hasContent) continue;
                     preview.appendChild(svg);
                     card.appendChild(preview);
                     var desc = document.createElement('div');
                     desc.className = 'library-desc';
-                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Custom');
+                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Empty');
                     card.appendChild(desc);
                     row.appendChild(card);
                 }

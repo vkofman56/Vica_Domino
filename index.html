@@ -4757,9 +4757,11 @@
         }
 
         function buildAbcPreview(container) {
+            // Mirror the exact same logic as buildAbcCardSet + applyCardArrangement
+            // so the Library preview always matches the Card Maker.
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits (prefer ABC-specific key, fall back to legacy)
+            // Load saved edits
             var editMap = {};
             try {
                 var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
@@ -4778,17 +4780,11 @@
                 var delRaw = localStorage.getItem('deletedCards_abc');
                 if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
             } catch(e) {}
-            // Load custom cards, grouped by row letter
-            var customByRow = {};
-            letters.forEach(function(l) { customByRow[l] = []; });
+            // Load custom cards
+            var customCards = [];
             try {
                 var custRaw = localStorage.getItem('customDrawnCards_abc');
-                if (custRaw) {
-                    JSON.parse(custRaw).forEach(function(item) {
-                        var ch = item.label.charAt(0).toUpperCase();
-                        if (customByRow[ch]) customByRow[ch].push(item);
-                    });
-                }
+                if (custRaw) customCards = JSON.parse(custRaw);
             } catch(e) {}
             // Load arrangement
             var arrangement = {};
@@ -4796,13 +4792,15 @@
                 var arrRaw = localStorage.getItem('cardArrangement_abc');
                 if (arrRaw) arrangement = JSON.parse(arrRaw);
             } catch(e) {}
+
+            // Step 1: Build all cards into their default rows (same as buildAbcCardSet)
+            // Global card pool: label -> { svg, row }
+            var allCards = {};
+            var rowCards = {}; // letter -> [labels] in default order
             letters.forEach(function(letter) {
-                // Build card data for this row: label -> svgContent
-                var cardMap = {};
-                var defaultOrder = [];
+                rowCards[letter] = [];
                 for (var n = 1; n <= 5; n++) {
                     var label = letter + n;
-                    if (deletedSet[label]) continue;
                     var svgContent = '';
                     if (editMap[label]) {
                         svgContent = editMap[label];
@@ -4811,39 +4809,63 @@
                     } else if (n === 3 && abcIcons[letter]) {
                         svgContent = abcIcons[letter].markup;
                     }
-                    // Skip empty card slots (no visual content)
-                    if (!svgContent) continue;
-                    cardMap[label] = svgContent;
-                    defaultOrder.push(label);
+                    allCards[label] = { svg: svgContent, row: letter };
+                    rowCards[letter].push(label);
                 }
-                // Add custom cards
-                customByRow[letter].forEach(function(item) {
-                    if (deletedSet[item.label]) return;
-                    cardMap[item.label] = item.svgContent;
-                    defaultOrder.push(item.label);
+            });
+
+            // Step 2: Add custom cards to their rows (by label first char)
+            customCards.forEach(function(item) {
+                var ch = item.label.charAt(0).toUpperCase();
+                if (letters.indexOf(ch) < 0) return;
+                allCards[item.label] = { svg: item.svgContent, row: ch };
+                rowCards[ch].push(item.label);
+            });
+
+            // Step 3: Remove deleted cards
+            Object.keys(deletedSet).forEach(function(label) {
+                delete allCards[label];
+            });
+
+            // Step 4: Apply arrangement (mirrors applyCardArrangement — can move cards between rows)
+            if (Object.keys(arrangement).length > 0) {
+                var finalRows = {};
+                var placed = {};
+                letters.forEach(function(l) { finalRows[l] = []; });
+                // Place cards according to arrangement order (may cross rows)
+                Object.keys(arrangement).forEach(function(letter) {
+                    if (!finalRows[letter]) finalRows[letter] = [];
+                    arrangement[letter].forEach(function(label) {
+                        if (allCards[label] && !placed[label]) {
+                            finalRows[letter].push(label);
+                            placed[label] = true;
+                        }
+                    });
                 });
-                // Apply arrangement order if available
-                var orderedLabels;
-                if (arrangement[letter]) {
-                    orderedLabels = [];
-                    var inArrangement = {};
-                    arrangement[letter].forEach(function(l) {
-                        inArrangement[l] = true;
-                        if (cardMap[l]) orderedLabels.push(l);
+                // Append unplaced cards to their default rows
+                letters.forEach(function(letter) {
+                    rowCards[letter].forEach(function(label) {
+                        if (allCards[label] && !placed[label]) {
+                            finalRows[letter].push(label);
+                            placed[label] = true;
+                        }
                     });
-                    // Append any cards not in the arrangement
-                    defaultOrder.forEach(function(l) {
-                        if (!inArrangement[l] && cardMap[l]) orderedLabels.push(l);
-                    });
-                } else {
-                    orderedLabels = defaultOrder;
-                }
+                });
+                rowCards = finalRows;
+            }
+
+            // Step 5: Render
+            letters.forEach(function(letter) {
                 var previewRow = document.createElement('div');
                 previewRow.className = 'card-preview-row';
-                orderedLabels.forEach(function(label) {
+                (rowCards[letter] || []).forEach(function(label) {
+                    var card = allCards[label];
+                    if (!card) return;
+                    // Skip cards with no visual content (empty slots 4,5)
+                    if (!card.svg) return;
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    svg.innerHTML = cardMap[label];
+                    svg.innerHTML = card.svg;
                     var thumb = document.createElement('div');
                     thumb.className = 'card-preview-thumb';
                     thumb.appendChild(svg);
@@ -5477,7 +5499,7 @@
                 if (games[i].name === 'ABC') { abcIdx = i; break; }
             }
             if (abcIdx < 0) return;
-            // Build a map of current Card Maker card markups keyed by game label
+            // Build a map of current Card Maker cards keyed by game label
             var markupMap = {};
             container.querySelectorAll('.library-card').forEach(function(card) {
                 var lbl = card.querySelector('.library-label');
@@ -5488,11 +5510,33 @@
                 var gameLabel = cardMakerLabelToGameLabel(lbl.textContent);
                 markupMap[gameLabel] = markup;
             });
-            // Update svgMarkup on existing game cards (preserve labels and structure)
             var changed = false;
+            // Update svgMarkup on existing game cards
+            var existingLabels = {};
             games[abcIdx].cards.forEach(function(c) {
+                existingLabels[c.label] = true;
                 if (markupMap[c.label] && markupMap[c.label] !== c.svgMarkup) {
                     c.svgMarkup = markupMap[c.label];
+                    changed = true;
+                }
+            });
+            // Remove deleted cards (in game but no longer in Card Maker)
+            var filteredCards = games[abcIdx].cards.filter(function(c) {
+                return !!markupMap[c.label];
+            });
+            if (filteredCards.length !== games[abcIdx].cards.length) {
+                games[abcIdx].cards = filteredCards;
+                changed = true;
+            }
+            // Add new cards (in Card Maker but not in game)
+            Object.keys(markupMap).forEach(function(gameLabel) {
+                if (!existingLabels[gameLabel]) {
+                    games[abcIdx].cards.push({
+                        label: gameLabel,
+                        isVariation: false,
+                        svgMarkup: markupMap[gameLabel],
+                        cardSet: 'ABC'
+                    });
                     changed = true;
                 }
             });

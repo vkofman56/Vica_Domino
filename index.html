@@ -3791,23 +3791,29 @@
                 localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
                 saveAbcSnapshot();
             } else if (isCustomCardSet(activeCardSet)) {
-                // Save custom set cards
-                var customDiv = document.getElementById('card-set-custom');
-                var customData = [];
-                if (customDiv) {
-                    customDiv.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
-                        var lbl = card.querySelector('.library-label');
-                        var svg = card.querySelector('svg');
-                        if (lbl && svg) {
-                            customData.push({
-                                label: lbl.textContent,
-                                svgContent: svg.innerHTML,
-                                desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
-                            });
-                        }
-                    });
+                // Save custom set cards — but only if the Card Maker is actually open.
+                // The #card-set-custom div is only populated when entering the Card Maker
+                // via buildCustomCardSet(). If we save while just previewing in the Library,
+                // the div is empty and we'd overwrite localStorage with an empty array.
+                var cardMakerScreen = document.getElementById('domino-library-screen');
+                if (cardMakerScreen && cardMakerScreen.style.display !== 'none') {
+                    var customDiv = document.getElementById('card-set-custom');
+                    var customData = [];
+                    if (customDiv) {
+                        customDiv.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                            var lbl = card.querySelector('.library-label');
+                            var svg = card.querySelector('svg');
+                            if (lbl && svg) {
+                                customData.push({
+                                    label: lbl.textContent,
+                                    svgContent: svg.innerHTML,
+                                    desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
+                                });
+                            }
+                        });
+                    }
+                    localStorage.setItem('customDrawnCards_' + activeCardSet, JSON.stringify(customData));
                 }
-                localStorage.setItem('customDrawnCards_' + activeCardSet, JSON.stringify(customData));
             }
         }
 

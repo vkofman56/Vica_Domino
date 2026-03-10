@@ -1,8 +1,8 @@
 # Vica Domino - Project Status Notes
-**Date**: March 4, 2026
+**Date**: March 10, 2026
 **Branch**: `claude/review-project-docs-QNagl`
-**Total Commits**: 490+
-**Codebase Size**: ~14,800 lines across 4 main files
+**Total Commits**: 500+
+**Codebase Size**: ~15,864 lines across 4 main files
 
 ---
 
@@ -19,12 +19,12 @@
 ### File Structure (current)
 ```
 Vica_Domino/
-├── index.html          (6,373 lines) - Main UI + inline Card Maker/Library/Game Maker scripts
+├── index.html          (7,328 lines) - Main UI + inline Card Maker/Library/Game Maker scripts
 ├── js/
-│   ├── game.js         (3,617 lines) - VicaDominoGame class, all gameplay logic
+│   ├── game.js         (3,614 lines) - VicaDominoGame class, all gameplay logic
 │   └── domino.js       (185 lines)   - Card definitions, utility functions
 ├── css/
-│   └── style.css       (4,584 lines) - All styling, animations, responsive layouts
+│   └── style.css       (4,737 lines) - All styling, animations, responsive layouts
 ├── audio/
 │   └── select-double.mp3             - Voice instruction audio
 ├── docs/
@@ -73,6 +73,7 @@ Vica_Domino/
 - [x] **Custom card creation** — SVG-based draw tools
 - [x] **Card variations** — multiple visual representations per card value
 - [x] **Duplicate variation detection** — pixel-based comparison
+- [x] **Variation editing in loupe** — double-click variation cards to edit in loupe with inverse transform coordinate conversion
 - [x] **Card deletion** — single-click shows delete cross, separate deletion tracking for ABC
 - [x] **Predefined library cards** for numbers 7-10 with optical corrections
 
@@ -162,6 +163,11 @@ Vica_Domino/
 - [x] `const` redeclaration SyntaxError freezing everything
 - [x] Dominos disappearing on second 2-player game
 - [x] Xeno timer overlapping game board
+- [x] Custom ABC cards beyond row E (F, G, ...) disappearing on reload
+- [x] Symbol toggle swapping math operators along with numerals
+- [x] Variations disappearing on reload for ABC and custom card sets
+- [x] Built-in Numbers and Dots cards accidentally removed and restored
+- [x] Custom card set data wiped when previewing in Library
 
 ---
 
@@ -170,9 +176,9 @@ Vica_Domino/
 ### Known Issues / Incomplete Areas
 
 1. **Code Organization**
-   - `index.html` is 6,373 lines with significant inline JavaScript — should be extracted into separate JS modules
-   - `css/style.css` at 4,584 lines could be split into component-specific files
-   - `game.js` at 3,617 lines handles too many concerns (game logic, UI, animations, timer, tutorial)
+   - `index.html` is 7,328 lines with significant inline JavaScript — should be extracted into separate JS modules
+   - `css/style.css` at 4,737 lines could be split into component-specific files
+   - `game.js` at 3,614 lines handles too many concerns (game logic, UI, animations, timer, tutorial)
    - No build system, bundler, or minification
 
 2. **Testing**
@@ -374,10 +380,67 @@ Two UI improvements: (1) reorganized the variation toolbar from a single row int
 
 ---
 
+## March 7-8, 2026 Session — Variation Editing, Card Fixes, Library Safeguards
+
+### Summary
+Major enhancements to the variation system (loupe editing, persistence fixes), restoration of accidentally removed built-in cards, symbol toggle refinement, and a critical fix for custom card data being wiped during Library preview.
+
+### Changes Made (9 commits)
+
+1. **Custom ABC cards beyond row E (F, G, ...) disappearing on reload** (`index.html`)
+   - `buildAbcCardSet()` only created rows A-E, so custom cards in rows F+ had no target row during restoration and were silently skipped
+   - Now creates new rows on demand for any letter
+   - Also fixed the preview builder to show extra rows and widened the game label regex from `[A-E]` to `[A-Z]`
+
+2. **Symbol toggle refined to skip operators** (`index.html`)
+   - `applySymbolToggle()` was rotating positions of ALL elements including math operators (+, -, ×, ÷, =)
+   - Now filters out operators and only swaps positions of numerals/letters/symbols
+   - Operators stay in their original position when toggling
+
+3. **Variations disappearing on reload for ABC and custom card sets** (`index.html`)
+   - `saveVariations()` now stores which `cardSet` each variation belongs to
+   - `loadVariations()` defers ABC/custom set variations until those sets are lazily built
+   - Includes backward compatibility for old saved data without the `cardSet` field
+
+4. **Variation cards editable in the loupe** (`index.html`)
+   - Double-click a variation card to open it in the loupe editor
+   - Variation transform `<g>` marked with `data-variation-transform` attribute
+   - Inverse transform matrix computed for coordinate conversion (click, drag, selection ring positioning)
+   - Arrow key directions transformed so visual movement matches keys inside rotated/reflected variations
+   - New elements drawn in loupe are appended inside variation `<g>`
+   - Single-click on variations shows copy button
+   - Edited variation SVG content saved/loaded in localStorage
+
+5. **Built-in Numbers and Dots cards restored** (`index.html`)
+   - 45 built-in cards (rows A-I with numbers, digits, and dot patterns) were accidentally removed in a previous commit and restored
+   - Empty cards filled with new designs: A3 (hollow oval), A4 (cursive "0"), A5 (dashed box), H4 (7-dot pattern 3+1+3), H5 (8-dot pattern 3+2+3)
+
+6. **Built-in set deletion attempted and reverted** (`index.html`)
+   - Briefly prevented deletion of built-in card sets (Numbers and Dots, ABC) by removing delete buttons
+   - Reverted immediately to keep deletion available
+
+7. **Custom card set data preserved during Library preview** (`index.html`)
+   - When clicking a custom set in the Library to preview it, `activeCardSet` was set to the custom set name
+   - On page refresh/close, `beforeunload` handler called `saveCustomCards()`, which queried the empty `#card-set-custom` div (only populated when Card Maker is open) and saved an empty array, erasing all card data
+   - Fix: guarded the custom set save path to only run when the Card Maker screen is actually visible
+
+### Key Architecture Insights
+
+- **Variation persistence requires card set context**: Variations saved without knowing which card set they belong to can't be restored when sets are lazily built. The `cardSet` field on saved variation data solves this.
+- **Inverse transforms for loupe editing**: When a variation has a reflection/rotation transform, all mouse coordinates and directional inputs must be converted through the inverse matrix to work correctly in the element's local coordinate space.
+- **Dynamic row creation**: Card sets shouldn't have a fixed row limit. Creating rows on demand for any letter allows the ABC set to grow beyond the original A-E.
+- **Save guards matter**: Any save-on-unload handler that queries DOM state must verify the relevant UI is actually visible, since lazy/empty containers produce destructive empty saves.
+
+### File Sizes After Changes
+- `index.html`: ~7,328 lines (was ~6,946)
+- `css/style.css`: ~4,737 lines (was ~4,731)
+
+---
+
 ## Quick Start for New Session
 
 1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-QNagl`
 2. Main files: `index.html` (UI + inline scripts), `js/game.js` (game logic), `js/domino.js` (card data), `css/style.css` (styles)
 3. No build step — open `index.html` directly in a browser
 4. All state persisted in localStorage
-5. Most recent work (March 7): Variation toolbar reorganized into 2×4 grid layout, non-double dominos given copper outline to match doubles' joined-pair style
+5. Most recent work (March 7-8): Variation cards editable in loupe, variation persistence fixed for ABC/custom sets, symbol toggle refined to skip operators, built-in cards restored, Library preview data wipe fixed

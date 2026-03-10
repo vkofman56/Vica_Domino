@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: March 7, 2026
+**Last Updated**: March 10, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -12,14 +12,14 @@
 - **Detailed notes**: See [project-details.md](project-details.md) and [STATUS_NOTES.md](STATUS_NOTES.md)
 
 ## Project Structure (current sizes)
-- `index.html` (~6,946 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
+- `index.html` (~7,328 lines): Main UI, HTML screens, inline `<script>` for Card Maker/Library/Game Maker
 - `js/game.js` (3,614 lines): `VicaDominoGame` class - all gameplay logic
 - `js/domino.js` (185 lines): Card definitions, utility functions (isDouble, canPlayOn, etc.)
-- `css/style.css` (~4,731 lines): All styling, animations, responsive layouts
+- `css/style.css` (~4,737 lines): All styling, animations, responsive layouts
 - `audio/select-double.mp3`: Voice instruction for tutorial
 - Inline script in index.html runs BEFORE game.js loads
 - `game.js` uses `DOMContentLoaded` to instantiate `VicaDominoGame`
-- **Total**: ~15,476 lines of code
+- **Total**: ~15,864 lines of code
 
 ## Game Modes
 1. **Sun Level (Find the Double)**: Primary mode - each player gets N dominos, must find the double
@@ -42,7 +42,7 @@
 - **Variation toolbar**: 2×4 grid layout — top row: 4 reflections, bottom row: 3 rotations + symbol toggle; SVG icons use `currentColor`
 - **Game Maker**: Create custom games, select cards, manage domino pairs, per-game variation exclusions, flip mode
 - **Card Library**: Two-column layout (Card Sets + Games), browse with zoom, loupe mode, grid overlay
-- **Card Variations**: Multiple visual representations per card value, with pixel-based duplicate detection
+- **Card Variations**: Multiple visual representations per card value, with pixel-based duplicate detection; editable in loupe via double-click
 - **Drag-and-drop**: Copy cards, move between rows, reorder within rows, persistent arrangement
 - **Main Page Pictures (MPP)**: Custom domino level preview icons
 - **Introductory page**: Game selection before main setup
@@ -88,8 +88,19 @@
 - **Hardcoded "Dots and Numbers" intro button**: Removed — intro screen now only shows user-created games dynamically (March 4)
 - **ABC game not rendering (plain letters)**: ABC card set DOM not built at game start time. Fixed: SVG pool building uses stored `svgMarkup` fallback (March 4)
 - **ABC game re-created after deletion**: `ensureAbcGameExists()` removed; replaced with one-time migration (March 4)
+- **Custom ABC cards beyond row E disappearing on reload**: `buildAbcCardSet` only created rows A-E; now creates rows on demand for any letter (March 7)
+- **Symbol toggle swapping operators**: `applySymbolToggle` rotated ALL elements including +, -, ×, ÷, =; now filters out operators and only swaps numerals (March 7)
+- **Variations disappearing on reload for ABC/custom sets**: `saveVariations()` now stores card set; `loadVariations()` defers ABC/custom set variations until those sets are lazily built (March 7)
+- **Custom card set data wiped when previewing in Library**: `beforeunload` handler called `saveCustomCards()` with empty `#card-set-custom` div; now guards save to only run when Card Maker is visible (March 8)
 
 ## March 7 Session Notes
 - **Variation toolbar**: Reorganized from single row into 2×4 grid (2 rows of 4 buttons). Removed separator divs. All SVG icons changed from hardcoded `#2255aa` to `currentColor`. Key: `index.html` ~line 343, `css/style.css` ~line 623.
 - **Non-double domino styling**: Added copper outline (`#CD7F32`) to non-double dominos in Game View, matching the gold outline (`#FFD700`) on doubles. Both now look like proper joined domino pairs. Key: `css/style.css` ~line 1832, selector `.game-view-domino:not(.double-domino) .game-view-domino-half`.
-- **Symbol toggle implemented**: The toggle button (bottom-right in V toolbar) now swaps positions of placed elements on a card. Removed disabled state, implemented `applySymbolToggle()` with position rotation logic. Works for cards with 2+ elements (text, circles, stamps, groups). Key: `index.html` — `createVariationSVG` and helpers.
+- **Symbol toggle implemented**: The toggle button (bottom-right in V toolbar) now swaps positions of placed elements on a card. Removed disabled state, implemented `applySymbolToggle()` with position rotation logic. Works for cards with 2+ elements (text, circles, stamps, groups). Filters out math operators (+, -, ×, ÷, =) so they stay in place. Key: `index.html` — `createVariationSVG` and helpers.
+
+## March 7-8 Session Notes (continued)
+- **Variation cards editable in loupe**: Double-click a variation card to open it in the loupe editor. Implemented inverse transform matrix for coordinate conversion, so drawing/selection works correctly inside transformed variation `<g>` elements.
+- **Built-in Numbers and Dots cards restored**: 45 built-in cards (rows A-I) were accidentally removed and then restored. Empty cards A3, A4, A5, H4, H5 filled with new designs (hollow oval, cursive "0", dashed box, 7-dot pattern, 8-dot pattern).
+- **Variations persistence fix**: `saveVariations()` now includes `cardSet` field. `loadVariations()` defers restoration of ABC/custom set variations until those sets are built (lazy initialization).
+- **Custom card set data preservation**: Fixed Library preview wiping custom card set data by guarding `saveCustomCards()` to only run when Card Maker screen is visible.
+- **Built-in set deletion attempted then reverted**: Briefly prevented deletion of built-in card sets, but reverted to keep deletion available.

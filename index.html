@@ -416,6 +416,14 @@
                         <div class="draw-submenu-grid draw-stamps-grid" id="stamps-grid"></div>
                     </div>
                 </div>
+                <button class="draw-tool-btn" id="draw-svg-import-btn" onclick="triggerSvgFileImport()" title="Insert SVG from file">
+                    <svg viewBox="0 0 20 20" width="18" height="18">
+                        <rect x="2" y="3" width="16" height="14" rx="2" fill="none" stroke="white" stroke-width="1.5"/>
+                        <path d="M5 13 L8 9 L11 12 L14 7 L17 13" stroke="white" stroke-width="1.2" fill="none"/>
+                        <circle cx="7" cy="7" r="1.5" fill="white"/>
+                    </svg>
+                </button>
+                <input type="file" id="svg-file-input" accept=".svg" style="display:none" onchange="handleSvgFileSelected(event)">
                 </div>
                 <div class="draw-size-row">
                     <label style="font-size:11px;">Aa</label>
@@ -1403,6 +1411,10 @@
                 var sBtn = document.getElementById('draw-stamps-group-btn');
                 if (sBtn) sBtn.classList.add('active');
             }
+            if (typeof tool === 'string' && tool.indexOf('stamp-imported-') === 0) {
+                var impBtn = document.getElementById('draw-svg-import-btn');
+                if (impBtn) impBtn.classList.add('active');
+            }
             // Highlight active item in submenu
             document.querySelectorAll('.draw-submenu-item').forEach(function(it) { it.classList.remove('active'); });
             if (tool === 'text' && selectedTextChar) {
@@ -1518,6 +1530,32 @@
             selectedStampTool = tool;
             selectDrawTool(tool);
             closeAllSubmenus();
+        }
+        function triggerSvgFileImport() {
+            document.getElementById('svg-file-input').click();
+        }
+        function handleSvgFileSelected(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(e.target.result, 'image/svg+xml');
+                var svgEl = doc.querySelector('svg');
+                if (!svgEl) { alert('Not a valid SVG file'); return; }
+                var vb = svgEl.getAttribute('viewBox') || '0 0 100 100';
+                var parts = vb.split(/[\s,]+/).map(Number);
+                var vbW = parts[2] || 100, vbH = parts[3] || 100;
+                var innerMarkup = svgEl.innerHTML;
+                var wrappedSVG = '<g transform="scale(' + (100/vbW) + ',' + (100/vbH) + ')">'
+                                  + innerMarkup + '</g>';
+                var stampKey = 'stamp-imported-' + Date.now();
+                stampSVGs[stampKey] = wrappedSVG;
+                selectedStampTool = stampKey;
+                selectDrawTool(stampKey);
+            };
+            reader.readAsText(file);
+            event.target.value = '';
         }
         function toggleStampsSubmenu() {
             var menu = document.getElementById('stamps-submenu');

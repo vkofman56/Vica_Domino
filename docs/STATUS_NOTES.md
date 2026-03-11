@@ -1,5 +1,5 @@
 # Vica Domino - Project Status Notes
-**Date**: March 10, 2026
+**Date**: March 11, 2026
 **Branch**: `claude/review-project-docs-QNagl`
 **Total Commits**: 500+
 **Codebase Size**: ~15,864 lines across 4 main files
@@ -93,6 +93,9 @@ Vica_Domino/
 - [x] **Drag-to-move between rows** — reorganize card assignments
 - [x] **Within-row card reordering** via drag-and-drop
 - [x] **Card row persistence** — assignments and arrangement saved across reloads
+- [x] **Insert SVG from file** — import external SVG files as stamps
+- [x] **Over-scale slider (×1–×10)** — scale imported SVGs beyond card boundaries
+- [ ] **Crop/pan tool** — reposition oversized imported SVGs within card area (partially working, has drag handler conflicts)
 - [x] **Save/cancel prompt** when leaving Card Maker
 - [x] **Separate storage** for Numbers and ABC card sets
 - [x] **Double-click to edit** cards in Card Maker
@@ -437,10 +440,52 @@ Major enhancements to the variation system (loupe editing, persistence fixes), r
 
 ---
 
+## March 10-11, 2026 Session — SVG Import & Overscale/Crop Tools
+
+### Summary
+Added the ability to import external SVG files into the Card Maker as stamps, with an over-scale slider and crop/pan tool for positioning oversized SVGs within card boundaries. Feature is partially working — crop/pan still has issues.
+
+### Changes Made (5 commits)
+
+1. **"Insert SVG from file" button** (`index.html`)
+   - Added a new button to Card Maker draw tools that opens a file picker for `.svg` files
+   - Imported SVG is parsed, cleaned, and inserted as a stamp element on the card canvas
+   - Commit: `f0efe4f`
+
+2. **Over-scale slider (×1–×10)** (`index.html`)
+   - When an imported SVG stamp is selected, an over-scale slider appears allowing scaling from ×1 to ×10
+   - Default scale fits the SVG within the card; over-scaling lets it extend beyond card boundaries for detail/crop effects
+   - Commit: `f49ad32`
+
+3. **Fix SVG overscale not applying to placed stamps** (`index.html`)
+   - The overscale slider was only updating the preview, not the actual placed stamp element
+   - Fixed to apply scale transform to the placed imported stamp
+   - Commit: `c744ef2`
+
+4. **Show crop/pan button at any scale for imported stamps** (`index.html`)
+   - Initially crop/pan button only showed when scale > 1
+   - Changed to show for imported stamps at any scale, since users may want to reposition
+   - Commit: `6a7ff72`
+
+5. **Fix crop/pan mode broken by competing drag handlers** (`index.html`)
+   - The card canvas had existing drag handlers (for moving elements) that competed with the crop/pan drag
+   - Partially fixed by adding a mode flag, but behavior is **still not fully correct**
+   - Commit: `fcc139b`
+
+### Known Issues (ACTIVE)
+- **Crop/pan not fully working**: Drag interactions in crop/pan mode still conflict with other card canvas event handlers. The panning doesn't behave as expected in all cases. Needs further debugging.
+- This is the **primary task for the next session**.
+
+### File Sizes After Changes
+- `index.html`: ~7,500+ lines (was ~7,328)
+
+---
+
 ## Quick Start for New Session
 
 1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-QNagl`
 2. Main files: `index.html` (UI + inline scripts), `js/game.js` (game logic), `js/domino.js` (card data), `css/style.css` (styles)
 3. No build step — open `index.html` directly in a browser
 4. All state persisted in localStorage
-5. Most recent work (March 7-8): Variation cards editable in loupe, variation persistence fixed for ABC/custom sets, symbol toggle refined to skip operators, built-in cards restored, Library preview data wipe fixed
+5. Most recent work (March 10-11): SVG import from file, over-scale slider (×1–×10), crop/pan tool for imported SVGs — **crop/pan still has issues, needs debugging**
+6. Key area to investigate: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"

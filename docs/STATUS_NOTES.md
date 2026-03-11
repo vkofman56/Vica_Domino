@@ -473,8 +473,17 @@ Added the ability to import external SVG files into the Card Maker as stamps, wi
    - Commit: `fcc139b`
 
 ### Known Issues (ACTIVE)
-- **Crop/pan not fully working**: Drag interactions in crop/pan mode still conflict with other card canvas event handlers. The panning doesn't behave as expected in all cases. Needs further debugging.
+- **Crop/pan not fully working**: Drag interactions in crop/pan mode still conflict with other card canvas event handlers. The panning doesn't behave as expected in all cases. Needs rewrite.
 - This is the **primary task for the next session**.
+
+### Planned Fix: clipPath Model (Word-style crop)
+The current approach tries to reuse the existing canvas drag handlers with a mode flag, causing conflicts. The fix is to use the standard image-editor pattern:
+1. **Card = crop frame**: The card SVG boundary is fixed and acts as the visible window
+2. **`<clipPath>` on a group**: Define a `<clipPath>` matching the card rect; wrap the imported SVG in a `<g clip-path="url(#...)">`
+3. **Inner `<g>` for transforms**: Inside the clipped group, a child `<g transform="translate(x,y) scale(s)">` holds the actual SVG content
+4. **Pan = update `translate()`**: Drag in pan mode only changes the inner group's translate — completely separate from the element selection/move system
+5. **Scale = update `scale()`**: The overscale slider updates the inner group's scale, keeping the visual center stable
+6. **No competing handlers**: Pan/scale operate on a dedicated inner group, not on individual card elements, so the existing element drag system is untouched
 
 ### File Sizes After Changes
 - `index.html`: ~7,500+ lines (was ~7,328)

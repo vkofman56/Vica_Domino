@@ -26,7 +26,13 @@ function loadDominoModule() {
 function buildMinimalDOM() {
   document.body.innerHTML = `
     <div class="game-container">
-      <div class="screen" id="intro-screen"></div>
+      <div class="screen" id="creator-screen">
+        <button id="creator-games-btn"></button>
+        <button id="creator-create-edit-btn"></button>
+      </div>
+      <div class="screen" id="intro-screen" style="display:none;">
+        <button id="back-to-creator-btn"></button>
+      </div>
       <div class="screen" id="start-screen" style="display:none;">
         <button id="back-to-intro-btn"></button>
         <button id="mpp-start-btn" style="display:none;"></button>
@@ -61,7 +67,6 @@ function buildMinimalDOM() {
         <button id="new-game-btn">New Game</button>
       </div>
       <div class="screen" id="create-edit-screen" style="display:none;">
-        <button id="create-edit-btn"></button>
         <button id="back-from-create-edit-btn"></button>
         <button id="card-library-btn"></button>
       </div>

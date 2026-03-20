@@ -13,25 +13,41 @@ const { test, expect } = require('@playwright/test');
 // App launch
 // ---------------------------------------------------------------------------
 test.describe('App launch', () => {
-  test('loads without errors and shows intro screen', async ({ page }) => {
+  test('loads without errors and shows creator screen', async ({ page }) => {
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
 
     await page.goto('/');
-    await expect(page.locator('#intro-screen')).toBeVisible();
-    await expect(page.locator('#intro-screen h1')).toHaveText('Pinky-Math Domino');
+    await expect(page.locator('#creator-screen')).toBeVisible();
+    await expect(page.locator('#creator-screen h1')).toHaveText('Pinky-Math Domino');
     expect(errors).toEqual([]);
+  });
+
+  test('Games button navigates to intro screen', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#creator-games-btn');
+    await expect(page.locator('#intro-screen')).toBeVisible();
+    await expect(page.locator('#creator-screen')).not.toBeVisible();
   });
 
   test('Play button navigates to start screen', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
     await expect(page.locator('#start-screen')).toBeVisible();
     await expect(page.locator('#intro-screen')).not.toBeVisible();
   });
 
+  test('back arrow from intro screen returns to creator', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#creator-games-btn');
+    await page.click('#back-to-creator-btn');
+    await expect(page.locator('#creator-screen')).toBeVisible();
+  });
+
   test('back arrow from start screen returns to intro', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
     await page.click('#back-to-intro-btn');
     await expect(page.locator('#intro-screen')).toBeVisible();
@@ -44,6 +60,7 @@ test.describe('App launch', () => {
 test.describe('Level selection', () => {
   test('three level buttons are visible', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
     const buttons = page.locator('.level-btn');
     await expect(buttons).toHaveCount(3);
@@ -51,6 +68,7 @@ test.describe('Level selection', () => {
 
   test('clicking a level button highlights it', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
 
     const triangleBtn = page.locator('[data-level="triangle"]');
@@ -69,6 +87,7 @@ test.describe('Level selection', () => {
 test.describe('Player setup', () => {
   test('player count buttons are functional', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
 
     const playerBtns = page.locator('.player-btn');
@@ -82,6 +101,7 @@ test.describe('Player setup', () => {
 test.describe('Find the Double gameplay', () => {
   test('single player game can be started and played', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
 
     // Select 1 player
@@ -101,6 +121,7 @@ test.describe('Find the Double gameplay', () => {
 
   test('keyboard controls work in game', async ({ page }) => {
     await page.goto('/');
+    await page.click('#creator-games-btn');
     await page.click('#intro-play-btn');
     await page.click('.player-btn[data-count="1"]');
     await page.click('#start-game-btn');
@@ -123,13 +144,11 @@ test.describe('Find the Double gameplay', () => {
 // Create and Edit screen
 // ---------------------------------------------------------------------------
 test.describe('Create and Edit', () => {
-  test('opens and closes create-edit screen', async ({ page }) => {
+  test('Create and Edit button opens card library', async ({ page }) => {
     await page.goto('/');
-    await page.click('#create-edit-btn');
-    await expect(page.locator('#create-edit-screen')).toBeVisible();
-
-    await page.click('#back-from-create-edit-btn');
-    await expect(page.locator('#intro-screen')).toBeVisible();
+    await page.click('#creator-create-edit-btn');
+    await expect(page.locator('#card-library-screen')).toBeVisible();
+    await expect(page.locator('#creator-screen')).not.toBeVisible();
   });
 });
 
@@ -140,21 +159,21 @@ test.describe('Responsive layout', () => {
   test('works on iPad landscape viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto('/');
-    await expect(page.locator('#intro-screen')).toBeVisible();
-    await expect(page.locator('#intro-screen h1')).toBeVisible();
+    await expect(page.locator('#creator-screen')).toBeVisible();
+    await expect(page.locator('#creator-screen h1')).toBeVisible();
   });
 
   test('works on iPad portrait viewport', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/');
-    await expect(page.locator('#intro-screen')).toBeVisible();
+    await expect(page.locator('#creator-screen')).toBeVisible();
   });
 
   test('works on mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
-    await expect(page.locator('#intro-screen')).toBeVisible();
-    await expect(page.locator('#intro-play-btn')).toBeVisible();
+    await expect(page.locator('#creator-screen')).toBeVisible();
+    await expect(page.locator('#creator-games-btn')).toBeVisible();
   });
 });
 

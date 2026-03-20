@@ -787,6 +787,7 @@
         </div>
     </div>
 
+    <script src="js/shared-data.js?v=extract-1"></script>
     <script>
         // Ruler rectangle: toggle, drag from center, resize from corners
         function toggleLibRuler() {
@@ -4472,7 +4473,7 @@
                 });
                 alert('The game \u201C' + gameMakerName + '\u201D is completed!');
             }
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
 
             // Exit selection mode
             cancelGameMaker();
@@ -4483,12 +4484,7 @@
             populateCardMakerGames();
         }
 
-        function loadCustomGames() {
-            try {
-                var data = localStorage.getItem('savedCustomGames');
-                return data ? JSON.parse(data) : [];
-            } catch(e) { return []; }
-        }
+        // loadCustomGames() is now in js/shared-data.js
 
         // --- Game view ---
         var gameViewReturnScreen = 'card-library-screen';
@@ -4496,36 +4492,9 @@
         var currentGameViewIndex = -1;
         var lastDeletedGameViewVariation = null;
 
-        function getDominoKey(d) {
-            return d.leftCard.label + ':' + d.rightCard.label;
-        }
-
-        function getExcludedDominos(gameIndex) {
-            try {
-                var data = localStorage.getItem('excludedDominos_' + gameIndex);
-                return data ? JSON.parse(data) : [];
-            } catch(e) { return []; }
-        }
-
-        function saveExcludedDominos(gameIndex, excludedKeys) {
-            localStorage.setItem('excludedDominos_' + gameIndex, JSON.stringify(excludedKeys));
-        }
-
-        // Per-game excluded variations (originalLabel + ':' + transform)
-        function getExcludedVariations(gameIndex) {
-            try {
-                var data = localStorage.getItem('excludedVariations_' + gameIndex);
-                return data ? JSON.parse(data) : [];
-            } catch(e) { return []; }
-        }
-
-        function saveExcludedVariations(gameIndex, excludedKeys) {
-            localStorage.setItem('excludedVariations_' + gameIndex, JSON.stringify(excludedKeys));
-        }
-
-        function getVariationKey(originalLabel, transform) {
-            return originalLabel + ':' + transform;
-        }
+        // getDominoKey, getExcludedDominos, saveExcludedDominos,
+        // getExcludedVariations, saveExcludedVariations, getVariationKey
+        // are now in js/shared-data.js
 
         function openGameView(gameIndex, returnScreen) {
             // Save all card edits before leaving card maker
@@ -4802,7 +4771,7 @@
                 flipEnabled: !!game.flipEnabled
             };
             games.push(newGame);
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             // Copy excluded dominos and variations too
             var excluded = getExcludedDominos(gameIndex);
             if (excluded.length > 0) {
@@ -4834,7 +4803,7 @@
                 flipEnabled: !!game.flipEnabled
             };
             games.push(newGame);
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             // Copy excluded dominos and variations too
             var excluded = getExcludedDominos(gameIndex);
             if (excluded.length > 0) {
@@ -4855,33 +4824,7 @@
             enterSelectionMode();
         }
 
-        function buildCardFromMarkup(cardInfo) {
-            if (!cardInfo.svgMarkup) return null;
-            var card = document.createElement('div');
-            card.className = 'library-card';
-            var labelDiv = document.createElement('div');
-            labelDiv.className = 'library-label';
-            labelDiv.textContent = cardInfo.label;
-            card.appendChild(labelDiv);
-            var preview = document.createElement('div');
-            preview.className = 'domino-half-preview';
-            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('viewBox', '0 0 60 60');
-            svg.innerHTML = cardInfo.svgMarkup;
-            if (cardInfo.isVariation && cardInfo.transform) {
-                var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                g.setAttribute('transform', cardInfo.transform);
-                while (svg.firstChild) g.appendChild(svg.firstChild);
-                svg.appendChild(g);
-            }
-            preview.appendChild(svg);
-            card.appendChild(preview);
-            var desc = document.createElement('div');
-            desc.className = 'library-desc';
-            desc.textContent = '';
-            card.appendChild(desc);
-            return card;
-        }
+        // buildCardFromMarkup() is now in js/shared-data.js
 
         function buildGameViewCard(cardInfo) {
             if (!cardInfo.isVariation) {
@@ -5068,7 +5011,7 @@
             if (!newName || !newName.trim()) return;
             newName = newName.trim();
             games[currentGameViewIndex].name = newName;
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             document.getElementById('game-view-title').textContent = newName;
             populateLibraryGames();
             populateStartScreenGames();
@@ -5083,7 +5026,7 @@
             var newDesc = prompt('Game description:', game.description || '');
             if (newDesc === null) return;
             games[currentGameViewIndex].description = newDesc.trim();
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             document.getElementById('game-view-desc').textContent = newDesc.trim();
         }
 
@@ -5108,7 +5051,7 @@
             var game = games[currentGameViewIndex];
             if (!game) return;
             game.flipEnabled = !game.flipEnabled;
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             updateFlipBtnState(game.flipEnabled);
         }
 
@@ -5148,7 +5091,7 @@
             if (!game) return;
             if (!confirm('Delete game \u201C' + game.name + '\u201D? This cannot be undone.')) return;
             games.splice(gameIndex, 1);
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
             // Remove excluded dominos and variations for this game
             localStorage.removeItem('excludedDominos_' + gameIndex);
             localStorage.removeItem('excludedVariations_' + gameIndex);
@@ -5829,16 +5772,7 @@
             input.focus();
         }
 
-        function loadCardSets() {
-            try {
-                var data = localStorage.getItem('savedCardSets');
-                return data ? JSON.parse(data) : [];
-            } catch(e) { return []; }
-        }
-
-        function saveCardSets(sets) {
-            localStorage.setItem('savedCardSets', JSON.stringify(sets));
-        }
+        // loadCardSets, saveCardSets are now in js/shared-data.js
 
         // Restore saved card sets on load
         (function() {
@@ -6255,7 +6189,7 @@
                 }
             });
             if (changed) {
-                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                saveCustomGames(games);
             }
         }
 
@@ -6798,10 +6732,7 @@
             return createVariationSVG(svg, transform);
         }
 
-        function randomPick(arr) {
-            if (!arr || arr.length === 0) return null;
-            return arr[Math.floor(Math.random() * arr.length)];
-        }
+        // randomPick() is now in js/shared-data.js
 
         // === Main Page Pictures (MPP) Editor ===
         var mppGameIndex = -1;
@@ -7156,7 +7087,7 @@
             if (!game) return;
 
             game.mainPageDominos = JSON.parse(JSON.stringify(mppConfig));
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            saveCustomGames(games);
 
             closeMainPagePictures();
 
@@ -7323,30 +7254,8 @@
             document.getElementById('combine-games-overlay').style.display = 'none';
         }
 
-        function loadCombinedGames() {
-            try {
-                var data = localStorage.getItem('savedCombinedGames');
-                return data ? JSON.parse(data) : [];
-            } catch(e) { return []; }
-        }
-
-        function saveCombinedGames(games) {
-            localStorage.setItem('savedCombinedGames', JSON.stringify(games));
-        }
-
-        // Resolve a combined game stage to actual game index (by name first, then stored index)
-        function resolveStageGameIndex(stage) {
-            var games = loadCustomGames();
-            // First try to find by name (robust against index shifts from deletes)
-            if (stage.gameName) {
-                for (var i = 0; i < games.length; i++) {
-                    if (games[i].name === stage.gameName) return i;
-                }
-            }
-            // Fallback to stored index
-            if (games[stage.gameIndex]) return stage.gameIndex;
-            return -1;
-        }
+        // loadCombinedGames, saveCombinedGames, resolveStageGameIndex
+        // are now in js/shared-data.js
 
         function startCombinedGameFromMenu(combinedIndex, btnEl) {
             var combinedGames = loadCombinedGames();
@@ -7454,7 +7363,7 @@
                                 c.svgMarkup = defaults[c.label];
                             }
                         });
-                        localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                        saveCustomGames(games);
                     }
                     return;
                 }
@@ -7481,7 +7390,7 @@
                 });
             });
             if (changed) {
-                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                saveCustomGames(games);
             }
         })();
 
@@ -7500,7 +7409,7 @@
                 });
             });
             if (changed) {
-                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                saveCustomGames(games);
             }
         })();
 

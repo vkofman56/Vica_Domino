@@ -3855,12 +3855,6 @@ function buildAvailableCardsArea(gameIndex, area) {
         if (!c.isVariation) inGame[c.label] = true;
     });
 
-    // Determine which card sets this game uses
-    var gameSets = {};
-    game.cards.forEach(function(c) {
-        if (c.cardSet) gameSets[c.cardSet] = true;
-    });
-
     // Collect all card set sources to enumerate
     var sources = [];
     // Numbers and Dots
@@ -3890,13 +3884,29 @@ function buildAvailableCardsArea(gameIndex, area) {
 
         hasAnyAvailable = true;
 
-        // Set header
+        // Accordion header – clickable card set title
         var setHeader = document.createElement('div');
-        setHeader.className = 'add-cards-set-header';
+        setHeader.className = 'add-cards-set-header add-cards-accordion-header';
         setHeader.textContent = source.name;
+        setHeader.title = 'Click to expand';
         area.appendChild(setHeader);
 
-        // Group by row letter
+        // Collapsible body (hidden by default)
+        var body = document.createElement('div');
+        body.className = 'add-cards-accordion-body';
+        body.style.display = 'none';
+        area.appendChild(body);
+
+        // Toggle accordion on header click
+        (function(headerEl, bodyEl) {
+            headerEl.onclick = function() {
+                var isOpen = bodyEl.style.display !== 'none';
+                bodyEl.style.display = isOpen ? 'none' : 'block';
+                headerEl.classList.toggle('expanded', !isOpen);
+            };
+        })(setHeader, body);
+
+        // Group by row letter (first character of label)
         var rowMap = {};
         var rowOrder = [];
         availableCards.forEach(function(c) {
@@ -3913,11 +3923,11 @@ function buildAvailableCardsArea(gameIndex, area) {
             var rowDiv = document.createElement('div');
             rowDiv.className = 'add-cards-row';
 
-            // Row add button (add all cards in this row)
+            // Row add button (add all cards in this row as a new line)
             var rowBtn = document.createElement('button');
             rowBtn.className = 'add-row-btn';
             rowBtn.textContent = '+ ' + rowLetter;
-            rowBtn.title = 'Add all "' + rowLetter + '" cards';
+            rowBtn.title = 'Add all "' + rowLetter + '" cards as a new line';
             (function(cards, src) {
                 rowBtn.onclick = function() {
                     addCardsToCurrentGame(cards, src.cardSetValue, gameIndex);
@@ -3946,7 +3956,7 @@ function buildAvailableCardsArea(gameIndex, area) {
                 rowDiv.appendChild(cardEl);
             });
 
-            area.appendChild(rowDiv);
+            body.appendChild(rowDiv);
         });
     });
 

@@ -220,84 +220,166 @@ describe('resetLevelDominoIcons', () => {
 });
 
 // ---------------------------------------------------------------------------
-// startCustomGame — SVG pool must NOT include cardMakerVariations transforms
+// startCustomGame — domino SVGs must preserve original card orientation
 // ---------------------------------------------------------------------------
-describe('startCustomGame SVG pool', () => {
-  test('does not apply rotation transforms from cardMakerVariations to domino SVGs', () => {
-    // Save a game with two ABC cards (card-maker label format)
-    const gameCards = [
-      { label: 'A1', isVariation: false, cardSet: 'ABC',
-        svgMarkup: '<text x="30" y="46" text-anchor="middle" font-size="48" fill="#336">A</text>' },
-      { label: 'B1', isVariation: false, cardSet: 'ABC',
-        svgMarkup: '<text x="30" y="46" text-anchor="middle" font-size="48" fill="#633">B</text>' },
-    ];
-    saveCustomGames([{ name: 'Letters Test', cards: gameCards }]);
+describe('startCustomGame domino card orientation', () => {
 
-    // Store a rotation variation for A1 in cardMakerVariations
-    localStorage.setItem('cardMakerVariations', JSON.stringify([
-      { originalLabel: 'A1', transform: 'rotate(90, 30, 30)', desc: 'Rotate 90' }
-    ]));
-
-    // Start the custom game
+  // Helper: build a game with the given card definitions and optional
+  // cardMakerVariations, call startCustomGame, and return the resulting
+  // deck + SVG map for assertions.
+  function setupGame(gameCards, variations) {
+    saveCustomGames([{ name: 'Orientation Test', cards: gameCards }]);
+    if (variations) {
+      localStorage.setItem('cardMakerVariations', JSON.stringify(variations));
+    }
     startCustomGame(0);
+    return {
+      deck: window.customGameDeck,
+      svgs: window.customGameSVGs,
+    };
+  }
 
-    // The deck should have exactly 1 domino (A1:B1)
-    expect(window.customGameDeck).toHaveLength(1);
-    const card = window.customGameDeck[0];
-    expect(card.leftValue).toBe('A');
-    expect(card.rightValue).toBe('B');
-
-    // The left SVG (A1) must NOT contain a rotation transform
-    const leftSvg = window.customGameSVGs[card.left];
-    expect(leftSvg).toBeTruthy();
-    const rotateGroup = leftSvg.querySelector('g[data-variation-transform]');
-    expect(rotateGroup).toBeNull();
-
-    // Verify the SVG contains the original text content
-    const textEl = leftSvg.querySelector('text');
-    expect(textEl).toBeTruthy();
-    expect(textEl.textContent).toBe('A');
-
-    // Clean up
+  afterEach(() => {
     clearCustomGame();
   });
 
-  test('each domino half uses only the original card SVG without transforms', () => {
-    // Save a game with three cards to generate multiple dominos
-    const gameCards = [
+  // -- Core orientation checks ------------------------------------------------
+
+  test('domino SVG innerHTML matches the original card markup exactly', () => {
+    const markupA = '<text x="30" y="46" text-anchor="middle" font-size="48" fill="#336">A</text>';
+    const markupB = '<text x="30" y="46" text-anchor="middle" font-size="48" fill="#633">B</text>';
+    const { deck, svgs } = setupGame([
+      { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: markupA },
+      { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: markupB },
+    ]);
+
+    expect(deck).toHaveLength(1);
+    const card = deck[0];
+
+    // The SVG content inside each half must be the unmodified original markup
+    expect(svgs[card.left].innerHTML).toBe(markupA);
+    expect(svgs[card.right].innerHTML).toBe(markupB);
+  });
+
+  test('no element inside any domino SVG carries a transform attribute', () => {
+    const { deck, svgs } = setupGame([
       { label: 'A1', isVariation: false, cardSet: 'ABC',
         svgMarkup: '<text x="30" y="46" font-size="48" fill="#336">A</text>' },
       { label: 'B1', isVariation: false, cardSet: 'ABC',
         svgMarkup: '<text x="30" y="46" font-size="48" fill="#633">B</text>' },
       { label: 'C1', isVariation: false, cardSet: 'ABC',
         svgMarkup: '<text x="30" y="46" font-size="48" fill="#363">C</text>' },
-    ];
-    saveCustomGames([{ name: 'ABC Test', cards: gameCards }]);
+    ]);
 
-    // Store multiple rotation/reflection variations
-    localStorage.setItem('cardMakerVariations', JSON.stringify([
-      { originalLabel: 'A1', transform: 'rotate(90, 30, 30)', desc: 'Rotate 90' },
-      { originalLabel: 'B1', transform: 'translate(60, 0) scale(-1, 1)', desc: 'Flip H' },
-      { originalLabel: 'C1', transform: 'matrix(0, 1, 1, 0, 0, 0)', desc: 'Diagonal' },
-    ]));
+    expect(deck).toHaveLength(3);
 
-    startCustomGame(0);
-
-    // Should have 3 dominos: A1:B1, A1:C1, B1:C1
-    expect(window.customGameDeck).toHaveLength(3);
-
-    // None of the SVGs should have variation transform groups
-    window.customGameDeck.forEach(card => {
-      const leftSvg = window.customGameSVGs[card.left];
-      const rightSvg = window.customGameSVGs[card.right];
-      if (leftSvg) {
-        expect(leftSvg.querySelector('g[data-variation-transform]')).toBeNull();
-      }
-      if (rightSvg) {
-        expect(rightSvg.querySelector('g[data-variation-transform]')).toBeNull();
-      }
+    deck.forEach(card => {
+      [card.left, card.right].forEach(key => {
+        const svg = svgs[key];
+        expect(svg).toBeTruthy();
+        // No child element should have a transform (rotate, scale, matrix…)
+        const transformed = svg.querySelectorAll('[transform]');
+        expect(transformed).toHaveLength(0);
+      });
     });
+  });
 
-    clearCustomGame();
+  // -- Rotation / reflection variations must NOT leak into the game -----------
+
+  test('rotate(90) variation in cardMakerVariations does not alter domino SVGs', () => {
+    const markupA = '<text x="30" y="46" font-size="48" fill="#336">A</text>';
+    const markupB = '<text x="30" y="46" font-size="48" fill="#633">B</text>';
+    const { deck, svgs } = setupGame(
+      [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: markupA },
+        { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: markupB },
+      ],
+      [{ originalLabel: 'A1', transform: 'rotate(90, 30, 30)', desc: 'Rotate 90°' }]
+    );
+
+    const card = deck[0];
+    // Left half (A1) must still contain the original upright text
+    expect(svgs[card.left].innerHTML).toBe(markupA);
+    expect(svgs[card.left].querySelector('g[data-variation-transform]')).toBeNull();
+    expect(svgs[card.left].querySelector('[transform]')).toBeNull();
+  });
+
+  test('reflection variations in cardMakerVariations do not alter domino SVGs', () => {
+    const markupA = '<text x="30" y="46" font-size="48" fill="#336">A</text>';
+    const markupB = '<text x="30" y="46" font-size="48" fill="#633">B</text>';
+    const { deck, svgs } = setupGame(
+      [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: markupA },
+        { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: markupB },
+      ],
+      [
+        { originalLabel: 'A1', transform: 'translate(60, 0) scale(-1, 1)', desc: 'Flip H' },
+        { originalLabel: 'B1', transform: 'translate(0, 60) scale(1, -1)', desc: 'Flip V' },
+      ]
+    );
+
+    deck.forEach(card => {
+      [card.left, card.right].forEach(key => {
+        expect(svgs[key].querySelector('[transform]')).toBeNull();
+      });
+    });
+  });
+
+  test('multiple variation types combined still produce unmodified SVGs', () => {
+    const cards = ['A', 'B', 'C'].map(letter => ({
+      label: letter + '1', isVariation: false, cardSet: 'ABC',
+      svgMarkup: `<text x="30" y="46" font-size="48" fill="#333">${letter}</text>`,
+    }));
+    const variations = [
+      { originalLabel: 'A1', transform: 'rotate(90, 30, 30)', desc: 'Rotate' },
+      { originalLabel: 'B1', transform: 'translate(60, 0) scale(-1, 1)', desc: 'Flip' },
+      { originalLabel: 'C1', transform: 'matrix(0, 1, 1, 0, 0, 0)', desc: 'Diagonal' },
+      { originalLabel: 'A1', transform: 'translate(0, 60) scale(1, -1)', desc: 'Flip V' },
+    ];
+
+    const { deck, svgs } = setupGame(cards, variations);
+
+    // 3 cards → 3 domino pairs
+    expect(deck).toHaveLength(3);
+
+    // Build expected markup map keyed by value letter
+    const expectedMarkup = {};
+    cards.forEach(c => { expectedMarkup[c.label.charAt(0)] = c.svgMarkup; });
+
+    deck.forEach(card => {
+      // Left half
+      expect(svgs[card.left].innerHTML).toBe(expectedMarkup[card.leftValue]);
+      // Right half
+      expect(svgs[card.right].innerHTML).toBe(expectedMarkup[card.rightValue]);
+    });
+  });
+
+  // -- Run the game many times to catch randomness issues --------------------
+
+  test('SVG orientation is correct across 20 repeated deck generations', () => {
+    const markupA = '<text x="30" y="46" font-size="48" fill="#336">A</text>';
+    const markupB = '<text x="30" y="46" font-size="48" fill="#633">B</text>';
+    const gameCards = [
+      { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: markupA },
+      { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: markupB },
+    ];
+    const variations = [
+      { originalLabel: 'A1', transform: 'rotate(90, 30, 30)', desc: 'Rotate 90°' },
+      { originalLabel: 'B1', transform: 'rotate(90, 30, 30)', desc: 'Rotate 90°' },
+    ];
+
+    for (let i = 0; i < 20; i++) {
+      clearCustomGame();
+      localStorage.clear();
+      saveCustomGames([{ name: 'Repeat Test', cards: gameCards }]);
+      localStorage.setItem('cardMakerVariations', JSON.stringify(variations));
+      startCustomGame(0);
+
+      const card = window.customGameDeck[0];
+      const svgs = window.customGameSVGs;
+      // Every single run must produce the original markup, never a rotated one
+      expect(svgs[card.left].innerHTML).toBe(markupA);
+      expect(svgs[card.right].innerHTML).toBe(markupB);
+    }
   });
 });

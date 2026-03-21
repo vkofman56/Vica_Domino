@@ -3803,38 +3803,12 @@ function openGameView(gameIndex, returnScreen) {
     var game = games[gameIndex];
     if (!game) return;
 
-    // Ensure the ABC card set is built if any game card comes from it,
-    // so findCardByLabel can find current (not stale) card designs
-    var needsAbc = game.cards.some(function(c) { return c.cardSet === 'ABC'; });
-    if (needsAbc) {
+    // Ensure the ABC card set DOM is built so findCardByLabel can resolve
+    // cards for the game named "ABC". Other games use their own stored svgMarkup.
+    if (game.name === 'ABC') {
         var abcDiv = document.getElementById('card-set-abc');
         if (abcDiv && !abcDiv.querySelector('.library-card')) {
             if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
-        }
-        // Sync latest ABC Card Maker designs into THIS game's card data
-        if (abcDiv) {
-            var abcMarkupMap = {};
-            abcDiv.querySelectorAll('.library-card').forEach(function(card) {
-                var lbl = card.querySelector('.library-label');
-                var svg = card.querySelector('svg');
-                if (!lbl || !svg) return;
-                var markup = svg.innerHTML.trim();
-                if (!markup) return;
-                var gameLabel = (typeof cardMakerLabelToGameLabel === 'function')
-                    ? cardMakerLabelToGameLabel(lbl.textContent)
-                    : lbl.textContent;
-                abcMarkupMap[gameLabel] = markup;
-            });
-            var abcSyncChanged = false;
-            game.cards.forEach(function(c) {
-                if (c.cardSet === 'ABC' && abcMarkupMap[c.label] && abcMarkupMap[c.label] !== c.svgMarkup) {
-                    c.svgMarkup = abcMarkupMap[c.label];
-                    abcSyncChanged = true;
-                }
-            });
-            if (abcSyncChanged) {
-                saveCustomGames(games);
-            }
         }
     }
 
@@ -5559,18 +5533,6 @@ function syncAbcCardsToGame() {
             changed = true;
         }
     });
-    // Also update svgMarkup on all OTHER games that use ABC cards
-    // (they don't get add/remove sync, just markup refresh)
-    for (var gi = 0; gi < games.length; gi++) {
-        if (gi === abcIdx) continue;
-        if (!games[gi].cards) continue;
-        games[gi].cards.forEach(function(c) {
-            if (c.cardSet === 'ABC' && markupMap[c.label] && markupMap[c.label] !== c.svgMarkup) {
-                c.svgMarkup = markupMap[c.label];
-                changed = true;
-            }
-        });
-    }
     if (changed) {
         saveCustomGames(games);
     }

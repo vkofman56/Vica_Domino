@@ -439,3 +439,238 @@ describe('toggleLibRuler', () => {
     expect(ruler.style.display).toBe('none');
   });
 });
+
+// ---------------------------------------------------------------------------
+// syncAbcCardsToGame — must NOT overwrite non-ABC games
+// ---------------------------------------------------------------------------
+describe('syncAbcCardsToGame', () => {
+  test('only updates the game named ABC, not other games with ABC cards', () => {
+    // Create two games: "ABC" and "letters" both using cardSet: 'ABC'
+    var abcGame = {
+      name: 'ABC',
+      description: 'Default ABC game',
+      cards: [
+        { label: 'A01', isVariation: false, svgMarkup: '<text>old-A-abc</text>', cardSet: 'ABC' },
+        { label: 'B01', isVariation: false, svgMarkup: '<text>old-B-abc</text>', cardSet: 'ABC' },
+      ]
+    };
+    var lettersGame = {
+      name: 'letters',
+      description: 'Custom letters game',
+      cards: [
+        { label: 'A01', isVariation: false, svgMarkup: '<text>custom-A-letters</text>', cardSet: 'ABC' },
+        { label: 'B01', isVariation: false, svgMarkup: '<text>custom-B-letters</text>', cardSet: 'ABC' },
+      ]
+    };
+    saveCustomGames([abcGame, lettersGame]);
+
+    // Build ABC card set in DOM with new markup
+    var abcDiv = document.getElementById('card-set-abc');
+    abcDiv.innerHTML = `
+      <div class="library-card">
+        <div class="library-label">A1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>new-A-from-cardmaker</text></svg>
+        </div>
+      </div>
+      <div class="library-card">
+        <div class="library-label">B1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>new-B-from-cardmaker</text></svg>
+        </div>
+      </div>
+    `;
+
+    syncAbcCardsToGame();
+
+    var games = loadCustomGames();
+    // ABC game should be updated
+    expect(games[0].cards[0].svgMarkup).toBe('<text>new-A-from-cardmaker</text>');
+    expect(games[0].cards[1].svgMarkup).toBe('<text>new-B-from-cardmaker</text>');
+    // "letters" game must NOT be touched
+    expect(games[1].cards[0].svgMarkup).toBe('<text>custom-A-letters</text>');
+    expect(games[1].cards[1].svgMarkup).toBe('<text>custom-B-letters</text>');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// openGameView — must not overwrite game card svgMarkup
+// ---------------------------------------------------------------------------
+describe('openGameView', () => {
+  test('does not overwrite non-ABC game svgMarkup when opening game view', () => {
+    // Put different markup in the ABC Card Maker DOM
+    var abcDiv = document.getElementById('card-set-abc');
+    abcDiv.innerHTML = `
+      <div class="library-card">
+        <div class="library-label">A1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>DIFFERENT-A</text></svg>
+        </div>
+      </div>
+    `;
+
+    var lettersGame = {
+      name: 'letters',
+      description: 'Custom letters game',
+      cards: [
+        { label: 'A01', isVariation: false, svgMarkup: '<text>custom-A</text>', cardSet: 'ABC' },
+        { label: 'B01', isVariation: false, svgMarkup: '<text>custom-B</text>', cardSet: 'ABC' },
+        { label: 'C01', isVariation: false, svgMarkup: '<text>custom-C</text>', cardSet: 'ABC' },
+      ]
+    };
+    saveCustomGames([lettersGame]);
+
+    openGameView(0, 'card-library-screen');
+
+    // Verify stored svgMarkup was NOT overwritten by Card Maker DOM
+    var games = loadCustomGames();
+    expect(games[0].cards[0].svgMarkup).toBe('<text>custom-A</text>');
+    expect(games[0].cards[1].svgMarkup).toBe('<text>custom-B</text>');
+    expect(games[0].cards[2].svgMarkup).toBe('<text>custom-C</text>');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Erase mode
+// ---------------------------------------------------------------------------
+describe('toggleGameViewEraseMode', () => {
+  test('toggles erase mode on and off via DOM class', () => {
+    var container = document.getElementById('game-view-cards');
+    var btn = document.getElementById('game-view-erase-btn');
+    expect(container.classList.contains('erase-mode')).toBe(false);
+    toggleGameViewEraseMode();
+    expect(container.classList.contains('erase-mode')).toBe(true);
+    expect(btn.style.opacity).toBe('1');
+    toggleGameViewEraseMode();
+    expect(container.classList.contains('erase-mode')).toBe(false);
+    expect(btn.style.opacity).toBe('0.4');
+  });
+});
+
+describe('eraseGameCard', () => {
+  beforeEach(() => {
+    var game = {
+      name: 'TestGame',
+      description: 'Test',
+      cards: [
+        { label: 'A01', isVariation: false, svgMarkup: '<text>A</text>', cardSet: 'ABC' },
+        { label: 'A02', isVariation: false, svgMarkup: '<text>a</text>', cardSet: 'ABC' },
+        { label: 'B01', isVariation: false, svgMarkup: '<text>B</text>', cardSet: 'ABC' },
+        { label: 'B02', isVariation: false, svgMarkup: '<text>b</text>', cardSet: 'ABC' },
+      ]
+    };
+    saveCustomGames([game]);
+  });
+
+  test('removes a single card from the game', () => {
+    eraseGameCard('A01', 0);
+    var games = loadCustomGames();
+    var labels = games[0].cards.map(c => c.label);
+    expect(labels).not.toContain('A01');
+    expect(labels).toContain('A02');
+    expect(labels).toContain('B01');
+    expect(labels).toContain('B02');
+  });
+
+  test('also removes variations of the erased card', () => {
+    var games = loadCustomGames();
+    games[0].cards.push({ label: 'A01v1', isVariation: true, originalLabel: 'A01', svgMarkup: '<text>Av</text>', cardSet: 'ABC' });
+    saveCustomGames(games);
+
+    eraseGameCard('A01', 0);
+    games = loadCustomGames();
+    var labels = games[0].cards.map(c => c.label);
+    expect(labels).not.toContain('A01');
+    expect(labels).not.toContain('A01v1');
+  });
+
+  test('cleans up excluded dominos referencing erased card', () => {
+    saveExcludedDominos(0, ['A01:B01', 'A02:B01', 'B01:B02']);
+    eraseGameCard('A01', 0);
+    var excluded = getExcludedDominos(0);
+    expect(excluded).not.toContain('A01:B01');
+    expect(excluded).toContain('A02:B01');
+    expect(excluded).toContain('B01:B02');
+  });
+
+  test('prevents erasing when only 2 cards remain', () => {
+    var games = loadCustomGames();
+    games[0].cards = [
+      { label: 'A01', isVariation: false, svgMarkup: '<text>A</text>', cardSet: 'ABC' },
+      { label: 'B01', isVariation: false, svgMarkup: '<text>B</text>', cardSet: 'ABC' },
+    ];
+    saveCustomGames(games);
+    // Mock alert
+    var alertCalled = false;
+    var origAlert = global.alert;
+    global.alert = function() { alertCalled = true; };
+    eraseGameCard('A01', 0);
+    global.alert = origAlert;
+    // Card should NOT be erased
+    games = loadCustomGames();
+    expect(games[0].cards).toHaveLength(2);
+    expect(alertCalled).toBe(true);
+  });
+});
+
+describe('eraseGameRow', () => {
+  beforeEach(() => {
+    var game = {
+      name: 'TestGame',
+      description: 'Test',
+      cards: [
+        { label: 'A01', isVariation: false, svgMarkup: '<text>A</text>', cardSet: 'ABC' },
+        { label: 'A02', isVariation: false, svgMarkup: '<text>a</text>', cardSet: 'ABC' },
+        { label: 'B01', isVariation: false, svgMarkup: '<text>B</text>', cardSet: 'ABC' },
+        { label: 'B02', isVariation: false, svgMarkup: '<text>b</text>', cardSet: 'ABC' },
+        { label: 'C01', isVariation: false, svgMarkup: '<text>C</text>', cardSet: 'ABC' },
+      ]
+    };
+    saveCustomGames([game]);
+    // Mock confirm to auto-accept
+    global._origConfirm = global.confirm;
+    global.confirm = function() { return true; };
+  });
+
+  afterEach(() => {
+    global.confirm = global._origConfirm;
+  });
+
+  test('removes all cards of a given row letter', () => {
+    eraseGameRow('A', 0);
+    var games = loadCustomGames();
+    var labels = games[0].cards.map(c => c.label);
+    expect(labels).not.toContain('A01');
+    expect(labels).not.toContain('A02');
+    expect(labels).toContain('B01');
+    expect(labels).toContain('B02');
+    expect(labels).toContain('C01');
+  });
+
+  test('cleans up excluded dominos referencing erased row', () => {
+    saveExcludedDominos(0, ['A01:B01', 'A02:C01', 'B01:C01']);
+    eraseGameRow('A', 0);
+    var excluded = getExcludedDominos(0);
+    expect(excluded).not.toContain('A01:B01');
+    expect(excluded).not.toContain('A02:C01');
+    expect(excluded).toContain('B01:C01');
+  });
+
+  test('prevents erasing when too few cards would remain', () => {
+    var games = loadCustomGames();
+    // Only have A and B rows (2 cards each), erasing B would leave only A
+    games[0].cards = [
+      { label: 'A01', isVariation: false, svgMarkup: '<text>A</text>', cardSet: 'ABC' },
+      { label: 'B01', isVariation: false, svgMarkup: '<text>B</text>', cardSet: 'ABC' },
+    ];
+    saveCustomGames(games);
+    var alertCalled = false;
+    var origAlert = global.alert;
+    global.alert = function() { alertCalled = true; };
+    eraseGameRow('B', 0);
+    global.alert = origAlert;
+    games = loadCustomGames();
+    expect(games[0].cards).toHaveLength(2);
+    expect(alertCalled).toBe(true);
+  });
+});

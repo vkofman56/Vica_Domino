@@ -339,6 +339,7 @@ function buildCardEditorDOM() {
         <button id="game-view-var-btn"></button>
         <button id="game-view-flip-btn"></button>
         <button id="game-view-undo-btn" style="display:none;"></button>
+        <button id="game-view-erase-btn" style="opacity:0.4;"></button>
       </div>
       <div id="gm-popup" style="display:none;"></div>
       <div id="card-maker-save-overlay" style="display:none;"></div>
@@ -353,6 +354,11 @@ function loadCardEditorModule() {
 
   // Stubs for functions referenced by card-editor but defined elsewhere
   global.populateIntroGames = global.populateIntroGames || function() {};
+  global.populateLibraryGames = global.populateLibraryGames || function() {};
+  global.populateStartScreenGames = global.populateStartScreenGames || function() {};
+  global.populateCardMakerGames = global.populateCardMakerGames || function() {};
+  global.getGameCardSVG = global.getGameCardSVG || function() { return null; };
+  global.getGameVariationSVG = global.getGameVariationSVG || function() { return null; };
   global.currentGameViewIndex = -1;
   global.activeCardSet = 'numbers';
 
@@ -382,7 +388,9 @@ function loadCardEditorModule() {
       getGameSetKey,
       cardMakerLabelToGameLabel,
       toggleVariationVisibility, variationsHidden,
-      applyLibZoom
+      applyLibZoom,
+      toggleGameViewEraseMode, eraseGameCard, eraseGameRow,
+      gameViewEraseMode, openGameView, syncAbcCardsToGame
     };
   })()`;
   const exports = eval(wrapped);

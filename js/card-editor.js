@@ -3700,10 +3700,101 @@ var gameViewReturnScreen = 'card-library-screen';
 
 var currentGameViewIndex = -1;
 var lastDeletedGameViewVariation = null;
+var gameViewEraseMode = false;
 
 // getDominoKey, getExcludedDominos, saveExcludedDominos,
 // getExcludedVariations, saveExcludedVariations, getVariationKey
 // are now in js/shared-data.js
+
+function toggleGameViewEraseMode() {
+    gameViewEraseMode = !gameViewEraseMode;
+    var btn = document.getElementById('game-view-erase-btn');
+    if (btn) {
+        btn.style.opacity = gameViewEraseMode ? '1' : '0.4';
+        btn.style.boxShadow = gameViewEraseMode ? '0 0 0 3px #ff4444, 0 0 10px rgba(255,68,68,0.4)' : '';
+        btn.title = gameViewEraseMode ? 'Exit erase mode' : 'Erase cards from game';
+    }
+    var container = document.getElementById('game-view-cards');
+    if (!container) return;
+    if (gameViewEraseMode) {
+        container.classList.add('erase-mode');
+    } else {
+        container.classList.remove('erase-mode');
+    }
+}
+
+function eraseGameCard(label, gameIndex) {
+    var games = loadCustomGames();
+    var game = games[gameIndex];
+    if (!game) return;
+    // Count how many unique row letters remain (excluding the card being erased)
+    var rowLetter = label.charAt(0);
+    var remainingInRow = game.cards.filter(function(c) {
+        return !c.isVariation && c.label !== label && c.label.charAt(0) === rowLetter;
+    }).length;
+    var totalOrigCards = game.cards.filter(function(c) {
+        return !c.isVariation && c.label !== label;
+    }).length;
+    if (totalOrigCards < 2) {
+        alert('Cannot erase: game must keep at least 2 cards.');
+        return;
+    }
+    // Remove the card and its variations from the game
+    game.cards = game.cards.filter(function(c) {
+        if (c.label === label) return false;
+        if (c.isVariation && c.originalLabel === label) return false;
+        return true;
+    });
+    // Also clean up excluded dominos that reference this card
+    var excludedKeys = getExcludedDominos(gameIndex);
+    excludedKeys = excludedKeys.filter(function(key) {
+        return key.indexOf(label + ':') < 0 && key.indexOf(':' + label) < 0;
+    });
+    saveExcludedDominos(gameIndex, excludedKeys);
+    saveCustomGames(games);
+    // Refresh the game view
+    openGameView(gameIndex, gameViewReturnScreen);
+    // Re-enter erase mode
+    gameViewEraseMode = false;
+    toggleGameViewEraseMode();
+}
+
+function eraseGameRow(rowLetter, gameIndex) {
+    var games = loadCustomGames();
+    var game = games[gameIndex];
+    if (!game) return;
+    var labelsToRemove = [];
+    game.cards.forEach(function(c) {
+        if (c.label.charAt(0) === rowLetter) labelsToRemove.push(c.label);
+        if (c.isVariation && c.originalLabel && c.originalLabel.charAt(0) === rowLetter) labelsToRemove.push(c.label);
+    });
+    // Check that enough cards remain
+    var remaining = game.cards.filter(function(c) {
+        return !c.isVariation && labelsToRemove.indexOf(c.label) < 0;
+    });
+    if (remaining.length < 2) {
+        alert('Cannot erase row: game must keep at least 2 cards.');
+        return;
+    }
+    if (!confirm('Erase all "' + rowLetter + '" cards from this game?')) return;
+    game.cards = game.cards.filter(function(c) {
+        return labelsToRemove.indexOf(c.label) < 0;
+    });
+    // Clean up excluded dominos referencing erased cards
+    var excludedKeys = getExcludedDominos(gameIndex);
+    var origLabels = labelsToRemove.filter(function(l) { return l.length <= 3; }); // original labels only
+    excludedKeys = excludedKeys.filter(function(key) {
+        for (var i = 0; i < origLabels.length; i++) {
+            if (key.indexOf(origLabels[i] + ':') >= 0 || key.indexOf(':' + origLabels[i]) >= 0) return false;
+        }
+        return true;
+    });
+    saveExcludedDominos(gameIndex, excludedKeys);
+    saveCustomGames(games);
+    openGameView(gameIndex, gameViewReturnScreen);
+    gameViewEraseMode = false;
+    toggleGameViewEraseMode();
+}
 
 function openGameView(gameIndex, returnScreen) {
     // Save all card edits before leaving card maker
@@ -3712,14 +3803,55 @@ function openGameView(gameIndex, returnScreen) {
     var game = games[gameIndex];
     if (!game) return;
 
+    // Ensure the ABC card set is built if any game card comes from it,
+    // so findCardByLabel can find current (not stale) card designs
+    var needsAbc = game.cards.some(function(c) { return c.cardSet === 'ABC'; });
+    if (needsAbc) {
+        var abcDiv = document.getElementById('card-set-abc');
+        if (abcDiv && !abcDiv.querySelector('.library-card')) {
+            if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
+        }
+        // Sync latest ABC Card Maker designs into THIS game's card data
+        if (abcDiv) {
+            var abcMarkupMap = {};
+            abcDiv.querySelectorAll('.library-card').forEach(function(card) {
+                var lbl = card.querySelector('.library-label');
+                var svg = card.querySelector('svg');
+                if (!lbl || !svg) return;
+                var markup = svg.innerHTML.trim();
+                if (!markup) return;
+                var gameLabel = (typeof cardMakerLabelToGameLabel === 'function')
+                    ? cardMakerLabelToGameLabel(lbl.textContent)
+                    : lbl.textContent;
+                abcMarkupMap[gameLabel] = markup;
+            });
+            var abcSyncChanged = false;
+            game.cards.forEach(function(c) {
+                if (c.cardSet === 'ABC' && abcMarkupMap[c.label] && abcMarkupMap[c.label] !== c.svgMarkup) {
+                    c.svgMarkup = abcMarkupMap[c.label];
+                    abcSyncChanged = true;
+                }
+            });
+            if (abcSyncChanged) {
+                saveCustomGames(games);
+            }
+        }
+    }
+
     currentGameViewIndex = gameIndex;
     gameViewReturnScreen = returnScreen || 'card-library-screen';
+
+    // Reset erase mode
+    gameViewEraseMode = false;
+    var eraseBtn = document.getElementById('game-view-erase-btn');
+    if (eraseBtn) { eraseBtn.style.opacity = '0.4'; eraseBtn.style.boxShadow = ''; }
 
     document.getElementById('game-view-title').textContent = game.name;
     document.getElementById('game-view-desc').textContent = game.description;
 
     var container = document.getElementById('game-view-cards');
     container.innerHTML = '';
+    container.classList.remove('erase-mode');
 
     // Group cards by row letter (skip cards with empty SVG content)
     var cardsByRow = {};
@@ -3746,8 +3878,38 @@ function openGameView(gameIndex, returnScreen) {
 
         cardsByRow[row].forEach(function(cardInfo) {
             var cardEl = buildGameViewCard(cardInfo);
-            if (cardEl) rowDiv.appendChild(cardEl);
+            if (cardEl) {
+                // Only add erase button to non-variation cards
+                if (!cardInfo.isVariation) {
+                    cardEl.style.position = 'relative';
+                    var eraseBtn = document.createElement('button');
+                    eraseBtn.className = 'card-erase-btn';
+                    eraseBtn.textContent = '\u2715';
+                    eraseBtn.title = 'Erase card ' + cardInfo.label + ' from game';
+                    (function(lbl) {
+                        eraseBtn.onclick = function(e) {
+                            e.stopPropagation();
+                            eraseGameCard(lbl, gameIndex);
+                        };
+                    })(cardInfo.label);
+                    cardEl.appendChild(eraseBtn);
+                }
+                rowDiv.appendChild(cardEl);
+            }
         });
+
+        // Erase-row button (visible only in erase mode)
+        var eraseRowBtn = document.createElement('button');
+        eraseRowBtn.className = 'row-erase-btn';
+        eraseRowBtn.textContent = '\u2715 ' + row;
+        eraseRowBtn.title = 'Erase all "' + row + '" cards from game';
+        (function(r) {
+            eraseRowBtn.onclick = function(e) {
+                e.stopPropagation();
+                eraseGameRow(r, gameIndex);
+            };
+        })(row);
+        rowDiv.appendChild(eraseRowBtn);
 
         container.appendChild(rowDiv);
     });
@@ -5397,6 +5559,18 @@ function syncAbcCardsToGame() {
             changed = true;
         }
     });
+    // Also update svgMarkup on all OTHER games that use ABC cards
+    // (they don't get add/remove sync, just markup refresh)
+    for (var gi = 0; gi < games.length; gi++) {
+        if (gi === abcIdx) continue;
+        if (!games[gi].cards) continue;
+        games[gi].cards.forEach(function(c) {
+            if (c.cardSet === 'ABC' && markupMap[c.label] && markupMap[c.label] !== c.svgMarkup) {
+                c.svgMarkup = markupMap[c.label];
+                changed = true;
+            }
+        });
+    }
     if (changed) {
         saveCustomGames(games);
     }

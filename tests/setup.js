@@ -390,7 +390,8 @@ function loadCardEditorModule() {
       toggleVariationVisibility, variationsHidden,
       applyLibZoom,
       toggleGameViewEraseMode, eraseGameCard, eraseGameRow,
-      gameViewEraseMode, openGameView, syncAbcCardsToGame
+      gameViewEraseMode, openGameView, syncAbcCardsToGame,
+      getCardRow, addCardsToCurrentGame
     };
   })()`;
   const exports = eval(wrapped);

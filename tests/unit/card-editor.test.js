@@ -705,3 +705,186 @@ describe('eraseGameRow', () => {
     expect(alertCalled).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// getCardRow — effective row letter for a game card
+// ---------------------------------------------------------------------------
+describe('getCardRow', () => {
+  test('returns gameRow when set', () => {
+    expect(getCardRow({ label: 'A1', gameRow: 'D' })).toBe('D');
+  });
+
+  test('falls back to first character of label when gameRow is absent', () => {
+    expect(getCardRow({ label: 'B2' })).toBe('B');
+  });
+
+  test('falls back when gameRow is undefined', () => {
+    expect(getCardRow({ label: 'C3', gameRow: undefined })).toBe('C');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addCardsToCurrentGame — new cards go into a new alphabetically-named row
+// ---------------------------------------------------------------------------
+describe('addCardsToCurrentGame', () => {
+  beforeEach(() => {
+    // Stub openGameView and toggleGameViewAddCards to prevent DOM errors
+    global._origOpenGameView = global.openGameView;
+    global._origToggleAdd = global.toggleGameViewAddCards;
+    global.openGameView = function() {};
+    global.toggleGameViewAddCards = function() {};
+    global.gameViewAddMode = false;
+    global.gameViewReturnScreen = 'card-library-screen';
+    global.currentGameViewIndex = 0;
+  });
+
+  afterEach(() => {
+    global.openGameView = global._origOpenGameView;
+    global.toggleGameViewAddCards = global._origToggleAdd;
+  });
+
+  test('newly added card gets a gameRow property', () => {
+    // Start with a game that has cards in row A
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'A2', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'B1', svgContent: '<text>B</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const added = games[0].cards.find(c => c.label === 'B1');
+    expect(added).toBeTruthy();
+    expect(added.gameRow).toBeDefined();
+  });
+
+  test('new card row letter is the first unused alphabetical letter', () => {
+    // Row A is taken by existing cards
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'A2', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'B1', svgContent: '<text>B</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const added = games[0].cards.find(c => c.label === 'B1');
+    // A is used by existing cards, so new card should go to B
+    expect(added.gameRow).toBe('B');
+  });
+
+  test('skips row letters already used by existing cards', () => {
+    // Rows A and B are used
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>B</text>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'C1', svgContent: '<text>C</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const added = games[0].cards.find(c => c.label === 'C1');
+    // A and B are used, so new card goes to C
+    expect(added.gameRow).toBe('C');
+  });
+
+  test('skips rows used via gameRow property too', () => {
+    // Row A by label, row C by gameRow
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'X1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>X</text>', gameRow: 'B' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'D1', svgContent: '<text>D</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const added = games[0].cards.find(c => c.label === 'D1');
+    // A (by label) and B (by gameRow) used, so next free is C
+    expect(added.gameRow).toBe('C');
+  });
+
+  test('all cards in one batch get the same new row letter', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [
+        { label: 'C1', svgContent: '<text>C</text>' },
+        { label: 'D1', svgContent: '<text>D</text>' },
+      ],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const c1 = games[0].cards.find(c => c.label === 'C1');
+    const d1 = games[0].cards.find(c => c.label === 'D1');
+    expect(c1.gameRow).toBe('B');
+    expect(d1.gameRow).toBe('B');
+  });
+
+  test('does not add duplicate cards', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'A1', svgContent: '<text>A</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    expect(games[0].cards).toHaveLength(1);
+  });
+
+  test('openGameView groups cards by gameRow when set', () => {
+    // Restore real openGameView for this test
+    global.openGameView = global._origOpenGameView;
+
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'A2', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'B1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>B</text>', gameRow: 'C' },
+      ]
+    }]);
+
+    openGameView(0, 'card-library-screen');
+
+    const container = document.getElementById('game-view-cards');
+    const rows = container.querySelectorAll('.library-row');
+    // Should have 2 rows: A (for A1, A2) and C (for B1 with gameRow=C)
+    expect(rows).toHaveLength(2);
+  });
+});

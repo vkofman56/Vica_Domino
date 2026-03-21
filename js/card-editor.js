@@ -3731,14 +3731,23 @@ function toggleGameViewEraseMode() {
     }
 }
 
+// Get the effective row letter for a game card.
+// Uses the explicit gameRow property if set, otherwise falls back to
+// the first character of the card label.
+function getCardRow(card) {
+    return card.gameRow || card.label.charAt(0);
+}
+
 function eraseGameCard(label, gameIndex) {
     var games = loadCustomGames();
     var game = games[gameIndex];
     if (!game) return;
+    // Find the card being erased so we can use its effective row
+    var erasedCard = game.cards.find(function(c) { return c.label === label; });
+    var rowLetter = erasedCard ? getCardRow(erasedCard) : label.charAt(0);
     // Count how many unique row letters remain (excluding the card being erased)
-    var rowLetter = label.charAt(0);
     var remainingInRow = game.cards.filter(function(c) {
-        return !c.isVariation && c.label !== label && c.label.charAt(0) === rowLetter;
+        return !c.isVariation && c.label !== label && getCardRow(c) === rowLetter;
     }).length;
     var totalOrigCards = game.cards.filter(function(c) {
         return !c.isVariation && c.label !== label;
@@ -3773,8 +3782,11 @@ function eraseGameRow(rowLetter, gameIndex) {
     if (!game) return;
     var labelsToRemove = [];
     game.cards.forEach(function(c) {
-        if (c.label.charAt(0) === rowLetter) labelsToRemove.push(c.label);
-        if (c.isVariation && c.originalLabel && c.originalLabel.charAt(0) === rowLetter) labelsToRemove.push(c.label);
+        if (getCardRow(c) === rowLetter) labelsToRemove.push(c.label);
+        if (c.isVariation && c.originalLabel) {
+            var origCard = game.cards.find(function(o) { return o.label === c.originalLabel; });
+            if (origCard && getCardRow(origCard) === rowLetter) labelsToRemove.push(c.label);
+        }
     });
     // Check that enough cards remain
     var remaining = game.cards.filter(function(c) {
@@ -4030,13 +4042,27 @@ function addCardsToCurrentGame(cardDataArray, cardSetValue, gameIndex) {
         if (!c.isVariation) existing[c.label] = true;
     });
 
+    // Find the next available row letter (A-Z) not yet used by any card
+    var usedRows = {};
+    game.cards.forEach(function(c) {
+        usedRows[getCardRow(c)] = true;
+    });
+    var nextRow = 'A';
+    for (var code = 65; code <= 90; code++) {
+        if (!usedRows[String.fromCharCode(code)]) {
+            nextRow = String.fromCharCode(code);
+            break;
+        }
+    }
+
     cardDataArray.forEach(function(cd) {
         if (existing[cd.label]) return;
         game.cards.push({
             label: cd.label,
             isVariation: false,
             cardSet: cardSetValue,
-            svgMarkup: cd.svgContent
+            svgMarkup: cd.svgContent,
+            gameRow: nextRow
         });
         existing[cd.label] = true;
         added++;
@@ -4095,7 +4121,7 @@ function openGameView(gameIndex, returnScreen) {
     game.cards.forEach(function(c) {
         // Skip cards with no visual content
         if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
-        var row = c.label.charAt(0);
+        var row = getCardRow(c);
         if (!cardsByRow[row]) {
             cardsByRow[row] = [];
             rowOrder.push(row);

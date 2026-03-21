@@ -237,7 +237,6 @@ function loadGameCreatorModule() {
       mppSelectHalf, mppAssignCard, applyMppConfigToClone, updateMppHint,
       updateCombineButton, openCombineDialog, confirmCombineGames, cancelCombineGames,
       startCombinedGameFromMenu,
-      buildDefaultAbcGameCards,
       populateCardMakerGames
     };
   })()`;

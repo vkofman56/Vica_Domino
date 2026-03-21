@@ -13,48 +13,6 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// buildDefaultAbcGameCards
-// ---------------------------------------------------------------------------
-describe('buildDefaultAbcGameCards', () => {
-  test('returns 15 cards (5 letters x 3 per letter)', () => {
-    const cards = buildDefaultAbcGameCards();
-    expect(cards).toHaveLength(15);
-  });
-
-  test('each card has label, svgMarkup, cardSet, and isVariation', () => {
-    const cards = buildDefaultAbcGameCards();
-    cards.forEach(card => {
-      expect(card).toHaveProperty('label');
-      expect(card).toHaveProperty('svgMarkup');
-      expect(card).toHaveProperty('cardSet', 'ABC');
-      expect(card).toHaveProperty('isVariation', false);
-    });
-  });
-
-  test('labels follow A01-A03, B01-B03, ... E01-E03 format', () => {
-    const cards = buildDefaultAbcGameCards();
-    const labels = cards.map(c => c.label).sort();
-    const expected = [];
-    ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
-      for (let n = 1; n <= 3; n++) expected.push(letter + '0' + n);
-    });
-    expect(labels).toEqual(expected.sort());
-  });
-
-  test('first two cards per letter have text markup, third has icon', () => {
-    const cards = buildDefaultAbcGameCards();
-    ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
-      const letterCards = cards.filter(c => c.label.charAt(0) === letter);
-      // Cards 1 and 2 should have <text> element
-      expect(letterCards[0].svgMarkup).toContain('<text');
-      expect(letterCards[1].svgMarkup).toContain('<text');
-      // Card 3 uses the icon (different markup)
-      expect(letterCards[2].svgMarkup.length).toBeGreaterThan(0);
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Intro Page Game Selection
 // ---------------------------------------------------------------------------
 describe('populateIntroGames', () => {

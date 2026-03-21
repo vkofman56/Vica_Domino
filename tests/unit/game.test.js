@@ -188,6 +188,24 @@ describe('addCoins', () => {
 // ---------------------------------------------------------------------------
 describe('dealSunLevelCards', () => {
   beforeEach(() => {
+    // Provide a custom deck so getShuffledDeck returns cards
+    window.customGameDeck = [
+      { id: 1,  left: 'A1', right: 'A2', leftValue: 'A', rightValue: 'A' },
+      { id: 2,  left: 'A3', right: 'B1', leftValue: 'A', rightValue: 'B' },
+      { id: 3,  left: 'A4', right: 'C1', leftValue: 'A', rightValue: 'C' },
+      { id: 4,  left: 'A5', right: 'D1', leftValue: 'A', rightValue: 'D' },
+      { id: 5,  left: 'A6', right: 'E1', leftValue: 'A', rightValue: 'E' },
+      { id: 6,  left: 'B2', right: 'B3', leftValue: 'B', rightValue: 'B' },
+      { id: 7,  left: 'B4', right: 'C2', leftValue: 'B', rightValue: 'C' },
+      { id: 8,  left: 'B5', right: 'D2', leftValue: 'B', rightValue: 'D' },
+      { id: 9,  left: 'B6', right: 'E2', leftValue: 'B', rightValue: 'E' },
+      { id: 10, left: 'C3', right: 'C4', leftValue: 'C', rightValue: 'C' },
+      { id: 11, left: 'C5', right: 'D3', leftValue: 'C', rightValue: 'D' },
+      { id: 12, left: 'C6', right: 'E3', leftValue: 'C', rightValue: 'E' },
+      { id: 13, left: 'D4', right: 'D5', leftValue: 'D', rightValue: 'D' },
+      { id: 14, left: 'D6', right: 'E4', leftValue: 'D', rightValue: 'E' },
+      { id: 15, left: 'E5', right: 'E6', leftValue: 'E', rightValue: 'E' },
+    ];
     game.players = [
       { id: 'p1', name: 'Alice', hand: [] },
     ];
@@ -195,6 +213,10 @@ describe('dealSunLevelCards', () => {
     game.recentNonDoubles = [];
     game.recentDoublePositions = {};
     game._isFirstSunGame = false;
+  });
+
+  afterEach(() => {
+    delete window.customGameDeck;
   });
 
   test('deals 2 cards for circle level', () => {

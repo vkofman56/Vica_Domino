@@ -105,15 +105,6 @@ function startCustomGame(gameIndex, btnEl) {
     // Update subtitle
     document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
-    // Ensure ABC card set DOM is built so findCardByLabel resolves live designs
-    var needsAbc = game.cards.some(function(c) { return c.cardSet === 'ABC'; });
-    if (needsAbc) {
-        var abcDiv = document.getElementById('card-set-abc');
-        if (abcDiv && !abcDiv.querySelector('.library-card')) {
-            if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
-        }
-    }
-
     // Collect original (non-variation) cards, deduplicated by label
     // Skip cards with empty SVG content or cards deleted from card sets
     var origCards = [];
@@ -1018,114 +1009,6 @@ function populateCardMakerGames() {
     container.appendChild(btn);
 }
 
-// === Create built-in ABC game (only if it does not exist) ===
-// Game card labels use "A01" format to avoid clashing with Numbers & Dots "A1"
-function buildDefaultAbcGameCards() {
-    var letters = ['A', 'B', 'C', 'D', 'E'];
-    var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-    var abcCards = [];
-    letters.forEach(function(letter) {
-        for (var n = 1; n <= 3; n++) {
-            var label = letter + '0' + n;
-            var markup;
-            if (n <= 2) {
-                var color = colors[letter] || '#333';
-                markup = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + color + '">' + letter + '</text>';
-            } else {
-                markup = abcIcons[letter] ? abcIcons[letter].markup : '';
-            }
-            abcCards.push({
-                label: label,
-                isVariation: false,
-                svgMarkup: markup,
-                cardSet: 'ABC'
-            });
-        }
-    });
-    return abcCards;
-}
-// One-time migration: backfill missing svgMarkup on ABC game cards
-(function migrateAbcGameMarkup() {
-    var games = loadCustomGames();
-    for (var i = 0; i < games.length; i++) {
-        if (games[i].name === 'ABC') {
-            var hasMissing = false;
-            for (var j = 0; j < games[i].cards.length; j++) {
-                if (!games[i].cards[j].svgMarkup) { hasMissing = true; break; }
-            }
-            if (hasMissing) {
-                var defaults = {};
-                buildDefaultAbcGameCards().forEach(function(c) { defaults[c.label] = c.svgMarkup; });
-                games[i].cards.forEach(function(c) {
-                    if (!c.svgMarkup && defaults[c.label]) {
-                        c.svgMarkup = defaults[c.label];
-                    }
-                });
-                saveCustomGames(games);
-            }
-            return;
-        }
-    }
-})();
-
-// Migrate: ensure all game cards have svgMarkup (backfill from DOM for older games)
-(function migrateAllGameSvgMarkup() {
-    var games = loadCustomGames();
-    var changed = false;
-    games.forEach(function(game) {
-        if (!game.cards) return;
-        game.cards.forEach(function(c) {
-            if (c.svgMarkup) return; // already has markup
-            // Try to find card in DOM
-            var domCard = findCardByLabel(c.label, c.cardSet);
-            if (domCard) {
-                var svg = domCard.querySelector('svg');
-                if (svg && svg.innerHTML.trim()) {
-                    c.svgMarkup = svg.innerHTML;
-                    changed = true;
-                }
-            }
-        });
-    });
-    if (changed) {
-        saveCustomGames(games);
-    }
-})();
-
-// Migrate: backfill cardSet property on existing game cards
-(function migrateCardSetProperty() {
-    var games = loadCustomGames();
-    var changed = false;
-    games.forEach(function(game) {
-        if (!game.cards) return;
-        var setName = game.name === 'ABC' ? 'ABC' : 'Numbers and Dots';
-        game.cards.forEach(function(c) {
-            if (!c.cardSet) {
-                c.cardSet = setName;
-                changed = true;
-            }
-        });
-    });
-    if (changed) {
-        saveCustomGames(games);
-    }
-})();
-
-// Migrate: add gameName to combined game stages that don't have it yet
-(function migrateCombinedGameNames() {
-    var games = loadCustomGames();
-    var combinedGames = loadCombinedGames();
-    var changed = false;
-    combinedGames.forEach(function(cg) {
-        cg.stages.forEach(function(stage) {
-            if (!stage.gameName && games[stage.gameIndex]) {
-                stage.gameName = games[stage.gameIndex].name;
-                changed = true;
-            }
-        });
-    });
-    if (changed) saveCombinedGames(combinedGames);
-})();
 
 // Initialize game lists on page load
 populateLibraryGames();

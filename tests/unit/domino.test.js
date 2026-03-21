@@ -197,28 +197,38 @@ describe('getDisplayText', () => {
 // getShuffledDeck()
 // ---------------------------------------------------------------------------
 describe('getShuffledDeck', () => {
-  test('returns 15 cards', () => {
-    expect(getShuffledDeck()).toHaveLength(15);
+  afterEach(() => {
+    delete window.customGameDeck;
   });
 
-  test('returns copies, not references to original', () => {
-    const deck = getShuffledDeck();
-    deck[0].leftValue = 'Z';
-    // Original should be unchanged
-    expect(DOMINO_CARDS[0].leftValue).not.toBe('Z');
+  test('returns empty array when no custom deck is set', () => {
+    window.customGameDeck = null;
+    expect(getShuffledDeck()).toEqual([]);
   });
 
-  test('uses custom deck when set', () => {
+  test('returns shuffled copies of custom deck', () => {
     const customDeck = [
-      { id: 100, left: 'X1', right: 'X2', leftValue: 'X', rightValue: 'X' },
+      { id: 1, left: 'X1', right: 'Y1', leftValue: 'X', rightValue: 'Y' },
+      { id: 2, left: 'X2', right: 'Z1', leftValue: 'X', rightValue: 'Z' },
+      { id: 3, left: 'Y2', right: 'Z2', leftValue: 'Y', rightValue: 'Z' },
     ];
-    global.window = global.window || {};
     window.customGameDeck = customDeck;
     const deck = getShuffledDeck();
-    expect(deck).toHaveLength(1);
-    expect(deck[0].id).toBe(100);
-    // Cleanup
-    delete window.customGameDeck;
+    expect(deck).toHaveLength(3);
+    // Must be copies, not references
+    deck[0].leftValue = 'CHANGED';
+    expect(customDeck[0].leftValue).toBe('X');
+  });
+
+  test('returns all elements from custom deck', () => {
+    const customDeck = [
+      { id: 10, left: 'A1_d1L', right: 'B1_d1R', leftValue: 'A', rightValue: 'B' },
+      { id: 20, left: 'C1_d2L', right: 'D1_d2R', leftValue: 'C', rightValue: 'D' },
+    ];
+    window.customGameDeck = customDeck;
+    const deck = getShuffledDeck();
+    const ids = deck.map(c => c.id).sort((a, b) => a - b);
+    expect(ids).toEqual([10, 20]);
   });
 });
 
@@ -226,43 +236,67 @@ describe('getShuffledDeck', () => {
 // createDominoElement()
 // ---------------------------------------------------------------------------
 describe('createDominoElement', () => {
+  const testCard = { id: 1, left: 'A1', right: 'A2', leftValue: 'A', rightValue: 'A' };
+  const nonDoubleCard = { id: 2, left: 'A3', right: 'B1', leftValue: 'A', rightValue: 'B' };
+
   test('creates a div with domino class', () => {
-    const card = DOMINO_CARDS[0];
-    const el = createDominoElement(card);
+    const el = createDominoElement(testCard);
     expect(el.tagName).toBe('DIV');
     expect(el.classList.contains('domino')).toBe(true);
   });
 
   test('adds horizontal class by default', () => {
-    const el = createDominoElement(DOMINO_CARDS[0]);
+    const el = createDominoElement(testCard);
     expect(el.classList.contains('horizontal')).toBe(true);
   });
 
   test('adds vertical class when requested', () => {
-    const el = createDominoElement(DOMINO_CARDS[0], true);
+    const el = createDominoElement(testCard, true);
     expect(el.classList.contains('vertical')).toBe(true);
   });
 
   test('adds double class for double cards', () => {
-    const doubleCard = DOMINO_CARDS.find(c => isDouble(c));
-    const el = createDominoElement(doubleCard);
+    const el = createDominoElement(testCard);
     expect(el.classList.contains('double')).toBe(true);
   });
 
+  test('does not add double class for non-double cards', () => {
+    const el = createDominoElement(nonDoubleCard);
+    expect(el.classList.contains('double')).toBe(false);
+  });
+
   test('adds on-board class when specified', () => {
-    const el = createDominoElement(DOMINO_CARDS[0], false, true);
+    const el = createDominoElement(testCard, false, true);
     expect(el.classList.contains('on-board')).toBe(true);
   });
 
   test('sets data-card-id attribute', () => {
-    const card = DOMINO_CARDS[3];
-    const el = createDominoElement(card);
-    expect(el.dataset.cardId).toBe(String(card.id));
+    const el = createDominoElement(nonDoubleCard);
+    expect(el.dataset.cardId).toBe(String(nonDoubleCard.id));
   });
 
   test('contains two domino-half children', () => {
-    const el = createDominoElement(DOMINO_CARDS[0]);
+    const el = createDominoElement(testCard);
     const halves = el.querySelectorAll('.domino-half');
     expect(halves).toHaveLength(2);
+  });
+
+  test('populates halves with SVG when customGameSVGs are set', () => {
+    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgEl.innerHTML = '<circle cx="30" cy="30" r="10" fill="red"/>';
+    window.customGameSVGs = { 'A1': svgEl, 'A2': svgEl };
+    const el = createDominoElement(testCard);
+    const svgs = el.querySelectorAll('.custom-face');
+    expect(svgs).toHaveLength(2);
+    // Cleanup
+    delete window.customGameSVGs;
+  });
+
+  test('halves are empty when no customGameSVGs set', () => {
+    window.customGameSVGs = null;
+    const el = createDominoElement(testCard);
+    const halves = el.querySelectorAll('.domino-half');
+    expect(halves[0].children).toHaveLength(0);
+    expect(halves[1].children).toHaveLength(0);
   });
 });

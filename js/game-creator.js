@@ -134,17 +134,7 @@ function startCustomGame(gameIndex, btnEl) {
     origCards.forEach(function(c) { valueSet[c.label.charAt(0)] = true; });
     var values = Object.keys(valueSet).sort();
 
-    // Load saved variations from localStorage
-    var savedVars = [];
-    try {
-        var vd = localStorage.getItem('cardMakerVariations');
-        savedVars = vd ? JSON.parse(vd) : [];
-    } catch(e) {}
-
-    // Load per-game excluded variations
-    var excludedVars = getExcludedVariations(gameIndex);
-
-    // Build SVG pools: for each card, original + its non-excluded variations
+    // Build SVG pools: for each card, use original visual only
     var svgPools = {};
     // Also build markup-based pools for level icon previews (more robust)
     var svgMarkupPools = {};
@@ -164,13 +154,12 @@ function startCustomGame(gameIndex, btnEl) {
             fallbackSvg.innerHTML = c.svgMarkup;
             pool.push(fallbackSvg);
         }
-        var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
-        cardVars.forEach(function(v) {
-            var vKey = getVariationKey(v.originalLabel, v.transform);
-            if (excludedVars.indexOf(vKey) >= 0) return; // skip excluded
-            var varSvg = getGameVariationSVG(c, v.transform);
-            if (varSvg) pool.push(varSvg);
-        });
+        // Note: Card Maker variations (rotate/reflect transforms from
+        // cardMakerVariations) are intentionally NOT added to the pool here.
+        // Adding them caused letters/icons to appear randomly rotated in the
+        // game even though they looked correct in the domino list.  The game
+        // deck should use only the original card visuals that the user
+        // selected when building the game.
         svgPools[c.label] = pool;
     });
 
@@ -192,7 +181,7 @@ function startCustomGame(gameIndex, btnEl) {
             // Unique keys per domino half
             var leftKey = leftCard.label + '_d' + cardId + 'L';
             var rightKey = rightCard.label + '_d' + cardId + 'R';
-            // Randomly pick visual from pool (original + variations)
+            // Pick visual from pool (original only, no variation transforms)
             var leftPool = svgPools[leftCard.label];
             var rightPool = svgPools[rightCard.label];
             if (leftPool && leftPool.length > 0) {

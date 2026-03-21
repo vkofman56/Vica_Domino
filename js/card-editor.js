@@ -2041,7 +2041,7 @@ document.querySelector('#domino-library-screen .domino-library-content').addEven
                 info.transform = card.dataset.transform;
             }
             // Track which card set this card belongs to
-            info.cardSet = activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots';
+            info.cardSet = activeCardSet === 'abc' ? 'ABC' : (isCustomCardSet(activeCardSet) ? activeCardSet : 'Numbers and Dots');
             // Store SVG markup for self-contained game data
             if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
             gameMakerSelected.push(info);
@@ -3300,6 +3300,9 @@ function findCardByLabel(label, cardSet) {
         root = document.getElementById('card-set-abc');
     } else if (cardSet === 'Numbers and Dots') {
         root = document.getElementById('card-set-numbers');
+    } else if (cardSet && cardSet !== 'ABC' && cardSet !== 'Numbers and Dots') {
+        // Custom card set — look in #card-set-custom first
+        root = document.getElementById('card-set-custom');
     }
     if (!root) root = document.querySelector('#domino-library-screen .domino-library-content');
     // For ABC cards, game labels (A01) differ from Card Maker labels (A1)
@@ -3580,7 +3583,7 @@ function enterSelectionMode() {
                         info.transform = ec.transform;
                     }
                     // Preserve card set from existing data, or determine from active set
-                    info.cardSet = ec.cardSet || (activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots');
+                    info.cardSet = ec.cardSet || (activeCardSet === 'abc' ? 'ABC' : (isCustomCardSet(activeCardSet) ? activeCardSet : 'Numbers and Dots'));
                     // Store SVG markup for self-contained game data
                     var cardSvgEl = cardEl.querySelector('svg');
                     if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;

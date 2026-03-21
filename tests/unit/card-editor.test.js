@@ -888,3 +888,314 @@ describe('addCardsToCurrentGame', () => {
     expect(rows).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildAvailableCardsArea — accordion card set picker
+// ---------------------------------------------------------------------------
+describe('buildAvailableCardsArea', () => {
+  beforeEach(() => {
+    // Set up a game with one card so some cards are "available"
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' },
+      ]
+    }]);
+    global.currentGameViewIndex = 0;
+  });
+
+  test('renders accordion headers with correct CSS classes', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const headers = area.querySelectorAll('.add-cards-accordion-header');
+    expect(headers.length).toBeGreaterThanOrEqual(1);
+    headers.forEach(h => {
+      expect(h.classList.contains('add-cards-set-header')).toBe(true);
+      expect(h.classList.contains('add-cards-accordion-header')).toBe(true);
+    });
+  });
+
+  test('accordion bodies are hidden by default', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const bodies = area.querySelectorAll('.add-cards-accordion-body');
+    expect(bodies.length).toBeGreaterThanOrEqual(1);
+    bodies.forEach(body => {
+      expect(body.style.display).toBe('none');
+    });
+  });
+
+  test('clicking header expands its accordion body', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const header = area.querySelector('.add-cards-accordion-header');
+    const body = area.querySelector('.add-cards-accordion-body');
+
+    // Click to expand
+    header.click();
+    expect(body.style.display).toBe('block');
+    expect(header.classList.contains('expanded')).toBe(true);
+  });
+
+  test('clicking header again collapses its accordion body', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const header = area.querySelector('.add-cards-accordion-header');
+    const body = area.querySelector('.add-cards-accordion-body');
+
+    // Click to expand, then click to collapse
+    header.click();
+    header.click();
+    expect(body.style.display).toBe('none');
+    expect(header.classList.contains('expanded')).toBe(false);
+  });
+
+  test('card rows are placed inside accordion body, not directly in area', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    // Row divs should be inside accordion bodies
+    const rowsInBody = area.querySelectorAll('.add-cards-accordion-body .add-cards-row');
+    const rowsDirectInArea = Array.from(area.children).filter(
+      el => el.classList.contains('add-cards-row')
+    );
+    expect(rowsDirectInArea).toHaveLength(0);
+    expect(rowsInBody.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('header has "Click to expand" title', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const header = area.querySelector('.add-cards-accordion-header');
+    expect(header.title).toBe('Click to expand');
+  });
+
+  test('each card set source gets its own header-body pair', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const headers = area.querySelectorAll('.add-cards-accordion-header');
+    const bodies = area.querySelectorAll('.add-cards-accordion-body');
+    expect(headers.length).toBe(bodies.length);
+  });
+
+  test('multiple accordions toggle independently', () => {
+    // Add ABC cards so there are at least 2 accordion sections
+    const abcDiv = document.getElementById('card-set-abc');
+    abcDiv.innerHTML = `
+      <div class="library-card">
+        <div class="library-label">X1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>X</text></svg>
+        </div>
+      </div>
+    `;
+
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const headers = area.querySelectorAll('.add-cards-accordion-header');
+    const bodies = area.querySelectorAll('.add-cards-accordion-body');
+
+    if (headers.length >= 2) {
+      // Expand first
+      headers[0].click();
+      expect(bodies[0].style.display).toBe('block');
+      expect(bodies[1].style.display).toBe('none');
+
+      // Expand second — first stays open (independent)
+      headers[1].click();
+      expect(bodies[0].style.display).toBe('block');
+      expect(bodies[1].style.display).toBe('block');
+
+      // Collapse first — second stays open
+      headers[0].click();
+      expect(bodies[0].style.display).toBe('none');
+      expect(bodies[1].style.display).toBe('block');
+    }
+  });
+
+  test('clears area content before rebuilding', () => {
+    const area = document.createElement('div');
+    area.innerHTML = '<div class="old-content">stale</div>';
+
+    buildAvailableCardsArea(0, area);
+
+    expect(area.querySelector('.old-content')).toBeNull();
+  });
+
+  test('shows message when all cards are already in game', () => {
+    // Hide both built-in sets so only Numbers (from DOM) is a source
+    localStorage.setItem('deletedBuiltinSets', JSON.stringify(['abc']));
+    // Clear ABC DOM so it has no cards
+    document.getElementById('card-set-abc').innerHTML = '';
+
+    // Add all Numbers cards to the game
+    const numbersDiv = document.getElementById('card-set-numbers');
+    const allLabels = [];
+    numbersDiv.querySelectorAll('.library-card .library-label').forEach(lbl => {
+      allLabels.push(lbl.textContent);
+    });
+
+    const cards = allLabels.map(label => ({
+      label, isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>' + label + '</text>'
+    }));
+    saveCustomGames([{ name: 'Full', cards }]);
+
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    // Should show the "all cards already in game" message
+    const msg = area.querySelector('p');
+    expect(msg).not.toBeNull();
+    expect(msg.textContent).toContain('All available cards are already in this game');
+  });
+
+  test('does nothing for invalid game index', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(999, area);
+    // Area should be empty (innerHTML cleared, nothing added)
+    expect(area.children.length).toBe(0);
+  });
+
+  test('row buttons have correct title text', () => {
+    const area = document.createElement('div');
+    buildAvailableCardsArea(0, area);
+
+    const rowBtns = area.querySelectorAll('.add-row-btn');
+    rowBtns.forEach(btn => {
+      expect(btn.title).toContain('as a new line');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAvailableCardsFromSet
+// ---------------------------------------------------------------------------
+describe('getAvailableCardsFromSet', () => {
+  test('returns available Numbers and Dots cards not in game', () => {
+    const inGame = { 'A1': true };
+    const cards = getAvailableCardsFromSet(
+      { name: 'Numbers and Dots', key: 'numbers', cardSetValue: 'Numbers and Dots' },
+      inGame
+    );
+    // A1 is in game, so should not be in results
+    const labels = cards.map(c => c.label);
+    expect(labels).not.toContain('A1');
+    // A2 and B1 are in the DOM and not in game
+    expect(labels).toContain('A2');
+    expect(labels).toContain('B1');
+  });
+
+  test('returns empty when all cards are in game', () => {
+    const inGame = { 'A1': true, 'A2': true, 'B1': true };
+    const cards = getAvailableCardsFromSet(
+      { name: 'Numbers and Dots', key: 'numbers', cardSetValue: 'Numbers and Dots' },
+      inGame
+    );
+    expect(cards).toHaveLength(0);
+  });
+
+  test('returns ABC cards from DOM', () => {
+    const abcDiv = document.getElementById('card-set-abc');
+    abcDiv.innerHTML = `
+      <div class="library-card">
+        <div class="library-label">A1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>ABC-A</text></svg>
+        </div>
+      </div>
+    `;
+    const cards = getAvailableCardsFromSet(
+      { name: 'ABC', key: 'abc', cardSetValue: 'ABC' },
+      {}
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0].label).toBe('A1');
+  });
+
+  test('returns custom set cards from localStorage', () => {
+    const customCards = [
+      { label: 'C1', svgContent: '<text>C</text>' },
+      { label: 'C2', svgContent: '<text>C2</text>' },
+    ];
+    localStorage.setItem('customDrawnCards_MySet', JSON.stringify(customCards));
+
+    const cards = getAvailableCardsFromSet(
+      { name: 'MySet', key: 'MySet', cardSetValue: 'MySet', isCustom: true },
+      { 'C1': true }
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0].label).toBe('C2');
+  });
+
+  test('skips custom cards with empty svgContent', () => {
+    const customCards = [
+      { label: 'D1', svgContent: '' },
+      { label: 'D2', svgContent: '   ' },
+      { label: 'D3', svgContent: '<text>D3</text>' },
+    ];
+    localStorage.setItem('customDrawnCards_TestSet', JSON.stringify(customCards));
+
+    const cards = getAvailableCardsFromSet(
+      { name: 'TestSet', key: 'TestSet', cardSetValue: 'TestSet', isCustom: true },
+      {}
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0].label).toBe('D3');
+  });
+
+  test('returns empty for custom set with no localStorage data', () => {
+    const cards = getAvailableCardsFromSet(
+      { name: 'Nonexistent', key: 'Nonexistent', cardSetValue: 'Nonexistent', isCustom: true },
+      {}
+    );
+    expect(cards).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toggleGameViewAddCards
+// ---------------------------------------------------------------------------
+describe('toggleGameViewAddCards', () => {
+  beforeEach(() => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' },
+      ]
+    }]);
+    global.currentGameViewIndex = 0;
+    global.gameViewAddMode = false;
+    // Remove any existing add-cards area
+    var existing = document.getElementById('game-view-add-cards-area');
+    if (existing) existing.remove();
+  });
+
+  test('creates add-cards area on first toggle', () => {
+    toggleGameViewAddCards();
+    const area = document.getElementById('game-view-add-cards-area');
+    expect(area).not.toBeNull();
+    expect(area.style.display).toBe('block');
+  });
+
+  test('hides add-cards area on second toggle', () => {
+    toggleGameViewAddCards();
+    toggleGameViewAddCards();
+    const area = document.getElementById('game-view-add-cards-area');
+    expect(area.style.display).toBe('none');
+  });
+
+  test('toggles add button opacity to indicate active state', () => {
+    const btn = document.getElementById('game-view-add-btn');
+    toggleGameViewAddCards();
+    expect(btn.style.opacity).toBe('1');
+    toggleGameViewAddCards();
+    expect(btn.style.opacity).toBe('');
+  });
+});

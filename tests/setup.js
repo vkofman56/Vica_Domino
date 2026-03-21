@@ -340,6 +340,7 @@ function buildCardEditorDOM() {
         <button id="game-view-flip-btn"></button>
         <button id="game-view-undo-btn" style="display:none;"></button>
         <button id="game-view-erase-btn" style="opacity:0.4;"></button>
+        <button id="game-view-add-btn" style="opacity:0.4;"></button>
       </div>
       <div id="gm-popup" style="display:none;"></div>
       <div id="card-maker-save-overlay" style="display:none;"></div>
@@ -391,7 +392,9 @@ function loadCardEditorModule() {
       applyLibZoom,
       toggleGameViewEraseMode, eraseGameCard, eraseGameRow,
       gameViewEraseMode, openGameView, syncAbcCardsToGame,
-      getCardRow, addCardsToCurrentGame
+      getCardRow, addCardsToCurrentGame,
+      buildAvailableCardsArea, getAvailableCardsFromSet,
+      toggleGameViewAddCards, gameViewAddMode
     };
   })()`;
   const exports = eval(wrapped);

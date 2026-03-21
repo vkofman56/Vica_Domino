@@ -3804,6 +3804,254 @@ function eraseGameRow(rowLetter, gameIndex) {
     toggleGameViewEraseMode();
 }
 
+// --- Add cards to game from game view ---
+var gameViewAddMode = false;
+
+function toggleGameViewAddCards() {
+    var area = document.getElementById('game-view-add-cards-area');
+    var btn = document.getElementById('game-view-add-btn');
+    if (area && area.style.display !== 'none') {
+        // Hide
+        area.style.display = 'none';
+        if (btn) { btn.style.opacity = ''; btn.style.boxShadow = ''; }
+        gameViewAddMode = false;
+        return;
+    }
+    gameViewAddMode = true;
+    if (btn) { btn.style.opacity = '1'; btn.style.boxShadow = '0 0 8px #7eff7e'; }
+    // Build or show area
+    if (!area) {
+        area = document.createElement('div');
+        area.id = 'game-view-add-cards-area';
+        var container = document.getElementById('game-view-cards');
+        // Insert before buttons row (last few children) but after card rows
+        container.appendChild(area);
+    }
+    area.style.display = 'block';
+    buildAvailableCardsArea(currentGameViewIndex, area);
+}
+
+function buildAvailableCardsArea(gameIndex, area) {
+    area.innerHTML = '';
+    var games = loadCustomGames();
+    var game = games[gameIndex];
+    if (!game) return;
+
+    // Collect labels already in this game (non-variation originals)
+    var inGame = {};
+    game.cards.forEach(function(c) {
+        if (!c.isVariation) inGame[c.label] = true;
+    });
+
+    // Determine which card sets this game uses
+    var gameSets = {};
+    game.cards.forEach(function(c) {
+        if (c.cardSet) gameSets[c.cardSet] = true;
+    });
+
+    // Collect all card set sources to enumerate
+    var sources = [];
+    // Numbers and Dots
+    sources.push({ name: 'Numbers and Dots', key: 'numbers', cardSetValue: 'Numbers and Dots' });
+    // ABC
+    sources.push({ name: 'ABC', key: 'abc', cardSetValue: 'ABC' });
+    // Custom sets
+    var customSets = loadCardSets();
+    customSets.forEach(function(setName) {
+        sources.push({ name: setName, key: setName, cardSetValue: setName, isCustom: true });
+    });
+
+    // Check if any deleted built-in sets should be hidden
+    var deletedBuiltin = [];
+    try {
+        deletedBuiltin = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+    } catch(e) {}
+
+    var hasAnyAvailable = false;
+
+    sources.forEach(function(source) {
+        // Skip deleted built-in sets
+        if (!source.isCustom && deletedBuiltin.indexOf(source.key) >= 0) return;
+
+        var availableCards = getAvailableCardsFromSet(source, inGame);
+        if (availableCards.length === 0) return;
+
+        hasAnyAvailable = true;
+
+        // Set header
+        var setHeader = document.createElement('div');
+        setHeader.className = 'add-cards-set-header';
+        setHeader.textContent = source.name;
+        area.appendChild(setHeader);
+
+        // Group by row letter
+        var rowMap = {};
+        var rowOrder = [];
+        availableCards.forEach(function(c) {
+            var row = c.label.charAt(0);
+            if (!rowMap[row]) {
+                rowMap[row] = [];
+                rowOrder.push(row);
+            }
+            rowMap[row].push(c);
+        });
+        rowOrder.sort();
+
+        rowOrder.forEach(function(rowLetter) {
+            var rowDiv = document.createElement('div');
+            rowDiv.className = 'add-cards-row';
+
+            // Row add button (add all cards in this row)
+            var rowBtn = document.createElement('button');
+            rowBtn.className = 'add-row-btn';
+            rowBtn.textContent = '+ ' + rowLetter;
+            rowBtn.title = 'Add all "' + rowLetter + '" cards';
+            (function(cards, src) {
+                rowBtn.onclick = function() {
+                    addCardsToCurrentGame(cards, src.cardSetValue, gameIndex);
+                };
+            })(rowMap[rowLetter], source);
+            rowDiv.appendChild(rowBtn);
+
+            // Individual cards
+            rowMap[rowLetter].forEach(function(cardData) {
+                var cardEl = document.createElement('div');
+                cardEl.className = 'add-card-thumb';
+                cardEl.title = 'Add ' + cardData.label;
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', '0 0 60 60');
+                if (cardData.svgContent) svg.innerHTML = cardData.svgContent;
+                cardEl.appendChild(svg);
+                var labelEl = document.createElement('div');
+                labelEl.className = 'add-card-label';
+                labelEl.textContent = cardData.label;
+                cardEl.appendChild(labelEl);
+                (function(cd, src) {
+                    cardEl.onclick = function() {
+                        addCardsToCurrentGame([cd], src.cardSetValue, gameIndex);
+                    };
+                })(cardData, source);
+                rowDiv.appendChild(cardEl);
+            });
+
+            area.appendChild(rowDiv);
+        });
+    });
+
+    if (!hasAnyAvailable) {
+        var msg = document.createElement('p');
+        msg.style.cssText = 'color:rgba(255,255,255,0.5);font-size:0.9rem;margin:10px 0;';
+        msg.textContent = 'All available cards are already in this game.';
+        area.appendChild(msg);
+    }
+}
+
+function getAvailableCardsFromSet(source, inGame) {
+    var cards = [];
+    if (source.key === 'numbers') {
+        // Get cards from the Numbers DOM
+        var container = document.getElementById('card-set-numbers');
+        if (container) {
+            container.querySelectorAll('.library-card:not(.variation)').forEach(function(cardEl) {
+                var lbl = cardEl.querySelector('.library-label');
+                var svg = cardEl.querySelector('svg');
+                if (!lbl || !svg) return;
+                var label = lbl.textContent;
+                if (inGame[label]) return;
+                var content = svg.innerHTML.trim();
+                if (!content) return;
+                cards.push({ label: label, svgContent: content });
+            });
+        }
+        // Also check orphaned rows
+        var content = document.querySelector('#domino-library-screen .domino-library-content');
+        if (content) {
+            var children = content.children;
+            for (var ci = 0; ci < children.length; ci++) {
+                var ch = children[ci];
+                if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc' || ch.id === 'card-set-custom') continue;
+                if (!ch.classList.contains('library-row')) continue;
+                ch.querySelectorAll('.library-card:not(.variation)').forEach(function(cardEl) {
+                    var lbl = cardEl.querySelector('.library-label');
+                    var svg = cardEl.querySelector('svg');
+                    if (!lbl || !svg) return;
+                    var label = lbl.textContent;
+                    if (inGame[label]) return;
+                    var svgContent = svg.innerHTML.trim();
+                    if (!svgContent) return;
+                    cards.push({ label: label, svgContent: svgContent });
+                });
+            }
+        }
+    } else if (source.key === 'abc') {
+        // Get cards from the ABC DOM (build it if needed)
+        var abcDiv = document.getElementById('card-set-abc');
+        if (abcDiv && !abcDiv.querySelector('.library-card')) {
+            if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
+        }
+        if (abcDiv) {
+            abcDiv.querySelectorAll('.library-card:not(.variation)').forEach(function(cardEl) {
+                var lbl = cardEl.querySelector('.library-label');
+                var svg = cardEl.querySelector('svg');
+                if (!lbl || !svg) return;
+                var label = lbl.textContent;
+                if (inGame[label]) return;
+                var content = svg.innerHTML.trim();
+                if (!content) return;
+                cards.push({ label: label, svgContent: content });
+            });
+        }
+    } else if (source.isCustom) {
+        // Custom set - read from localStorage
+        try {
+            var raw = localStorage.getItem('customDrawnCards_' + source.key);
+            if (raw) {
+                var items = JSON.parse(raw);
+                items.forEach(function(item) {
+                    if (inGame[item.label]) return;
+                    if (!item.svgContent || !item.svgContent.trim()) return;
+                    cards.push({ label: item.label, svgContent: item.svgContent });
+                });
+            }
+        } catch(e) {}
+    }
+    return cards;
+}
+
+function addCardsToCurrentGame(cardDataArray, cardSetValue, gameIndex) {
+    var games = loadCustomGames();
+    var game = games[gameIndex];
+    if (!game) return;
+
+    var added = 0;
+    // Build set of existing labels to avoid duplicates
+    var existing = {};
+    game.cards.forEach(function(c) {
+        if (!c.isVariation) existing[c.label] = true;
+    });
+
+    cardDataArray.forEach(function(cd) {
+        if (existing[cd.label]) return;
+        game.cards.push({
+            label: cd.label,
+            isVariation: false,
+            cardSet: cardSetValue,
+            svgMarkup: cd.svgContent
+        });
+        existing[cd.label] = true;
+        added++;
+    });
+
+    if (added === 0) return;
+
+    saveCustomGames(games);
+    // Refresh game view
+    openGameView(gameIndex, gameViewReturnScreen);
+    // Re-open the add cards area
+    gameViewAddMode = false;
+    toggleGameViewAddCards();
+}
+
 function openGameView(gameIndex, returnScreen) {
     // Save all card edits before leaving card maker
     if (typeof saveVariations === 'function') saveVariations();
@@ -3828,6 +4076,11 @@ function openGameView(gameIndex, returnScreen) {
     gameViewEraseMode = false;
     var eraseBtn = document.getElementById('game-view-erase-btn');
     if (eraseBtn) { eraseBtn.style.opacity = '0.4'; eraseBtn.style.boxShadow = ''; }
+
+    // Reset add-cards mode
+    gameViewAddMode = false;
+    var addBtn = document.getElementById('game-view-add-btn');
+    if (addBtn) { addBtn.style.opacity = ''; addBtn.style.boxShadow = ''; }
 
     document.getElementById('game-view-title').textContent = game.name;
     document.getElementById('game-view-desc').textContent = game.description;

@@ -3288,6 +3288,12 @@ function loadDeferredVariations(setType) {
     _deferredVariations[setType] = [];
 }
 
+function gameLabelToCardMakerLabel(gameLabel) {
+    // Reverse of cardMakerLabelToGameLabel: A01 -> A1, B02 -> B2, etc.
+    var m = gameLabel.match(/^([A-Z])0(\d)$/);
+    return m ? m[1] + m[2] : gameLabel;
+}
+
 function findCardByLabel(label, cardSet) {
     var root;
     if (cardSet === 'ABC') {
@@ -3296,10 +3302,12 @@ function findCardByLabel(label, cardSet) {
         root = document.getElementById('card-set-numbers');
     }
     if (!root) root = document.querySelector('#domino-library-screen .domino-library-content');
+    // For ABC cards, game labels (A01) differ from Card Maker labels (A1)
+    var altLabel = (cardSet === 'ABC') ? gameLabelToCardMakerLabel(label) : null;
     var cards = root.querySelectorAll('.library-card:not(.variation)');
     for (var i = 0; i < cards.length; i++) {
         var lbl = cards[i].querySelector('.library-label');
-        if (lbl && lbl.textContent === label) return cards[i];
+        if (lbl && (lbl.textContent === label || (altLabel && lbl.textContent === altLabel))) return cards[i];
     }
     return null;
 }
@@ -3804,8 +3812,9 @@ function openGameView(gameIndex, returnScreen) {
     if (!game) return;
 
     // Ensure the ABC card set DOM is built so findCardByLabel can resolve
-    // cards for the game named "ABC". Other games use their own stored svgMarkup.
-    if (game.name === 'ABC') {
+    // live card designs for any game that uses ABC cards.
+    var needsAbc = game.cards.some(function(c) { return c.cardSet === 'ABC'; });
+    if (needsAbc) {
         var abcDiv = document.getElementById('card-set-abc');
         if (abcDiv && !abcDiv.querySelector('.library-card')) {
             if (typeof buildAbcCardSet === 'function') buildAbcCardSet();

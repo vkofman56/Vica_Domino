@@ -424,6 +424,37 @@ describe('findCardByLabel', () => {
     const card = findCardByLabel('A1');
     expect(card).not.toBeNull();
   });
+
+  test('finds ABC cards by game label format (A01 matches A1 in DOM)', () => {
+    // Build ABC card set in DOM with Card Maker labels (A1, B1, etc.)
+    var abcDiv = document.getElementById('card-set-abc');
+    abcDiv.innerHTML = `
+      <div class="library-card">
+        <div class="library-label">A1</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>ABC-A1</text></svg>
+        </div>
+      </div>
+      <div class="library-card">
+        <div class="library-label">B2</div>
+        <div class="domino-half-preview">
+          <svg viewBox="0 0 60 60"><text>ABC-B2</text></svg>
+        </div>
+      </div>
+    `;
+    // Game labels use A01 format — should still find A1
+    var card = findCardByLabel('A01', 'ABC');
+    expect(card).not.toBeNull();
+    expect(card.querySelector('.library-label').textContent).toBe('A1');
+
+    var card2 = findCardByLabel('B02', 'ABC');
+    expect(card2).not.toBeNull();
+    expect(card2.querySelector('.library-label').textContent).toBe('B2');
+
+    // Direct Card Maker label should still work too
+    var card3 = findCardByLabel('A1', 'ABC');
+    expect(card3).not.toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -105,6 +105,15 @@ function startCustomGame(gameIndex, btnEl) {
     // Update subtitle
     document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
+    // Ensure ABC card set DOM is built so findCardByLabel resolves live designs
+    var needsAbc = game.cards.some(function(c) { return c.cardSet === 'ABC'; });
+    if (needsAbc) {
+        var abcDiv = document.getElementById('card-set-abc');
+        if (abcDiv && !abcDiv.querySelector('.library-card')) {
+            if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
+        }
+    }
+
     // Collect original (non-variation) cards, deduplicated by label
     // Skip cards with empty SVG content or cards deleted from card sets
     var origCards = [];

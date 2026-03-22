@@ -132,9 +132,33 @@ class VicaDominoGame {
         this.firstWinner = null; // The first player to finish
         this.playerIcons = {}; // Track selected icons for each player
         this.selectedLevel = localStorage.getItem('vicaSelectedLevel') || 'circle';
+        this.currentTimerDuration = 20; // Adaptive timer for Xeno games
+        this.consecutiveWinsAtMin = 0; // Track consecutive wins at T=4 or T=3
+        this.firstWinTimestamp = null; // Track when first player won (for tie detection)
+        this.isTie = false; // Whether both players found double simultaneously
+        this.recentDoubles = []; // Track last 2 rounds' double IDs (avoid same double for 2 rounds)
+        this.recentNonDoubles = []; // Track last round's non-double IDs (avoid same non-double next round)
+        this.recentDoublePositions = {}; // Track double positions per player (avoid same position 3x)
+        this._playerClickBuffers = {}; // Multi-press detection per player
+        this._playerClickTimers = {};
+        this._isFirstSunGame = true; // Show tutorial finger on first game
+        this._gameRound = 0; // Incremented each new game to guard against stale timeouts
+        this._singlePlayerWins = 0; // Track wins to hide tutorial elements progressively
+        this._multiPlayerWins = 0; // Track completed rounds for 2+ players
+
+        // Combined game state
+        this.combinedGame = null; // { config, currentStage }
+        this.playerCoins = {}; // { playerId: coinCount }
+        this.playerGems = {}; // { playerId: gemCount }
+        this.stageGems = {}; // { playerId: gemsEarnedThisStage }
+        this._consecutiveProtectedMistakes = {}; // { playerId: count } for gem→coins conversion
+        this._celebrationAnimFrame = null;
 
         this.initEventListeners();
         this.initGameLevelSelector();
+
+        // Disable right-click context menu during the game
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     initEventListeners() {
@@ -147,7 +171,7 @@ class VicaDominoGame {
         document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
 
         // Draw from bank
-        document.getElementById('draw-btn').addEventListener('click', () => this.drawFromBank());
+        document.getElementById('bank-draw-btn').addEventListener('click', () => this.drawFromBank());
 
         // Pass turn
         document.getElementById('pass-btn').addEventListener('click', () => this.passTurn());
@@ -161,15 +185,73 @@ class VicaDominoGame {
         // Play again (from modal)
         document.getElementById('play-again-btn').addEventListener('click', () => this.resetToSetup());
 
+        // Back arrow button (game screen)
+        document.getElementById('back-arrow-btn').addEventListener('click', () => this.resetToSetup());
+
+        // Back arrow button (player names/icon selection screen)
+        document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
+
+        // Back arrow button (start screen -> intro screen)
+        document.getElementById('back-to-intro-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+        });
+
+        // Creator screen: "Games" button -> open intro screen (game selection)
+        document.getElementById('creator-games-btn').addEventListener('click', () => {
+            document.getElementById('creator-screen').style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+        });
+
+        // Creator screen: "Create and Edit" button -> open card library
+        document.getElementById('creator-create-edit-btn').addEventListener('click', () => this.showCreateEdit());
+
+        // Back from intro screen to creator screen
+        document.getElementById('back-to-creator-btn').addEventListener('click', () => {
+            document.getElementById('intro-screen').style.display = 'none';
+            document.getElementById('creator-screen').style.display = 'flex';
+        });
+
+        // Back from create-edit screen
+        document.getElementById('back-from-create-edit-btn').addEventListener('click', () => this.hideCreateEdit());
+
+        // "Library" button -> open card library screen
+        document.getElementById('card-library-btn').addEventListener('click', () => this.showCardLibrary());
+
+        // Back from card library screen
+        document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
+
+        // Back from library set view
+        document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());
+
+        // Back from domino library screen (Card Maker -> Library)
+        document.getElementById('back-from-library-btn').addEventListener('click', () => {
+            if (typeof leaveCardMaker === 'function') {
+                leaveCardMaker();
+            } else {
+                this.hideDominoLibrary();
+            }
+        });
+
         // Keyboard controls for Sun level game
         document.addEventListener('keydown', (e) => this.handleKeyPress(e));
     }
 
     handleKeyPress(e) {
+        let key = e.key.toUpperCase();
+
+        // W or P to play again when game is won
+        if (this.gamePhase === 'sunLevelWon') {
+            if (key === 'W' || key === 'P') {
+                this.playAgain();
+            }
+            return;
+        }
+
         // Only handle in Sun level game phase
         if (this.gamePhase !== 'sunLevel') return;
 
-        const key = e.key;
+        key = e.key;
 
         // Player 1 (left side) keys: 1, 2, 3, 4 for dominos left to right
         const player1Keys = { '1': 0, '2': 1, '3': 2, '4': 3 };
@@ -182,7 +264,13 @@ class VicaDominoGame {
                 const cardIndex = player1Keys[key];
                 const player = this.players[0];
                 if (player.hand[cardIndex]) {
-                    this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                    if ((this._singlePlayerWins || 0) < 1) {
+                        this.showFingerPush(0, cardIndex, () => {
+                            this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                        });
+                    } else {
+                        this.handleSunLevelCardClick(player.hand[cardIndex], 0, cardIndex);
+                    }
                 }
             }
         } else if (this.players.length === 2) {
@@ -237,6 +325,7 @@ class VicaDominoGame {
         });
     }
 
+
     // Play disapproval sound using Web Audio API
     playWrongSound() {
         try {
@@ -257,6 +346,90 @@ class VicaDominoGame {
 
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
+    // Play continuous descending disapproval sound for game loss
+    playLossSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const t = ctx.currentTime;
+            const duration = 2.0;
+
+            // Main tone: continuous smooth descending slide
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(500, t);
+            osc1.frequency.exponentialRampToValueAtTime(120, t + duration);
+            gain1.gain.setValueAtTime(0.25, t);
+            gain1.gain.setValueAtTime(0.25, t + duration * 0.6);
+            gain1.gain.exponentialRampToValueAtTime(0.01, t + duration);
+            osc1.start(t);
+            osc1.stop(t + duration);
+
+            // Second voice: lower octave for depth
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(250, t);
+            osc2.frequency.exponentialRampToValueAtTime(60, t + duration);
+            gain2.gain.setValueAtTime(0.15, t);
+            gain2.gain.setValueAtTime(0.15, t + duration * 0.6);
+            gain2.gain.exponentialRampToValueAtTime(0.01, t + duration);
+            osc2.start(t);
+            osc2.stop(t + duration);
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
+    // Play tutorial voice: "Select double…"
+    playSelectDoubleVoice() {
+        try {
+            const audio = new Audio('audio/select-double.mp3?v=5');
+            audio.volume = 0.8;
+            audio.play().catch(() => {});
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    }
+
+    // Play glin-glin sound when coins convert to gem
+    playGlinGlinSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // First glin
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(1200, ctx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.1);
+            gain1.gain.setValueAtTime(0.25, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc1.start(ctx.currentTime);
+            osc1.stop(ctx.currentTime + 0.2);
+            // Second glin (higher pitch, slightly delayed)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(1600, ctx.currentTime + 0.15);
+            osc2.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + 0.25);
+            gain2.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.15);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc2.start(ctx.currentTime + 0.15);
+            osc2.stop(ctx.currentTime + 0.4);
         } catch (e) {
             console.log('Audio not supported');
         }
@@ -348,6 +521,10 @@ class VicaDominoGame {
                     btn.classList.remove('icon-taken');
                 }
             });
+
+            // Move taken icons to the end of the row
+            const takenBtns = selector.querySelectorAll('.icon-btn.icon-taken');
+            takenBtns.forEach(btn => selector.appendChild(btn));
         });
     }
 
@@ -376,6 +553,7 @@ class VicaDominoGame {
         h3Elements.forEach(h3 => h3.style.display = 'none');
 
         // Hide original containers
+        document.querySelector('.setup-columns').style.display = 'none';
         document.querySelector('.game-level-select').style.display = 'none';
         document.querySelector('.player-select').style.display = 'none';
 
@@ -398,7 +576,16 @@ class VicaDominoGame {
         // Clone the selected player button
         const selectedPlayerBtn = e.target.cloneNode(true);
         selectedPlayerBtn.style.display = 'inline-block';
+        selectedPlayerBtn.style.marginTop = '-35pt';
+        selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
+        selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
         selectedRow.appendChild(selectedPlayerBtn);
+
+        // Preserve start button if it was moved into name-inputs (from Xeno row)
+        const startBtn = document.getElementById('start-game-btn');
+        if (startBtn && startBtn.closest('#name-inputs')) {
+            document.getElementById('player-names').appendChild(startBtn);
+        }
 
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
@@ -406,34 +593,40 @@ class VicaDominoGame {
             const playerRow = document.createElement('div');
             playerRow.className = 'player-input-row';
 
-            // Create icon section with label
+            // Create icon section with label (only show label for first player row when 2 players)
             const iconSection = document.createElement('div');
             iconSection.className = 'input-section';
-            const iconLabel = document.createElement('div');
-            iconLabel.className = 'input-label';
-            iconLabel.textContent = 'Choose the icon';
-            iconSection.appendChild(iconLabel);
+            if (i === 0 || count === 1) {
+                const iconLabel = document.createElement('div');
+                iconLabel.className = 'input-label';
+                iconLabel.textContent = 'Choose the icon';
+                iconSection.appendChild(iconLabel);
+            }
             const iconSelector = this.createIconSelector(i);
             iconSection.appendChild(iconSelector);
             playerRow.appendChild(iconSection);
 
-            // Create name section with label
+            // Create name section with label (only show label for first player row when 2 players)
             const nameSection = document.createElement('div');
             nameSection.className = 'input-section name-section';
-            const nameLabel = document.createElement('div');
-            nameLabel.className = 'input-label';
-            nameLabel.textContent = 'Type your name';
-            nameSection.appendChild(nameLabel);
+            if (i === 0 || count === 1) {
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'input-label';
+                nameLabel.textContent = 'Type your name';
+                nameSection.appendChild(nameLabel);
+            }
 
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            // Use "Player's Name" for single player with Xeno, otherwise "Player X name"
-            const placeholderName = (count === 1 && includeXeno) ? "Player's Name" : `Player ${i + 1} name`;
-            input.placeholder = `${i + 1}. ${placeholderName}`;
+            // No number prefix for single-with-Xeno or 2-player games
+            const isSingleWithXeno = (count === 1 && includeXeno);
+            const noPrefix = isSingleWithXeno || count === 2;
+            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1}`;
+            input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
             input.value = '';
             input.dataset.playerIndex = i;
-            input.dataset.prefix = `${i + 1}.  `;
+            input.dataset.prefix = noPrefix ? '' : `${i + 1}.  `;
 
             // On focus, set the prefix and place cursor after it
             input.addEventListener('focus', (e) => {
@@ -503,7 +696,7 @@ class VicaDominoGame {
             // Xeno name input (disabled)
             const xenoInput = document.createElement('input');
             xenoInput.type = 'text';
-            xenoInput.value = `${xenoNumber}.  Xeno`;
+            xenoInput.value = 'Xeno ⏳';
             xenoInput.disabled = true;
             xenoInput.className = 'xeno-input';
             xenoInput.style.cssText = `
@@ -518,12 +711,23 @@ class VicaDominoGame {
                 color: #FF69B4;
                 font-weight: bold;
                 cursor: not-allowed;
-                width: 100%;
+                width: calc(56% - 23pt) !important;
+                max-width: calc(56% - 23pt) !important;
                 box-sizing: border-box;
                 margin-left: 4px;
                 margin-top: -3px;
             `;
-            xenoNameSection.appendChild(xenoInput);
+            // Create a row wrapper for Xeno input + Start Game button
+            const xenoContentRow = document.createElement('div');
+            xenoContentRow.style.cssText = 'display: flex; align-items: center; gap: 15px; width: 100%;';
+            xenoContentRow.appendChild(xenoInput);
+
+            // Move Start Game button into the Xeno row
+            const startBtn = document.getElementById('start-game-btn');
+            startBtn.style.margin = '0';
+            xenoContentRow.appendChild(startBtn);
+
+            xenoNameSection.appendChild(xenoContentRow);
             xenoRow.appendChild(xenoNameSection);
             nameInputs.appendChild(xenoRow);
         }
@@ -539,6 +743,11 @@ class VicaDominoGame {
         // Create players (skip disabled Xeno input)
         this.players = [];
         this.winners = []; // Reset winners list
+        this.recentDoubles = []; // Reset card history for new game
+        this.recentNonDoubles = [];
+        this.recentDoublePositions = {};
+        this._playerClickBuffers = {};
+        this._playerClickTimers = {};
         let playerIndex = 0;
         inputs.forEach((input) => {
             // Skip the Xeno input (disabled)
@@ -550,6 +759,8 @@ class VicaDominoGame {
             if (name.startsWith(prefix)) {
                 name = name.substring(prefix.length);
             }
+            // Check if player actually entered a name
+            const hasCustomName = name.trim().length > 0;
             // Use default name if empty
             name = name.trim() || `Player ${playerIndex + 1}`;
 
@@ -562,7 +773,8 @@ class VicaDominoGame {
                 icon: iconKey,
                 hand: [],
                 isWinner: false,
-                isComputer: false
+                isComputer: false,
+                hasCustomName: hasCustomName
             });
             playerIndex++;
         });
@@ -577,6 +789,38 @@ class VicaDominoGame {
                 hand: [],
                 isWinner: false,
                 isComputer: true
+            });
+        }
+
+        // Initialize combined game if configured
+        if (window.combinedGameConfig && !this.combinedGame) {
+            this.combinedGame = {
+                config: window.combinedGameConfig,
+                currentStage: window.combinedGameStage || 0
+            };
+            this.playerCoins = {};
+            this.playerGems = {};
+            this.stageGems = {};
+            this._consecutiveProtectedMistakes = {};
+            this.players.forEach(p => {
+                this.playerCoins[p.id] = 0;
+                this.playerGems[p.id] = 0;
+                this.stageGems[p.id] = 0;
+                this._consecutiveProtectedMistakes[p.id] = 0;
+            });
+        }
+
+        // Initialize coins/gems for Find the Double (all player counts)
+        if (!this.combinedGame) {
+            this.playerCoins = {};
+            this.playerGems = {};
+            this.stageGems = {};
+            this._consecutiveProtectedMistakes = {};
+            this.players.forEach(p => {
+                this.playerCoins[p.id] = 0;
+                this.playerGems[p.id] = 0;
+                this.stageGems[p.id] = 0;
+                this._consecutiveProtectedMistakes[p.id] = 0;
             });
         }
 
@@ -605,6 +849,9 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
+        // Show current game name temporarily next to title
+        this.showGameName();
+
         // Check if Find the Double level is selected (all levels use this mode now)
         if (this.selectedLevel === 'circle' || this.selectedLevel === 'triangle' || this.selectedLevel === 'star') {
             this.startSunLevelGame();
@@ -615,13 +862,40 @@ class VicaDominoGame {
         }
     }
 
+    // Show game name temporarily next to the title
+    showGameName() {
+        const el = document.getElementById('game-name-display');
+        if (!el) return;
+
+        // Get game name from start screen subtitle
+        const subtitle = document.querySelector('#start-screen .subtitle');
+        let gameName = '';
+        if (subtitle) {
+            const text = subtitle.textContent;
+            // Extract name from "Game: <name>" or "Combined: <name>"
+            const match = text.match(/(?:Game|Combined):\s*(.+)/);
+            if (match && match[1] !== 'Find the Double!') {
+                gameName = match[1];
+            }
+        }
+
+        el.textContent = gameName;
+    }
+
     // ==================== SUN LEVEL GAME ====================
     startSunLevelGame() {
+        this._gameRound = (this._gameRound || 0) + 1;
         this.gamePhase = 'sunLevel';
         this.sunLevelTimer = null;
-        this.sunLevelTimeLeft = 30;
-        this.sunLevelDuration = 30;
+        this.sunLevelTimeLeft = this.currentTimerDuration;
+        this.sunLevelDuration = this.currentTimerDuration;
+        console.log('[TIMER] Starting game with duration:', this.currentTimerDuration, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
         this.sunLevelWinners = []; // Track winners in Find the Double
+        this.firstWinTimestamp = null;
+        this.isTie = false;
+
+        // Save first-game state before dealing (dealing clears _isFirstSunGame)
+        this._isFirstSunGameRound = this._isFirstSunGame;
 
         // Deal cards based on level: circle=2, triangle=3, star=4 cards per player (1 double + non-doubles)
         this.dealSunLevelCards();
@@ -629,21 +903,22 @@ class VicaDominoGame {
         // Hide bank area for Sun level
         document.querySelector('.bank-area').style.display = 'none';
 
-        // Clear the game board (remove any leftover content from previous games)
-        document.getElementById('game-board').innerHTML = '';
+        // Hide the entire board container (dark green box, not used in Sun Level)
+        document.querySelector('.board-container').style.display = 'none';
 
-        // Hide controls except New Game
+        // Hide all controls
         document.getElementById('pass-btn').style.display = 'none';
-        document.getElementById('draw-btn').style.display = 'none';
+        document.getElementById('bank-draw-btn').style.display = 'none';
         document.getElementById('play-again-game-btn').style.display = 'none';
+        document.getElementById('new-game-btn').style.display = 'none';
 
-        // Update header to not show turn indicator for single player
-        if (this.players.length === 1) {
-            document.querySelector('.turn-indicator').innerHTML = 'Find the Double!';
-        }
+        // Hide turn indicator - not used in Find the Double (no turns)
+        document.querySelector('.turn-indicator').style.display = 'none';
 
         // Update status
-        if (this.includeXeno) {
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
+            this.updateStatus('🌞 Select double by pressing it', 'highlight');
+        } else if (this.includeXeno) {
             this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
         } else {
             this.updateStatus('🌞 Find the DOUBLE first! Click on it!', 'highlight');
@@ -652,14 +927,32 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
+        // Tutorial: show a finger pointing to the double (first game / Win0)
+        if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
+            // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements
+            requestAnimationFrame(() => this.showTutorialFinger(0));
+            this.playSelectDoubleVoice();
+        } else if (this.players.length >= 2 && this._isFirstSunGameRound) {
+            // 2+ players: show tutorial finger for each player on Win0
+            requestAnimationFrame(() => {
+                for (let i = 0; i < this.players.length; i++) {
+                    this.showTutorialFinger(i);
+                }
+            });
+        }
+
         // Show Xeno timer only if Xeno is included
         if (this.includeXeno) {
             const xenoTimerBox = document.getElementById('xeno-timer-box');
-            xenoTimerBox.style.display = 'block';
+            xenoTimerBox.style.display = 'flex';
 
             // Add Xeno icon
             const xenoIconEl = document.getElementById('xeno-timer-icon');
             xenoIconEl.innerHTML = XENO_ICON_SVG;
+
+            // Restore timer label
+            const xenoName = document.querySelector('.xeno-timer-name');
+            if (xenoName) xenoName.textContent = "Xeno's Timer";
 
             // Set up timer display
             this.setupTimerTicks();
@@ -691,22 +984,117 @@ class VicaDominoGame {
         this.shuffleArray(doubles);
         this.shuffleArray(nonDoubles);
 
+        // Filter out recently used doubles (avoid same double for 2 consecutive rounds)
+        let availableDoubles = doubles.filter(d => !this.recentDoubles.includes(d.id));
+        if (availableDoubles.length < this.players.length) {
+            // Not enough fresh doubles, fall back to all
+            availableDoubles = doubles;
+        }
+        this.shuffleArray(availableDoubles);
+
+        // Filter out recently used non-doubles (avoid same non-double next round)
+        let availableNonDoubles = nonDoubles.filter(d => !this.recentNonDoubles.includes(d.id));
+        const nonDoublesNeeded = this.players.length * (numCards - 1);
+        if (availableNonDoubles.length < nonDoublesNeeded) {
+            // Not enough fresh non-doubles, fall back to all
+            availableNonDoubles = nonDoubles;
+        }
+        this.shuffleArray(availableNonDoubles);
+
+        // Track this round's dealt cards
+        const thisRoundDoubles = [];
+        const thisRoundNonDoubles = [];
+
         // Deal to each player: 1 double + (numCards-1) non-doubles
         this.players.forEach(player => {
             player.hand = [];
             // Add 1 double
-            if (doubles.length > 0) {
-                player.hand.push(doubles.pop());
+            if (availableDoubles.length > 0) {
+                const dbl = availableDoubles.pop();
+                player.hand.push(dbl);
+                thisRoundDoubles.push(dbl.id);
             }
             // Add (numCards-1) non-doubles
             for (let i = 0; i < numCards - 1; i++) {
-                if (nonDoubles.length > 0) {
-                    player.hand.push(nonDoubles.pop());
+                if (availableNonDoubles.length > 0) {
+                    const nd = availableNonDoubles.pop();
+                    player.hand.push(nd);
+                    thisRoundNonDoubles.push(nd.id);
                 }
             }
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
+
+            // First game only: place the double as the rightmost card (all modes)
+            if (this._isFirstSunGame) {
+                const dblIdx = player.hand.findIndex(c => isDouble(c));
+                const lastIdx = player.hand.length - 1;
+                if (dblIdx >= 0 && dblIdx !== lastIdx) {
+                    const temp = player.hand[dblIdx];
+                    player.hand[dblIdx] = player.hand[lastIdx];
+                    player.hand[lastIdx] = temp;
+                }
+            }
+
+            // Prevent double from landing on same position 3 times in a row
+            const pid = player.id;
+            if (!this.recentDoublePositions[pid]) this.recentDoublePositions[pid] = [];
+            let doublePos = player.hand.findIndex(c => isDouble(c));
+            const recent = this.recentDoublePositions[pid];
+            if (doublePos >= 0 && recent.length >= 2 &&
+                recent[recent.length - 1] === doublePos &&
+                recent[recent.length - 2] === doublePos) {
+                // Same position 3 times - swap double to a different position
+                const otherPositions = [];
+                for (let p = 0; p < player.hand.length; p++) {
+                    if (p !== doublePos) otherPositions.push(p);
+                }
+                if (otherPositions.length > 0) {
+                    const newPos = otherPositions[Math.floor(Math.random() * otherPositions.length)];
+                    const temp = player.hand[doublePos];
+                    player.hand[doublePos] = player.hand[newPos];
+                    player.hand[newPos] = temp;
+                    doublePos = newPos;
+                }
+            }
+            if (doublePos >= 0) {
+                recent.push(doublePos);
+                if (recent.length > 2) recent.shift();
+            }
         });
+
+        // Clear first-game flag after dealing to all players
+        if (this._isFirstSunGame) {
+            this._isFirstSunGame = false;
+        }
+
+        // Update recent history: doubles keep last 2 rounds, non-doubles keep last 1 round
+        this.recentDoubles = this.recentDoubles.concat(thisRoundDoubles);
+        // Keep only last 2 rounds worth of doubles (trim old ones)
+        const maxRecentDoubles = this.players.length * 2;
+        if (this.recentDoubles.length > maxRecentDoubles) {
+            this.recentDoubles = this.recentDoubles.slice(this.recentDoubles.length - maxRecentDoubles);
+        }
+        this.recentNonDoubles = thisRoundNonDoubles; // Only track last 1 round
+
+        // Randomly flip cards (UP/DOWN) if enabled for this custom game
+        if (window.customGameFlipEnabled) {
+            this.players.forEach(player => {
+                player.hand = player.hand.map(card => {
+                    if (Math.random() < 0.5) {
+                        // Flip: swap left/right
+                        return {
+                            ...card,
+                            left: card.right,
+                            right: card.left,
+                            leftValue: card.rightValue,
+                            rightValue: card.leftValue
+                        };
+                    }
+                    return card;
+                });
+            });
+        }
 
         // No bank in Sun level
         this.bank = [];
@@ -796,18 +1184,61 @@ class VicaDominoGame {
     }
 
     sunLevelTimeUp() {
+        // Guard against multiple calls from the interval
+        if (this.gamePhase !== 'sunLevel') return;
+
         this.stopSunLevelTimer();
         this.gamePhase = 'sunLevelEnded';
         this.updateStatus('⏰ Game over! Time\'s up! Try again!', 'gameover');
 
-        // Disable clicking on cards
+        // Play disapproval sound on loss
+        this.playLossSound();
+
+        // Adaptive timer: on loss (time up = at least one player didn't win)
+        if (this.includeXeno) {
+            const oldT = this.currentTimerDuration;
+            this.consecutiveWinsAtMin = 0; // Reset consecutive wins streak
+            const t = this.currentTimerDuration;
+            if (t < 5) {
+                this.currentTimerDuration = t + 2;
+            } else if (t > 15) {
+                this.currentTimerDuration = 20;
+            } else {
+                this.currentTimerDuration = t + 4;
+            }
+            console.log('[TIMER] Loss! Old T:', oldT, '-> New T:', this.currentTimerDuration);
+            this.showNextTimerIndicator();
+        }
+
+        // Disable clicking on cards but keep them visible
         document.querySelectorAll('.domino').forEach(d => {
             d.style.pointerEvents = 'none';
-            d.style.opacity = '0.5';
+        });
+        // Also disable key label clicks
+        document.querySelectorAll('.clickable-key').forEach(k => {
+            k.style.pointerEvents = 'none';
         });
 
         // Show which was the double
         this.highlightDoubleCard();
+
+        // Add time-up pulse to the timer circle and radiating rings
+        const progressCircle = document.querySelector('.timer-progress');
+        if (progressCircle) {
+            progressCircle.classList.add('timer-expired');
+        }
+        const timerContent = document.querySelector('.xeno-timer-content');
+        if (timerContent) {
+            // Add expanding ripple rings in different colors
+            const rippleColors = ['#F44336', '#FF9800', '#FFEB3B', '#FF69B4', '#FF5722'];
+            for (let i = 0; i < rippleColors.length; i++) {
+                const ring = document.createElement('div');
+                ring.className = 'timer-ripple';
+                ring.style.animationDelay = (i * 0.4) + 's';
+                ring.style.borderColor = rippleColors[i];
+                timerContent.appendChild(ring);
+            }
+        }
 
         // Show end game buttons
         this.showEndGameButtons();
@@ -818,9 +1249,10 @@ class VicaDominoGame {
         this.players.forEach(player => {
             player.hand.forEach((card, idx) => {
                 if (isDouble(card)) {
-                    const handEl = document.querySelector(`[data-player-id="${player.id}"] .hand-tiles`);
-                    if (handEl) {
-                        const dominoEls = handEl.querySelectorAll('.domino');
+                    // Works for both sun level (.sun-level-tiles-container) and regular (.hand-tiles)
+                    const playerEl = document.querySelector(`[data-player-id="${player.id}"]`);
+                    if (playerEl) {
+                        const dominoEls = playerEl.querySelectorAll('.domino');
                         if (dominoEls[idx]) {
                             dominoEls[idx].style.border = '4px solid #FFD700';
                             dominoEls[idx].style.boxShadow = '0 0 20px #FFD700';
@@ -830,6 +1262,121 @@ class VicaDominoGame {
                 }
             });
         });
+    }
+
+    // Show finger pushing the domino and keyboard popup with the matching key
+    showFingerPush(playerIndex, cardIndex, callback) {
+        const playerHand = document.querySelector(`[data-player-id="${this.players[playerIndex].id}"]`);
+        if (!playerHand) { callback(); return; }
+
+        const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+        const wrapper = wrappers[cardIndex];
+        if (!wrapper) { callback(); return; }
+
+        // 1. Finger on the domino
+        const finger = document.createElement('span');
+        finger.className = 'finger-push';
+        finger.textContent = '👆';
+        wrapper.appendChild(finger);
+
+        // 2. Keyboard popup showing which key was pressed
+        const keyValue = String(cardIndex + 1);
+        if (this.players.length === 1) {
+            // Single player: no key labels, show popup below the domino
+            const dominoEl = wrapper.querySelector('.domino');
+            if (dominoEl) {
+                this.showKeyboardPopupBelow(keyValue, dominoEl);
+            }
+        } else {
+            // 2-player: key label exists, show popup with finger on it
+            const keyLabel = wrapper.querySelector('.clickable-key');
+            if (keyLabel) {
+                this.showKeyboardFingerPush(keyLabel.textContent, keyLabel);
+            }
+        }
+
+        // Remove domino finger after animation and fire callback
+        finger.addEventListener('animationend', () => {
+            finger.remove();
+            this.hideKeyboardPopup();
+            callback();
+        });
+    }
+
+    // Show keyboard popup with a finger pressing down on the highlighted key
+    showKeyboardFingerPush(keyValue, anchorEl) {
+        // Show the keyboard popup
+        this.showKeyboardPopup(keyValue, anchorEl);
+
+        const popup = document.getElementById('keyboard-popup');
+        if (!popup) return;
+
+        // Compute the CSS pixel position of the target key within the popup
+        const scale = 0.3;
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
+        const keyW = 40, keyH = 40, gap = 5, pad = 15, rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+
+        let targetCX = 0, targetCY = 0;
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                if (key === keyValue) {
+                    targetCX = pad + row.offset + i * (keyW + gap) + keyW / 2;
+                    targetCY = pad + rowIdx * (keyH + rowGap) + keyH / 2;
+                }
+            });
+        });
+
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
+        const cssX = (targetCX / totalW) * renderW;
+        const cssY = (targetCY / totalH) * renderH;
+
+        // Add finger overlay on top of the keyboard popup
+        const kbFinger = document.createElement('span');
+        kbFinger.className = 'keyboard-finger-push';
+        kbFinger.textContent = '👆';
+        kbFinger.style.left = cssX + 'px';
+        kbFinger.style.top = cssY + 'px';
+        popup.style.overflow = 'visible';
+        popup.appendChild(kbFinger);
+    }
+
+    // First-game tutorial: show a bobbing finger, "double" label, and floating number keys
+    showTutorialFinger(playerIndex = 0) {
+        const player = this.players[playerIndex];
+        if (!player) return;
+        const doubleIdx = player.hand.findIndex(c => isDouble(c));
+        if (doubleIdx < 0) return;
+
+        const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
+        if (!playerHand) return;
+        const wrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+        const wrapper = wrappers[doubleIdx];
+        if (!wrapper) return;
+
+        // Finger pointing to the double
+        const finger = document.createElement('span');
+        finger.className = 'tutorial-finger';
+        finger.textContent = '👆';
+        wrapper.appendChild(finger);
+
+        // Remove tutorial finger when player clicks any domino or after timeout
+        const removeTutorial = () => {
+            if (finger.parentNode) finger.remove();
+            playerHand.removeEventListener('click', removeTutorial);
+            playerHand.removeEventListener('touchstart', removeTutorial);
+        };
+        playerHand.addEventListener('click', removeTutorial);
+        playerHand.addEventListener('touchstart', removeTutorial);
+        // Also remove after 5 seconds if not clicked
+        setTimeout(removeTutorial, 5000);
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {
@@ -842,9 +1389,61 @@ class VicaDominoGame {
             return;
         }
 
+        // Multi-press detection: buffer clicks per player, process after short delay
+        const pid = player.id;
+        if (!this._playerClickBuffers[pid]) this._playerClickBuffers[pid] = [];
+        this._playerClickBuffers[pid].push({ card, playerIndex, cardIndex });
+
+        // Clear any existing timer for this player and start fresh
+        if (this._playerClickTimers[pid]) clearTimeout(this._playerClickTimers[pid]);
+
+        const clickRound = this._gameRound;
+        this._playerClickTimers[pid] = setTimeout(() => {
+            if (this._gameRound !== clickRound) return; // Stale timeout from previous game
+            const clicks = this._playerClickBuffers[pid] || [];
+            this._playerClickBuffers[pid] = [];
+
+            if (clicks.length > 1) {
+                // Multiple simultaneous presses - all treated as wrong
+                clicks.forEach(c => {
+                    this.sunLevelWrongCard(c.card, this.players[c.playerIndex], c.cardIndex);
+                });
+            } else if (clicks.length === 1) {
+                // Single press - process normally
+                const c = clicks[0];
+                this._processSunLevelClick(c.card, this.players[c.playerIndex], c.cardIndex);
+            }
+        }, 150);
+    }
+
+    _processSunLevelClick(card, player, cardIndex) {
+        if (this.gamePhase !== 'sunLevel') return;
+        if (this.sunLevelWinners && this.sunLevelWinners.includes(player.id)) return;
+
         if (isDouble(card)) {
-            // WIN!
-            this.sunLevelWin(card, player, cardIndex);
+            // Animate double up 20px and others down 20px before processing win
+            const playerHand = document.querySelector(`[data-player-id="${player.id}"]`);
+            if (playerHand) {
+                const dominoWrappers = playerHand.querySelectorAll('.domino-key-wrapper');
+                dominoWrappers.forEach((wrapper, idx) => {
+                    const dominoEl = wrapper.querySelector('.domino');
+                    if (dominoEl) {
+                        if (idx === cardIndex) {
+                            dominoEl.style.transition = 'transform 0.5s ease';
+                            dominoEl.style.transform = 'translateY(-20px)';
+                        } else {
+                            dominoEl.style.transition = 'transform 0.5s ease';
+                            dominoEl.style.transform = 'translateY(20px)';
+                        }
+                    }
+                });
+            }
+            // Delay win processing to let animation play
+            const winRound = this._gameRound;
+            setTimeout(() => {
+                if (this._gameRound !== winRound) return; // Stale timeout from previous game
+                this.sunLevelWin(card, player, cardIndex);
+            }, 600);
         } else {
             // Wrong card
             this.sunLevelWrongCard(card, player, cardIndex);
@@ -852,6 +1451,9 @@ class VicaDominoGame {
     }
 
     sunLevelWin(card, player, cardIndex) {
+        // If timer already expired, ignore delayed wins
+        if (this.gamePhase !== 'sunLevel') return;
+
         // Check if this player already won
         if (this.sunLevelWinners.includes(player.id)) {
             return;
@@ -860,28 +1462,59 @@ class VicaDominoGame {
         // Add player to winners
         const winnerNumber = this.sunLevelWinners.length + 1;
         this.sunLevelWinners.push(player.id);
+        console.log('[TIMER] sunLevelWin: player', player.name, 'won. Winners:', this.sunLevelWinners.length, '/', this.players.length, 'includeXeno:', this.includeXeno);
         player.isWinner = true;
         player.winningCard = card;
+
+        // Award coins for winning (first winner gets 2, second gets 1)
+        const coinReward = this.sunLevelWinners.length === 1 ? 2 : 1;
+        this.addCoins(player.id, coinReward);
+
+        // Tie detection: if both players find doubles within 500ms, it's a tie
+        if (this.players.length === 2) {
+            const now = Date.now();
+            if (winnerNumber === 1) {
+                this.firstWinTimestamp = now;
+                this.isTie = false;
+            } else if (winnerNumber === 2 && this.firstWinTimestamp) {
+                this.isTie = (now - this.firstWinTimestamp) <= 500;
+            }
+        }
 
         // Remove card from hand
         player.hand.splice(cardIndex, 1);
 
+        // Hide turn indicator on win
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) {
+            turnIndicator.style.display = 'none';
+        }
+
         // Update status based on winner number and game mode
+        // Hide status bar - winner boxes already show the info
+        document.getElementById('status-message').style.display = 'none';
+
         if (!this.includeXeno) {
-            // No Xeno = single winner mode, game ends after first winner
-            this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
-            this.gamePhase = 'sunLevelWon';
-            this.renderSunLevel();
-            document.getElementById('game-board').innerHTML = '';
-            this.showEndGameButtons();
+            // No Xeno mode
+            if (this.players.length === 1) {
+                // Single player: end game
+                this._singlePlayerWins = (this._singlePlayerWins || 0) + 1;
+                this.gamePhase = 'sunLevelWon';
+                this.renderSunLevel();
+                this.showEndGameButtons();
+            } else {
+                // 2 players without Xeno: keep game going for other player
+                this.renderSunLevel();
+
+                // Check if all players have won
+                if (this.sunLevelWinners.length >= this.players.length) {
+                    this._multiPlayerWins = (this._multiPlayerWins || 0) + 1;
+                    // All players found their doubles - start dimming
+                    this.startPlayAreaDim();
+                }
+            }
         } else {
             // With Xeno = multiple winners possible
-            if (winnerNumber === 1) {
-                this.updateStatus(`🎉 ${player.name} Won! Found the double!`, 'win');
-            } else {
-                this.updateStatus(`🎉 ${player.name} is the second winner!`, 'win');
-            }
-
             // Re-render to show winner box with domino above it
             this.renderSunLevel();
 
@@ -891,15 +1524,80 @@ class VicaDominoGame {
             // Check if all players have won
             if (this.sunLevelWinners.length >= this.players.length) {
                 this.stopSunLevelTimer();
+                this.adaptiveTimerWin(); // All players won — decrease timer
+                this.showNextTimerIndicator();
+                if (this.players.length === 1) {
+                    this._singlePlayerWins = (this._singlePlayerWins || 0) + 1;
+                } else {
+                    this._multiPlayerWins = (this._multiPlayerWins || 0) + 1;
+                }
                 this.gamePhase = 'sunLevelWon';
                 this.showEndGameButtons();
             }
         }
     }
 
+    // Adaptive timer: decrease on win (all players found doubles)
+    adaptiveTimerWin() {
+        if (!this.includeXeno) return;
+        const t = this.currentTimerDuration;
+        console.log('[TIMER] adaptiveTimerWin called. Current T:', t, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
+        if (t === 4 || t === 3) {
+            this.consecutiveWinsAtMin++;
+            if (t === 4 && this.consecutiveWinsAtMin >= 2) {
+                this.currentTimerDuration = 3;
+                this.consecutiveWinsAtMin = 0;
+            }
+            if (t === 3 && this.consecutiveWinsAtMin >= 3) {
+                this.currentTimerDuration = 2;
+                this.consecutiveWinsAtMin = 0;
+            }
+        } else {
+            this.consecutiveWinsAtMin = 0;
+            if (t >= 10) {
+                this.currentTimerDuration = t - 5;
+            } else if (t >= 7) {
+                this.currentTimerDuration = 5;
+            } else {
+                this.currentTimerDuration = 4;
+            }
+        }
+        console.log('[TIMER] adaptiveTimerWin done. New T:', this.currentTimerDuration, 'consecutiveWinsAtMin:', this.consecutiveWinsAtMin);
+    }
+
+    // Show next timer duration in the Xeno timer display area
+    showNextTimerIndicator() {
+        if (!this.includeXeno) return;
+        const timerDisplay = document.getElementById('timer-display');
+        if (timerDisplay) {
+            timerDisplay.textContent = this.currentTimerDuration;
+        }
+        const xenoName = document.querySelector('.xeno-timer-name');
+        if (xenoName) {
+            xenoName.textContent = 'Next round: ' + this.currentTimerDuration + 's';
+        }
+    }
+
     sunLevelWrongCard(card, player, cardIndex) {
         // Play disapproval sound
         this.playWrongSound();
+
+        // Deduct coin for mistake
+        if (this.playerCoins) {
+            const currentCoins = this.playerCoins[player.id] || 0;
+            const currentGems = this.playerGems[player.id] || 0;
+            if (currentCoins > 0) {
+                // Has coins: deduct 1
+                this.playerCoins[player.id]--;
+                this.renderCoinGemDisplay();
+            } else if (currentGems > 0) {
+                // No coins but has gems: convert 1 gem to 10 coins, then deduct 1
+                this.playerGems[player.id]--;
+                this.playerCoins[player.id] = 9;
+                this.renderCoinGemDisplay();
+            }
+            // If no coins and no gems: no deduction
+        }
 
         // Update status - timer continues
         this.updateStatus('❌ Try again! Two sides of this domino are not equal.', 'wrong');
@@ -928,7 +1626,7 @@ class VicaDominoGame {
         // Card stays in hand - no removal, no re-render
     }
 
-    showKeyboardPopup(keyValue) {
+    showKeyboardPopup(keyValue, anchorEl) {
         // Remove any existing popup
         const existing = document.getElementById('keyboard-popup');
         if (existing) existing.remove();
@@ -938,49 +1636,200 @@ class VicaDominoGame {
         popup.id = 'keyboard-popup';
         popup.className = 'keyboard-popup';
 
-        // Create SVG keyboard showing number row
-        const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+        // Full keyboard layout: number row + 3 letter rows (30% scale)
+        const scale = 0.3;
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
         const keyW = 40;
         const keyH = 40;
         const gap = 5;
         const pad = 15;
-        const totalW = keys.length * (keyW + gap) - gap + pad * 2;
-        const totalH = keyH + pad * 2;
+        const rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
 
-        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`;
+        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${renderW}" height="${renderH}">`;
         // Keyboard background
         svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
 
-        keys.forEach((key, i) => {
-            const x = pad + i * (keyW + gap);
-            const y = pad;
-            const isTarget = key === keyValue;
+        let targetX = 0, targetY = 0;
 
-            // Key cap
-            svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="${isTarget ? '#ffd700' : '#555'}" stroke="${isTarget ? '#ff8c00' : '#777'}" stroke-width="1.5"/>`;
-            // Key letter
-            svg += `<text x="${x + keyW / 2}" y="${y + keyH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="bold" fill="${isTarget ? '#333' : '#ddd'}" font-family="monospace">${key}</text>`;
-            // Red circle around the target key
-            if (isTarget) {
-                svg += `<circle cx="${x + keyW / 2}" cy="${y + keyH / 2}" r="${keyW / 2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                const x = pad + row.offset + i * (keyW + gap);
+                const y = pad + rowIdx * (keyH + rowGap);
+                const isTarget = key === keyValue;
+
+                // Draw all keys at normal size
+                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="#555" stroke="#777" stroke-width="1.5"/>`;
+                // Key label Y offsets per row
+                const textYOffset = [7, 10, 10, 18][rowIdx];
+                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="#ddd" font-family="monospace">${key}</text>`;
+
+                if (isTarget) {
+                    targetX = x;
+                    targetY = y;
+                }
+            });
+        });
+
+        // Draw enlarged target key on top of everything
+        const bigW = Math.round(keyW * 1.37);
+        const bigH = Math.round(keyH * 1.37);
+        const bigX = targetX - (bigW - keyW) / 2;
+        const bigY = targetY - (bigH - keyH) / 2;
+        svg += `<rect x="${bigX}" y="${bigY}" width="${bigW}" height="${bigH}" rx="5" fill="#ffd700" stroke="#ff8c00" stroke-width="1.5"/>`;
+        svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="44" font-weight="bold" fill="#333" font-family="monospace">${keyValue}</text>`;
+        svg += `<circle cx="${bigX + bigW/2}" cy="${bigY + bigH/2}" r="${bigW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
+
+        svg += '</svg>';
+        popup.innerHTML = svg;
+
+        // Position to the left of the hovered key button, aligned to its top
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            popup.style.left = (rect.left - renderW - 8) + 'px';
+            popup.style.top = rect.top + 'px';
+        }
+
+        document.body.appendChild(popup);
+    }
+
+    // Show keyboard popup centered below a domino element (for 1-player on domino click)
+    showKeyboardPopupBelow(keyValue, dominoEl) {
+        this.showKeyboardPopup(keyValue, null);
+        const popup = document.getElementById('keyboard-popup');
+        if (!popup || !dominoEl) return;
+
+        const rect = dominoEl.getBoundingClientRect();
+        const popupW = popup.offsetWidth;
+        popup.style.left = Math.round(rect.left + rect.width / 2 - popupW / 2) + 'px';
+        popup.style.top = Math.round(rect.bottom + 6) + 'px';
+
+        // Auto-hide after a short time (unless it's a tutorial keyboard)
+        setTimeout(() => {
+            const p = document.getElementById('keyboard-popup');
+            if (p && !p.classList.contains('tutorial-keyboard')) {
+                this.hideKeyboardPopup();
             }
+        }, 800);
+    }
+
+    hideKeyboardPopup() {
+        const existing = document.getElementById('keyboard-popup');
+        if (existing) {
+            existing.classList.remove('tutorial-keyboard');
+            existing.classList.add('keyboard-popup-fade');
+            setTimeout(() => existing.remove(), 300);
+        }
+    }
+
+    showPlayAgainKeyboardHint() {
+        // Remove any existing popup
+        const existing = document.getElementById('keyboard-popup');
+        if (existing) existing.remove();
+
+        const highlightKeys = this.players.length >= 2 ? ['W', 'P'] : ['W'];
+
+        const popup = document.createElement('div');
+        popup.id = 'keyboard-popup';
+        popup.className = 'keyboard-popup play-again-keyboard';
+
+        const scale = 0.3;
+        const rows = [
+            { keys: ['1','2','3','4','5','6','7','8','9','0'], offset: 0 },
+            { keys: ['Q','W','E','R','T','Y','U','I','O','P'], offset: 0 },
+            { keys: ['A','S','D','F','G','H','J','K','L'], offset: 20 },
+            { keys: ['Z','X','C','V','B','N','M'], offset: 50 }
+        ];
+        const keyW = 40, keyH = 40, gap = 5, pad = 15, rowGap = 5;
+        const totalW = rows[0].keys.length * (keyW + gap) - gap + pad * 2;
+        const totalH = rows.length * (keyH + rowGap) - rowGap + pad * 2;
+        const renderW = Math.round(totalW * scale);
+        const renderH = Math.round(totalH * scale);
+
+        let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${renderW}" height="${renderH}">`;
+        svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="10" fill="#333" stroke="#555" stroke-width="2"/>`;
+
+        // Collect target positions
+        const targets = {};
+
+        rows.forEach((row, rowIdx) => {
+            row.keys.forEach((key, i) => {
+                const x = pad + row.offset + i * (keyW + gap);
+                const y = pad + rowIdx * (keyH + rowGap);
+                svg += `<rect x="${x}" y="${y}" width="${keyW}" height="${keyH}" rx="5" fill="#555" stroke="#777" stroke-width="1.5"/>`;
+                const textYOffset = [7, 10, 10, 18][rowIdx];
+                svg += `<text x="${x + keyW/2}" y="${y + keyH/2 + textYOffset}" text-anchor="middle" font-size="32" font-weight="bold" fill="#ddd" font-family="monospace">${key}</text>`;
+                if (highlightKeys.indexOf(key) >= 0) {
+                    targets[key] = { x, y };
+                }
+            });
+        });
+
+        // Draw enlarged highlighted keys on top
+        highlightKeys.forEach(keyVal => {
+            const t = targets[keyVal];
+            if (!t) return;
+            const bigW = Math.round(keyW * 1.37);
+            const bigH = Math.round(keyH * 1.37);
+            const bigX = t.x - (bigW - keyW) / 2;
+            const bigY = t.y - (bigH - keyH) / 2;
+            svg += `<rect x="${bigX}" y="${bigY}" width="${bigW}" height="${bigH}" rx="5" fill="#ffd700" stroke="#ff8c00" stroke-width="1.5"/>`;
+            svg += `<text x="${bigX + bigW/2}" y="${bigY + bigH/2 + 10}" text-anchor="middle" font-size="44" font-weight="bold" fill="#333" font-family="monospace">${keyVal}</text>`;
+            svg += `<circle cx="${bigX + bigW/2}" cy="${bigY + bigH/2}" r="${bigW/2 + 5}" fill="none" stroke="#ff0000" stroke-width="3"/>`;
         });
 
         svg += '</svg>';
         popup.innerHTML = svg;
 
-        document.body.appendChild(popup);
+        // Position centered below the Play Again button
+        const playAgainBtn = document.querySelector('.end-game-buttons .btn-primary');
+        if (playAgainBtn) {
+            const rect = playAgainBtn.getBoundingClientRect();
+            popup.style.left = (rect.left + rect.width / 2 - renderW / 2) + 'px';
+            popup.style.top = (rect.bottom + 8) + 'px';
+        } else {
+            // Fallback: center of screen
+            popup.style.left = (window.innerWidth / 2 - renderW / 2) + 'px';
+            popup.style.top = (window.innerHeight / 2 + 60) + 'px';
+        }
 
-        // Remove after 1 second with fade out
-        setTimeout(() => {
-            popup.classList.add('keyboard-popup-fade');
-            setTimeout(() => popup.remove(), 300);
-        }, 1000);
+        document.body.appendChild(popup);
     }
 
     renderSunLevel() {
         const playersArea = document.getElementById('players-area');
         playersArea.innerHTML = '';
+
+        // Single player: use 2-column grid so box doesn't stretch full width
+        if (this.players.length === 1) {
+            playersArea.classList.add('single-player-layout');
+        } else {
+            playersArea.classList.remove('single-player-layout');
+        }
+
+        // Combined game: show stage progress as stones in the header next to game name
+        const headerStones = document.getElementById('header-stage-stones');
+        if (headerStones) {
+            headerStones.innerHTML = '';
+            if (this.combinedGame) {
+                const config = this.combinedGame.config;
+                const totalStages = config.stages.length;
+                const currentStage = this.combinedGame.currentStage;
+                for (let i = totalStages - 1; i >= 0; i--) {
+                    const stone = document.createElement('span');
+                    stone.className = 'stage-stone-inline' + (i <= currentStage ? ' active' : '');
+                    headerStones.appendChild(stone);
+                }
+            }
+        }
 
         this.players.forEach((player, playerIndex) => {
             const handEl = document.createElement('div');
@@ -992,11 +1841,22 @@ class VicaDominoGame {
             const winnerPosition = hasWon ? this.sunLevelWinners.indexOf(player.id) + 1 : 0;
 
             if (hasWon) {
-                // Show winning domino centered above "You Won!" box
+                // Show winning domino with winner box to its right
                 const winnerSection = document.createElement('div');
                 winnerSection.className = 'sun-level-winner-section';
 
-                // Add winning domino above the box
+                // Horizontal row: coins on left, domino on right
+                const dominoRow = document.createElement('div');
+                dominoRow.className = 'winner-domino-row';
+
+                // Show coin/gem display to the left of domino
+                const coinGemDiv = document.createElement('div');
+                coinGemDiv.className = 'coin-gem-display coin-gem-inline';
+                coinGemDiv.dataset.playerId = player.id;
+                this.buildCoinGemHTML(coinGemDiv, player.id);
+                dominoRow.appendChild(coinGemDiv);
+
+                // Add winning domino
                 if (player.winningCard) {
                     const dominoWrapper = document.createElement('div');
                     dominoWrapper.className = 'winner-domino-wrapper';
@@ -1007,38 +1867,56 @@ class VicaDominoGame {
                         player.animationShown = true;
                     }
                     dominoWrapper.appendChild(dominoEl);
-                    winnerSection.appendChild(dominoWrapper);
+                    dominoRow.appendChild(dominoWrapper);
                 }
 
-                // Show "You Won!" box below the domino
+                // Add winner box to the right of the domino in the same row
                 const winnerBox = document.createElement('div');
                 winnerBox.className = 'sun-level-winner-box';
 
                 const icon = CHARACTER_ICONS[player.icon];
-                const winnerText = winnerPosition === 1 ? 'You Won!' : 'Second Winner!';
+                let winnerText;
+                const isSinglePlayer = this.players.filter(p => !p.isComputer).length === 1;
+                if (this.isTie && this.sunLevelWinners.length >= 2) {
+                    winnerText = 'Tie!';
+                } else if (isSinglePlayer) {
+                    // Single player: show "You Won!" or "Name Won!"
+                    if (player.hasCustomName) {
+                        winnerText = `${player.name} Won!`;
+                    } else {
+                        winnerText = 'You Won!';
+                    }
+                } else {
+                    // Two players: show "Player N Won!"
+                    winnerText = `${player.name} Won!`;
+                }
+
+                if (isSinglePlayer) {
+                    winnerBox.classList.add('winner-box-single');
+                }
 
                 winnerBox.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>
-                    <span class="player-name-inline">${player.name}</span>
                     <span class="winner-text">${winnerText}</span>
                 `;
 
-                winnerSection.appendChild(winnerBox);
+                dominoRow.appendChild(winnerBox);
+                winnerSection.appendChild(dominoRow);
                 handEl.appendChild(winnerSection);
             } else {
-                // Player's dominos (vertical) with key hints - all on one line
-                const tilesContainer = document.createElement('div');
-                tilesContainer.className = 'sun-level-tiles-container';
-
-                // Add player icon and name on the left
+                // Add player icon and name at top-left of the box
                 const icon = CHARACTER_ICONS[player.icon];
                 const playerInfo = document.createElement('div');
-                playerInfo.className = 'player-info-inline';
+                playerInfo.className = 'player-info-inline player-info-topleft';
                 playerInfo.innerHTML = `
                     <span class="player-icon-display">${icon ? icon.svg : ''}</span>
                     <span class="player-name-inline">${player.name}</span>
                 `;
-                tilesContainer.appendChild(playerInfo);
+                handEl.appendChild(playerInfo);
+
+                // Player's dominos (vertical) with key hints - all on one line
+                const tilesContainer = document.createElement('div');
+                tilesContainer.className = 'sun-level-tiles-container';
 
                 // Determine keys for this player
                 const numCards = player.hand.length;
@@ -1054,8 +1932,20 @@ class VicaDominoGame {
                     }
                 }
 
-                // Add "Press" label
-                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                // Show coin/gem display left of "Press"
+                const coinGemDiv = document.createElement('div');
+                coinGemDiv.className = 'coin-gem-display coin-gem-inline';
+                coinGemDiv.dataset.playerId = player.id;
+                this.buildCoinGemHTML(coinGemDiv, player.id);
+                tilesContainer.appendChild(coinGemDiv);
+
+                // Add "Press" label: hide for 1-player after Win0, hide for 2+ players after Win1
+                const showPressLabels = numCards > 0 && (
+                    this.players.length >= 2
+                        ? (this._multiPlayerWins || 0) < 2
+                        : (this._singlePlayerWins || 0) < 1
+                );
+                if (showPressLabels) {
                     const pressLabel = document.createElement('span');
                     pressLabel.className = 'hint-press-left';
                     pressLabel.textContent = 'Press';
@@ -1072,25 +1962,53 @@ class VicaDominoGame {
 
                     const dominoEl = createDominoElement(card, true); // vertical dominoes
 
-                    // Add click handler for Sun level
+                    // Add click/touch handler for Sun level
                     if (this.gamePhase === 'sunLevel') {
-                        dominoEl.addEventListener('click', () => {
+                        const dominoAction = () => {
                             this.handleSunLevelCardClick(card, playerIndex, cardIndex);
-                        });
+                        };
+                        dominoEl.addEventListener('click', dominoAction);
+                        // Touch support: touchstart fires for each finger in multi-touch
+                        dominoEl.addEventListener('touchstart', (e) => {
+                            e.preventDefault(); // Prevent subsequent click from double-firing
+                            dominoAction();
+                        }, { passive: false });
                     }
 
                     dominoWrapper.appendChild(dominoEl);
 
-                    // Add key label under this domino (clickable - third way to select)
-                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex]) {
+                    // Show blinking "double" label on first game (Win0) for all modes
+                    const isFirstGame = this.players.length === 1
+                        ? (this._singlePlayerWins || 0) < 1
+                        : this._isFirstSunGameRound;
+                    if (isDouble(card) && isFirstGame) {
+                        const dblLabel = document.createElement('span');
+                        dblLabel.className = 'domino-double-label';
+                        dblLabel.textContent = 'double';
+                        dominoWrapper.appendChild(dblLabel);
+                    }
+
+                    // Add key label under this domino (2-player only; hide from Win2 onward)
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2 && (this._multiPlayerWins || 0) < 2) {
                         const keyLabel = document.createElement('span');
-                        keyLabel.className = 'key clickable-key';
+                        keyLabel.className = 'key';
                         keyLabel.textContent = keys[cardIndex];
-                        keyLabel.addEventListener('click', () => {
-                            this.showKeyboardPopup(keys[cardIndex]);
-                            this.handleSunLevelCardClick(card, playerIndex, cardIndex);
+                        // Keyboard popup on hover over key label
+                        keyLabel.addEventListener('mouseenter', () => {
+                            this.showKeyboardPopup(keys[cardIndex], keyLabel);
+                        });
+                        keyLabel.addEventListener('mouseleave', () => {
+                            this.hideKeyboardPopup();
                         });
                         dominoWrapper.appendChild(keyLabel);
+
+                        // Keyboard popup on hover over domino image
+                        dominoEl.addEventListener('mouseenter', () => {
+                            this.showKeyboardPopup(keys[cardIndex], keyLabel);
+                        });
+                        dominoEl.addEventListener('mouseleave', () => {
+                            this.hideKeyboardPopup();
+                        });
                     }
 
                     dominoesWithKeys.appendChild(dominoWrapper);
@@ -1098,8 +2016,8 @@ class VicaDominoGame {
 
                 tilesContainer.appendChild(dominoesWithKeys);
 
-                // Add "to select" label on the right
-                if (this.gamePhase === 'sunLevel' && numCards > 0) {
+                // Add "to select" label on the right (hide for 1-player after 4 wins)
+                if (showPressLabels) {
                     const selectLabel = document.createElement('span');
                     selectLabel.className = 'hint-select-right';
                     selectLabel.textContent = 'to select';
@@ -1118,28 +2036,71 @@ class VicaDominoGame {
 
     // Reset game for Sun level
     resetSunLevel() {
+        if (this.playAreaDimTimeout) {
+            clearTimeout(this.playAreaDimTimeout);
+            this.playAreaDimTimeout = null;
+        }
         this.stopSunLevelTimer();
         document.getElementById('xeno-timer-box').style.display = 'none';
         document.getElementById('celebration-area').style.display = 'none';
         document.querySelector('.bank-area').style.display = '';
         document.getElementById('pass-btn').style.display = '';
-        document.getElementById('draw-btn').style.display = '';
+        document.getElementById('bank-draw-btn').style.display = '';
+        document.getElementById('players-area').classList.remove('single-player-layout');
 
-        // Reset timer progress color
+        // Reset timer progress color and remove expired animation
         const progressCircle = document.querySelector('.timer-progress');
         if (progressCircle) {
+            progressCircle.classList.remove('timer-expired');
             progressCircle.style.stroke = '#4CAF50';
             progressCircle.style.strokeDashoffset = '0';
         }
+        // Remove ripple rings
+        document.querySelectorAll('.timer-ripple').forEach(r => r.remove());
     }
 
     // Play again with same settings (same players, same level)
     playAgain() {
+        console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
+
+        // Flush any pending coin→gem exchanges before checking progression
+        this._flushPendingExchanges();
+
+        // Combined game: check if celebration is pending (final stage complete)
+        if (this.combinedGame && this.combinedGame.pendingCelebration) {
+            this.showFinalCelebration();
+            return;
+        }
+
+        // Combined game: check if stage should advance
+        if (this.combinedGame && this.combinedGame.pendingAdvance) {
+            this.advanceToNextStage();
+            return;
+        }
+
         // Reset sun level state
         this.resetSunLevel();
 
-        // Hide the play again button
-        document.getElementById('play-again-game-btn').style.display = 'none';
+        // Clear stale click buffers and timers from previous game
+        if (this._playerClickTimers) {
+            Object.values(this._playerClickTimers).forEach(id => clearTimeout(id));
+        }
+        this._playerClickBuffers = {};
+        this._playerClickTimers = {};
+
+        // Remove keyboard hint and end game buttons
+        this.hideKeyboardPopup();
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = '';
+        playersArea.style.opacity = '';
+        playersArea.style.display = '';
+
+        // Restore turn indicator and status bar
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) turnIndicator.style.display = '';
+        document.getElementById('status-message').style.display = '';
 
         // Reset player win states but keep their info
         this.players.forEach(player => {
@@ -1161,8 +2122,89 @@ class VicaDominoGame {
 
     // Show end game buttons
     showEndGameButtons() {
-        document.getElementById('play-again-game-btn').style.display = 'inline-block';
+        // Remove any existing end-game buttons to prevent duplicates
+        const existingBtns = document.querySelector('.end-game-buttons');
+        if (existingBtns) existingBtns.remove();
+
+        const playersArea = document.getElementById('players-area');
+
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'end-game-buttons';
+
+        const playAgainBtn = document.createElement('button');
+        playAgainBtn.className = 'btn btn-primary end-game-btn';
+        // Combined game: change button text when advancing/celebrating
+        if (this.combinedGame && this.combinedGame.pendingCelebration) {
+            playAgainBtn.textContent = '🎉 Celebration!';
+        } else if (this.combinedGame && this.combinedGame.pendingAdvance) {
+            playAgainBtn.textContent = '⭐ Next Game!';
+        } else {
+            playAgainBtn.textContent = 'Play Again';
+        }
+        playAgainBtn.addEventListener('click', () => this.playAgain());
+
+        const newGameBtn = document.createElement('button');
+        newGameBtn.className = 'btn btn-secondary end-game-btn';
+        newGameBtn.textContent = 'New Game';
+        newGameBtn.addEventListener('click', () => this.resetToSetup());
+
+        btnContainer.appendChild(playAgainBtn);
+        btnContainer.appendChild(newGameBtn);
+
+        // Always place buttons below the players area (before the xeno timer box)
+        const xenoTimerBox = document.getElementById('xeno-timer-box');
+        if (xenoTimerBox && xenoTimerBox.parentNode === playersArea.parentNode) {
+            playersArea.parentNode.insertBefore(btnContainer, xenoTimerBox);
+        } else {
+            playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+        }
     }
+    // Dim the playing area over 10 seconds, show buttons immediately
+    startPlayAreaDim() {
+        this.gamePhase = 'sunLevelWon';
+
+        // Build winner status with icons
+        this.updateWinnerStatus();
+
+        // Show buttons right away
+        this.showEndGameButtons();
+
+        // Show keyboard hint for Play Again keys (not for 2-player non-Xeno mode)
+        if (this.players.length < 2 || this.includeXeno) {
+            this.showPlayAgainKeyboardHint();
+        } else {
+            this.hideKeyboardPopup();
+        }
+
+        // Start dimming the playing area
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = 'opacity 10s ease';
+        playersArea.style.opacity = '0';
+
+        // Hide players area after dim completes
+        this.playAreaDimTimeout = setTimeout(() => {
+            playersArea.style.display = 'none';
+        }, 10000);
+    }
+
+    // Show winner status with player icons and winner order
+    updateWinnerStatus() {
+        const status = document.getElementById('status-message');
+        let html = '';
+        this.sunLevelWinners.forEach((winnerId, idx) => {
+            const player = this.players.find(p => p.id === winnerId);
+            if (player) {
+                const icon = CHARACTER_ICONS[player.icon];
+                const iconSvg = icon ? icon.svg : '';
+                html += `<span style="display:inline-flex;align-items:center;gap:5px;margin:0 10px;">` +
+                    `<span style="width:24px;height:24px;display:inline-block;">${iconSvg}</span>` +
+                    `${player.name} is winner number ${idx + 1}!</span>`;
+            }
+        });
+        status.innerHTML = '🎉 ' + html;
+        status.className = 'status win';
+    }
+
     // ==================== END SUN LEVEL GAME ====================
 
     promptForDoubles() {
@@ -1536,11 +2578,11 @@ class VicaDominoGame {
         // Check if they can now play
         if (this.canCurrentPlayerPlay()) {
             this.updateStatus(`${player.name} drew a card. Select a card to play!`);
-            document.getElementById('draw-btn').disabled = true;
+            document.getElementById('bank-draw-btn').disabled = true;
             document.getElementById('pass-btn').disabled = false;
         } else {
             this.updateStatus(`${player.name} drew but cannot play. Click "Skip Turn".`, 'warning');
-            document.getElementById('draw-btn').disabled = true;
+            document.getElementById('bank-draw-btn').disabled = true;
             document.getElementById('pass-btn').disabled = false;
         }
 
@@ -1898,13 +2940,427 @@ class VicaDominoGame {
         this.showNoMoreWinners();
     }
 
+    backToGameSetup() {
+        // Move start button back if it was moved into name-inputs (Xeno row)
+        const startBtn = document.getElementById('start-game-btn');
+        if (startBtn && startBtn.closest('#name-inputs')) {
+            document.getElementById('player-names').appendChild(startBtn);
+        }
+        startBtn.style.margin = '';
+
+        // Go back from player names/icon screen to game/player selection
+        document.getElementById('player-names').style.display = 'none';
+        document.getElementById('name-inputs').innerHTML = '';
+        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
+
+        // Restore headings
+        const setupPanel = document.querySelector('.setup-panel');
+        setupPanel.querySelectorAll('h3').forEach(h3 => h3.style.display = 'block');
+
+        // Restore game level and player select
+        document.querySelector('.setup-columns').style.display = 'flex';
+        document.querySelector('.game-level-select').style.display = 'flex';
+        document.querySelector('.player-select').style.display = 'flex';
+
+        // Hide selected options row
+        const selectedRow = document.getElementById('selected-options-row');
+        if (selectedRow) selectedRow.style.display = 'none';
+    }
+
+    showCreateEdit() {
+        // Go directly to card library screen, skipping the intermediate menu
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('creator-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
+    }
+
+    hideCreateEdit() {
+        document.getElementById('create-edit-screen').style.display = 'none';
+        document.getElementById('creator-screen').style.display = 'flex';
+    }
+
+    showCardLibrary() {
+        document.getElementById('create-edit-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
+    }
+
+    hideCardLibrary() {
+        // Go back to creator screen directly
+        document.getElementById('card-library-screen').style.display = 'none';
+        document.getElementById('creator-screen').style.display = 'flex';
+    }
+
+    showLibrarySet() {
+        openLibrarySet();
+        document.getElementById('card-library-screen').style.display = 'none';
+        document.getElementById('library-set-screen').style.display = 'block';
+    }
+
+    hideLibrarySet() {
+        document.getElementById('library-set-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
+    }
+
+    showDominoLibrary() {
+        if (typeof snapshotCardMakerState === 'function') snapshotCardMakerState();
+        document.getElementById('create-edit-screen').style.display = 'none';
+        document.getElementById('domino-library-screen').style.display = 'block';
+    }
+
+    hideDominoLibrary() {
+        document.getElementById('domino-library-screen').style.display = 'none';
+        document.getElementById('card-library-screen').style.display = 'block';
+    }
+
+    // === Combined Game Methods ===
+
+    addCoins(playerId, amount) {
+        this.playerCoins[playerId] = (this.playerCoins[playerId] || 0) + amount;
+        // Reset consecutive protected mistakes on coin gain
+        this._consecutiveProtectedMistakes[playerId] = 0;
+
+        // Track when coins were added (for pop-in animation)
+        if (!this._coinAddedInfo) this._coinAddedInfo = {};
+        this._coinAddedInfo[playerId] = { time: Date.now(), amount: amount };
+
+        // Check if exchange needed (10 coins → 1 gem)
+        if (this.playerCoins[playerId] >= 10) {
+            // Show all coins briefly before exchanging
+            if (!this._exchangeTimeouts) this._exchangeTimeouts = {};
+            if (this._exchangeTimeouts[playerId]) clearTimeout(this._exchangeTimeouts[playerId]);
+
+            const exchangeDelay = amount * 300 + 700;
+            const roundAtStart = this._gameRound;
+            this._exchangeTimeouts[playerId] = setTimeout(() => {
+                if (this._gameRound !== roundAtStart) return; // Stale timeout from previous game
+                // Play glin-glin sound
+                this.playGlinGlinSound();
+                // Mark coins for fall animation
+                if (!this._coinFallAt) this._coinFallAt = {};
+                this._coinFallAt[playerId] = Date.now();
+                this.renderCoinGemDisplay();
+                // After fall animation, convert to gem
+                setTimeout(() => {
+                    if (this._gameRound !== roundAtStart) return; // Stale timeout from previous game
+                    while (this.playerCoins[playerId] >= 10) {
+                        this.playerCoins[playerId] -= 10;
+                        this.playerGems[playerId] = (this.playerGems[playerId] || 0) + 1;
+                        this.stageGems[playerId] = (this.stageGems[playerId] || 0) + 1;
+                    }
+                    if (!this._gemAddedAt) this._gemAddedAt = {};
+                    this._gemAddedAt[playerId] = Date.now();
+                    delete this._coinFallAt[playerId];
+                    this.renderCoinGemDisplay();
+                    this.checkGameProgression(playerId);
+                    this._updateEndGameButtonText();
+                }, 800);
+                delete this._exchangeTimeouts[playerId];
+            }, exchangeDelay);
+        } else {
+            this.checkGameProgression(playerId);
+        }
+        // Note: display is rendered by caller's renderSunLevel(), not here
+    }
+
+    buildCoinGemHTML(container, playerId) {
+        const coins = this.playerCoins[playerId] || 0;
+        const gems = this.playerGems[playerId] || 0;
+
+        // Check for recent coin/gem additions for animation
+        let newCoinCount = 0;
+        if (this._coinAddedInfo && this._coinAddedInfo[playerId]) {
+            if (Date.now() - this._coinAddedInfo[playerId].time < 600) {
+                newCoinCount = this._coinAddedInfo[playerId].amount;
+            }
+        }
+        let isNewGem = false;
+        if (this._gemAddedAt && this._gemAddedAt[playerId]) {
+            if (Date.now() - this._gemAddedAt[playerId] < 600) {
+                isNewGem = true;
+            }
+        }
+        // Check for coin fall animation
+        let isFalling = false;
+        if (this._coinFallAt && this._coinFallAt[playerId]) {
+            if (Date.now() - this._coinFallAt[playerId] < 800) {
+                isFalling = true;
+            }
+        }
+
+        let html = '';
+
+        // Gems first (to the left of coins)
+        for (let i = 0; i < gems; i++) {
+            const gemNew = isNewGem && i === gems - 1;
+            html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">💎</span>';
+        }
+
+        // Golden coins in vertical columns of 5 (no overlap, easy to count)
+        // Always render 2 columns when coins > 0 so layout stays stable
+        if (coins > 0) {
+            html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+            const col1Count = Math.min(coins, 5);
+            const col2Count = Math.max(0, coins - 5);
+
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col1Count; i++) {
+                const actualNew = i < newCoinCount;
+                const stagger = actualNew ? i * 0.12 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                html += '></div>';
+            }
+            html += '</div>';
+
+            html += '<div class="coin-column">';
+            for (let i = 0; i < col2Count; i++) {
+                const actualNew = (5 + i) < newCoinCount;
+                const stagger = actualNew ? (5 + i) * 0.12 : 0;
+                html += '<div class="gold-disk' + (actualNew ? ' coin-appear' : '') + '"';
+                if (stagger > 0) html += ' style="animation-delay:' + stagger + 's"';
+                html += '></div>';
+            }
+            html += '</div>';
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    renderCoinGemDisplay() {
+        if (!this.playerCoins) return;
+        this.players.forEach(player => {
+            const displayEl = document.querySelector(`.coin-gem-display[data-player-id="${player.id}"]`);
+            if (displayEl) {
+                this.buildCoinGemHTML(displayEl, player.id);
+            }
+        });
+    }
+
+    checkGameProgression(playerId) {
+        if (!this.combinedGame) return;
+        const stage = this.combinedGame.config.stages[this.combinedGame.currentStage];
+        const stageGems = this.stageGems[playerId] || 0;
+        if (stageGems >= stage.gemsNeeded) {
+            const isLastStage = this.combinedGame.currentStage >= this.combinedGame.config.stages.length - 1;
+            if (isLastStage) {
+                this.combinedGame.pendingCelebration = true;
+            } else {
+                this.combinedGame.pendingAdvance = true;
+            }
+        }
+    }
+
+    _flushPendingExchanges() {
+        if (!this.playerCoins) return;
+        // Cancel pending exchange timeouts
+        if (this._exchangeTimeouts) {
+            Object.values(this._exchangeTimeouts).forEach(function(id) { clearTimeout(id); });
+            this._exchangeTimeouts = {};
+        }
+        // Force immediate exchange for all players
+        this.players.forEach(p => {
+            while ((this.playerCoins[p.id] || 0) >= 10) {
+                this.playerCoins[p.id] -= 10;
+                this.playerGems[p.id] = (this.playerGems[p.id] || 0) + 1;
+                this.stageGems[p.id] = (this.stageGems[p.id] || 0) + 1;
+            }
+        });
+        this.players.forEach(p => this.checkGameProgression(p.id));
+    }
+
+    _updateEndGameButtonText() {
+        if (!this.combinedGame) return;
+        const btn = document.querySelector('.end-game-btn');
+        if (!btn) return;
+        if (this.combinedGame.pendingCelebration) {
+            btn.textContent = '🎉 Celebration!';
+        } else if (this.combinedGame.pendingAdvance) {
+            btn.textContent = '⭐ Next Game!';
+        }
+    }
+
+    advanceToNextStage() {
+        if (!this.combinedGame) return;
+
+        // Stop any timers
+        this.stopSunLevelTimer();
+        this.resetSunLevel();
+
+        // Remove end game buttons
+        this.hideKeyboardPopup();
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
+
+        const nextStageIndex = this.combinedGame.currentStage + 1;
+        const config = this.combinedGame.config;
+        const nextStage = config.stages[nextStageIndex];
+        const stageLabel = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][nextStageIndex] || '?';
+
+        // Get game name
+        let gameName = nextStage.gameName || ('Game ' + stageLabel);
+        if (!nextStage.gameName) {
+            try {
+                const gd = localStorage.getItem('savedCustomGames');
+                if (gd) {
+                    const parsed = JSON.parse(gd);
+                    if (parsed[nextStage.gameIndex]) gameName = parsed[nextStage.gameIndex].name;
+                }
+            } catch(e) {}
+        }
+
+        // Show transition overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'stage-transition-overlay';
+        overlay.id = 'stage-transition-overlay';
+        overlay.innerHTML = `
+            <div class="stage-transition-text">Level Up!</div>
+            <div class="stage-transition-sub">Starting Game ${stageLabel}: ${gameName}</div>
+            <div style="margin-top:20px;font-size:2rem;">💎 → ⭐</div>
+        `;
+        document.body.appendChild(overlay);
+
+        // After 2.5 seconds, load next game and continue
+        setTimeout(() => {
+            overlay.remove();
+
+            // Update stage
+            this.combinedGame.currentStage = nextStageIndex;
+            this.combinedGame.pendingAdvance = false;
+
+            // Reset stage gems for all players
+            this.players.forEach(p => {
+                this.stageGems[p.id] = 0;
+            });
+
+            // Load next game's deck
+            if (window.loadGameDeckForStage) {
+                window.loadGameDeckForStage(nextStage);
+            }
+
+            // Reset player states
+            const playersArea = document.getElementById('players-area');
+            playersArea.style.transition = '';
+            playersArea.style.opacity = '';
+            playersArea.style.display = '';
+            const turnIndicator = document.querySelector('.turn-indicator');
+            if (turnIndicator) turnIndicator.style.display = '';
+            document.getElementById('status-message').style.display = '';
+
+            this.players.forEach(player => {
+                player.hand = [];
+                player.isWinner = false;
+                player.winningCard = null;
+                player.animationShown = false;
+            });
+            this.sunLevelWinners = [];
+            document.getElementById('game-board').innerHTML = '';
+
+            // Start the game with the new deck
+            this.startSunLevelGame();
+        }, 2500);
+    }
+
+    showFinalCelebration() {
+        // Stop game
+        this.stopSunLevelTimer();
+        this.gamePhase = 'ended';
+
+        const overlay = document.getElementById('combined-celebration-overlay');
+        overlay.style.display = 'flex';
+
+        // Run confetti animation on canvas
+        const canvas = document.getElementById('celebration-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const colors = ['#FFD700', '#FF4500', '#00BFFF', '#FF69B4', '#32CD32', '#FF6347', '#9370DB', '#00CED1', '#FF1493', '#7FFF00'];
+
+        // Create 150 confetti particles
+        for (let i = 0; i < 150; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                w: Math.random() * 12 + 5,
+                h: Math.random() * 8 + 3,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                speed: Math.random() * 3 + 2,
+                angle: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 0.1,
+                drift: (Math.random() - 0.5) * 2
+            });
+        }
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+
+                p.y += p.speed;
+                p.x += p.drift;
+                p.angle += p.spin;
+
+                // Reset particle when it falls off screen
+                if (p.y > canvas.height + 20) {
+                    p.y = -20;
+                    p.x = Math.random() * canvas.width;
+                }
+            });
+            this._celebrationAnimFrame = requestAnimationFrame(animate);
+        };
+        animate();
+    }
+
+    cleanupCelebration() {
+        if (this._celebrationAnimFrame) {
+            cancelAnimationFrame(this._celebrationAnimFrame);
+            this._celebrationAnimFrame = null;
+        }
+        const overlay = document.getElementById('combined-celebration-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
     resetToSetup() {
+        // Clean up combined game
+        this.combinedGame = null;
+        this.playerCoins = {};
+        this.playerGems = {};
+        this.stageGems = {};
+        this._consecutiveProtectedMistakes = {};
+        this.cleanupCelebration();
+        window.combinedGameConfig = null;
+        window.combinedGameStage = 0;
+        window._activeCombinedIndex = -1;
+
+        // Remove any stage transition overlay
+        const stageOverlay = document.getElementById('stage-transition-overlay');
+        if (stageOverlay) stageOverlay.remove();
+
+        // Clear header stones
+        const headerStones = document.getElementById('header-stage-stones');
+        if (headerStones) headerStones.innerHTML = '';
+
         // Clean up Sun level if it was active
         this.resetSunLevel();
+        this.hideKeyboardPopup();
+        this.currentTimerDuration = 20; // Reset adaptive timer
+        this.consecutiveWinsAtMin = 0;
+        this._singlePlayerWins = 0; // Reset tutorial progression
+        this._multiPlayerWins = 0;
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'flex';
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('intro-screen').style.display = 'flex';
         document.getElementById('player-names').style.display = 'none';
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
 
@@ -1925,6 +3381,7 @@ class VicaDominoGame {
         });
 
         // Restore original containers and hide selected row
+        document.querySelector('.setup-columns').style.display = 'flex';
         document.querySelector('.game-level-select').style.display = 'flex';
         document.querySelector('.player-select').style.display = 'flex';
         const selectedRow = document.getElementById('selected-options-row');
@@ -1936,6 +3393,19 @@ class VicaDominoGame {
         document.getElementById('single-winner-content').style.display = 'block';
         document.getElementById('circle-winners-content').style.display = 'none';
         document.getElementById('winner-heading').style.display = 'block';
+
+        // Restore board container, controls, players area visibility, remove end game buttons
+        document.querySelector('.board-container').style.display = '';
+        document.getElementById('new-game-btn').style.display = '';
+        const playersArea = document.getElementById('players-area');
+        playersArea.style.transition = '';
+        playersArea.style.opacity = '';
+        playersArea.style.display = '';
+        const turnIndicator = document.querySelector('.turn-indicator');
+        if (turnIndicator) turnIndicator.style.display = '';
+        document.getElementById('status-message').style.display = '';
+        const endBtns = document.querySelector('.end-game-buttons');
+        if (endBtns) endBtns.remove();
 
         this.players = [];
         this.bank = [];
@@ -2106,7 +3576,7 @@ class VicaDominoGame {
     }
 
     updateControls() {
-        const drawBtn = document.getElementById('draw-btn');
+        const drawBtn = document.getElementById('bank-draw-btn');
         const passBtn = document.getElementById('pass-btn');
 
         // During drawForDouble phase - enable draw button

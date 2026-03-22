@@ -134,18 +134,20 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
     // Left/top half
     const leftHalf = document.createElement('div');
     leftHalf.className = 'domino-half';
-    const leftDisplay = document.createElement('span');
-    leftDisplay.className = `value-display value-${card.leftValue}`;
-    leftDisplay.textContent = getDisplayText(card.left);
-    leftHalf.appendChild(leftDisplay);
+    if (window.customGameSVGs && window.customGameSVGs[card.left]) {
+        const svg = window.customGameSVGs[card.left].cloneNode(true);
+        svg.classList.add('custom-face');
+        leftHalf.appendChild(svg);
+    }
 
     // Right/bottom half
     const rightHalf = document.createElement('div');
     rightHalf.className = 'domino-half';
-    const rightDisplay = document.createElement('span');
-    rightDisplay.className = `value-display value-${card.rightValue}`;
-    rightDisplay.textContent = getDisplayText(card.right);
-    rightHalf.appendChild(rightDisplay);
+    if (window.customGameSVGs && window.customGameSVGs[card.right]) {
+        const svg = window.customGameSVGs[card.right].cloneNode(true);
+        svg.classList.add('custom-face');
+        rightHalf.appendChild(svg);
+    }
 
     domino.appendChild(leftHalf);
     domino.appendChild(rightHalf);
@@ -166,5 +168,8 @@ function setCustomAssignments(assignments) {
  * @returns {array} - Shuffled array of card copies
  */
 function getShuffledDeck() {
-    return shuffleArray(DOMINO_CARDS.map(copyCard));
+    if (window.customGameDeck && window.customGameDeck.length > 0) {
+        return shuffleArray(window.customGameDeck.map(copyCard));
+    }
+    return [];
 }

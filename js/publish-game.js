@@ -15,14 +15,18 @@ async function publishGame() {
     // Serialize the game deck (plain data)
     var deckData = JSON.stringify(window.customGameDeck);
 
-    // Serialize SVG map: key -> outerHTML string
+    // Serialize SVG map: key -> innerHTML string (content without <svg> wrapper)
     var svgMapData = {};
     if (window.customGameSVGs) {
         for (var key in window.customGameSVGs) {
             if (window.customGameSVGs.hasOwnProperty(key)) {
                 var el = window.customGameSVGs[key];
-                if (el && el.outerHTML) {
-                    svgMapData[key] = el.outerHTML;
+                if (el) {
+                    // Serialize innerHTML (content only) instead of outerHTML
+                    // to avoid browser issues where outerHTML omits the xmlns
+                    // attribute. The published HTML reconstructs SVG elements
+                    // using createElementNS which correctly sets the namespace.
+                    svgMapData[key] = el.innerHTML;
                 }
             }
         }
@@ -182,11 +186,12 @@ async function publishGame() {
         '(function() {\n' +
         '  var svgData = ' + svgMapJson + ';\n' +
         '  var map = {};\n' +
-        '  var parser = new DOMParser();\n' +
         '  for (var key in svgData) {\n' +
         '    try {\n' +
-        '      var doc = parser.parseFromString(svgData[key], "image/svg+xml");\n' +
-        '      map[key] = doc.documentElement;\n' +
+        '      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");\n' +
+        '      svg.setAttribute("viewBox", "0 0 60 60");\n' +
+        '      svg.innerHTML = svgData[key];\n' +
+        '      map[key] = svg;\n' +
         '    } catch(e) {}\n' +
         '  }\n' +
         '  window.customGameSVGs = map;\n' +

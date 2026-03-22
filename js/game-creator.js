@@ -102,6 +102,10 @@ function startCustomGame(gameIndex, btnEl) {
     var mppBtn = document.getElementById('mpp-start-btn');
     if (mppBtn) mppBtn.style.display = '';
 
+    // Show Publish a game button
+    var publishBtn = document.getElementById('publish-game-btn');
+    if (publishBtn) publishBtn.style.display = '';
+
     // Update subtitle
     document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
 
@@ -220,6 +224,9 @@ function clearCustomGame() {
     // Hide Main Page Pictures button
     var mppBtn = document.getElementById('mpp-start-btn');
     if (mppBtn) mppBtn.style.display = 'none';
+    // Hide Publish a game button
+    var publishBtn = document.getElementById('publish-game-btn');
+    if (publishBtn) publishBtn.style.display = 'none';
     // Reset level icons to default letters
     resetLevelDominoIcons();
 }

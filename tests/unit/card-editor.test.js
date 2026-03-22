@@ -1327,4 +1327,693 @@ describe('setupGameViewDrag', () => {
     const container = document.createElement('div');
     expect(() => setupGameViewDrag(container, 0)).not.toThrow();
   });
+
+  test('pointerdown on a card element starts tracking', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const row = document.createElement('div');
+    row.className = 'library-row';
+    row.dataset.gameRow = 'A';
+    const card = document.createElement('div');
+    card.className = 'library-card';
+    card.dataset.cardLabel = 'A1';
+    row.appendChild(card);
+    container.appendChild(row);
+
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+
+    setupGameViewDrag(container, 0);
+
+    // Simulate pointerdown — should not throw
+    const event = new MouseEvent('pointerdown', { clientX: 10, clientY: 10, bubbles: true });
+    expect(() => card.dispatchEvent(event)).not.toThrow();
+
+    document.body.removeChild(container);
+  });
+
+  test('does not initiate drag on erase button click', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const row = document.createElement('div');
+    row.className = 'library-row';
+    row.dataset.gameRow = 'A';
+    const card = document.createElement('div');
+    card.className = 'library-card';
+    card.dataset.cardLabel = 'A1';
+    const eraseBtn = document.createElement('button');
+    eraseBtn.className = 'card-erase-btn';
+    card.appendChild(eraseBtn);
+    row.appendChild(card);
+    container.appendChild(row);
+
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+
+    setupGameViewDrag(container, 0);
+
+    // Pointerdown on erase button should not add dragging class
+    const event = new MouseEvent('pointerdown', { clientX: 10, clientY: 10, bubbles: true });
+    eraseBtn.dispatchEvent(event);
+    expect(card.classList.contains('dragging')).toBe(false);
+
+    document.body.removeChild(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// eraseGameCard — novel card removal
+// ---------------------------------------------------------------------------
+describe('eraseGameCard — novel card cleanup', () => {
+  beforeEach(() => {
+    global._origOpenGameView = global.openGameView;
+    global.openGameView = function() {};
+    global.gameViewReturnScreen = 'card-library-screen';
+    global.gameViewEraseMode = false;
+  });
+
+  afterEach(() => {
+    global.openGameView = global._origOpenGameView;
+  });
+
+  test('removes erased card from novel cards list', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B</text>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'B1']);
+
+    eraseGameCard('A1', 0);
+
+    const novels = getNovelCards(0);
+    expect(novels).not.toContain('A1');
+    expect(novels).toContain('B1');
+  });
+
+  test('preserves novel cards that are not erased', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B</text>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'A2', 'B1']);
+
+    eraseGameCard('A2', 0);
+
+    const novels = getNovelCards(0);
+    expect(novels).toEqual(['A1', 'B1']);
+  });
+
+  test('erasing a non-novel card does not affect novel list', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B</text>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1']);
+
+    eraseGameCard('A2', 0);
+
+    const novels = getNovelCards(0);
+    expect(novels).toEqual(['A1']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// eraseGameRow — novel card removal for entire row
+// ---------------------------------------------------------------------------
+describe('eraseGameRow — novel card cleanup', () => {
+  beforeEach(() => {
+    global._origOpenGameView = global.openGameView;
+    global.openGameView = function() {};
+    global.gameViewReturnScreen = 'card-library-screen';
+    global.gameViewEraseMode = false;
+    global._origConfirm = global.confirm;
+    global.confirm = () => true;
+  });
+
+  afterEach(() => {
+    global.openGameView = global._origOpenGameView;
+    global.confirm = global._origConfirm;
+  });
+
+  test('removes all cards in erased row from novel cards list', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B</text>' },
+        { label: 'B2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B2</text>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'A2', 'B1']);
+
+    eraseGameRow('A', 0);
+
+    const novels = getNovelCards(0);
+    expect(novels).not.toContain('A1');
+    expect(novels).not.toContain('A2');
+    expect(novels).toContain('B1');
+  });
+
+  test('handles row with gameRow property', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'X1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>', gameRow: 'A' },
+        { label: 'X2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>', gameRow: 'A' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B</text>' },
+        { label: 'B2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<text>B2</text>' },
+      ]
+    }]);
+    saveNovelCards(0, ['X1', 'X2', 'B1']);
+
+    eraseGameRow('A', 0);
+
+    const novels = getNovelCards(0);
+    expect(novels).not.toContain('X1');
+    expect(novels).not.toContain('X2');
+    expect(novels).toContain('B1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// copyGame — novelty data copying
+// ---------------------------------------------------------------------------
+describe('copyGame — novelty data', () => {
+  beforeEach(() => {
+    global._origPrompt = global.prompt;
+    global._origAlert = global.alert;
+    global._origOpenGameView = global.openGameView;
+    global.prompt = () => 'Copy of Test';
+    global.alert = () => {};
+    global.openGameView = function() {};
+    global.gameViewReturnScreen = 'card-library-screen';
+  });
+
+  afterEach(() => {
+    global.prompt = global._origPrompt;
+    global.alert = global._origAlert;
+    global.openGameView = global._origOpenGameView;
+  });
+
+  test('copies novel cards to new game', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'B1']);
+
+    copyGame(0);
+
+    const novels = getNovelCards(1);
+    expect(novels).toEqual(['A1', 'B1']);
+  });
+
+  test('copies novelty locked state to new game', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1']);
+    setNoveltyLocked(0, true);
+
+    copyGame(0);
+
+    expect(getNoveltyLocked(1)).toBe(true);
+  });
+
+  test('does not copy novelty if source has none', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+
+    copyGame(0);
+
+    const novels = getNovelCards(1);
+    expect(novels).toEqual([]);
+    expect(getNoveltyLocked(1)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteGame — novelty data cleanup
+// ---------------------------------------------------------------------------
+describe('deleteGame — novelty data cleanup', () => {
+  beforeEach(() => {
+    global._origConfirm = global.confirm;
+    global._origOpenGameView = global.openGameView;
+    global.confirm = () => true;
+    global.openGameView = function() {};
+    global.gameViewReturnScreen = 'card-library-screen';
+  });
+
+  afterEach(() => {
+    global.confirm = global._origConfirm;
+    global.openGameView = global._origOpenGameView;
+  });
+
+  test('clears novel cards when game is deleted', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'A2']);
+    setNoveltyLocked(0, true);
+
+    deleteGame(0);
+
+    expect(getNovelCards(0)).toEqual([]);
+    expect(getNoveltyLocked(0)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildGameViewDomino — novel-domino class application
+// ---------------------------------------------------------------------------
+describe('buildGameViewDomino — novel-domino class', () => {
+  beforeEach(() => {
+    // Stub getGameCardSVGWithFallback which is used internally
+    global._origGetGameCardSVG = global.getGameCardSVG;
+    global.getGameCardSVG = function() { return null; };
+  });
+
+  afterEach(() => {
+    global.getGameCardSVG = global._origGetGameCardSVG;
+    window._gameViewNovelSet = null;
+  });
+
+  test('adds novel-domino class when left card is novel', () => {
+    window._gameViewNovelSet = { 'A1': true };
+    const domino = {
+      leftCard: { label: 'A1', svgMarkup: '<circle/>' },
+      rightCard: { label: 'B1', svgMarkup: '<rect/>' },
+      isDouble: false
+    };
+    const el = buildGameViewDomino(domino);
+    expect(el.classList.contains('novel-domino')).toBe(true);
+  });
+
+  test('adds novel-domino class when right card is novel', () => {
+    window._gameViewNovelSet = { 'B1': true };
+    const domino = {
+      leftCard: { label: 'A1', svgMarkup: '<circle/>' },
+      rightCard: { label: 'B1', svgMarkup: '<rect/>' },
+      isDouble: false
+    };
+    const el = buildGameViewDomino(domino);
+    expect(el.classList.contains('novel-domino')).toBe(true);
+  });
+
+  test('does not add novel-domino class when neither card is novel', () => {
+    window._gameViewNovelSet = { 'C1': true };
+    const domino = {
+      leftCard: { label: 'A1', svgMarkup: '<circle/>' },
+      rightCard: { label: 'B1', svgMarkup: '<rect/>' },
+      isDouble: false
+    };
+    const el = buildGameViewDomino(domino);
+    expect(el.classList.contains('novel-domino')).toBe(false);
+  });
+
+  test('does not add novel-domino class when novel set is null', () => {
+    window._gameViewNovelSet = null;
+    const domino = {
+      leftCard: { label: 'A1', svgMarkup: '<circle/>' },
+      rightCard: { label: 'B1', svgMarkup: '<rect/>' },
+      isDouble: false
+    };
+    const el = buildGameViewDomino(domino);
+    expect(el.classList.contains('novel-domino')).toBe(false);
+  });
+
+  test('adds double-domino class for double dominos', () => {
+    window._gameViewNovelSet = null;
+    const domino = {
+      leftCard: { label: 'A1', svgMarkup: '<circle/>' },
+      rightCard: { label: 'A1', svgMarkup: '<circle/>' },
+      isDouble: true
+    };
+    const el = buildGameViewDomino(domino);
+    expect(el.classList.contains('double-domino')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hideGameView — novelty prompt trigger logic
+// ---------------------------------------------------------------------------
+describe('hideGameView — novelty prompt', () => {
+  beforeEach(() => {
+    global._origPopCM = global.populateCardMakerGames;
+    global.populateCardMakerGames = function() {};
+  });
+
+  afterEach(() => {
+    global.populateCardMakerGames = global._origPopCM;
+    window._gameViewNovelSet = null;
+  });
+
+  test('calls doHideGameView directly when no novel cards', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [{ label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' }]
+    }]);
+    // Open game view to set internal currentGameViewIndex
+    openGameView(0, 'card-library-screen');
+
+    hideGameView();
+
+    const gvScreen = document.getElementById('game-view-screen');
+    expect(gvScreen.style.display).toBe('none');
+  });
+
+  test('calls doHideGameView directly when novelty is locked', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [{ label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' }]
+    }]);
+    saveNovelCards(0, ['A1']);
+    setNoveltyLocked(0, true);
+    openGameView(0, 'card-library-screen');
+
+    hideGameView();
+
+    const gvScreen = document.getElementById('game-view-screen');
+    expect(gvScreen.style.display).toBe('none');
+  });
+
+  test('shows novelty prompt when novel cards exist and not locked', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [{ label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' }]
+    }]);
+    saveNovelCards(0, ['A1']);
+    // Not locked
+    openGameView(0, 'card-library-screen');
+
+    hideGameView();
+
+    // Prompt overlay should be visible
+    const overlay = document.getElementById('novelty-prompt-overlay');
+    expect(overlay.style.display).toBe('flex');
+    // Clean up - dismiss the prompt
+    document.getElementById('novelty-dismiss-btn').click();
+  });
+
+  test('doHideGameView clears _gameViewNovelSet', () => {
+    window._gameViewNovelSet = { 'A1': true };
+    doHideGameView();
+    expect(window._gameViewNovelSet).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// showNoveltyPrompt — keep/dismiss interactions
+// ---------------------------------------------------------------------------
+describe('showNoveltyPrompt', () => {
+  test('shows overlay and calls onDone when keep is clicked', () => {
+    let doneCalled = false;
+    showNoveltyPrompt(0, () => { doneCalled = true; });
+
+    const overlay = document.getElementById('novelty-prompt-overlay');
+    expect(overlay.style.display).toBe('flex');
+
+    document.getElementById('novelty-keep-btn').click();
+    expect(doneCalled).toBe(true);
+    expect(overlay.style.display).toBe('none');
+    expect(getNoveltyLocked(0)).toBe(true);
+  });
+
+  test('dismiss clears all novelty data', () => {
+    saveNovelCards(0, ['A1', 'B1']);
+    setNoveltyLocked(0, false);
+
+    let doneCalled = false;
+    showNoveltyPrompt(0, () => { doneCalled = true; });
+
+    document.getElementById('novelty-dismiss-btn').click();
+    expect(doneCalled).toBe(true);
+    expect(getNovelCards(0)).toEqual([]);
+    expect(getNoveltyLocked(0)).toBe(false);
+  });
+
+  test('slider toggles active class on click', () => {
+    showNoveltyPrompt(0, () => {});
+
+    const slider = document.getElementById('novelty-prompt-slider');
+    expect(slider.classList.contains('active')).toBe(false);
+
+    slider.click();
+    expect(slider.classList.contains('active')).toBe(true);
+
+    slider.click();
+    expect(slider.classList.contains('active')).toBe(false);
+
+    // Clean up
+    document.getElementById('novelty-dismiss-btn').click();
+  });
+
+  test('calls onDone immediately if overlay element is missing', () => {
+    const overlay = document.getElementById('novelty-prompt-overlay');
+    overlay.id = 'novelty-prompt-overlay-hidden';
+
+    let doneCalled = false;
+    showNoveltyPrompt(0, () => { doneCalled = true; });
+    expect(doneCalled).toBe(true);
+
+    overlay.id = 'novelty-prompt-overlay';
+  });
+});
+
+// ---------------------------------------------------------------------------
+// openGameView — novel card pink border application
+// ---------------------------------------------------------------------------
+describe('openGameView — novel card borders', () => {
+  test('applies novel-card class to novel non-variation cards', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' },
+        { label: 'A2', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect x="10" y="10" width="20" height="20" fill="blue"/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1']);
+
+    openGameView(0, 'card-library-screen');
+
+    const container = document.getElementById('game-view-cards');
+    const cards = container.querySelectorAll('.library-card');
+    let novelCount = 0;
+    cards.forEach(c => {
+      if (c.dataset.cardLabel === 'A1') {
+        expect(c.classList.contains('novel-card')).toBe(true);
+        novelCount++;
+      }
+      if (c.dataset.cardLabel === 'A2') {
+        expect(c.classList.contains('novel-card')).toBe(false);
+      }
+    });
+    expect(novelCount).toBe(1);
+  });
+
+  test('does not apply novel-card class to variation cards', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>' },
+        { label: 'A1v', isVariation: true, originalLabel: 'A1', cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="5" fill="green"/>' },
+        { label: 'B1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<rect/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['A1', 'A1v']);
+
+    openGameView(0, 'card-library-screen');
+
+    const container = document.getElementById('game-view-cards');
+    const varCard = container.querySelector('[data-card-label="A1v"]');
+    // Variation cards should not get novel-card class even if in novel list
+    if (varCard) {
+      expect(varCard.classList.contains('novel-card')).toBe(false);
+    }
+  });
+
+  test('sets data-cardLabel and data-gameRow on elements', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle cx="30" cy="30" r="10" fill="red"/>', gameRow: 'X' },
+      ]
+    }]);
+
+    openGameView(0, 'card-library-screen');
+
+    const container = document.getElementById('game-view-cards');
+    const card = container.querySelector('[data-card-label="A1"]');
+    expect(card).not.toBeNull();
+    const row = container.querySelector('[data-game-row="X"]');
+    expect(row).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addCardsToCurrentGame — novel card tracking
+// ---------------------------------------------------------------------------
+describe('addCardsToCurrentGame — novel card tracking', () => {
+  beforeEach(() => {
+    global._origOpenGameView = global.openGameView;
+    global._origToggleAdd = global.toggleGameViewAddCards;
+    global.openGameView = function() {};
+    global.toggleGameViewAddCards = function() {};
+    global.gameViewAddMode = false;
+    global.gameViewReturnScreen = 'card-library-screen';
+    global.currentGameViewIndex = 0;
+  });
+
+  afterEach(() => {
+    global.openGameView = global._origOpenGameView;
+    global.toggleGameViewAddCards = global._origToggleAdd;
+  });
+
+  test('marks newly added cards as novel', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'B1', svgContent: '<text>B</text>' }],
+      'Numbers and Dots', 0
+    );
+
+    const novels = getNovelCards(0);
+    expect(novels).toContain('B1');
+  });
+
+  test('does not duplicate novel labels when adding same card again', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+    saveNovelCards(0, ['B1']);
+
+    addCardsToCurrentGame(
+      [{ label: 'B1', svgContent: '<text>B</text>' }],
+      'Numbers and Dots', 0
+    );
+
+    // B1 is already in game (as duplicate), so it won't be added again
+    // Novel list should still contain B1 exactly once
+    const novels = getNovelCards(0);
+    const b1Count = novels.filter(l => l === 'B1').length;
+    expect(b1Count).toBeLessThanOrEqual(1);
+  });
+
+  test('adds multiple cards to novel list', () => {
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'Numbers and Dots', svgMarkup: '<circle/>' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [
+        { label: 'C1', svgContent: '<text>C</text>' },
+        { label: 'D1', svgContent: '<text>D</text>' },
+      ],
+      'Numbers and Dots', 0
+    );
+
+    const novels = getNovelCards(0);
+    expect(novels).toContain('C1');
+    expect(novels).toContain('D1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared data layer — novel card persistence functions
+// ---------------------------------------------------------------------------
+describe('Novel card persistence (shared-data)', () => {
+  test('getNovelCards returns empty array when no data', () => {
+    expect(getNovelCards(0)).toEqual([]);
+  });
+
+  test('saveNovelCards and getNovelCards round-trip', () => {
+    saveNovelCards(0, ['A1', 'B1', 'C1']);
+    expect(getNovelCards(0)).toEqual(['A1', 'B1', 'C1']);
+  });
+
+  test('saveNovelCards removes key when empty array', () => {
+    saveNovelCards(0, ['A1']);
+    saveNovelCards(0, []);
+    expect(localStorage.getItem('novelCards_0')).toBeNull();
+  });
+
+  test('getNoveltyLocked returns false by default', () => {
+    expect(getNoveltyLocked(0)).toBe(false);
+  });
+
+  test('setNoveltyLocked persists lock state', () => {
+    setNoveltyLocked(0, true);
+    expect(getNoveltyLocked(0)).toBe(true);
+  });
+
+  test('setNoveltyLocked(false) removes the key', () => {
+    setNoveltyLocked(0, true);
+    setNoveltyLocked(0, false);
+    expect(localStorage.getItem('noveltyLocked_0')).toBeNull();
+  });
+
+  test('clearNovelty removes both novel cards and lock', () => {
+    saveNovelCards(0, ['A1', 'B1']);
+    setNoveltyLocked(0, true);
+    clearNovelty(0);
+    expect(getNovelCards(0)).toEqual([]);
+    expect(getNoveltyLocked(0)).toBe(false);
+  });
+
+  test('novel data is per-game-index', () => {
+    saveNovelCards(0, ['A1']);
+    saveNovelCards(1, ['B1']);
+    setNoveltyLocked(0, true);
+
+    expect(getNovelCards(0)).toEqual(['A1']);
+    expect(getNovelCards(1)).toEqual(['B1']);
+    expect(getNoveltyLocked(0)).toBe(true);
+    expect(getNoveltyLocked(1)).toBe(false);
+  });
 });

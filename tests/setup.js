@@ -378,6 +378,8 @@ function loadCardEditorModule() {
   global.openCombineDialog = global.openCombineDialog || function() {};
   global.startCustomGame = global.startCustomGame || function() {};
   global.startCombinedGameFromMenu = global.startCombinedGameFromMenu || function() {};
+  global.closeMainPagePictures = global.closeMainPagePictures || function() {};
+  global.mppGameIndex = -1;
   global.currentGameViewIndex = -1;
   global.activeCardSet = 'numbers';
 
@@ -416,7 +418,8 @@ function loadCardEditorModule() {
       hideGameView, doHideGameView, showNoveltyPrompt,
       gameMakerActive, gameMakerName, gameMakerDesc, gameMakerSelected,
       gameMakerEditIndex, completeGame, isCustomCardSet,
-      setupGameViewDrag
+      setupGameViewDrag, buildGameViewDomino,
+      copyGame, copyGameAndEdit, deleteGame
     };
   })()`;
   const exports = eval(wrapped);

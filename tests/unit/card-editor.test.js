@@ -1155,7 +1155,7 @@ describe('getAvailableCardsFromSet', () => {
     expect(cards[0].label).toBe('C2');
   });
 
-  test('skips custom cards with empty svgContent', () => {
+  test('includes custom cards with empty svgContent', () => {
     const customCards = [
       { label: 'D1', svgContent: '' },
       { label: 'D2', svgContent: '   ' },
@@ -1167,8 +1167,8 @@ describe('getAvailableCardsFromSet', () => {
       { name: 'TestSet', key: 'TestSet', cardSetValue: 'TestSet', isCustom: true },
       {}
     );
-    expect(cards).toHaveLength(1);
-    expect(cards[0].label).toBe('D3');
+    expect(cards).toHaveLength(3);
+    expect(cards.map(c => c.label)).toEqual(['D1', 'D2', 'D3']);
   });
 
   test('returns empty for custom set with no localStorage data', () => {

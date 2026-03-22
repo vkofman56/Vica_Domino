@@ -2031,9 +2031,7 @@ document.querySelector('#domino-library-screen .domino-library-content').addEven
             card.classList.remove('card-selected');
             gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
         } else {
-            // Don't allow selecting cards with empty SVG content
             var cardSvgEl = card.querySelector('svg');
-            if (cardSvgEl && !cardSvgEl.innerHTML.trim()) return;
             card.classList.add('card-selected');
             var info = { label: labelText, isVariation: card.classList.contains('variation') };
             if (info.isVariation) {
@@ -3587,14 +3585,9 @@ function enterSelectionMode() {
                     // Store SVG markup for self-contained game data
                     var cardSvgEl = cardEl.querySelector('svg');
                     if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
-                    // Skip cards with empty SVG content
-                    if (info.svgMarkup && !info.svgMarkup.trim()) {
-                        found = false;
-                    } else {
-                        cardEl.classList.add('card-selected');
-                        gameMakerSelected.push(info);
-                        matched[ecKey] = true;
-                    }
+                    cardEl.classList.add('card-selected');
+                    gameMakerSelected.push(info);
+                    matched[ecKey] = true;
                 }
             });
         });
@@ -3670,12 +3663,9 @@ function completeGame() {
     Object.keys(selectedByLabel).forEach(function(label) {
         ordered.push(selectedByLabel[label]);
     });
-    // Filter out cards with empty SVG content (e.g. unfilled ABC slots)
-    gameMakerSelected = ordered.filter(function(info) {
-        return info.svgMarkup && info.svgMarkup.trim().length > 0;
-    });
+    gameMakerSelected = ordered;
     if (gameMakerSelected.length === 0) {
-        alert('Please select at least one card with visual content.');
+        alert('Please select at least one card.');
         return;
     }
 
@@ -4012,7 +4002,6 @@ function getAvailableCardsFromSet(source, inGame) {
                 var label = lbl.textContent;
                 if (inGame[label]) return;
                 var content = svg.innerHTML.trim();
-                if (!content) return;
                 cards.push({ label: label, svgContent: content });
             });
         }
@@ -4031,7 +4020,6 @@ function getAvailableCardsFromSet(source, inGame) {
                     var label = lbl.textContent;
                     if (inGame[label]) return;
                     var svgContent = svg.innerHTML.trim();
-                    if (!svgContent) return;
                     cards.push({ label: label, svgContent: svgContent });
                 });
             }
@@ -4050,7 +4038,6 @@ function getAvailableCardsFromSet(source, inGame) {
                 var label = lbl.textContent;
                 if (inGame[label]) return;
                 var content = svg.innerHTML.trim();
-                if (!content) return;
                 cards.push({ label: label, svgContent: content });
             });
         }
@@ -4062,8 +4049,7 @@ function getAvailableCardsFromSet(source, inGame) {
                 var items = JSON.parse(raw);
                 items.forEach(function(item) {
                     if (inGame[item.label]) return;
-                    if (!item.svgContent || !item.svgContent.trim()) return;
-                    cards.push({ label: item.label, svgContent: item.svgContent });
+                    cards.push({ label: item.label, svgContent: item.svgContent || '' });
                 });
             }
         } catch(e) {}
@@ -4173,12 +4159,10 @@ function openGameView(gameIndex, returnScreen) {
     // Store on window so buildGameViewDomino can access it
     window._gameViewNovelSet = hasNovelCards ? novelSet : null;
 
-    // Group cards by row letter (skip cards with empty SVG content)
+    // Group cards by row letter
     var cardsByRow = {};
     var rowOrder = [];
     game.cards.forEach(function(c) {
-        // Skip cards with no visual content
-        if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
         var row = getCardRow(c);
         if (!cardsByRow[row]) {
             cardsByRow[row] = [];

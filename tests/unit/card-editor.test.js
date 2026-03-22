@@ -1199,3 +1199,89 @@ describe('toggleGameViewAddCards', () => {
     expect(btn.style.opacity).toBe('');
   });
 });
+
+// ---------------------------------------------------------------------------
+// completeGame — card ordering for custom card sets
+// ---------------------------------------------------------------------------
+describe('completeGame', () => {
+  test('preserves DOM order for custom card set cards', () => {
+    // Add DOM elements needed by cancelGameMaker (called at end of completeGame)
+    if (!document.getElementById('game-maker-bar')) {
+      const bar = document.createElement('div');
+      bar.id = 'game-maker-bar';
+      bar.style.display = 'none';
+      const barText = document.createElement('span');
+      barText.id = 'game-maker-bar-text';
+      bar.appendChild(barText);
+      document.body.appendChild(bar);
+    }
+    if (!document.getElementById('card-maker-set-title')) {
+      const title = document.createElement('span');
+      title.id = 'card-maker-set-title';
+      document.body.appendChild(title);
+    }
+
+    // Populate card-set-custom with cards in a known order
+    const customDiv = document.getElementById('card-set-custom');
+    customDiv.style.display = '';
+    customDiv.innerHTML = '';
+    const labels = ['E1', 'E2', 'E3', 'E4', 'E5'];
+    const row = document.createElement('div');
+    row.className = 'library-row';
+    labels.forEach(lbl => {
+      const card = document.createElement('div');
+      card.className = 'library-card';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'library-label';
+      labelEl.textContent = lbl;
+      card.appendChild(labelEl);
+      const preview = document.createElement('div');
+      preview.className = 'domino-half-preview';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 60 60');
+      svg.innerHTML = '<circle cx="30" cy="30" r="10"/>';
+      preview.appendChild(svg);
+      card.appendChild(preview);
+      row.appendChild(card);
+    });
+    customDiv.appendChild(row);
+
+    // Set up game maker state as if creating a new game from a custom set
+    global.activeCardSet = 'MyCustomSet';
+    // gameMakerEditIndex defaults to -1 (new game) in the module closure
+    // Push items into the closure's array reference (don't replace it)
+    gameMakerSelected.length = 0;
+    labels.forEach(lbl => {
+      gameMakerSelected.push({
+        label: lbl,
+        isVariation: false,
+        cardSet: 'MyCustomSet',
+        svgMarkup: '<circle cx="30" cy="30" r="10"/>'
+      });
+    });
+
+    // Suppress alert and stub functions called at end of completeGame
+    const origAlert = global.alert;
+    global.alert = () => {};
+    const origPopLib = global.populateLibraryGames;
+    const origPopStart = global.populateStartScreenGames;
+    const origPopCM = global.populateCardMakerGames;
+    global.populateLibraryGames = () => {};
+    global.populateStartScreenGames = () => {};
+    global.populateCardMakerGames = () => {};
+    completeGame();
+    global.alert = origAlert;
+    global.populateLibraryGames = origPopLib;
+    global.populateStartScreenGames = origPopStart;
+    global.populateCardMakerGames = origPopCM;
+
+    // Verify saved game has cards in original DOM order
+    const games = loadCustomGames();
+    expect(games).toHaveLength(1);
+    const savedLabels = games[0].cards.map(c => c.label);
+    expect(savedLabels).toEqual(labels);
+
+    // Restore
+    global.activeCardSet = 'numbers';
+  });
+});

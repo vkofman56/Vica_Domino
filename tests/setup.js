@@ -374,6 +374,10 @@ function loadCardEditorModule() {
   global.populateCardMakerGames = global.populateCardMakerGames || function() {};
   global.getGameCardSVG = global.getGameCardSVG || function() { return null; };
   global.getGameVariationSVG = global.getGameVariationSVG || function() { return null; };
+  global.updateCombineButton = global.updateCombineButton || function() {};
+  global.openCombineDialog = global.openCombineDialog || function() {};
+  global.startCustomGame = global.startCustomGame || function() {};
+  global.startCombinedGameFromMenu = global.startCombinedGameFromMenu || function() {};
   global.currentGameViewIndex = -1;
   global.activeCardSet = 'numbers';
 
@@ -409,7 +413,9 @@ function loadCardEditorModule() {
       getCardRow, addCardsToCurrentGame,
       buildAvailableCardsArea, getAvailableCardsFromSet,
       toggleGameViewAddCards, gameViewAddMode,
-      hideGameView, doHideGameView, showNoveltyPrompt
+      hideGameView, doHideGameView, showNoveltyPrompt,
+      gameMakerActive, gameMakerName, gameMakerDesc, gameMakerSelected,
+      gameMakerEditIndex, completeGame, isCustomCardSet
     };
   })()`;
   const exports = eval(wrapped);

@@ -3649,7 +3649,9 @@ function completeGame() {
     var ordered = [];
     var cardSetContainer = activeCardSet === 'abc'
         ? document.getElementById('card-set-abc')
-        : document.getElementById('card-set-numbers');
+        : isCustomCardSet(activeCardSet)
+            ? document.getElementById('card-set-custom')
+            : document.getElementById('card-set-numbers');
     // Scan all visible library cards in DOM order (includes orphaned rows for Numbers set)
     var contentArea = document.querySelector('#domino-library-screen .domino-library-content');
     var scanRoot = cardSetContainer || contentArea;

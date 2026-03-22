@@ -3680,12 +3680,30 @@ function completeGame() {
     // Save the game
     var games = loadCustomGames();
     if (gameMakerEditIndex >= 0) {
+        // Track novel cards: cards in new selection not in the original game
+        var oldLabels = {};
+        (games[gameMakerEditIndex].cards || []).forEach(function(c) {
+            if (!c.isVariation) oldLabels[c.label] = true;
+        });
+        var novelLabels = getNovelCards(gameMakerEditIndex);
+        gameMakerSelected.forEach(function(c) {
+            if (!c.isVariation && !oldLabels[c.label] && novelLabels.indexOf(c.label) < 0) {
+                novelLabels.push(c.label);
+            }
+        });
+        saveNovelCards(gameMakerEditIndex, novelLabels);
+        // Also remove novel labels for cards removed from the game
+        var newLabels = {};
+        gameMakerSelected.forEach(function(c) { if (!c.isVariation) newLabels[c.label] = true; });
+        novelLabels = novelLabels.filter(function(l) { return newLabels[l]; });
+        saveNovelCards(gameMakerEditIndex, novelLabels);
+
         // Update existing game
         games[gameMakerEditIndex].description = gameMakerDesc;
         games[gameMakerEditIndex].cards = gameMakerSelected;
         alert('The game \u201C' + gameMakerName + '\u201D has been updated!');
     } else {
-        // Create new game
+        // Create new game - no novel cards (everything is new)
         games.push({
             name: gameMakerName,
             description: gameMakerDesc,
@@ -3771,6 +3789,10 @@ function eraseGameCard(label, gameIndex) {
         return key.indexOf(label + ':') < 0 && key.indexOf(':' + label) < 0;
     });
     saveExcludedDominos(gameIndex, excludedKeys);
+    // Remove erased card from novel cards list
+    var novelLabels = getNovelCards(gameIndex);
+    novelLabels = novelLabels.filter(function(l) { return l !== label; });
+    saveNovelCards(gameIndex, novelLabels);
     saveCustomGames(games);
     // Refresh the game view
     openGameView(gameIndex, gameViewReturnScreen);
@@ -3813,6 +3835,10 @@ function eraseGameRow(rowLetter, gameIndex) {
         return true;
     });
     saveExcludedDominos(gameIndex, excludedKeys);
+    // Remove erased cards from novel cards list
+    var novelLabels = getNovelCards(gameIndex);
+    novelLabels = novelLabels.filter(function(l) { return labelsToRemove.indexOf(l) < 0; });
+    saveNovelCards(gameIndex, novelLabels);
     saveCustomGames(games);
     openGameView(gameIndex, gameViewReturnScreen);
     gameViewEraseMode = false;
@@ -4049,6 +4075,7 @@ function addCardsToCurrentGame(cardDataArray, cardSetValue, gameIndex) {
     if (!game) return;
 
     var added = 0;
+    var addedLabels = [];
     // Build set of existing labels to avoid duplicates
     var existing = {};
     game.cards.forEach(function(c) {
@@ -4078,10 +4105,20 @@ function addCardsToCurrentGame(cardDataArray, cardSetValue, gameIndex) {
             gameRow: nextRow
         });
         existing[cd.label] = true;
+        addedLabels.push(cd.label);
         added++;
     });
 
     if (added === 0) return;
+
+    // Track newly added cards as novel
+    var novelLabels = getNovelCards(gameIndex);
+    addedLabels.forEach(function(label) {
+        if (novelLabels.indexOf(label) < 0) {
+            novelLabels.push(label);
+        }
+    });
+    saveNovelCards(gameIndex, novelLabels);
 
     saveCustomGames(games);
     // Refresh game view
@@ -4128,6 +4165,15 @@ function openGameView(gameIndex, returnScreen) {
     container.innerHTML = '';
     container.classList.remove('erase-mode');
 
+    // Load novel cards for this game
+    var novelLabels = getNovelCards(gameIndex);
+    var noveltyLocked = getNoveltyLocked(gameIndex);
+    var hasNovelCards = novelLabels.length > 0;
+    var novelSet = {};
+    novelLabels.forEach(function(l) { novelSet[l] = true; });
+    // Store on window so buildGameViewDomino can access it
+    window._gameViewNovelSet = hasNovelCards ? novelSet : null;
+
     // Group cards by row letter (skip cards with empty SVG content)
     var cardsByRow = {};
     var rowOrder = [];
@@ -4154,6 +4200,10 @@ function openGameView(gameIndex, returnScreen) {
         cardsByRow[row].forEach(function(cardInfo) {
             var cardEl = buildGameViewCard(cardInfo);
             if (cardEl) {
+                // Apply pink border to novel cards
+                if (hasNovelCards && !cardInfo.isVariation && novelSet[cardInfo.label]) {
+                    cardEl.classList.add('novel-card');
+                }
                 // Only add erase button to non-variation cards
                 if (!cardInfo.isVariation) {
                     cardEl.style.position = 'relative';
@@ -4246,6 +4296,58 @@ function openGameView(gameIndex, returnScreen) {
     btnRow.appendChild(delBtn);
 
     container.appendChild(btnRow);
+
+    // Novelty toggle row (only show if there are novel cards)
+    if (hasNovelCards) {
+        var noveltyRow = document.createElement('div');
+        noveltyRow.className = 'novelty-toggle-row';
+        noveltyRow.id = 'novelty-toggle-row';
+
+        var noveltyLabel = document.createElement('span');
+        noveltyLabel.textContent = 'New cards highlighted';
+        noveltyRow.appendChild(noveltyLabel);
+
+        var noveltySlider = document.createElement('div');
+        noveltySlider.className = 'novelty-slider' + (noveltyLocked ? ' active' : '');
+        noveltySlider.id = 'novelty-game-slider';
+        var noveltyKnob = document.createElement('div');
+        noveltyKnob.className = 'novelty-slider-knob';
+        noveltySlider.appendChild(noveltyKnob);
+        noveltyRow.appendChild(noveltySlider);
+
+        var noveltyStatus = document.createElement('span');
+        noveltyStatus.id = 'novelty-status-text';
+        noveltyStatus.textContent = noveltyLocked ? 'Persistent' : 'Temporary';
+        noveltyRow.appendChild(noveltyStatus);
+
+        (function(gi) {
+            noveltySlider.onclick = function() {
+                var isActive = noveltySlider.classList.contains('active');
+                if (isActive) {
+                    // Move to left: clear novelty
+                    noveltySlider.classList.remove('active');
+                    clearNovelty(gi);
+                    // Remove pink borders from cards and dominos
+                    document.querySelectorAll('#game-view-cards .novel-card').forEach(function(el) {
+                        el.classList.remove('novel-card');
+                    });
+                    document.querySelectorAll('#game-view-cards .novel-domino').forEach(function(el) {
+                        el.classList.remove('novel-domino');
+                    });
+                    noveltyStatus.textContent = 'Cleared';
+                    // Hide the toggle row after clearing
+                    noveltyRow.style.display = 'none';
+                } else {
+                    // Move to right: lock novelty
+                    noveltySlider.classList.add('active');
+                    setNoveltyLocked(gi, true);
+                    noveltyStatus.textContent = 'Persistent';
+                }
+            };
+        })(gameIndex);
+
+        container.appendChild(noveltyRow);
+    }
 
     // Update flip button state on left toolbar
     updateFlipBtnState(!!game.flipEnabled);
@@ -4427,6 +4529,14 @@ function copyGame(gameIndex) {
     if (excludedVars.length > 0) {
         saveExcludedVariations(games.length - 1, excludedVars);
     }
+    // Copy novelty data too
+    var novelLabels = getNovelCards(gameIndex);
+    if (novelLabels.length > 0) {
+        saveNovelCards(games.length - 1, novelLabels);
+        if (getNoveltyLocked(gameIndex)) {
+            setNoveltyLocked(games.length - 1, true);
+        }
+    }
     alert('Game copied as \u201C' + newName + '\u201D');
     populateLibraryGames();
     populateStartScreenGames();
@@ -4458,6 +4568,14 @@ function copyGameAndEdit(gameIndex) {
     var excludedVars = getExcludedVariations(gameIndex);
     if (excludedVars.length > 0) {
         saveExcludedVariations(games.length - 1, excludedVars);
+    }
+    // Copy novelty data too
+    var novelLabels2 = getNovelCards(gameIndex);
+    if (novelLabels2.length > 0) {
+        saveNovelCards(games.length - 1, novelLabels2);
+        if (getNoveltyLocked(gameIndex)) {
+            setNoveltyLocked(games.length - 1, true);
+        }
     }
     populateLibraryGames();
     populateStartScreenGames();
@@ -4528,6 +4646,12 @@ function buildGameViewDomino(domino) {
     var el = document.createElement('div');
     el.className = 'game-view-domino';
     if (domino.isDouble) el.classList.add('double-domino');
+
+    // Mark domino as novel if at least one half is a novel card
+    var ns = window._gameViewNovelSet;
+    if (ns && (ns[domino.leftCard.label] || ns[domino.rightCard.label])) {
+        el.classList.add('novel-domino');
+    }
 
     var leftHalf = document.createElement('div');
     leftHalf.className = 'game-view-domino-half';
@@ -4643,9 +4767,70 @@ function buildGameViewVariations(varArea, origCards, gameIndex) {
 function hideGameView() {
     // Close MPP panel if open
     if (mppGameIndex >= 0) closeMainPagePictures();
+    // Check for unlocked novel cards before leaving
+    var gi = currentGameViewIndex;
+    if (gi >= 0) {
+        var novelLabels = getNovelCards(gi);
+        var locked = getNoveltyLocked(gi);
+        if (novelLabels.length > 0 && !locked) {
+            showNoveltyPrompt(gi, function() {
+                // After prompt resolved, proceed with hide
+                doHideGameView();
+            });
+            return;
+        }
+    }
+    doHideGameView();
+}
+
+function doHideGameView() {
     document.getElementById('game-view-screen').style.display = 'none';
     document.getElementById(gameViewReturnScreen).style.display = 'block';
+    window._gameViewNovelSet = null;
     populateCardMakerGames();
+}
+
+function showNoveltyPrompt(gameIndex, onDone) {
+    var overlay = document.getElementById('novelty-prompt-overlay');
+    if (!overlay) { onDone(); return; }
+    overlay.style.display = 'flex';
+
+    var slider = document.getElementById('novelty-prompt-slider');
+    slider.classList.remove('active');
+
+    var keepBtn = document.getElementById('novelty-keep-btn');
+    var dismissBtn = document.getElementById('novelty-dismiss-btn');
+
+    function cleanup() {
+        overlay.style.display = 'none';
+        keepBtn.onclick = null;
+        dismissBtn.onclick = null;
+        slider.onclick = null;
+    }
+
+    slider.onclick = function() {
+        slider.classList.toggle('active');
+    };
+
+    keepBtn.onclick = function() {
+        // If slider is active (pushed right), lock novelty
+        if (slider.classList.contains('active')) {
+            setNoveltyLocked(gameIndex, true);
+        } else {
+            // Keep pink was clicked but slider not moved right
+            // Lock it anyway since user clicked "Keep pink"
+            setNoveltyLocked(gameIndex, true);
+        }
+        cleanup();
+        onDone();
+    };
+
+    dismissBtn.onclick = function() {
+        // Clear all novelty
+        clearNovelty(gameIndex);
+        cleanup();
+        onDone();
+    };
 }
 
 function editGameTitle() {
@@ -4738,9 +4923,10 @@ function deleteGame(gameIndex) {
     if (!confirm('Delete game \u201C' + game.name + '\u201D? This cannot be undone.')) return;
     games.splice(gameIndex, 1);
     saveCustomGames(games);
-    // Remove excluded dominos and variations for this game
+    // Remove excluded dominos, variations, and novelty data for this game
     localStorage.removeItem('excludedDominos_' + gameIndex);
     localStorage.removeItem('excludedVariations_' + gameIndex);
+    clearNovelty(gameIndex);
     // Update combined games: shift gameIndex values to account for removal
     var combinedGames = loadCombinedGames();
     var changed = false;
@@ -4756,7 +4942,7 @@ function deleteGame(gameIndex) {
     populateLibraryGames();
     populateStartScreenGames();
     populateCardMakerGames();
-    hideGameView();
+    doHideGameView(); // Skip novelty prompt since game is deleted
 }
 
 document.getElementById('back-from-game-view-btn').addEventListener('click', function() {

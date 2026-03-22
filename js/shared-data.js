@@ -139,6 +139,40 @@ function resolveStageGameIndex(stage) {
     return -1;
 }
 
+// ---- Per-game novel cards (novelty tracking) ----
+
+function getNovelCards(gameIndex) {
+    try {
+        var data = localStorage.getItem('novelCards_' + gameIndex);
+        return data ? JSON.parse(data) : [];
+    } catch(e) { return []; }
+}
+
+function saveNovelCards(gameIndex, labels) {
+    if (labels.length === 0) {
+        localStorage.removeItem('novelCards_' + gameIndex);
+    } else {
+        localStorage.setItem('novelCards_' + gameIndex, JSON.stringify(labels));
+    }
+}
+
+function getNoveltyLocked(gameIndex) {
+    return localStorage.getItem('noveltyLocked_' + gameIndex) === 'true';
+}
+
+function setNoveltyLocked(gameIndex, locked) {
+    if (locked) {
+        localStorage.setItem('noveltyLocked_' + gameIndex, 'true');
+    } else {
+        localStorage.removeItem('noveltyLocked_' + gameIndex);
+    }
+}
+
+function clearNovelty(gameIndex) {
+    localStorage.removeItem('novelCards_' + gameIndex);
+    localStorage.removeItem('noveltyLocked_' + gameIndex);
+}
+
 // ---- Utility ----
 
 function randomPick(arr) {

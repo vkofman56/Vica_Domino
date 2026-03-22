@@ -166,6 +166,13 @@ function buildGameCreatorDOM() {
         <button id="close-celebration-btn"></button>
       </div>
       <div id="combine-games-btn" style="display:none;"></div>
+      <div id="novelty-prompt-overlay" style="display:none;">
+        <div class="novelty-prompt-dialog">
+          <div class="novelty-slider" id="novelty-prompt-slider"><div class="novelty-slider-knob"></div></div>
+          <button id="novelty-keep-btn">Keep pink</button>
+          <button id="novelty-dismiss-btn">Dismiss</button>
+        </div>
+      </div>
       <div id="library-set-1-games"></div>
       <div id="card-maker-games"></div>
       <div class="screen" id="create-edit-screen" style="display:none;">
@@ -195,7 +202,8 @@ function loadSharedDataModule() {
       getDominoKey, getExcludedDominos, saveExcludedDominos,
       getExcludedVariations, saveExcludedVariations, getVariationKey,
       buildCardFromMarkup, buildSVGFromMarkup,
-      resolveStageGameIndex, randomPick
+      resolveStageGameIndex, randomPick,
+      getNovelCards, saveNovelCards, getNoveltyLocked, setNoveltyLocked, clearNovelty
     };
   })()`;
   const exports = eval(wrapped);
@@ -343,6 +351,13 @@ function buildCardEditorDOM() {
       </div>
       <div id="gm-popup" style="display:none;"></div>
       <div id="card-maker-save-overlay" style="display:none;"></div>
+      <div id="novelty-prompt-overlay" style="display:none;">
+        <div class="novelty-prompt-dialog">
+          <div class="novelty-slider" id="novelty-prompt-slider"><div class="novelty-slider-knob"></div></div>
+          <button id="novelty-keep-btn">Keep pink</button>
+          <button id="novelty-dismiss-btn">Dismiss</button>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -393,7 +408,8 @@ function loadCardEditorModule() {
       gameViewEraseMode, openGameView, syncAbcCardsToGame,
       getCardRow, addCardsToCurrentGame,
       buildAvailableCardsArea, getAvailableCardsFromSet,
-      toggleGameViewAddCards, gameViewAddMode
+      toggleGameViewAddCards, gameViewAddMode,
+      hideGameView, doHideGameView, showNoveltyPrompt
     };
   })()`;
   const exports = eval(wrapped);

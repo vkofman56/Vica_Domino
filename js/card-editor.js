@@ -4084,18 +4084,15 @@ function addCardsToCurrentGame(cardDataArray, cardSetValue, gameIndex) {
         if (!c.isVariation) existing[c.label] = true;
     });
 
-    // Find the next available row letter (A-Z) not yet used by any card
-    var usedRows = {};
+    // Find the row letter after the last existing row (alphabetically)
+    var maxRowCode = 64; // '@' = one before 'A'
     game.cards.forEach(function(c) {
-        usedRows[getCardRow(c)] = true;
-    });
-    var nextRow = 'A';
-    for (var code = 65; code <= 90; code++) {
-        if (!usedRows[String.fromCharCode(code)]) {
-            nextRow = String.fromCharCode(code);
-            break;
+        var rowChar = getCardRow(c);
+        if (rowChar.charCodeAt(0) > maxRowCode) {
+            maxRowCode = rowChar.charCodeAt(0);
         }
-    }
+    });
+    var nextRow = String.fromCharCode(Math.min(maxRowCode + 1, 90));
 
     cardDataArray.forEach(function(cd) {
         if (existing[cd.label]) return;
@@ -4198,10 +4195,14 @@ function openGameView(gameIndex, returnScreen) {
 
         var rowDiv = document.createElement('div');
         rowDiv.className = 'library-row';
+        rowDiv.dataset.gameRow = row;
 
         cardsByRow[row].forEach(function(cardInfo) {
             var cardEl = buildGameViewCard(cardInfo);
             if (cardEl) {
+                // Store card label and variation flag on element for drag-and-drop
+                cardEl.dataset.cardLabel = cardInfo.label;
+                if (cardInfo.isVariation) cardEl.dataset.isVariation = 'true';
                 // Apply pink border to novel cards
                 if (hasNovelCards && !cardInfo.isVariation && novelSet[cardInfo.label]) {
                     cardEl.classList.add('novel-card');
@@ -4411,8 +4412,196 @@ function openGameView(gameIndex, returnScreen) {
     // Render dominos into boxes
     renderDominoBoxes(allDominos, excludedKeys, gameIndex);
 
+    // Set up drag-and-drop for card reordering within game view
+    setupGameViewDrag(container, gameIndex);
+
     document.getElementById(returnScreen).style.display = 'none';
     document.getElementById('game-view-screen').style.display = 'block';
+}
+
+// --- Game view drag-and-drop: reorder cards within rows & move between rows ---
+var _gameViewDragCleanup = null;
+function setupGameViewDrag(container, gameIndex) {
+    // Clean up any previous drag handlers
+    if (_gameViewDragCleanup) { _gameViewDragCleanup(); _gameViewDragCleanup = null; }
+
+    var dragCard = null, dragStartX = 0, dragStartY = 0;
+    var dragActive = false, dragPending = false;
+    var dragSourceRow = null, dragOverRow = null;
+    var dragPointerId = null;
+    var DRAG_THRESHOLD = 8;
+
+    // Reuse the global drop indicator if it exists, otherwise create one
+    var dropIndicator = document.querySelector('.card-drop-indicator.gv-drop-indicator');
+    if (!dropIndicator) {
+        dropIndicator = document.createElement('div');
+        dropIndicator.className = 'card-drop-indicator gv-drop-indicator';
+        dropIndicator.style.display = 'none';
+        document.body.appendChild(dropIndicator);
+    }
+    var dropRefCard = null, dropAtEnd = false;
+
+    function hideDropIndicator() {
+        dropIndicator.style.display = 'none';
+        dropRefCard = null;
+        dropAtEnd = false;
+    }
+
+    function findInsertPos(row, pointerX) {
+        var cards = Array.prototype.slice.call(
+            row.querySelectorAll('.library-card')
+        ).filter(function(c) { return c !== dragCard && !c.classList.contains('row-erase-btn'); });
+        if (cards.length === 0) return { refCard: null, atEnd: true, x: 0, top: 0, h: 0 };
+        for (var i = 0; i < cards.length; i++) {
+            var r = cards[i].getBoundingClientRect();
+            if (pointerX < r.left + r.width / 2) {
+                return { refCard: cards[i], atEnd: false, x: r.left - 4, top: r.top, h: r.height };
+            }
+        }
+        var lr = cards[cards.length - 1].getBoundingClientRect();
+        return { refCard: null, atEnd: true, x: lr.right + 2, top: lr.top, h: lr.height };
+    }
+
+    function saveGameViewOrder() {
+        var games = loadCustomGames();
+        var game = games[gameIndex];
+        if (!game) return;
+        // Build a map from label -> card data
+        var cardMap = {};
+        game.cards.forEach(function(c) { cardMap[c.label] = c; });
+        // Rebuild cards array from DOM order, updating gameRow
+        var newCards = [];
+        var rows = container.querySelectorAll('.library-row[data-game-row]');
+        rows.forEach(function(rowEl) {
+            var rowLetter = rowEl.dataset.gameRow;
+            var cardEls = rowEl.querySelectorAll('.library-card');
+            cardEls.forEach(function(el) {
+                var label = el.dataset.cardLabel;
+                if (!label) return;
+                var cardData = cardMap[label];
+                if (cardData) {
+                    cardData.gameRow = rowLetter;
+                    newCards.push(cardData);
+                    delete cardMap[label];
+                }
+            });
+        });
+        // Append any cards not found in DOM (variations, etc.)
+        Object.keys(cardMap).forEach(function(label) {
+            newCards.push(cardMap[label]);
+        });
+        game.cards = newCards;
+        saveCustomGames(games);
+    }
+
+    function onPointerDown(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.card-erase-btn') || e.target.closest('.row-erase-btn') ||
+            e.target.closest('.show-dominos-btn') || e.target.closest('.copy-game-btn') ||
+            e.target.closest('.delete-game-btn')) return;
+        var card = e.target.closest('.library-card');
+        if (!card) return;
+        // Only drag cards that are inside a game-row
+        var row = card.closest('.library-row[data-game-row]');
+        if (!row) return;
+        dragCard = card;
+        dragSourceRow = row;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragPending = true;
+        dragActive = false;
+        dragPointerId = e.pointerId;
+    }
+
+    function onPointerMove(e) {
+        if (!dragPending) return;
+        if (!dragActive && Math.sqrt(Math.pow(e.clientX - dragStartX, 2) + Math.pow(e.clientY - dragStartY, 2)) > DRAG_THRESHOLD) {
+            dragActive = true;
+            dragCard.classList.add('dragging');
+            try { container.setPointerCapture(dragPointerId); } catch(ex) {}
+        }
+        if (!dragActive) return;
+        var rows = container.querySelectorAll('.library-row[data-game-row]');
+        var newOver = null;
+        rows.forEach(function(row) {
+            var rect = row.getBoundingClientRect();
+            if (e.clientY >= rect.top && e.clientY <= rect.bottom &&
+                e.clientX >= rect.left && e.clientX <= rect.right) {
+                newOver = row;
+            }
+        });
+        if (!newOver) {
+            var bestDist = Infinity;
+            rows.forEach(function(row) {
+                var rect = row.getBoundingClientRect();
+                if (e.clientY >= rect.top - 10 && e.clientY <= rect.bottom + 10 &&
+                    e.clientX >= rect.left - 40 && e.clientX <= rect.right + 40) {
+                    var dist = Math.abs(e.clientY - (rect.top + rect.bottom) / 2);
+                    if (dist < bestDist) { bestDist = dist; newOver = row; }
+                }
+            });
+        }
+        if (newOver !== dragOverRow) {
+            if (dragOverRow) dragOverRow.classList.remove('drag-over');
+            dragOverRow = newOver;
+            if (dragOverRow && dragOverRow !== dragSourceRow) dragOverRow.classList.add('drag-over');
+        }
+        if (dragOverRow) {
+            var pos = findInsertPos(dragOverRow, e.clientX);
+            dropRefCard = pos.refCard;
+            dropAtEnd = pos.atEnd;
+            if (pos.h > 0) {
+                dropIndicator.style.display = 'block';
+                dropIndicator.style.left = pos.x + 'px';
+                dropIndicator.style.top = pos.top + 'px';
+                dropIndicator.style.height = pos.h + 'px';
+            } else {
+                hideDropIndicator();
+            }
+        } else {
+            hideDropIndicator();
+        }
+    }
+
+    function onPointerUp(e) {
+        if (!dragPending) return;
+        if (dragActive) {
+            if (dragOverRow) {
+                if (dropRefCard) {
+                    dragOverRow.insertBefore(dragCard, dropRefCard);
+                } else {
+                    // Insert before the erase-row button if present
+                    var eraseBtn = dragOverRow.querySelector('.row-erase-btn');
+                    if (eraseBtn) {
+                        dragOverRow.insertBefore(dragCard, eraseBtn);
+                    } else {
+                        dragOverRow.appendChild(dragCard);
+                    }
+                }
+                saveGameViewOrder();
+            }
+            dragCard.classList.remove('dragging');
+            if (dragOverRow) dragOverRow.classList.remove('drag-over');
+            hideDropIndicator();
+            try { container.releasePointerCapture(dragPointerId); } catch(ex) {}
+        }
+        dragCard = null;
+        dragSourceRow = null;
+        dragOverRow = null;
+        dragPointerId = null;
+        dragPending = false;
+        dragActive = false;
+    }
+
+    container.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+
+    _gameViewDragCleanup = function() {
+        container.removeEventListener('pointerdown', onPointerDown);
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+    };
 }
 
 function renderDominoBoxes(allDominos, excludedKeys, gameIndex) {

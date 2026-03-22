@@ -415,7 +415,8 @@ function loadCardEditorModule() {
       toggleGameViewAddCards, gameViewAddMode,
       hideGameView, doHideGameView, showNoveltyPrompt,
       gameMakerActive, gameMakerName, gameMakerDesc, gameMakerSelected,
-      gameMakerEditIndex, completeGame, isCustomCardSet
+      gameMakerEditIndex, completeGame, isCustomCardSet,
+      setupGameViewDrag
     };
   })()`;
   const exports = eval(wrapped);

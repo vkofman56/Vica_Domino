@@ -764,7 +764,7 @@ describe('addCardsToCurrentGame', () => {
     expect(added.gameRow).toBeDefined();
   });
 
-  test('new card row letter is the first unused alphabetical letter', () => {
+  test('new card row letter is after the last existing row', () => {
     // Row A is taken by existing cards
     saveCustomGames([{
       name: 'Test',
@@ -781,11 +781,11 @@ describe('addCardsToCurrentGame', () => {
 
     const games = loadCustomGames();
     const added = games[0].cards.find(c => c.label === 'B1');
-    // A is used by existing cards, so new card should go to B
+    // A is used by existing cards, so new card should go to B (after A)
     expect(added.gameRow).toBe('B');
   });
 
-  test('skips row letters already used by existing cards', () => {
+  test('places new row after the highest existing row', () => {
     // Rows A and B are used
     saveCustomGames([{
       name: 'Test',
@@ -802,12 +802,12 @@ describe('addCardsToCurrentGame', () => {
 
     const games = loadCustomGames();
     const added = games[0].cards.find(c => c.label === 'C1');
-    // A and B are used, so new card goes to C
+    // Last row is B, so new card goes to C (after B)
     expect(added.gameRow).toBe('C');
   });
 
-  test('skips rows used via gameRow property too', () => {
-    // Row A by label, row C by gameRow
+  test('uses gameRow property to determine last row', () => {
+    // Row A by label, row B by gameRow
     saveCustomGames([{
       name: 'Test',
       cards: [
@@ -823,8 +823,29 @@ describe('addCardsToCurrentGame', () => {
 
     const games = loadCustomGames();
     const added = games[0].cards.find(c => c.label === 'D1');
-    // A (by label) and B (by gameRow) used, so next free is C
+    // Highest row is B (by gameRow), so new card goes to C
     expect(added.gameRow).toBe('C');
+  });
+
+  test('new row goes after last row even when there are gaps', () => {
+    // Rows A and C are used (B is a gap)
+    saveCustomGames([{
+      name: 'Test',
+      cards: [
+        { label: 'A1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>A</text>' },
+        { label: 'X1', isVariation: false, cardSet: 'ABC', svgMarkup: '<text>X</text>', gameRow: 'C' },
+      ]
+    }]);
+
+    addCardsToCurrentGame(
+      [{ label: 'E1', svgContent: '<text>E</text>' }],
+      'ABC', 0
+    );
+
+    const games = loadCustomGames();
+    const added = games[0].cards.find(c => c.label === 'E1');
+    // Highest row is C, so new card goes to D (not B)
+    expect(added.gameRow).toBe('D');
   });
 
   test('all cards in one batch get the same new row letter', () => {
@@ -1283,5 +1304,27 @@ describe('completeGame', () => {
 
     // Restore
     global.activeCardSet = 'numbers';
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setupGameViewDrag — drag-and-drop card reordering in game view
+// ---------------------------------------------------------------------------
+describe('setupGameViewDrag', () => {
+  test('attaches pointer event listeners to container', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const addSpy = jest.spyOn(container, 'addEventListener');
+
+    setupGameViewDrag(container, 0);
+
+    expect(addSpy).toHaveBeenCalledWith('pointerdown', expect.any(Function));
+    addSpy.mockRestore();
+    document.body.removeChild(container);
+  });
+
+  test('drag setup does not throw on empty container', () => {
+    const container = document.createElement('div');
+    expect(() => setupGameViewDrag(container, 0)).not.toThrow();
   });
 });

@@ -138,6 +138,11 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
         const svg = window.customGameSVGs[card.left].cloneNode(true);
         svg.classList.add('custom-face');
         leftHalf.appendChild(svg);
+    } else {
+        const leftDisplay = document.createElement('span');
+        leftDisplay.className = `value-display value-${card.leftValue}`;
+        leftDisplay.textContent = getDisplayText(card.left);
+        leftHalf.appendChild(leftDisplay);
     }
 
     // Right/bottom half
@@ -147,6 +152,11 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
         const svg = window.customGameSVGs[card.right].cloneNode(true);
         svg.classList.add('custom-face');
         rightHalf.appendChild(svg);
+    } else {
+        const rightDisplay = document.createElement('span');
+        rightDisplay.className = `value-display value-${card.rightValue}`;
+        rightDisplay.textContent = getDisplayText(card.right);
+        rightHalf.appendChild(rightDisplay);
     }
 
     domino.appendChild(leftHalf);
@@ -171,5 +181,5 @@ function getShuffledDeck() {
     if (window.customGameDeck && window.customGameDeck.length > 0) {
         return shuffleArray(window.customGameDeck.map(copyCard));
     }
-    return [];
+    return shuffleArray(DOMINO_CARDS.map(copyCard));
 }

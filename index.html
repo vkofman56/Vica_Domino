@@ -8,6 +8,25 @@
 </head>
 <body>
     <div class="game-container">
+        <!-- Sync status indicator (top-right corner) -->
+        <div id="sync-status" class="sync-status"></div>
+        <button id="sync-user-btn" class="sync-user-btn" onclick="showSyncLoginOverlay()" title="Switch user / Log in"></button>
+
+        <!-- User Login Overlay -->
+        <div id="sync-login-overlay" class="sync-login-overlay" style="display:none;">
+            <div class="sync-login-dialog">
+                <h2>Welcome to Pinky-Math Domino</h2>
+                <p>Enter your name to save your games across all your devices.</p>
+                <input type="text" id="sync-user-input" class="sync-user-input" placeholder="Your name" maxlength="40" autocomplete="off">
+                <div id="sync-existing-users" class="sync-existing-users"></div>
+                <div class="sync-login-btns">
+                    <button class="btn btn-primary" id="sync-login-btn" onclick="doSyncLogin()">Start</button>
+                    <button class="btn" id="sync-skip-btn" onclick="skipSyncLogin()">Play without saving</button>
+                </div>
+                <p class="sync-login-hint" id="sync-login-hint"></p>
+            </div>
+        </div>
+
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <h1>Pinky-Math Domino</h1>
@@ -773,6 +792,81 @@
             </div>
         </div>
     </div>
+
+    <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
+    <script src="js/sync.js?v=cloud-1"></script>
+
+    <script>
+        /* ---- Sync login UI logic ---- */
+        function showSyncLoginOverlay() {
+            document.getElementById('sync-login-overlay').style.display = 'flex';
+            loadExistingUsers();
+            document.getElementById('sync-user-input').focus();
+        }
+        function loadExistingUsers() {
+            fetch('/api/users')
+                .then(function(r) { return r.json(); })
+                .then(function(body) {
+                    var container = document.getElementById('sync-existing-users');
+                    var users = body.users || [];
+                    if (users.length === 0) { container.innerHTML = ''; return; }
+                    var html = '<p style="margin:8px 0 4px;font-size:0.85rem;color:rgba(255,255,255,0.6);">Or pick an existing user:</p>';
+                    users.forEach(function(u) {
+                        html += '<button class="sync-user-pick-btn" onclick="pickSyncUser(\'' +
+                            u.replace(/'/g, "\\'") + '\')">' + u + '</button>';
+                    });
+                    container.innerHTML = html;
+                })
+                .catch(function() {
+                    document.getElementById('sync-existing-users').innerHTML = '';
+                });
+        }
+        function pickSyncUser(name) {
+            document.getElementById('sync-user-input').value = name;
+            doSyncLogin();
+        }
+        function doSyncLogin() {
+            var input = document.getElementById('sync-user-input');
+            var name = input.value.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+            if (!name) {
+                document.getElementById('sync-login-hint').textContent = 'Please enter a name (letters, numbers, dash, underscore).';
+                return;
+            }
+            document.getElementById('sync-login-hint').textContent = 'Loading…';
+            syncLogin(name).then(function() {
+                document.getElementById('sync-login-overlay').style.display = 'none';
+                updateSyncUserBtn();
+                location.reload();
+            });
+        }
+        function skipSyncLogin() {
+            document.getElementById('sync-login-overlay').style.display = 'none';
+        }
+        function updateSyncUserBtn() {
+            var btn = document.getElementById('sync-user-btn');
+            var userId = syncGetUserId();
+            if (userId) {
+                btn.textContent = userId;
+                btn.title = 'Logged in as ' + userId + ' — click to switch';
+            } else {
+                btn.textContent = 'Log in';
+                btn.title = 'Log in to save across devices';
+            }
+        }
+        // Auto-login on page load
+        (function() {
+            var userId = syncGetUserId();
+            if (userId) {
+                updateSyncUserBtn();
+                syncLogin(userId);
+            } else {
+                window.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(function() { showSyncLoginOverlay(); }, 300);
+                });
+            }
+            updateSyncUserBtn();
+        })();
+    </script>
 
     <script>
         // Ruler rectangle: toggle, drag from center, resize from corners

@@ -198,20 +198,25 @@ class VicaDominoGame {
             resetIntroScreen();
         });
 
-        // Back from create-edit screen
-        document.getElementById('back-from-create-edit-btn').addEventListener('click', () => this.hideCreateEdit());
+        // Back from create-edit screen (admin only)
+        var _createEditBtn = document.getElementById('back-from-create-edit-btn');
+        if (_createEditBtn) _createEditBtn.addEventListener('click', () => this.hideCreateEdit());
 
-        // "Library" button -> open card library screen
-        document.getElementById('card-library-btn').addEventListener('click', () => this.showCardLibrary());
+        // "Library" button -> open card library screen (admin only)
+        var _cardLibBtn = document.getElementById('card-library-btn');
+        if (_cardLibBtn) _cardLibBtn.addEventListener('click', () => this.showCardLibrary());
 
-        // Back from card library screen
-        document.getElementById('back-from-card-library-btn').addEventListener('click', () => this.hideCardLibrary());
+        // Back from card library screen (admin only)
+        var _backLibBtn = document.getElementById('back-from-card-library-btn');
+        if (_backLibBtn) _backLibBtn.addEventListener('click', () => this.hideCardLibrary());
 
-        // Back from library set view
-        document.getElementById('back-from-library-set-btn').addEventListener('click', () => this.hideLibrarySet());
+        // Back from library set view (admin only)
+        var _backLibSetBtn = document.getElementById('back-from-library-set-btn');
+        if (_backLibSetBtn) _backLibSetBtn.addEventListener('click', () => this.hideLibrarySet());
 
-        // Back from domino library screen (Card Maker -> Library)
-        document.getElementById('back-from-library-btn').addEventListener('click', () => {
+        // Back from domino library screen (Card Maker -> Library, admin only)
+        var _backFromLibBtn = document.getElementById('back-from-library-btn');
+        if (_backFromLibBtn) _backFromLibBtn.addEventListener('click', () => {
             if (typeof leaveCardMaker === 'function') {
                 leaveCardMaker();
             } else {

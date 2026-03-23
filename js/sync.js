@@ -114,7 +114,16 @@
     // ---- Public API (attached to window) ----
 
     /**
-     * Log in: pull all data from the server and populate localStorage.
+     * Log in: pull data from the server and merge with localStorage.
+     *
+     * IMPORTANT: If the server has NO data for this user (first login),
+     * we KEEP everything already in localStorage and UPLOAD it to the
+     * server as a backup.  This ensures existing cards, games, and
+     * settings created before the sync feature are never lost.
+     *
+     * If the server DOES have data, the server version wins (it is the
+     * shared cross-device truth) — localStorage is replaced with it.
+     *
      * Returns a Promise that resolves when data is ready.
      */
     window.syncLogin = function (userId) {
@@ -123,12 +132,52 @@
 
         _setSyncStatus('syncing');
 
+        // Snapshot current localStorage BEFORE we touch anything,
+        // so we can fall back to it / upload it if needed.
+        var localSnapshot = _getAllAppData();
+
         return fetch('/api/sync/' + encodeURIComponent(userId))
             .then(function (res) { return res.json(); })
             .then(function (body) {
-                var data = body.data || {};
+                var serverData = body.data || {};
+                var serverHasData = Object.keys(serverData).length > 0;
 
-                // Clear existing app data from localStorage (keep meta key)
+                if (serverHasData) {
+                    // Server has data — use it (cross-device truth).
+                    // Clear localStorage and populate with server data.
+                    var keysToRemove = [];
+                    for (var i = 0; i < localStorage.length; i++) {
+                        var k = localStorage.key(i);
+                        if (k !== META_KEY) keysToRemove.push(k);
+                    }
+                    keysToRemove.forEach(function (k) { _origRemoveItem(k); });
+
+                    Object.keys(serverData).forEach(function (k) {
+                        _origSetItem(k, serverData[k]);
+                    });
+
+                    _setSyncStatus('saved');
+                } else {
+                    // Server is empty for this user (first login).
+                    // KEEP existing localStorage and upload it as backup.
+                    if (Object.keys(localSnapshot).length > 0) {
+                        _setSyncStatus('syncing');
+                        return fetch('/api/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: _userId, data: localSnapshot })
+                        }).then(function (res) {
+                            if (!res.ok) throw new Error('initial upload failed');
+                            _setSyncStatus('saved');
+                        });
+                    } else {
+                        _setSyncStatus('saved');
+                    }
+                }
+            })
+            .catch(function () {
+                // Offline or network error — restore the local snapshot so
+                // nothing is lost, and keep working in offline mode.
                 var keysToRemove = [];
                 for (var i = 0; i < localStorage.length; i++) {
                     var k = localStorage.key(i);
@@ -136,15 +185,10 @@
                 }
                 keysToRemove.forEach(function (k) { _origRemoveItem(k); });
 
-                // Populate with server data
-                Object.keys(data).forEach(function (k) {
-                    _origSetItem(k, data[k]);
+                Object.keys(localSnapshot).forEach(function (k) {
+                    _origSetItem(k, localSnapshot[k]);
                 });
 
-                _setSyncStatus('saved');
-            })
-            .catch(function () {
-                // Offline or first-time user — just keep whatever is in localStorage
                 _setSyncStatus('error');
             });
     };

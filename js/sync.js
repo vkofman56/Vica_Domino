@@ -250,8 +250,7 @@
     function _applyRoleUI() {
         // Elements that should only be visible to superusers
         var superuserElements = [
-            document.getElementById('mpp-start-btn'),
-            document.getElementById('intro-admin-btn')
+            document.getElementById('mpp-start-btn')
         ];
 
         for (var i = 0; i < superuserElements.length; i++) {
@@ -260,11 +259,8 @@
             }
         }
 
-        // create-edit-btn: mark as superuser-allowed but keep hidden until Admin role is selected
-        var ceBtn = document.getElementById('create-edit-btn');
-        if (ceBtn) {
-            ceBtn.dataset.superuser = (_userRole === 'superuser') ? '1' : '0';
-        }
+        // Admin role button on intro screen: visible to all users
+        // (superuser-only restriction removed — admin flow handles its own access)
     }
 
     // ---- Monkey-patch localStorage ----

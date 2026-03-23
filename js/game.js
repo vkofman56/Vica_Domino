@@ -198,9 +198,6 @@ class VicaDominoGame {
             resetIntroScreen();
         });
 
-        // "Create and Edit" button -> open create-edit screen
-        document.getElementById('create-edit-btn').addEventListener('click', () => this.showCreateEdit());
-
         // Back from create-edit screen
         document.getElementById('back-from-create-edit-btn').addEventListener('click', () => this.hideCreateEdit());
 

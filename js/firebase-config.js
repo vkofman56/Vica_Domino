@@ -11,12 +11,12 @@
  */
 
 const FIREBASE_CONFIG = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBQP2y_WSOi6E46qY9m4i2BuP_8YGYVfuY",
+    authDomain: "vica-domino.firebaseapp.com",
+    projectId: "vica-domino",
+    storageBucket: "vica-domino.firebasestorage.app",
+    messagingSenderId: "476376420453",
+    appId: "1:476376420453:web:0879204e87b8b8c50eb68c"
 };
 
 /**

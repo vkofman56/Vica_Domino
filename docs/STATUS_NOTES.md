@@ -490,11 +490,54 @@ The current approach tries to reuse the existing canvas drag handlers with a mod
 
 ---
 
+## March 23, 2026 Session — Player/Admin Split & Login Fixes
+
+### Summary
+Separated the app into Player and Admin pages, added role selection to the intro screen, fixed Firestore reserved ID errors, and fixed the admin login overlay showing an empty dialog.
+
+### Changes Made
+
+1. **Player/Admin role selection on intro screen** (`index.html`, `css/style.css`, `js/game.js`, `js/sync.js`)
+   - Intro screen now shows Player and Admin buttons first
+   - Player → game list + Play; Admin → superuser login → card library
+   - `selectRole()` / `resetIntroScreen()` functions manage the flow
+   - `_adminLoginPending` flag routes successful admin login to card library
+
+2. **Separate admin page** (`pm-studio-DrV.html`)
+   - Standalone HTML file for the admin/superuser site
+   - Deployed at `/pm-studio-DrV` on GitHub Pages
+
+3. **Fixed admin login overlay empty dialog** (`pm-studio-DrV.html`)
+   - `showSyncLoginOverlay()` called `showRoleChoice()` which hid the admin login form
+   - `sync-role-choice` div was empty on admin page → users saw blank dialog
+   - Fixed: calls `showAdminLogin()` directly to show the superuser ID input
+
+4. **Fixed Firestore reserved ID error** (`js/sync.js`)
+   - `"__player__"` legacy ID caused Firestore `invalid-argument` error
+   - Added `_isValidFirestoreId()` guard and auto-sanitization to `"player-guest"`
+
+### File Structure Update
+```
+Vica_Domino/
+├── index.html              - Player-facing app (intro → game selection → play)
+├── pm-studio-DrV.html      - Admin/superuser app (login → card library/editor)
+├── js/
+│   ├── game.js             - VicaDominoGame class
+│   ├── domino.js           - Card definitions
+│   └── sync.js             - Firebase sync, login logic
+├── css/
+│   └── style.css           - All styling
+└── docs/                   - Project documentation
+```
+
+---
+
 ## Quick Start for New Session
 
-1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-QNagl`
-2. Main files: `index.html` (UI + inline scripts), `js/game.js` (game logic), `js/domino.js` (card data), `css/style.css` (styles)
-3. No build step — open `index.html` directly in a browser
-4. All state persisted in localStorage
-5. Most recent work (March 10-11): SVG import from file, over-scale slider (×1–×10), crop/pan tool for imported SVGs — **crop/pan still has issues, needs debugging**
-6. Key area to investigate: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"
+1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-JOOeh`
+2. Main files: `index.html` (player UI), `pm-studio-DrV.html` (admin UI), `js/game.js` (game logic), `js/domino.js` (card data), `js/sync.js` (Firebase sync), `css/style.css` (styles)
+3. No build step — open HTML files directly in a browser or via GitHub Pages
+4. All state persisted in localStorage + Firebase sync for superusers
+5. **Both player and admin pages are working** as of March 23
+6. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
+7. Key area to investigate next: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"

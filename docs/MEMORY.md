@@ -123,10 +123,15 @@
 - **`_adminLoginPending` flag**: When Admin is clicked from intro screen, sets this flag so `doAdminLogin()` navigates to card library instead of reloading the page
 - **Fixed Firestore reserved ID error**: `"__player__"` was stored in localStorage from a legacy version, causing `[Sync] Error: invalid-argument Resource id "__player__" is invalid because it is reserved`. Fix: sanitize userIds starting with `__` in `syncLogin()` and auto-login, guard `_pullFromServer`/`_pushToServer` with `_isValidFirestoreId()` check
 - **Back navigation reset**: All back buttons (from start screen, card library, create-edit screen) now call `resetIntroScreen()` to show the Player/Admin choice again
+- **Separate admin page (`pm-studio-DrV.html`)**: Admin/superuser site now has its own standalone HTML file, deployed at `/pm-studio-DrV`
+- **Fixed admin login overlay showing empty dialog**: `showSyncLoginOverlay()` was calling `showRoleChoice()` which hid the admin login form and showed an empty role-choice div. Fixed to call `showAdminLogin()` directly so the superuser ID input and Login button appear immediately.
 - Key commits on branch `claude/review-project-docs-QNagl`: `a24919c`, `8d11310`, `ffe0d9d`, `1fa33a9`, `56b7823`
+- Key commits on branch `claude/review-project-docs-JOOeh`: `8c85ad4` (admin login overlay fix)
 
 ## Current State (March 23)
-- **Branch**: `claude/review-project-docs-QNagl` (deployed via GitHub Pages)
+- **Branch**: `claude/review-project-docs-JOOeh` (active development)
+- **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
+- **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
 - **Intro screen flow**: Player/Admin buttons → Player shows games, Admin requires superuser login then opens card library
 - **Sync status**: Working — `"__player__"` legacy ID auto-sanitized to `"player-guest"`
 - **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed this session)

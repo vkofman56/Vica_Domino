@@ -88,6 +88,7 @@
     /** Upload all data to Firestore. */
     function _pushToServer() {
         if (!_userId || !_firebaseReady || !_db) return;
+        if (!_isValidFirestoreId(_userId)) return;
         if (_userRole !== 'superuser') return; // Only superusers write data
         if (_syncing) { _pendingSync = true; return; }
         _syncing = true;
@@ -167,9 +168,15 @@
         }
     }
 
+    /** Check if a userId is valid for Firestore (not reserved). */
+    function _isValidFirestoreId(id) {
+        return id && id.indexOf('__') !== 0;
+    }
+
     /** Pull all data from Firestore for a given user. Returns a promise with the data object. */
     function _pullFromServer(userId) {
         if (!_firebaseReady || !_db) return Promise.reject(new Error('Firebase not ready'));
+        if (!_isValidFirestoreId(userId)) return Promise.resolve({});
 
         var userDoc = _db.collection('users').doc(userId);
         return userDoc.get().then(function (doc) {
@@ -296,6 +303,10 @@
      * Returns a Promise that resolves when data is ready.
      */
     window.syncLogin = function (userId) {
+        // Sanitize reserved Firestore ids (e.g. legacy "__player__")
+        if (userId && userId.indexOf('__') === 0) {
+            userId = userId.replace(/^_+/, '').replace(/_+$/, '') || 'player-guest';
+        }
         _userId = userId;
         _userRole = _isSuperuser(userId) ? 'superuser' : 'player';
         _origSetItem(META_KEY, userId);
@@ -466,6 +477,11 @@
     // ---- Auto-login on page load ----
 
     _userId = _origGetItem(META_KEY) || null;
+    // Clean up legacy reserved ids (e.g. "__player__")
+    if (_userId && _userId.indexOf('__') === 0) {
+        _userId = _userId.replace(/^_+/, '').replace(/_+$/, '') || 'player-guest';
+        _origSetItem(META_KEY, _userId);
+    }
     _userRole = _origGetItem(ROLE_KEY) || null;
 
     // If we have a userId but no role, determine it

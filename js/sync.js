@@ -251,7 +251,8 @@
         // Elements that should only be visible to superusers
         var superuserElements = [
             document.getElementById('create-edit-btn'),
-            document.getElementById('mpp-start-btn')
+            document.getElementById('mpp-start-btn'),
+            document.getElementById('intro-admin-btn')
         ];
 
         for (var i = 0; i < superuserElements.length; i++) {

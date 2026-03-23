@@ -195,6 +195,7 @@ class VicaDominoGame {
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('intro-screen').style.display = 'flex';
+            resetIntroScreen();
         });
 
         // "Create and Edit" button -> open create-edit screen
@@ -2965,6 +2966,7 @@ class VicaDominoGame {
     hideCreateEdit() {
         document.getElementById('create-edit-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'flex';
+        resetIntroScreen();
     }
 
     showCardLibrary() {
@@ -2976,6 +2978,7 @@ class VicaDominoGame {
         // Go back to intro screen directly
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'flex';
+        resetIntroScreen();
     }
 
     showLibrarySet() {

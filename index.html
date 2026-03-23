@@ -804,8 +804,15 @@
         </div>
     </div>
 
+    <!-- Firebase SDK (compat mode for simplicity) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase config (project credentials + superuser list) -->
+    <script src="js/firebase-config.js?v=1"></script>
+
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=cloud-1"></script>
+    <script src="js/sync.js?v=firebase-1"></script>
 
     <script>
         /* ---- Backup / Restore ---- */
@@ -874,22 +881,18 @@
             document.getElementById('sync-user-input').focus();
         }
         function loadExistingUsers() {
-            fetch('/api/users')
-                .then(function(r) { return r.json(); })
-                .then(function(body) {
-                    var container = document.getElementById('sync-existing-users');
-                    var users = body.users || [];
-                    if (users.length === 0) { container.innerHTML = ''; return; }
-                    var html = '<p style="margin:8px 0 4px;font-size:0.85rem;color:rgba(255,255,255,0.6);">Or pick an existing user:</p>';
-                    users.forEach(function(u) {
-                        html += '<button class="sync-user-pick-btn" onclick="pickSyncUser(\'' +
-                            u.replace(/'/g, "\\'") + '\')">' + u + '</button>';
-                    });
-                    container.innerHTML = html;
-                })
-                .catch(function() {
-                    document.getElementById('sync-existing-users').innerHTML = '';
+            syncGetUsers().then(function(users) {
+                var container = document.getElementById('sync-existing-users');
+                if (users.length === 0) { container.innerHTML = ''; return; }
+                var html = '<p style="margin:8px 0 4px;font-size:0.85rem;color:rgba(255,255,255,0.6);">Or pick an existing user:</p>';
+                users.forEach(function(u) {
+                    html += '<button class="sync-user-pick-btn" onclick="pickSyncUser(\'' +
+                        u.replace(/'/g, "\\'") + '\')">' + u + '</button>';
                 });
+                container.innerHTML = html;
+            }).catch(function() {
+                document.getElementById('sync-existing-users').innerHTML = '';
+            });
         }
         function pickSyncUser(name) {
             document.getElementById('sync-user-input').value = name;
@@ -917,7 +920,7 @@
             var userId = syncGetUserId();
             if (userId) {
                 btn.textContent = userId;
-                btn.title = 'Logged in as ' + userId + ' — click to switch';
+                btn.title = 'Logged in as ' + userId + (syncIsSuperuser() ? ' (superuser)' : '') + ' — click to switch';
             } else {
                 btn.textContent = 'Log in';
                 btn.title = 'Log in to save across devices';

@@ -136,7 +136,7 @@
             })
             .catch(function (err) {
                 console.error('[Sync] Push failed:', err);
-                _setSyncStatus('error');
+                _setSyncStatus('error', 'Push: ' + (err.code || err.message || err));
             })
             .finally(function () {
                 _syncing = false;
@@ -179,7 +179,7 @@
     }
 
     /** Update the tiny sync-status indicator in the UI (if it exists). */
-    function _setSyncStatus(status) {
+    function _setSyncStatus(status, detail) {
         var el = document.getElementById('sync-status');
         if (!el) return;
         if (status === 'syncing') {
@@ -189,7 +189,7 @@
             el.textContent = 'Saved';
             el.className   = 'sync-status saved';
         } else if (status === 'error') {
-            el.textContent = 'Sync error';
+            el.textContent = detail ? ('Sync error: ' + detail) : 'Sync error';
             el.className   = 'sync-status error';
         } else if (status === 'offline') {
             el.textContent = 'Offline';
@@ -314,6 +314,7 @@
             })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
+                alert('[Sync] Error: ' + (err.code || '') + ' ' + (err.message || err));
                 // Offline — restore the local snapshot so nothing is lost
                 var keysToRemove = [];
                 for (var i = 0; i < localStorage.length; i++) {
@@ -362,8 +363,8 @@
                 }
                 _setSyncStatus('saved');
             })
-            .catch(function () {
-                _setSyncStatus('error');
+            .catch(function (err) {
+                _setSyncStatus('error', 'Shared: ' + (err.code || err.message || err));
             });
     }
 

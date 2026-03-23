@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: March 11, 2026
+**Last Updated**: March 23, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -112,3 +112,21 @@
 - **Status: NOT FULLY WORKING** — The crop/pan and overscale features still have issues. Competing drag handlers were partially fixed but behavior is still not right. Needs further debugging in next session.
 - **Planned fix approach (clipPath model)**: Rewrite crop/pan to use the Word/image-editor pattern — the card is the crop frame (fixed), the imported SVG sits inside a `<clipPath>`-clipped group, pan changes `translate()` on the inner group, scale changes `scale()` on the inner group. This cleanly separates pan/scale from the existing element drag system (no competing handlers). The card boundary is the clip rect; the SVG moves freely behind it.
 - Key commits: `f0efe4f`, `f49ad32`, `c744ef2`, `6a7ff72`, `fcc139b`
+
+## March 23 Session Notes
+- **Player/Admin role selection on intro screen**: Replaced the old intro screen (which showed game list + Play + Create and Edit all at once) with a two-step flow:
+  1. Initial load shows only **Player** and **Admin** buttons
+  2. **Player** → shows game list + Play button (same as before)
+  3. **Admin** → shows sync login overlay with superuser ID input; after successful login, navigates directly to card library
+- **Files changed**: `index.html` (intro screen HTML + `selectRole()`/`resetIntroScreen()` JS functions), `css/style.css` (`.intro-role-panel` and `.intro-role-btn` styles), `js/game.js` (back navigation calls `resetIntroScreen()`), `js/sync.js` (removed `create-edit-btn` from superuser elements, added Firestore ID validation)
+- **Removed `create-edit-btn`** from intro panel — Admin role button on intro screen replaces it; clicking Admin triggers the sync login overlay directly at the admin ID input step
+- **`_adminLoginPending` flag**: When Admin is clicked from intro screen, sets this flag so `doAdminLogin()` navigates to card library instead of reloading the page
+- **Fixed Firestore reserved ID error**: `"__player__"` was stored in localStorage from a legacy version, causing `[Sync] Error: invalid-argument Resource id "__player__" is invalid because it is reserved`. Fix: sanitize userIds starting with `__` in `syncLogin()` and auto-login, guard `_pullFromServer`/`_pushToServer` with `_isValidFirestoreId()` check
+- **Back navigation reset**: All back buttons (from start screen, card library, create-edit screen) now call `resetIntroScreen()` to show the Player/Admin choice again
+- Key commits on branch `claude/review-project-docs-QNagl`: `a24919c`, `8d11310`, `ffe0d9d`, `1fa33a9`, `56b7823`
+
+## Current State (March 23)
+- **Branch**: `claude/review-project-docs-QNagl` (deployed via GitHub Pages)
+- **Intro screen flow**: Player/Admin buttons → Player shows games, Admin requires superuser login then opens card library
+- **Sync status**: Working — `"__player__"` legacy ID auto-sanitized to `"player-guest"`
+- **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed this session)

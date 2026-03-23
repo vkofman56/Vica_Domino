@@ -16,24 +16,36 @@
         <div id="sync-login-overlay" class="sync-login-overlay" style="display:none;">
             <div class="sync-login-dialog">
                 <h2>Welcome to Pinky-Math Domino</h2>
-                <p>Enter your name to save your games across all your devices.</p>
+                <p>Choose how you want to continue:</p>
 
-                <!-- Backup buttons — shown BEFORE first login so user can save their data -->
-                <div class="sync-backup-section" id="sync-backup-section">
-                    <p style="font-size:0.8rem;color:#ffd700;margin:0 0 8px;">Before you log in, save a backup of your current data:</p>
-                    <div class="sync-backup-btns">
-                        <button class="btn sync-backup-btn" onclick="downloadBackup()">Download Backup</button>
-                        <button class="btn sync-restore-btn" onclick="triggerRestoreBackup()">Restore from File</button>
-                        <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)">
+                <!-- Step 1: Player / Admin choice -->
+                <div id="sync-role-choice">
+                    <div class="sync-login-btns" style="flex-direction:column;gap:12px;">
+                        <button class="btn btn-primary" style="padding:14px 24px;font-size:1.1rem;" onclick="loginAsPlayer()">Player</button>
+                        <button class="btn" style="padding:14px 24px;font-size:1.1rem;" onclick="showAdminLogin()">Admin</button>
                     </div>
                 </div>
 
-                <input type="text" id="sync-user-input" class="sync-user-input" placeholder="Your name" maxlength="40" autocomplete="off">
-                <div id="sync-existing-users" class="sync-existing-users"></div>
-                <div class="sync-login-btns">
-                    <button class="btn btn-primary" id="sync-login-btn" onclick="doSyncLogin()">Start</button>
-                    <button class="btn" id="sync-skip-btn" onclick="skipSyncLogin()">Play without saving</button>
+                <!-- Step 2: Admin ID input (hidden initially) -->
+                <div id="sync-admin-login" style="display:none;">
+                    <p style="font-size:0.9rem;color:rgba(255,255,255,0.7);margin:0 0 12px;">Enter your superuser ID:</p>
+                    <input type="text" id="sync-user-input" class="sync-user-input" placeholder="Superuser ID" maxlength="40" autocomplete="off">
+                    <div class="sync-login-btns">
+                        <button class="btn btn-primary" id="sync-login-btn" onclick="doAdminLogin()">Login</button>
+                        <button class="btn" onclick="showRoleChoice()">Back</button>
+                    </div>
+
+                    <!-- Backup buttons — only shown in admin login flow -->
+                    <div class="sync-backup-section" id="sync-backup-section">
+                        <p style="font-size:0.8rem;color:#ffd700;margin:0 0 8px;">Backup &amp; Restore:</p>
+                        <div class="sync-backup-btns">
+                            <button class="btn sync-backup-btn" onclick="downloadBackup()">Download Backup</button>
+                            <button class="btn sync-restore-btn" onclick="triggerRestoreBackup()">Restore from File</button>
+                            <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)">
+                        </div>
+                    </div>
                 </div>
+
                 <p class="sync-login-hint" id="sync-login-hint"></p>
             </div>
         </div>
@@ -877,35 +889,45 @@
         /* ---- Sync login UI logic ---- */
         function showSyncLoginOverlay() {
             document.getElementById('sync-login-overlay').style.display = 'flex';
-            loadExistingUsers();
+            showRoleChoice();
+        }
+        function showRoleChoice() {
+            document.getElementById('sync-role-choice').style.display = '';
+            document.getElementById('sync-admin-login').style.display = 'none';
+            document.getElementById('sync-login-hint').textContent = '';
+        }
+        function showAdminLogin() {
+            document.getElementById('sync-role-choice').style.display = 'none';
+            document.getElementById('sync-admin-login').style.display = '';
+            document.getElementById('sync-login-hint').textContent = '';
+            document.getElementById('sync-user-input').value = '';
             document.getElementById('sync-user-input').focus();
         }
-        function loadExistingUsers() {
-            syncGetUsers().then(function(users) {
-                var container = document.getElementById('sync-existing-users');
-                if (users.length === 0) { container.innerHTML = ''; return; }
-                var html = '<p style="margin:8px 0 4px;font-size:0.85rem;color:rgba(255,255,255,0.6);">Or pick an existing user:</p>';
-                users.forEach(function(u) {
-                    html += '<button class="sync-user-pick-btn" onclick="pickSyncUser(\'' +
-                        u.replace(/'/g, "\\'") + '\')">' + u + '</button>';
-                });
-                container.innerHTML = html;
-            }).catch(function() {
-                document.getElementById('sync-existing-users').innerHTML = '';
+        function loginAsPlayer() {
+            // Player mode: load shared data without saving, no name needed
+            document.getElementById('sync-login-hint').textContent = 'Loading…';
+            syncLogin('__player__').then(function() {
+                document.getElementById('sync-login-overlay').style.display = 'none';
+                updateSyncUserBtn();
+                location.reload();
             });
         }
-        function pickSyncUser(name) {
-            document.getElementById('sync-user-input').value = name;
-            doSyncLogin();
-        }
-        function doSyncLogin() {
+        function doAdminLogin() {
             var input = document.getElementById('sync-user-input');
             var name = input.value.trim().replace(/[^a-zA-Z0-9_-]/g, '');
             if (!name) {
-                document.getElementById('sync-login-hint').textContent = 'Please enter a name (letters, numbers, dash, underscore).';
+                document.getElementById('sync-login-hint').textContent = 'Please enter your superuser ID.';
+                document.getElementById('sync-login-hint').style.color = '#e74c3c';
+                return;
+            }
+            // Check if this is actually a superuser
+            if (typeof SUPERUSERS !== 'undefined' && SUPERUSERS.indexOf(name) === -1) {
+                document.getElementById('sync-login-hint').textContent = 'Not a recognized superuser ID.';
+                document.getElementById('sync-login-hint').style.color = '#e74c3c';
                 return;
             }
             document.getElementById('sync-login-hint').textContent = 'Loading…';
+            document.getElementById('sync-login-hint').style.color = '';
             syncLogin(name).then(function() {
                 document.getElementById('sync-login-overlay').style.display = 'none';
                 updateSyncUserBtn();
@@ -918,9 +940,12 @@
         function updateSyncUserBtn() {
             var btn = document.getElementById('sync-user-btn');
             var userId = syncGetUserId();
-            if (userId) {
+            if (userId && userId !== '__player__') {
                 btn.textContent = userId;
                 btn.title = 'Logged in as ' + userId + (syncIsSuperuser() ? ' (superuser)' : '') + ' — click to switch';
+            } else if (userId === '__player__') {
+                btn.textContent = 'Player';
+                btn.title = 'Playing as guest — click to switch';
             } else {
                 btn.textContent = 'Log in';
                 btn.title = 'Log in to save across devices';

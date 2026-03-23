@@ -65,17 +65,25 @@
         for (var i = 0; i < localStorage.length; i++) {
             var key = localStorage.key(i);
             if (key === META_KEY || key === ROLE_KEY) continue;
-            data[key] = _origGetItem(key);
+            // Skip keys starting with __ (reserved in Firestore)
+            if (key.indexOf('__') === 0) continue;
+            var val = _origGetItem(key);
+            // Skip null/undefined values (Firestore rejects undefined)
+            if (val === null || val === undefined) continue;
+            data[key] = val;
         }
         return data;
     }
 
     /**
-     * Firestore has a 1 MB document limit. We split data into chunks
-     * stored as subcollection documents to handle large datasets.
-     * Each chunk holds up to MAX_KEYS keys.
+     * Firestore has a 1 MB document limit. We store all data as a JSON
+     * string to avoid field-name restrictions (Firestore rejects keys
+     * with dots, keys starting with __, etc.).
+     *
+     * The JSON string is split into ~800 KB string chunks stored as
+     * subcollection documents to stay under the document size limit.
      */
-    var MAX_KEYS_PER_CHUNK = 50;
+    var MAX_CHUNK_BYTES = 800000; // ~800 KB per chunk document
 
     /** Upload all data to Firestore. */
     function _pushToServer() {
@@ -87,23 +95,20 @@
 
         try {
             var data = _getAllAppData();
-            var keys = Object.keys(data);
+            // Serialize all data as a single JSON string
+            var jsonStr = JSON.stringify(data);
 
-            // Split into chunks
+            // Split into string chunks that fit within Firestore document limits
             var chunks = [];
-            for (var i = 0; i < keys.length; i += MAX_KEYS_PER_CHUNK) {
-                var chunk = {};
-                var slice = keys.slice(i, i + MAX_KEYS_PER_CHUNK);
-                for (var j = 0; j < slice.length; j++) {
-                    chunk[slice[j]] = data[slice[j]];
-                }
-                chunks.push(chunk);
+            for (var i = 0; i < jsonStr.length; i += MAX_CHUNK_BYTES) {
+                chunks.push(jsonStr.slice(i, i + MAX_CHUNK_BYTES));
             }
+            if (chunks.length === 0) chunks.push('{}');
 
             var userDoc = _db.collection('users').doc(_userId);
             var batch = _db.batch();
 
-            // Write metadata — use serverTimestamp if available, fallback to ISO string
+            // Write metadata
             var timestamp;
             try {
                 timestamp = firebase.firestore.FieldValue.serverTimestamp();
@@ -112,13 +117,14 @@
             }
             batch.set(userDoc, {
                 lastUpdated: timestamp,
-                chunkCount: chunks.length
+                chunkCount: chunks.length,
+                format: 'json-v2'
             });
 
-            // Write each chunk
+            // Write each chunk as a single "data" field
             for (var c = 0; c < chunks.length; c++) {
                 var chunkRef = userDoc.collection('chunks').doc('chunk_' + c);
-                batch.set(chunkRef, chunks[c]);
+                batch.set(chunkRef, { data: chunks[c] });
             }
 
             batch.commit()
@@ -144,7 +150,8 @@
                 })
                 .catch(function (err) {
                     console.error('[Sync] Push failed:', err);
-                    _setSyncStatus('error', 'Push: ' + (err.code || err.message || err));
+                    var detail = err.code ? (err.code + ': ' + err.message) : (err.message || String(err));
+                    _setSyncStatus('error', 'Push: ' + detail);
                 })
                 .finally(function () {
                     _syncing = false;
@@ -171,9 +178,26 @@
             var meta = doc.data();
             var chunkCount = meta.chunkCount || 0;
             if (chunkCount === 0) return {};
+            var isJsonV2 = meta.format === 'json-v2';
 
             // Fetch all chunks
             return userDoc.collection('chunks').get().then(function (snapshot) {
+                if (isJsonV2) {
+                    // New format: chunks contain a single "data" field with JSON string pieces
+                    var parts = [];
+                    snapshot.forEach(function (chunkDoc) {
+                        var idx = parseInt(chunkDoc.id.replace('chunk_', ''), 10);
+                        parts[idx] = chunkDoc.data().data || '';
+                    });
+                    var jsonStr = parts.join('');
+                    try {
+                        return JSON.parse(jsonStr);
+                    } catch (e) {
+                        console.error('[Sync] Failed to parse JSON data:', e);
+                        return {};
+                    }
+                }
+                // Legacy format: each chunk field is a key-value pair
                 var allData = {};
                 snapshot.forEach(function (chunkDoc) {
                     var chunkData = chunkDoc.data();

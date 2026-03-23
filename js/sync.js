@@ -52,6 +52,7 @@
             return true;
         } catch (e) {
             console.error('[Sync] Firebase init failed:', e);
+            alert('[Sync] Firebase init failed: ' + (e.message || e));
             return false;
         }
     }
@@ -84,67 +85,79 @@
         _syncing = true;
         _setSyncStatus('syncing');
 
-        var data = _getAllAppData();
-        var keys = Object.keys(data);
+        try {
+            var data = _getAllAppData();
+            var keys = Object.keys(data);
 
-        // Split into chunks
-        var chunks = [];
-        for (var i = 0; i < keys.length; i += MAX_KEYS_PER_CHUNK) {
-            var chunk = {};
-            var slice = keys.slice(i, i + MAX_KEYS_PER_CHUNK);
-            for (var j = 0; j < slice.length; j++) {
-                chunk[slice[j]] = data[slice[j]];
+            // Split into chunks
+            var chunks = [];
+            for (var i = 0; i < keys.length; i += MAX_KEYS_PER_CHUNK) {
+                var chunk = {};
+                var slice = keys.slice(i, i + MAX_KEYS_PER_CHUNK);
+                for (var j = 0; j < slice.length; j++) {
+                    chunk[slice[j]] = data[slice[j]];
+                }
+                chunks.push(chunk);
             }
-            chunks.push(chunk);
-        }
 
-        var userDoc = _db.collection('users').doc(_userId);
-        var batch = _db.batch();
+            var userDoc = _db.collection('users').doc(_userId);
+            var batch = _db.batch();
 
-        // Write metadata
-        batch.set(userDoc, {
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-            chunkCount: chunks.length
-        });
+            // Write metadata — use serverTimestamp if available, fallback to ISO string
+            var timestamp;
+            try {
+                timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            } catch (e) {
+                timestamp = new Date().toISOString();
+            }
+            batch.set(userDoc, {
+                lastUpdated: timestamp,
+                chunkCount: chunks.length
+            });
 
-        // Write each chunk
-        for (var c = 0; c < chunks.length; c++) {
-            var chunkRef = userDoc.collection('chunks').doc('chunk_' + c);
-            batch.set(chunkRef, chunks[c]);
-        }
+            // Write each chunk
+            for (var c = 0; c < chunks.length; c++) {
+                var chunkRef = userDoc.collection('chunks').doc('chunk_' + c);
+                batch.set(chunkRef, chunks[c]);
+            }
 
-        batch.commit()
-            .then(function () {
-                // Clean up old chunks that are no longer needed
-                return userDoc.collection('chunks').get();
-            })
-            .then(function (snapshot) {
-                if (!snapshot) return;
-                var deleteBatch = _db.batch();
-                var hasDeletes = false;
-                snapshot.forEach(function (doc) {
-                    var idx = parseInt(doc.id.replace('chunk_', ''), 10);
-                    if (idx >= chunks.length) {
-                        deleteBatch.delete(doc.ref);
-                        hasDeletes = true;
+            batch.commit()
+                .then(function () {
+                    // Clean up old chunks that are no longer needed
+                    return userDoc.collection('chunks').get();
+                })
+                .then(function (snapshot) {
+                    if (!snapshot) return;
+                    var deleteBatch = _db.batch();
+                    var hasDeletes = false;
+                    snapshot.forEach(function (doc) {
+                        var idx = parseInt(doc.id.replace('chunk_', ''), 10);
+                        if (idx >= chunks.length) {
+                            deleteBatch.delete(doc.ref);
+                            hasDeletes = true;
+                        }
+                    });
+                    if (hasDeletes) return deleteBatch.commit();
+                })
+                .then(function () {
+                    _setSyncStatus('saved');
+                })
+                .catch(function (err) {
+                    console.error('[Sync] Push failed:', err);
+                    _setSyncStatus('error', 'Push: ' + (err.code || err.message || err));
+                })
+                .finally(function () {
+                    _syncing = false;
+                    if (_pendingSync) {
+                        _pendingSync = false;
+                        _schedulePush();
                     }
                 });
-                if (hasDeletes) return deleteBatch.commit();
-            })
-            .then(function () {
-                _setSyncStatus('saved');
-            })
-            .catch(function (err) {
-                console.error('[Sync] Push failed:', err);
-                _setSyncStatus('error', 'Push: ' + (err.code || err.message || err));
-            })
-            .finally(function () {
-                _syncing = false;
-                if (_pendingSync) {
-                    _pendingSync = false;
-                    _schedulePush();
-                }
-            });
+        } catch (err) {
+            console.error('[Sync] Push error (sync):', err);
+            _setSyncStatus('error', 'Push: ' + (err.message || err));
+            _syncing = false;
+        }
     }
 
     /** Pull all data from Firestore for a given user. Returns a promise with the data object. */

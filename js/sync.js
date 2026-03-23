@@ -250,7 +250,6 @@
     function _applyRoleUI() {
         // Elements that should only be visible to superusers
         var superuserElements = [
-            document.getElementById('create-edit-btn'),
             document.getElementById('mpp-start-btn'),
             document.getElementById('intro-admin-btn')
         ];
@@ -259,6 +258,12 @@
             if (superuserElements[i]) {
                 superuserElements[i].style.display = (_userRole === 'superuser') ? '' : 'none';
             }
+        }
+
+        // create-edit-btn: mark as superuser-allowed but keep hidden until Admin role is selected
+        var ceBtn = document.getElementById('create-edit-btn');
+        if (ceBtn) {
+            ceBtn.dataset.superuser = (_userRole === 'superuser') ? '1' : '0';
         }
     }
 

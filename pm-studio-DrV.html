@@ -7379,8 +7379,56 @@
 
         // === Migration: convert built-in cards to custom format ===
         // After this migration, ALL cards are custom — no more built-in vs custom distinction.
+        // v2: detects deleted/renamed built-in sets and writes to the correct custom key.
         (function migrateBuiltinToCustom() {
-            if (localStorage.getItem('migration_builtins_converted')) return;
+            var migrationVersion = localStorage.getItem('migration_builtins_converted');
+            if (migrationVersion === 'v2') return; // already ran latest migration
+
+            // --- Detect where Numbers & ABC cards should be stored ---
+            var deletedSets = [];
+            try { deletedSets = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]'); } catch(e) {}
+            var renames = {};
+            try { renames = JSON.parse(localStorage.getItem('renamedBuiltinSets') || '{}'); } catch(e) {}
+            var customSets = [];
+            try { customSets = JSON.parse(localStorage.getItem('savedCardSets') || '[]'); } catch(e) {}
+
+            // Determine the correct storage key for Numbers cards
+            var numbersKey = 'customDrawnCards'; // default built-in key
+            if (deletedSets.indexOf('numbers') !== -1) {
+                // Built-in was deleted — find matching custom set
+                var numbersCustomName = null;
+                for (var si = 0; si < customSets.length; si++) {
+                    var lower = customSets[si].toLowerCase();
+                    if (lower === 'numbers and dots' || lower === 'numbers & dots' || lower === 'numbers') {
+                        numbersCustomName = customSets[si];
+                        break;
+                    }
+                }
+                if (numbersCustomName) {
+                    numbersKey = 'customDrawnCards_' + numbersCustomName;
+                }
+                // Also check if it was renamed before deletion
+            } else if (renames.numbers) {
+                numbersKey = 'customDrawnCards'; // renamed built-in still uses the base key
+            }
+
+            // Determine the correct storage key for ABC cards
+            var abcKey = 'customDrawnCards_abc'; // default built-in key
+            if (deletedSets.indexOf('abc') !== -1) {
+                var abcCustomName = null;
+                for (var ai = 0; ai < customSets.length; ai++) {
+                    var lowerA = customSets[ai].toLowerCase();
+                    if (lowerA.indexOf('abc') !== -1) {
+                        abcCustomName = customSets[ai];
+                        break;
+                    }
+                }
+                if (abcCustomName) {
+                    abcKey = 'customDrawnCards_' + abcCustomName;
+                }
+            }
+
+            console.log('[Migration v2] Numbers key:', numbersKey, '| ABC key:', abcKey);
 
             // --- Migrate Numbers & Dots built-in cards ---
             // Default Numbers card definitions (used only for first-time migration)
@@ -7433,9 +7481,19 @@
             ];
             var existingCustom = [];
             try {
-                var raw = localStorage.getItem('customDrawnCards');
+                var raw = localStorage.getItem(numbersKey);
                 if (raw) existingCustom = JSON.parse(raw);
             } catch(e) {}
+            // Also pull from old 'customDrawnCards' if we're writing to a different key
+            if (numbersKey !== 'customDrawnCards') {
+                try {
+                    var oldRaw = localStorage.getItem('customDrawnCards');
+                    if (oldRaw) {
+                        var oldCards = JSON.parse(oldRaw);
+                        oldCards.forEach(function(c) { existingCustom.push(c); });
+                    }
+                } catch(e) {}
+            }
             var existingLabels = {};
             existingCustom.forEach(function(c) { existingLabels[c.label] = true; });
 
@@ -7449,7 +7507,11 @@
                 });
                 existingLabels[card.label] = true;
             });
-            localStorage.setItem('customDrawnCards', JSON.stringify(existingCustom));
+            localStorage.setItem(numbersKey, JSON.stringify(existingCustom));
+            // Clean up old key if we moved to a new one
+            if (numbersKey !== 'customDrawnCards') {
+                localStorage.removeItem('customDrawnCards');
+            }
 
             // --- Migrate ABC built-in cards ---
             // Merge editedBuiltinCards_abc edits into customDrawnCards_abc
@@ -7472,9 +7534,19 @@
             // Load existing custom ABC cards
             var abcCustom = [];
             try {
-                var custRaw = localStorage.getItem('customDrawnCards_abc');
+                var custRaw = localStorage.getItem(abcKey);
                 if (custRaw) abcCustom = JSON.parse(custRaw);
             } catch(e) {}
+            // Also pull from old 'customDrawnCards_abc' if we're writing to a different key
+            if (abcKey !== 'customDrawnCards_abc') {
+                try {
+                    var oldAbcRaw = localStorage.getItem('customDrawnCards_abc');
+                    if (oldAbcRaw) {
+                        var oldAbcCards = JSON.parse(oldAbcRaw);
+                        oldAbcCards.forEach(function(c) { abcCustom.push(c); });
+                    }
+                } catch(e) {}
+            }
             var abcLabels = {};
             abcCustom.forEach(function(c) { abcLabels[c.label] = true; });
 
@@ -7502,7 +7574,11 @@
                     abcLabels[label] = true;
                 }
             });
-            localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
+            localStorage.setItem(abcKey, JSON.stringify(abcCustom));
+            // Clean up old key if we moved to a new one
+            if (abcKey !== 'customDrawnCards_abc') {
+                localStorage.removeItem('customDrawnCards_abc');
+            }
 
             // Clean up legacy keys
             localStorage.removeItem('editedBuiltinCards_abc');
@@ -7510,8 +7586,8 @@
             localStorage.removeItem('deletedCards_abc');
             localStorage.removeItem('deletedBuiltinSets');
 
-            localStorage.setItem('migration_builtins_converted', 'true');
-            console.log('[Migration] Converted built-in cards to custom format.');
+            localStorage.setItem('migration_builtins_converted', 'v2');
+            console.log('[Migration v2] Converted built-in cards to custom format. Numbers→' + numbersKey + ', ABC→' + abcKey);
         })();
 
         // === Create built-in ABC game (only if it does not exist) ===

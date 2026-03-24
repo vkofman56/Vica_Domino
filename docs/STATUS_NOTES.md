@@ -532,12 +532,41 @@ Vica_Domino/
 
 ---
 
+---
+
+## March 24 Session — Built-in Card Migration Fix
+
+**Problem**: After the March 23 refactor that removed built-in cards and made everything custom, the 45 Numbers & Dots built-in cards and ABC cards were not appearing in Studio's Card Maker.
+
+**Investigation**: Discovered two layered bugs:
+1. **Wrong storage key**: The user had previously deleted the built-in "numbers" set and created a custom set "Numbers and Dots". The migration wrote to `customDrawnCards` (built-in key), but the custom set reads from `customDrawnCards_Numbers and Dots`
+2. **Sync timing race**: Migration ran synchronously on page load as an IIFE, but `syncLogin()` is async — when Firestore pull completed, it wiped ALL localStorage and replaced with cloud data (which didn't have migrated cards)
+
+**Fix (migration v2)**:
+- Migration detects `deletedBuiltinSets` and `savedCardSets` to find the correct storage key dynamically
+- Changed from IIFE `(function migrateBuiltinToCustom(){...})()` to named function `runBuiltinMigration()`
+- Called inside every `syncLogin().then()` callback so it runs AFTER Firestore restore
+- Still called immediately for offline/no-sync scenarios
+- Uses flag `'v2'` instead of `'true'` to force re-run over old v1 migration
+- Merges cards from old keys into the correct new key, cleans up legacy keys
+
+**Files changed**: `pm-studio-DrV.html` (migration logic + syncLogin callbacks)
+
+**Key commits**:
+- `56d966d` — v2 migration with deleted/renamed set detection
+- `d3888a7` — Fix timing: run migration after Firestore sync completes
+
+**Key debugging lesson**: Any localStorage migration in this project MUST run AFTER the async Firestore `syncLogin()` completes, not before. The sync layer wipes and replaces all localStorage with cloud data.
+
+---
+
 ## Quick Start for New Session
 
 1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-JOOeh`
 2. Main files: `index.html` (player UI), `pm-studio-DrV.html` (admin UI), `js/game.js` (game logic), `js/domino.js` (card data), `js/sync.js` (Firebase sync), `css/style.css` (styles)
 3. No build step — open HTML files directly in a browser or via GitHub Pages
 4. All state persisted in localStorage + Firebase sync for superusers
-5. **Both player and admin pages are working** as of March 23
-6. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
-7. Key area to investigate next: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"
+5. **Both player and admin pages are working** as of March 24
+6. **Card migration**: Working — built-in cards migrated and syncing to Firebase (`migration_builtins_converted = 'v2'`)
+7. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
+8. Key area to investigate next: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"

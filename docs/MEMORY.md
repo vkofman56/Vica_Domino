@@ -128,10 +128,23 @@
 - Key commits on branch `claude/review-project-docs-QNagl`: `a24919c`, `8d11310`, `ffe0d9d`, `1fa33a9`, `56b7823`
 - Key commits on branch `claude/review-project-docs-JOOeh`: `8c85ad4` (admin login overlay fix)
 
-## Current State (March 23)
+### March 24 Session — Built-in Card Migration Fix
+- **Problem**: Built-in cards (45 Numbers & Dots cards, ABC cards) were not appearing in Card Maker after migration
+- **Root cause 1**: The built-in "numbers" set had been deleted (`deletedBuiltinSets: ["numbers"]`) and recreated as a custom set called "Numbers and Dots". Migration wrote to `customDrawnCards` (built-in key) but the custom set reads from `customDrawnCards_Numbers and Dots`
+- **Root cause 2**: Migration ran synchronously on page load, but Firestore `syncLogin()` completes asynchronously and **wipes all localStorage** replacing it with cloud data — destroying migration results
+- **Fix (migration v2)**:
+  1. Detects `deletedBuiltinSets` and `savedCardSets` to find the correct storage key
+  2. Changed from IIFE to named function `runBuiltinMigration()`
+  3. Called inside every `syncLogin().then()` callback (runs AFTER Firestore restore)
+  4. Uses flag `'v2'` (not `'true'`) so it re-runs over old v1 migration
+  5. Merges cards from old keys, cleans up legacy keys
+- **Key lesson**: Any localStorage migration must run AFTER async Firestore sync completes, not before
+- Key commits: `56d966d` (v2 migration with key detection), `d3888a7` (fix timing — run after sync)
+
+## Current State (March 24)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development)
 - **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
 - **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
-- **Intro screen flow**: Player/Admin buttons → Player shows games, Admin requires superuser login then opens card library
-- **Sync status**: Working — `"__player__"` legacy ID auto-sanitized to `"player-guest"`
-- **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed this session)
+- **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
+- **Sync status**: Working — migration runs after Firestore restore, `migration_builtins_converted = 'v2'`
+- **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)

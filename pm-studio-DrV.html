@@ -823,6 +823,7 @@
             // Player mode: load shared data without saving, no name needed
             document.getElementById('sync-login-hint').textContent = 'Loading…';
             syncLogin('player-guest').then(function() {
+                if (typeof runBuiltinMigration === 'function') runBuiltinMigration();
                 document.getElementById('sync-login-overlay').style.display = 'none';
                 updateSyncUserBtn();
                 location.reload();
@@ -845,6 +846,7 @@
             document.getElementById('sync-login-hint').textContent = 'Loading…';
             document.getElementById('sync-login-hint').style.color = '';
             syncLogin(name).then(function() {
+                if (typeof runBuiltinMigration === 'function') runBuiltinMigration();
                 document.getElementById('sync-login-overlay').style.display = 'none';
                 updateSyncUserBtn();
                 if (_adminLoginPending) {
@@ -880,6 +882,10 @@
                 // Already logged in as superuser — go straight to library
                 updateSyncUserBtn();
                 syncLogin(userId).then(function() {
+                    // Run migration after sync restore so cloud data doesn't overwrite it
+                    if (typeof runBuiltinMigration === 'function') runBuiltinMigration();
+                    // Re-populate library since sync may have changed localStorage
+                    if (typeof populateLibraryGames === 'function') populateLibraryGames();
                     document.getElementById('intro-screen').style.display = 'none';
                     document.getElementById('card-library-screen').style.display = 'block';
                 });
@@ -7380,7 +7386,8 @@
         // === Migration: convert built-in cards to custom format ===
         // After this migration, ALL cards are custom — no more built-in vs custom distinction.
         // v2: detects deleted/renamed built-in sets and writes to the correct custom key.
-        (function migrateBuiltinToCustom() {
+        // NOTE: Must run AFTER Firestore sync restores data, otherwise sync overwrites the results.
+        function runBuiltinMigration() {
             var migrationVersion = localStorage.getItem('migration_builtins_converted');
             if (migrationVersion === 'v2') return; // already ran latest migration
 
@@ -7588,7 +7595,11 @@
 
             localStorage.setItem('migration_builtins_converted', 'v2');
             console.log('[Migration v2] Converted built-in cards to custom format. Numbers→' + numbersKey + ', ABC→' + abcKey);
-        })();
+        }
+
+        // Run migration immediately for offline/non-sync scenarios
+        // (will be called again after sync completes; guard flag prevents double-run)
+        runBuiltinMigration();
 
         // === Create built-in ABC game (only if it does not exist) ===
         // Game card labels use "A01" format to avoid clashing with Numbers & Dots "A1"

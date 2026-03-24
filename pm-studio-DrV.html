@@ -3887,6 +3887,10 @@
                 if (letter) row.dataset.rowLetter = letter;
                 updateRowEmptyState(row);
             });
+            // Mark all cards as custom (no more built-in distinction)
+            container.querySelectorAll('.library-card').forEach(function(card) {
+                card.dataset.custom = 'true';
+            });
         }
         // Sort rows inside a container alphabetically by data-row-letter
         function sortRowsAlphabetically() {
@@ -4016,18 +4020,6 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
-            // Persist deletion so built-in cards don't reappear on rebuild
-            // Only track built-in card deletions — custom cards are managed
-            // via customDrawnCards_abc and don't need deletion tracking.
-            if (labelText && activeCardSet === 'abc' && card.dataset.custom !== 'true') {
-                try {
-                    var delRaw = localStorage.getItem('deletedCards_abc');
-                    var deleted = delRaw ? JSON.parse(delRaw) : [];
-                    if (deleted.indexOf(labelText) === -1) deleted.push(labelText);
-                    localStorage.setItem('deletedCards_abc', JSON.stringify(deleted));
-                } catch(e) {}
-            }
-
             // Also remove any variations of this card
             if (row && labelText) {
                 row.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) {
@@ -4116,35 +4108,34 @@
             var numbersDiv = document.getElementById('card-set-numbers');
             var abcDiv = document.getElementById('card-set-abc');
             var data = [];
-            // Save newly created custom cards (have 'Custom card' description or data-custom)
-            // Only save custom cards from Numbers set (ABC cards are managed by buildAbcCardSet)
+            // Save ALL cards from Numbers set (all cards are custom now)
             var customScope = numbersDiv || content;
-            customScope.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+            customScope.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
                 var lbl = card.querySelector('.library-label');
                 var svg = card.querySelector('svg');
                 if (lbl && svg) {
                     data.push({
                         label: lbl.textContent,
                         svgContent: svg.innerHTML,
-                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card',
+                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
                         cardSet: 'Numbers and Dots'
                     });
                 }
             });
-            // Also save custom cards from orphaned rows (appended outside card-set containers)
+            // Also save cards from orphaned rows (appended outside card-set containers)
             var children = content.children;
             for (var ci = 0; ci < children.length; ci++) {
                 var ch = children[ci];
                 if (ch.id === 'card-set-numbers' || ch.id === 'card-set-abc') continue;
                 if (!ch.classList.contains('library-row')) continue;
-                ch.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                ch.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
                     var lbl = card.querySelector('.library-label');
                     var svg = card.querySelector('svg');
                     if (lbl && svg) {
                         data.push({
                             label: lbl.textContent,
                             svgContent: svg.innerHTML,
-                            desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card',
+                            desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
                             cardSet: 'Numbers and Dots'
                         });
                     }
@@ -4152,32 +4143,22 @@
             }
             localStorage.setItem('customDrawnCards', JSON.stringify(data));
 
-            // Save edits to built-in cards — only save the ACTIVE set to avoid
-            // wiping the other set's data when its container is empty/hidden
+            // Save ABC cards
             if (activeCardSet === 'abc') {
-                var abcEdits = [];
                 var abcCustom = [];
                 if (abcDiv) {
-                    abcDiv.querySelectorAll('.library-card[data-edited="true"]:not([data-custom="true"])').forEach(function(card) {
-                        var lbl = card.querySelector('.library-label');
-                        var svg = card.querySelector('svg');
-                        if (lbl && svg) {
-                            abcEdits.push({ label: lbl.textContent, svgContent: svg.innerHTML });
-                        }
-                    });
-                    abcDiv.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
+                    abcDiv.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
                         var lbl = card.querySelector('.library-label');
                         var svg = card.querySelector('svg');
                         if (lbl && svg) {
                             abcCustom.push({
                                 label: lbl.textContent,
                                 svgContent: svg.innerHTML,
-                                desc: (card.querySelector('.library-desc') || {}).textContent || 'Copy'
+                                desc: (card.querySelector('.library-desc') || {}).textContent || 'Card'
                             });
                         }
                     });
                 }
-                localStorage.setItem('editedBuiltinCards_abc', JSON.stringify(abcEdits));
                 localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
                 saveAbcSnapshot();
             } else if (isCustomCardSet(activeCardSet)) {
@@ -4208,12 +4189,22 @@
         }
 
         function loadCustomCards() {
-            // Load custom drawn cards
+            // Load custom drawn cards — update existing DOM cards or add new ones
             var saved = localStorage.getItem('customDrawnCards');
             if (saved) {
                 try {
                     var data = JSON.parse(saved);
                     data.forEach(function(item) {
+                        var existing = findCardByLabel(item.label, 'Numbers and Dots');
+                        if (existing) {
+                            // Update existing DOM card with saved content
+                            var svg = existing.querySelector('svg');
+                            if (svg) svg.innerHTML = item.svgContent;
+                            var desc = existing.querySelector('.library-desc');
+                            if (desc && item.desc) desc.textContent = item.desc;
+                            existing.dataset.custom = 'true';
+                            return;
+                        }
                         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                         svg.setAttribute('viewBox', '0 0 60 60');
                         svg.innerHTML = item.svgContent;
@@ -5604,32 +5595,11 @@
                 return;
             }
 
-            // Fallback: reconstruct from individual localStorage keys (before Card Maker has been opened)
-            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits
-            var editMap = {};
-            try {
-                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
-                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
-                if (edits) {
-                    var abcLabels = {};
-                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
-                    JSON.parse(edits).forEach(function(item) {
-                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
-                    });
-                }
-            } catch(e) {}
-            // Load deleted cards
-            var deletedSet = {};
-            try {
-                var delRaw = localStorage.getItem('deletedCards_abc');
-                if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
-            } catch(e) {}
-            // Load custom cards
-            var customCards = [];
+            // Fallback: reconstruct from customDrawnCards_abc (before Card Maker has been opened)
+            var abcCards = [];
             try {
                 var custRaw = localStorage.getItem('customDrawnCards_abc');
-                if (custRaw) customCards = JSON.parse(custRaw);
+                if (custRaw) abcCards = JSON.parse(custRaw);
             } catch(e) {}
             // Load arrangement
             var arrangement = {};
@@ -5638,35 +5608,12 @@
                 if (arrRaw) arrangement = JSON.parse(arrRaw);
             } catch(e) {}
 
-            // Build all cards into their default rows
+            // Group cards by letter
             var allCards = {};
             var rowCards = {};
-            letters.forEach(function(letter) {
-                rowCards[letter] = [];
-                for (var n = 1; n <= 5; n++) {
-                    var label = letter + n;
-                    if (deletedSet[label]) continue;
-                    // Skip empty placeholder slots (4-5) unless user edited them
-                    if (n >= 4 && !editMap[label]) continue;
-                    // Skip position 3 if no icon and not edited
-                    if (n === 3 && !abcIcons[letter] && !editMap[label]) continue;
-                    var svgContent = '';
-                    if (editMap[label]) {
-                        svgContent = editMap[label];
-                    } else if (n <= 2) {
-                        svgContent = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + (colors[letter] || '#333') + '">' + letter + '</text>';
-                    } else if (n === 3 && abcIcons[letter]) {
-                        svgContent = abcIcons[letter].markup;
-                    }
-                    allCards[label] = { svg: svgContent };
-                    rowCards[letter].push(label);
-                }
-            });
-            // Add custom cards
-            customCards.forEach(function(item) {
-                if (deletedSet[item.label]) return;
+            abcCards.forEach(function(item) {
                 var ch = item.label.charAt(0).toUpperCase();
-                if (letters.indexOf(ch) < 0) return;
+                if (!rowCards[ch]) rowCards[ch] = [];
                 allCards[item.label] = { svg: item.svgContent };
                 rowCards[ch].push(item.label);
             });
@@ -5674,7 +5621,6 @@
             if (Object.keys(arrangement).length > 0) {
                 var finalRows = {};
                 var placed = {};
-                letters.forEach(function(l) { finalRows[l] = []; });
                 Object.keys(arrangement).forEach(function(letter) {
                     if (!finalRows[letter]) finalRows[letter] = [];
                     arrangement[letter].forEach(function(label) {
@@ -5684,7 +5630,8 @@
                         }
                     });
                 });
-                letters.forEach(function(letter) {
+                Object.keys(rowCards).forEach(function(letter) {
+                    if (!finalRows[letter]) finalRows[letter] = [];
                     rowCards[letter].forEach(function(label) {
                         if (allCards[label] && !placed[label]) {
                             finalRows[letter].push(label);
@@ -5695,7 +5642,7 @@
                 rowCards = finalRows;
             }
             // Render
-            letters.forEach(function(letter) {
+            Object.keys(rowCards).sort().forEach(function(letter) {
                 var previewRow = document.createElement('div');
                 previewRow.className = 'card-preview-row';
                 (rowCards[letter] || []).forEach(function(label) {
@@ -5890,15 +5837,13 @@
 
         function deleteBuiltinCardSet(setName, wrapper) {
             var displayName = setName === 'abc' ? 'ABC' : 'Numbers and Dots';
-            if (!confirm('Delete card set "' + displayName + '"? This will also erase all edits and custom cards in this set.')) return;
+            if (!confirm('Delete card set "' + displayName + '"? This will also erase all cards in this set.')) return;
             // Clear related localStorage data
             if (setName === 'numbers') {
                 localStorage.removeItem('customDrawnCards');
                 localStorage.removeItem('cardArrangement');
             } else if (setName === 'abc') {
-                localStorage.removeItem('editedBuiltinCards_abc');
                 localStorage.removeItem('customDrawnCards_abc');
-                localStorage.removeItem('deletedCards_abc');
                 localStorage.removeItem('abcCardSnapshot');
             }
             // Clear preview/selection if this set was selected
@@ -5910,7 +5855,7 @@
                 var editBtn = document.getElementById('edit-card-set-btn');
                 if (editBtn) editBtn.style.display = 'none';
             }
-            // Persist deletion so built-in set stays hidden after reload
+            // Persist deletion so set stays hidden after reload
             try {
                 var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
                 if (deleted.indexOf(setName) === -1) deleted.push(setName);
@@ -6202,155 +6147,58 @@
             var container = document.getElementById('card-set-abc');
             if (!container) return;
             container.innerHTML = '';
-            var letters = ['A', 'B', 'C', 'D', 'E'];
-            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
-            // Load saved edits for ABC cards (prefer ABC-specific key, fall back to legacy)
-            var editMap = {};
+
+            // Load ALL ABC cards from customDrawnCards_abc (all cards are custom now)
+            var abcCards = [];
             try {
-                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
-                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
-                if (edits) {
-                    var abcLabels = {};
-                    letters.forEach(function(l) { for (var i = 1; i <= 5; i++) abcLabels[l + i] = true; });
-                    JSON.parse(edits).forEach(function(item) {
-                        if (abcLabels[item.label]) editMap[item.label] = item.svgContent;
-                    });
-                }
+                var abcCustomRaw = localStorage.getItem('customDrawnCards_abc');
+                if (abcCustomRaw) abcCards = JSON.parse(abcCustomRaw);
             } catch(e) {}
-            letters.forEach(function(letter, li) {
-                // Red separator line between groups
+
+            // Group cards by first letter
+            var rowMap = {};
+            abcCards.forEach(function(item) {
+                var firstChar = item.label.charAt(0).toUpperCase();
+                if (!rowMap[firstChar]) rowMap[firstChar] = [];
+                rowMap[firstChar].push(item);
+            });
+
+            // Sort letters and build rows
+            var sortedLetters = Object.keys(rowMap).sort();
+            sortedLetters.forEach(function(letter) {
                 var section = document.createElement('div');
                 section.className = 'library-section';
                 container.appendChild(section);
-                // Row of cards for this letter
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
-                // Generate cards per letter: positions 1-2 (letters), 3 (icon), 4-5 (only if user edited them)
-                for (var n = 1; n <= 5; n++) {
-                    var label = letter + n;
-                    // Skip empty placeholder slots (4-5) unless user has drawn on them
-                    if (n >= 4 && !editMap[label]) continue;
-                    // Skip position 3 if no icon available and not edited
-                    if (n === 3 && !abcIcons[letter] && !editMap[label]) continue;
+
+                rowMap[letter].forEach(function(item) {
                     var card = document.createElement('div');
                     card.className = 'library-card';
+                    card.dataset.custom = 'true';
                     var labelDiv = document.createElement('div');
                     labelDiv.className = 'library-label';
-                    labelDiv.textContent = label;
+                    labelDiv.textContent = item.label;
                     card.appendChild(labelDiv);
                     var preview = document.createElement('div');
                     preview.className = 'domino-half-preview';
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    if (editMap[label]) {
-                        // Restore saved edit
-                        svg.innerHTML = editMap[label];
-                        card.dataset.edited = 'true';
-                    } else if (n <= 2) {
-                        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', '30');
-                        text.setAttribute('y', '46');
-                        text.setAttribute('text-anchor', 'middle');
-                        text.setAttribute('font-size', '48');
-                        text.setAttribute('font-weight', 'bold');
-                        text.setAttribute('fill', colors[letter] || '#333');
-                        text.textContent = letter;
-                        svg.appendChild(text);
-                    } else if (n === 3 && abcIcons[letter]) {
-                        svg.innerHTML = abcIcons[letter].markup;
-                    }
+                    svg.innerHTML = item.svgContent;
                     preview.appendChild(svg);
                     card.appendChild(preview);
                     var desc = document.createElement('div');
                     desc.className = 'library-desc';
-                    desc.textContent = n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Custom');
+                    desc.textContent = item.desc || 'Card';
                     card.appendChild(desc);
                     row.appendChild(card);
-                }
+                });
                 container.appendChild(row);
             });
-            // Restore ABC custom cards (copies created by reflect/rotate)
-            try {
-                var abcCustomRaw = localStorage.getItem('customDrawnCards_abc');
-                if (abcCustomRaw) {
-                    var abcCustomCards = JSON.parse(abcCustomRaw);
-                    abcCustomCards.forEach(function(item) {
-                        // Find the row for this card based on its first character
-                        var firstChar = item.label.charAt(0).toUpperCase();
-                        var rows = container.querySelectorAll('.library-row');
-                        var targetRow = null;
-                        var letterIdx = letters.indexOf(firstChar);
-                        if (letterIdx >= 0 && rows[letterIdx]) {
-                            targetRow = rows[letterIdx];
-                        } else {
-                            // Try to find any existing row with this letter
-                            rows.forEach(function(r) {
-                                if ((r.dataset.rowLetter || '').toUpperCase() === firstChar) targetRow = r;
-                            });
-                        }
-                        if (!targetRow) {
-                            // Create a new row for letters beyond A-E (e.g. F, G, ...)
-                            var section = document.createElement('div');
-                            section.className = 'library-section';
-                            container.appendChild(section);
-                            targetRow = document.createElement('div');
-                            targetRow.className = 'library-row';
-                            targetRow.dataset.rowLetter = firstChar;
-                            container.appendChild(targetRow);
-                        }
-                        var card = document.createElement('div');
-                        card.className = 'library-card';
-                        card.dataset.custom = 'true';
-                        var labelDiv = document.createElement('div');
-                        labelDiv.className = 'library-label';
-                        labelDiv.textContent = item.label;
-                        card.appendChild(labelDiv);
-                        var preview = document.createElement('div');
-                        preview.className = 'domino-half-preview';
-                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                        svg.setAttribute('viewBox', '0 0 60 60');
-                        svg.innerHTML = item.svgContent;
-                        preview.appendChild(svg);
-                        card.appendChild(preview);
-                        var desc = document.createElement('div');
-                        desc.className = 'library-desc';
-                        desc.textContent = item.desc || 'Copy';
-                        card.appendChild(desc);
-                        targetRow.appendChild(card);
-                    });
-                }
-            } catch(e) {}
-            // Add interactive buttons to restored custom cards
-            container.querySelectorAll('.library-card[data-custom="true"]').forEach(function(card) {
-                addCardDeleteButton(card);
-                addVarButton(card);
-                addCopyButton(card);
-            });
-            // Remove previously deleted ABC cards so they don't reappear
-            // IMPORTANT: skip custom cards — deletedCards_abc tracks built-in card
-            // deletions only; renumbering can cause custom cards to inherit a
-            // deleted label, so we must never remove data-custom cards here.
-            try {
-                var deletedRaw = localStorage.getItem('deletedCards_abc');
-                if (deletedRaw) {
-                    var deletedList = JSON.parse(deletedRaw);
-                    if (deletedList.length > 0) {
-                        container.querySelectorAll('.library-card:not(.variation):not([data-custom="true"])').forEach(function(card) {
-                            var lbl = card.querySelector('.library-label');
-                            if (lbl && deletedList.indexOf(lbl.textContent) !== -1) {
-                                card.remove();
-                            }
-                        });
-                        // Update empty-row state for affected rows
-                        container.querySelectorAll('.library-row').forEach(function(row) {
-                            updateRowEmptyState(row);
-                        });
-                    }
-                }
-            } catch(e) {}
-            // Also add interactive buttons to all built-in cards
-            container.querySelectorAll('.library-card:not([data-custom="true"])').forEach(function(card) {
+
+            // Add interactive buttons to all cards
+            container.querySelectorAll('.library-card').forEach(function(card) {
                 addCardDeleteButton(card);
                 addVarButton(card);
                 addCopyButton(card);
@@ -6455,11 +6303,9 @@
         // during drag and should always persist (even if user clicks Cancel).
         function snapshotCardMakerState() {
             _cmSnapshot = {
-                editedBuiltinCards_abc: localStorage.getItem('editedBuiltinCards_abc'),
                 customDrawnCards: localStorage.getItem('customDrawnCards'),
                 customDrawnCards_abc: localStorage.getItem('customDrawnCards_abc'),
-                cardMakerVariations: localStorage.getItem('cardMakerVariations'),
-                deletedCards_abc: localStorage.getItem('deletedCards_abc')
+                cardMakerVariations: localStorage.getItem('cardMakerVariations')
             };
             // Also snapshot custom set data if editing a custom set
             if (isCustomCardSet(activeCardSet)) {
@@ -6471,7 +6317,7 @@
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            var keys = ['editedBuiltinCards_abc', 'customDrawnCards', 'customDrawnCards_abc', 'cardMakerVariations', 'deletedCards_abc'];
+            var keys = ['customDrawnCards', 'customDrawnCards_abc', 'cardMakerVariations'];
             // Include custom set key if present in snapshot
             Object.keys(_cmSnapshot).forEach(function(k) {
                 if (keys.indexOf(k) === -1) keys.push(k);
@@ -6525,7 +6371,7 @@
         }
 
         function saveAndLeaveCardMaker() {
-            // edits are already saved to editedBuiltinCards/etc by drawSave
+            // edits are already saved to customDrawnCards/etc by drawSave
             // Also sync ABC cards to savedCustomGames if ABC set is active
             if (activeCardSet === 'abc') {
                 syncAbcCardsToGame();
@@ -7616,6 +7462,108 @@
             btn.onclick = function() { openGameView(currentGameViewIndex, 'domino-library-screen'); };
             container.appendChild(btn);
         }
+
+        // === Migration: convert built-in cards to custom format ===
+        // After this migration, ALL cards are custom — no more built-in vs custom distinction.
+        (function migrateBuiltinToCustom() {
+            if (localStorage.getItem('migration_builtins_converted')) return;
+
+            // --- Migrate Numbers & Dots built-in cards ---
+            // Numbers cards are hardcoded in the HTML DOM. We read them and merge
+            // into customDrawnCards so they become regular custom cards.
+            var numbersDiv = document.getElementById('card-set-numbers');
+            if (numbersDiv) {
+                var existingCustom = [];
+                try {
+                    var raw = localStorage.getItem('customDrawnCards');
+                    if (raw) existingCustom = JSON.parse(raw);
+                } catch(e) {}
+                var existingLabels = {};
+                existingCustom.forEach(function(c) { existingLabels[c.label] = true; });
+
+                numbersDiv.querySelectorAll('.library-card:not([data-custom="true"])').forEach(function(card) {
+                    var lbl = card.querySelector('.library-label');
+                    var svg = card.querySelector('svg');
+                    if (!lbl || !svg) return;
+                    var label = lbl.textContent;
+                    if (existingLabels[label]) return; // already custom
+                    existingCustom.push({
+                        label: label,
+                        svgContent: svg.innerHTML,
+                        desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
+                        cardSet: 'Numbers and Dots'
+                    });
+                    existingLabels[label] = true;
+                });
+                localStorage.setItem('customDrawnCards', JSON.stringify(existingCustom));
+                // Mark all Numbers DOM cards as custom
+                numbersDiv.querySelectorAll('.library-card:not([data-custom="true"])').forEach(function(card) {
+                    card.dataset.custom = 'true';
+                });
+            }
+
+            // --- Migrate ABC built-in cards ---
+            // Merge editedBuiltinCards_abc edits into customDrawnCards_abc
+            var letters = ['A', 'B', 'C', 'D', 'E'];
+            var colors = { A: '#336', B: '#633', C: '#363', D: '#663', E: '#636' };
+            var editMap = {};
+            try {
+                var _abcRaw = localStorage.getItem('editedBuiltinCards_abc');
+                var edits = (_abcRaw && _abcRaw !== '[]') ? _abcRaw : localStorage.getItem('editedBuiltinCards');
+                if (edits) {
+                    JSON.parse(edits).forEach(function(item) { editMap[item.label] = item.svgContent; });
+                }
+            } catch(e) {}
+            var deletedSet = {};
+            try {
+                var delRaw = localStorage.getItem('deletedCards_abc');
+                if (delRaw) JSON.parse(delRaw).forEach(function(l) { deletedSet[l] = true; });
+            } catch(e) {}
+
+            // Load existing custom ABC cards
+            var abcCustom = [];
+            try {
+                var custRaw = localStorage.getItem('customDrawnCards_abc');
+                if (custRaw) abcCustom = JSON.parse(custRaw);
+            } catch(e) {}
+            var abcLabels = {};
+            abcCustom.forEach(function(c) { abcLabels[c.label] = true; });
+
+            // Convert built-in ABC cards to custom format
+            letters.forEach(function(letter) {
+                for (var n = 1; n <= 5; n++) {
+                    var label = letter + n;
+                    if (deletedSet[label]) continue; // was deleted, skip
+                    if (abcLabels[label]) continue;  // already a custom card
+                    var svgContent = '';
+                    if (editMap[label]) {
+                        svgContent = editMap[label];
+                    } else if (n <= 2) {
+                        svgContent = '<text x="30" y="46" text-anchor="middle" font-size="48" font-weight="bold" fill="' + (colors[letter] || '#333') + '">' + letter + '</text>';
+                    } else if (n === 3 && abcIcons[letter]) {
+                        svgContent = abcIcons[letter].markup;
+                    } else {
+                        continue; // empty placeholder, skip
+                    }
+                    abcCustom.push({
+                        label: label,
+                        svgContent: svgContent,
+                        desc: n <= 2 ? 'Letter "' + letter + '"' : (n === 3 && abcIcons[letter] ? abcIcons[letter].desc : 'Custom')
+                    });
+                    abcLabels[label] = true;
+                }
+            });
+            localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
+
+            // Clean up legacy keys
+            localStorage.removeItem('editedBuiltinCards_abc');
+            localStorage.removeItem('editedBuiltinCards');
+            localStorage.removeItem('deletedCards_abc');
+            localStorage.removeItem('deletedBuiltinSets');
+
+            localStorage.setItem('migration_builtins_converted', 'true');
+            console.log('[Migration] Converted built-in cards to custom format.');
+        })();
 
         // === Create built-in ABC game (only if it does not exist) ===
         // Game card labels use "A01" format to avoid clashing with Numbers & Dots "A1"

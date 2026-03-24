@@ -1,49 +1,12 @@
 /**
  * Vica Domino - Domino Card Definitions
  *
- * The 15 domino cards with values A, B, C, D, E
- * Each value can have up to 6 different representations (A1-A6, B1-B6, etc.)
- * For now, we display the letter labels. Later, custom assignments can be made.
+ * All cards are custom-made via Card Maker. There are no built-in cards.
+ * Game decks are built dynamically from saved custom games.
  */
 
-// Value ranking: E > D > C > B > A (E is highest)
+// Value ranking — dynamically set when a custom game is loaded
 const VALUE_RANK = { 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5 };
-
-// All 15 domino cards
-const DOMINO_CARDS = [
-    { id: 1,  left: 'A1', right: 'A2', leftValue: 'A', rightValue: 'A' }, // Double A
-    { id: 2,  left: 'A3', right: 'B1', leftValue: 'A', rightValue: 'B' },
-    { id: 3,  left: 'A4', right: 'C1', leftValue: 'A', rightValue: 'C' },
-    { id: 4,  left: 'A5', right: 'D1', leftValue: 'A', rightValue: 'D' },
-    { id: 5,  left: 'A6', right: 'E1', leftValue: 'A', rightValue: 'E' },
-    { id: 6,  left: 'B2', right: 'B3', leftValue: 'B', rightValue: 'B' }, // Double B
-    { id: 7,  left: 'B4', right: 'C2', leftValue: 'B', rightValue: 'C' },
-    { id: 8,  left: 'B5', right: 'D2', leftValue: 'B', rightValue: 'D' },
-    { id: 9,  left: 'B6', right: 'E2', leftValue: 'B', rightValue: 'E' },
-    { id: 10, left: 'C3', right: 'C4', leftValue: 'C', rightValue: 'C' }, // Double C
-    { id: 11, left: 'C5', right: 'D3', leftValue: 'C', rightValue: 'D' },
-    { id: 12, left: 'C6', right: 'E3', leftValue: 'C', rightValue: 'E' },
-    { id: 13, left: 'D4', right: 'D5', leftValue: 'D', rightValue: 'D' }, // Double D
-    { id: 14, left: 'D6', right: 'E4', leftValue: 'D', rightValue: 'E' },
-    { id: 15, left: 'E5', right: 'E6', leftValue: 'E', rightValue: 'E' }, // Double E
-];
-
-// Custom display assignments (can be modified later)
-// Maps representation codes (A1, A2, etc.) to display text/images
-let customAssignments = {};
-
-/**
- * Get display text for a representation code
- * @param {string} code - The representation code (e.g., 'A1', 'B2')
- * @returns {string} - The display text
- */
-function getDisplayText(code) {
-    if (customAssignments[code]) {
-        return customAssignments[code];
-    }
-    // Default: show the value letter
-    return code.charAt(0);
-}
 
 /**
  * Check if a card is a double (both sides have same value)
@@ -141,7 +104,7 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
     } else {
         const leftDisplay = document.createElement('span');
         leftDisplay.className = `value-display value-${card.leftValue}`;
-        leftDisplay.textContent = getDisplayText(card.left);
+        leftDisplay.textContent = card.leftValue || '?';
         leftHalf.appendChild(leftDisplay);
     }
 
@@ -155,7 +118,7 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
     } else {
         const rightDisplay = document.createElement('span');
         rightDisplay.className = `value-display value-${card.rightValue}`;
-        rightDisplay.textContent = getDisplayText(card.right);
+        rightDisplay.textContent = card.rightValue || '?';
         rightHalf.appendChild(rightDisplay);
     }
 
@@ -166,14 +129,6 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
 }
 
 /**
- * Set custom assignments for display
- * @param {object} assignments - Object mapping codes to display values
- */
-function setCustomAssignments(assignments) {
-    customAssignments = { ...assignments };
-}
-
-/**
  * Get all cards as a fresh shuffled deck
  * @returns {array} - Shuffled array of card copies
  */
@@ -181,5 +136,7 @@ function getShuffledDeck() {
     if (window.customGameDeck && window.customGameDeck.length > 0) {
         return shuffleArray(window.customGameDeck.map(copyCard));
     }
-    return shuffleArray(DOMINO_CARDS.map(copyCard));
+    // No game selected — return empty deck
+    console.warn('[Domino] No game deck loaded. Please select a game first.');
+    return [];
 }

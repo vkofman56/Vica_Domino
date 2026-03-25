@@ -335,16 +335,26 @@
 
                 if (serverHasData) {
                     // Cloud has data — use it (cross-device truth).
-                    // Safety: preserve local card data if cloud version is empty
-                    var _cardKeys = ['customDrawnCards', 'customDrawnCards_abc', 'cardMakerVariations'];
+                    // Safety: preserve local card data if cloud version is empty.
+                    // Protect ALL card-related keys (customDrawnCards, customDrawnCards_abc,
+                    // customDrawnCards_<AnySetName>, cardMakerVariations, cardArrangement*)
                     var _preservedCards = {};
-                    _cardKeys.forEach(function (ck) {
+                    for (var _ci = 0; _ci < localStorage.length; _ci++) {
+                        var ck = localStorage.key(_ci);
+                        if (!ck) continue;
+                        // Protect all card data keys
+                        var isCardKey = (ck.indexOf('customDrawnCards') === 0) ||
+                                        (ck === 'cardMakerVariations') ||
+                                        (ck.indexOf('cardArrangement') === 0) ||
+                                        (ck === 'abcCardSnapshot');
+                        if (!isCardKey) continue;
                         var localVal = _origGetItem(ck);
-                        if (!localVal) return;
+                        if (!localVal) continue;
                         try {
                             var localArr = JSON.parse(localVal);
-                            if (!Array.isArray(localArr) || localArr.length === 0) return;
-                            // Local has cards — check if cloud would wipe them
+                            if (!Array.isArray(localArr) && typeof localArr !== 'object') continue;
+                            if (Array.isArray(localArr) && localArr.length === 0) continue;
+                            // Local has data — check if cloud would wipe it
                             var serverVal = serverData[ck];
                             if (!serverVal) {
                                 // Cloud is missing this key entirely — preserve local
@@ -359,7 +369,7 @@
                                 } catch(e2) {}
                             }
                         } catch(e) {}
-                    });
+                    }
 
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {

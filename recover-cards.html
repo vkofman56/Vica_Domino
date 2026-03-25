@@ -10,6 +10,7 @@ button:hover { background: #45a049; }
 .card svg { width: 60px; height: 60px; }
 .card .lbl { color: #333; font-size: 0.7rem; font-weight: bold; }
 .status { font-size: 1.1rem; margin: 15px 0; color: #FFD700; }
+.log { text-align: left; max-width: 600px; margin: 10px auto; font-size: 0.85rem; color: #aaa; }
 </style>
 </head>
 <body>
@@ -18,6 +19,7 @@ button:hover { background: #45a049; }
 <p class="status" id="status">Ready to restore.</p>
 <button id="restoreBtn">Restore 45 Cards</button>
 <button onclick="window.close()" style="background:#666;">Cancel</button>
+<div class="log" id="log"></div>
 <h3>Preview of cards to restore:</h3>
 <div class="preview" id="preview"></div>
 <script>
@@ -39,10 +41,41 @@ cards.forEach(function(c) {
     prev.appendChild(d);
 });
 
+function log(msg) {
+    var el = document.getElementById('log');
+    el.innerHTML += msg + '<br>';
+}
+
+// Detect the correct storage key (same logic as Studio getNumbersStorageKey)
+function getCorrectKey() {
+    try {
+        var deletedSets = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+        log('deletedBuiltinSets: ' + JSON.stringify(deletedSets));
+        if (deletedSets.indexOf('numbers') !== -1) {
+            var customSets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+            log('savedCardSets: ' + JSON.stringify(customSets));
+            for (var i = 0; i < customSets.length; i++) {
+                var lower = customSets[i].toLowerCase();
+                if (lower === 'numbers and dots' || lower === 'numbers & dots' || lower === 'numbers') {
+                    return 'customDrawnCards_' + customSets[i];
+                }
+            }
+        }
+    } catch(e) { log('Error: ' + e.message); }
+    return 'customDrawnCards';
+}
+
 document.getElementById('restoreBtn').onclick = function() {
     try {
-        localStorage.setItem('customDrawnCards', JSON.stringify(cards));
-        document.getElementById('status').textContent = 'Restored ' + cards.length + ' cards! Now close this tab and reload Studio.';
+        var key = getCorrectKey();
+        log('Saving to key: ' + key);
+        localStorage.setItem(key, JSON.stringify(cards));
+        // Also save to the default key as fallback
+        if (key !== 'customDrawnCards') {
+            localStorage.setItem('customDrawnCards', JSON.stringify(cards));
+            log('Also saved to fallback key: customDrawnCards');
+        }
+        document.getElementById('status').textContent = 'Restored ' + cards.length + ' cards to "' + key + '"! Now close this tab and reload Studio.';
         document.getElementById('status').style.color = '#4CAF50';
     } catch(e) {
         document.getElementById('status').textContent = 'Error: ' + e.message;

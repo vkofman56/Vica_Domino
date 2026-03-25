@@ -4017,6 +4017,25 @@
             cardMakerDirty = true;
         }
 
+        // --- Detect correct localStorage key for Numbers cards ---
+        // The built-in "numbers" set may have been deleted and recreated as a custom set.
+        // In that case, cards are stored under 'customDrawnCards_<CustomName>' not 'customDrawnCards'.
+        function getNumbersStorageKey() {
+            try {
+                var deletedSets = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deletedSets.indexOf('numbers') !== -1) {
+                    var customSets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                    for (var i = 0; i < customSets.length; i++) {
+                        var lower = customSets[i].toLowerCase();
+                        if (lower === 'numbers and dots' || lower === 'numbers & dots' || lower === 'numbers') {
+                            return 'customDrawnCards_' + customSets[i];
+                        }
+                    }
+                }
+            } catch(e) {}
+            return 'customDrawnCards';
+        }
+
         // --- Persistence: save/load custom drawn cards to localStorage ---
         function saveCustomCards() {
             var content = document.querySelector('#domino-library-screen .domino-library-content');
@@ -4056,7 +4075,7 @@
                     }
                 });
             }
-            localStorage.setItem('customDrawnCards', JSON.stringify(data));
+            localStorage.setItem(getNumbersStorageKey(), JSON.stringify(data));
 
             // Save ABC cards
             if (activeCardSet === 'abc') {
@@ -4108,10 +4127,10 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // Load ALL Numbers cards from customDrawnCards
+            // Load ALL Numbers cards from the correct storage key
             var numbersCards = [];
             try {
-                var raw = localStorage.getItem('customDrawnCards');
+                var raw = localStorage.getItem(getNumbersStorageKey());
                 if (raw) numbersCards = JSON.parse(raw);
             } catch(e) {}
 
@@ -5446,7 +5465,7 @@
             // Build preview directly from localStorage
             var numbersCards = [];
             try {
-                var raw = localStorage.getItem('customDrawnCards');
+                var raw = localStorage.getItem(getNumbersStorageKey());
                 if (raw) numbersCards = JSON.parse(raw);
             } catch(e) {}
 
@@ -5755,7 +5774,7 @@
             if (!confirm('Delete card set "' + displayName + '"? This will also erase all cards in this set.')) return;
             // Clear related localStorage data
             if (setName === 'numbers') {
-                localStorage.removeItem('customDrawnCards');
+                localStorage.removeItem(getNumbersStorageKey());
                 localStorage.removeItem('cardArrangement');
             } else if (setName === 'abc') {
                 localStorage.removeItem('customDrawnCards_abc');
@@ -6220,11 +6239,11 @@
         // Note: cardArrangement is excluded — arrangement changes are auto-saved
         // during drag and should always persist (even if user clicks Cancel).
         function snapshotCardMakerState() {
-            _cmSnapshot = {
-                customDrawnCards: localStorage.getItem('customDrawnCards'),
-                customDrawnCards_abc: localStorage.getItem('customDrawnCards_abc'),
-                cardMakerVariations: localStorage.getItem('cardMakerVariations')
-            };
+            var _numbersKey = getNumbersStorageKey();
+            _cmSnapshot = {};
+            _cmSnapshot[_numbersKey] = localStorage.getItem(_numbersKey);
+            _cmSnapshot['customDrawnCards_abc'] = localStorage.getItem('customDrawnCards_abc');
+            _cmSnapshot['cardMakerVariations'] = localStorage.getItem('cardMakerVariations');
             // Also snapshot custom set data if editing a custom set
             if (isCustomCardSet(activeCardSet)) {
                 var customKey = 'customDrawnCards_' + activeCardSet;
@@ -6235,7 +6254,7 @@
 
         // Restore localStorage from snapshot (discard session changes)
         function restoreCardMakerSnapshot() {
-            var keys = ['customDrawnCards', 'customDrawnCards_abc', 'cardMakerVariations'];
+            var keys = [getNumbersStorageKey(), 'customDrawnCards_abc', 'cardMakerVariations'];
             // Include custom set key if present in snapshot
             Object.keys(_cmSnapshot).forEach(function(k) {
                 if (keys.indexOf(k) === -1) keys.push(k);

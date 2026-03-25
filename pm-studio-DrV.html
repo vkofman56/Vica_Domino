@@ -5311,8 +5311,23 @@
                 checkbox.addEventListener('change', updateCombineButton);
                 row.appendChild(checkbox);
 
+                var pubBtn = document.createElement('button');
+                pubBtn.className = 'publish-toggle-btn' + (game.published === false ? ' unpublished' : '');
+                pubBtn.title = game.published === false ? 'Unpublished — click to publish' : 'Published — click to unpublish';
+                pubBtn.textContent = game.published === false ? '○' : '●';
+                pubBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    var g = loadCustomGames();
+                    g[idx].published = g[idx].published === false ? true : false;
+                    localStorage.setItem('savedCustomGames', JSON.stringify(g));
+                    if (typeof syncSave === 'function') syncSave();
+                    populateLibraryGames();
+                    populateStartScreenGames();
+                }; })(i);
+                row.appendChild(pubBtn);
+
                 var btn = document.createElement('button');
-                btn.className = 'library-game-link';
+                btn.className = 'library-game-link' + (game.published === false ? ' game-unpublished' : '');
                 btn.textContent = game.name;
                 btn.onclick = function() { openGameView(i, 'card-library-screen'); };
                 row.appendChild(btn);
@@ -6368,6 +6383,7 @@
             container.innerHTML = '';
             var games = loadCustomGames();
             games.forEach(function(game, i) {
+                if (game.published === false) return; // skip unpublished games
                 var btn = document.createElement('button');
                 btn.className = 'intro-game-btn';
                 btn.textContent = game.name;

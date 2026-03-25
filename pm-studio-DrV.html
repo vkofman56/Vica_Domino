@@ -7408,7 +7408,7 @@
         // NOTE: Must run AFTER Firestore sync restores data, otherwise sync overwrites the results.
         function runBuiltinMigration() {
             var migrationVersion = localStorage.getItem('migration_builtins_converted');
-            if (migrationVersion === 'v3') return; // already ran latest migration
+            if (migrationVersion === 'v2' || migrationVersion === 'v3') return; // already ran
 
             // --- Detect where Numbers & ABC cards should be stored ---
             var deletedSets = [];
@@ -7454,7 +7454,7 @@
                 }
             }
 
-            console.log('[Migration v3] Numbers key:', numbersKey, '| ABC key:', abcKey);
+            console.log('[Migration v2] Numbers key:', numbersKey, '| ABC key:', abcKey);
 
             // --- Migrate Numbers & Dots built-in cards ---
             // Default Numbers card definitions (used only for first-time migration)
@@ -7523,21 +7523,6 @@
             var existingLabels = {};
             existingCustom.forEach(function(c) { existingLabels[c.label] = true; });
 
-            // v3: force-overwrite cards A1-C5 (values 0,1,2) which may have old/wrong content
-            // from the original 5-value system. Other default cards are added only if missing.
-            var forceOverwriteLabels = {};
-            if (migrationVersion !== 'v3') {
-                ['A1','A2','A3','A4','A5','B1','B2','B3','B4','B5','C1','C2','C3','C4','C5'].forEach(function(l) {
-                    forceOverwriteLabels[l] = true;
-                });
-                // Remove old A-C cards so they get replaced with defaults
-                existingCustom = existingCustom.filter(function(c) {
-                    return !forceOverwriteLabels[c.label];
-                });
-                // Rebuild labels index after removal
-                existingLabels = {};
-                existingCustom.forEach(function(c) { existingLabels[c.label] = true; });
-            }
             defaultNumbersCards.forEach(function(card) {
                 if (existingLabels[card.label]) return; // already exists
                 existingCustom.push({
@@ -7628,7 +7613,7 @@
             localStorage.removeItem('deletedBuiltinSets');
 
             localStorage.setItem('migration_builtins_converted', 'v3');
-            console.log('[Migration v3] Converted built-in cards to custom format. Numbers→' + numbersKey + ', ABC→' + abcKey);
+            console.log('[Migration v2] Converted built-in cards to custom format. Numbers→' + numbersKey + ', ABC→' + abcKey);
         }
 
         // Run migration immediately for offline/non-sync scenarios

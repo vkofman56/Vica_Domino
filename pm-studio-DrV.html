@@ -876,19 +876,23 @@
             }
         }
         // Auto-login on page load (admin page)
+        var _isPlayMode = new URLSearchParams(window.location.search).get('play') !== null;
         (function() {
             var userId = syncGetUserId();
             if (userId && typeof SUPERUSERS !== 'undefined' && SUPERUSERS.indexOf(userId) >= 0) {
-                // Already logged in as superuser — go straight to library
+                // Already logged in as superuser
                 updateSyncUserBtn();
                 syncLogin(userId).then(function() {
                     // Re-populate library since sync may have changed localStorage
                     if (typeof populateLibraryGames === 'function') populateLibraryGames();
-                    document.getElementById('intro-screen').style.display = 'none';
-                    document.getElementById('card-library-screen').style.display = 'block';
+                    if (!_isPlayMode) {
+                        // Normal mode: go straight to library
+                        document.getElementById('intro-screen').style.display = 'none';
+                        document.getElementById('card-library-screen').style.display = 'block';
+                    }
                 });
-            } else {
-                // Not logged in or not a superuser — show admin login
+            } else if (!_isPlayMode) {
+                // Not logged in or not a superuser — show admin login (skip in play mode)
                 window.addEventListener('DOMContentLoaded', function() {
                     setTimeout(function() { showSyncLoginOverlay(); }, 300);
                 });
@@ -5326,6 +5330,16 @@
                 }; })(i);
                 row.appendChild(pubBtn);
 
+                var playBtn = document.createElement('button');
+                playBtn.className = 'play-test-btn';
+                playBtn.innerHTML = '&#9654;';
+                playBtn.title = 'Test play this game';
+                playBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    openPlayModal(idx);
+                }; })(i);
+                row.appendChild(playBtn);
+
                 var btn = document.createElement('button');
                 btn.className = 'library-game-link' + (game.published === false ? ' game-unpublished' : '');
                 btn.textContent = game.name;
@@ -7525,6 +7539,72 @@
                 });
             });
             if (changed) saveCombinedGames(combinedGames);
+        })();
+
+        // === Play Test Modal ===
+        function openPlayModal(gameIndex) {
+            var overlay = document.createElement('div');
+            overlay.className = 'play-modal-overlay';
+            overlay.id = 'play-modal-overlay';
+
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'play-modal-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.title = 'Close';
+            closeBtn.onclick = function() { closePlayModal(); };
+            overlay.appendChild(closeBtn);
+
+            var iframe = document.createElement('iframe');
+            iframe.className = 'play-modal-iframe';
+            iframe.src = 'pm-studio-DrV.html?play=' + gameIndex;
+            overlay.appendChild(iframe);
+
+            document.body.appendChild(overlay);
+
+            // Close on Escape key
+            overlay._escHandler = function(e) {
+                if (e.key === 'Escape') closePlayModal();
+            };
+            document.addEventListener('keydown', overlay._escHandler);
+        }
+
+        function closePlayModal() {
+            var overlay = document.getElementById('play-modal-overlay');
+            if (overlay) {
+                if (overlay._escHandler) document.removeEventListener('keydown', overlay._escHandler);
+                overlay.remove();
+            }
+        }
+
+        // === Play mode: auto-start game from URL parameter ===
+        (function checkPlayMode() {
+            var params = new URLSearchParams(window.location.search);
+            var playIndex = params.get('play');
+            if (playIndex === null) return;
+            playIndex = parseInt(playIndex, 10);
+            if (isNaN(playIndex)) return;
+
+            // We're in play mode — wait for DOM and data, then go straight to game
+            function initPlayMode() {
+                // Hide all screens
+                document.getElementById('intro-screen').style.display = 'none';
+                document.getElementById('card-library-screen').style.display = 'none';
+
+                // Load and start the game (bypasses published check)
+                startCustomGame(playIndex, null);
+
+                // Show the start screen (player setup)
+                document.getElementById('start-screen').style.display = 'flex';
+            }
+
+            // If populateLibraryGames already ran, data is ready
+            if (typeof startCustomGame === 'function' && document.getElementById('start-screen')) {
+                initPlayMode();
+            } else {
+                window.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(initPlayMode, 100);
+                });
+            }
         })();
 
         // Initialize game lists on page load

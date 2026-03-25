@@ -335,6 +335,32 @@
 
                 if (serverHasData) {
                     // Cloud has data — use it (cross-device truth).
+                    // Safety: preserve local card data if cloud version is empty
+                    var _cardKeys = ['customDrawnCards', 'customDrawnCards_abc', 'cardMakerVariations'];
+                    var _preservedCards = {};
+                    _cardKeys.forEach(function (ck) {
+                        var localVal = _origGetItem(ck);
+                        if (!localVal) return;
+                        try {
+                            var localArr = JSON.parse(localVal);
+                            if (!Array.isArray(localArr) || localArr.length === 0) return;
+                            // Local has cards — check if cloud would wipe them
+                            var serverVal = serverData[ck];
+                            if (!serverVal) {
+                                // Cloud is missing this key entirely — preserve local
+                                _preservedCards[ck] = localVal;
+                            } else {
+                                try {
+                                    var serverArr = JSON.parse(serverVal);
+                                    if (Array.isArray(serverArr) && serverArr.length === 0) {
+                                        // Cloud has empty array — preserve local cards
+                                        _preservedCards[ck] = localVal;
+                                    }
+                                } catch(e2) {}
+                            }
+                        } catch(e) {}
+                    });
+
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
                         var k = localStorage.key(i);
@@ -344,6 +370,12 @@
 
                     Object.keys(serverData).forEach(function (k) {
                         _origSetItem(k, serverData[k]);
+                    });
+
+                    // Restore preserved card data that cloud would have wiped
+                    Object.keys(_preservedCards).forEach(function (ck) {
+                        _origSetItem(ck, _preservedCards[ck]);
+                        console.warn('[Sync] Preserved local card data for "' + ck + '" (cloud was empty)');
                     });
 
                     _setSyncStatus('saved');

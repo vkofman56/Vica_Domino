@@ -4014,7 +4014,7 @@
                 }
                 data.push(entry);
             });
-            localStorage.setItem('cardMakerVariations', JSON.stringify(data));
+            safeSaveCards('cardMakerVariations', data);
             // Also save custom drawn cards
             saveCustomCards();
             // Persist current card arrangement (row assignments + order)
@@ -4043,8 +4043,30 @@
             return 'customDrawnCards';
         }
 
+        // --- Safety: never overwrite non-empty card data with empty data ---
+        function safeSaveCards(storageKey, newData) {
+            if (newData.length === 0) {
+                // About to save empty array — check if existing data is non-empty
+                var existing = localStorage.getItem(storageKey);
+                if (existing) {
+                    try {
+                        var parsed = JSON.parse(existing);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            // BLOCK: would wipe non-empty card data with empty array
+                            console.warn('[Card Safety] Blocked saving empty array to "' + storageKey + '" (had ' + parsed.length + ' cards)');
+                            return false;
+                        }
+                    } catch(e) {}
+                }
+            }
+            localStorage.setItem(storageKey, JSON.stringify(newData));
+            return true;
+        }
+
         // --- Persistence: save/load custom drawn cards to localStorage ---
         function saveCustomCards() {
+            // Guard: do NOT save if Card Maker was never opened/built
+            if (!_cardMakerBuilt) return;
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             var numbersDiv = document.getElementById('card-set-numbers');
             var abcDiv = document.getElementById('card-set-abc');
@@ -4082,7 +4104,7 @@
                     }
                 });
             }
-            localStorage.setItem(getNumbersStorageKey(), JSON.stringify(data));
+            safeSaveCards(getNumbersStorageKey(), data);
 
             // Save ABC cards
             if (activeCardSet === 'abc') {
@@ -4100,7 +4122,7 @@
                         }
                     });
                 }
-                localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCustom));
+                safeSaveCards('customDrawnCards_abc', abcCustom);
                 saveAbcSnapshot();
             } else if (isCustomCardSet(activeCardSet)) {
                 // Save custom set cards — but only if the Card Maker is actually open.
@@ -4124,7 +4146,7 @@
                             }
                         });
                     }
-                    localStorage.setItem('customDrawnCards_' + activeCardSet, JSON.stringify(customData));
+                    safeSaveCards('customDrawnCards_' + activeCardSet, customData);
                 }
             }
         }

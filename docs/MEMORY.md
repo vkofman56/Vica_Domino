@@ -55,12 +55,24 @@
 | Key | Purpose |
 |-----|---------|
 | `savedCustomGames` | Custom game definitions |
-| `customCards` / `customCards_abc` | Custom card SVG data per set |
+| `customDrawnCards` | Numbers & Dots card SVG data (built-in key) |
+| `customDrawnCards_Numbers and Dots` | Numbers & Dots card SVG data (custom set key — used when set was deleted & recreated) |
+| `customDrawnCards_abc` | ABC card SVG data |
+| `customDrawnCards_<SetName>` | Custom card set SVG data |
+| `savedCardSets` | Array of custom card set names |
+| `deletedBuiltinSets` | Array of deleted built-in set names (e.g. `["numbers"]`) |
 | `deletedCards_abc` | Deleted ABC cards tracking |
-| `cardArrangement` | Card row/order persistence |
-| `cardVariations` | Card variation definitions |
-| `combinedGameConfig` | Combined game stages |
+| `cardArrangement` | Card row/order persistence (Numbers) |
+| `cardArrangement_abc` | Card row/order persistence (ABC) |
+| `cardMakerVariations` | Card variation definitions |
+| `abcCardSnapshot` | ABC card set snapshot for Library preview |
+| `savedCombinedGames` | Combined game stage configurations |
 | `_singlePlayerWins` | Tutorial progression counter |
+| `__sync_userId` | Firebase sync user ID |
+| `__sync_userRole` | Firebase sync role (superuser/player) |
+| `migration_builtins_converted` | Migration flag (`'v2'`) |
+
+**CRITICAL**: `getNumbersStorageKey()` returns `customDrawnCards` normally, but returns `customDrawnCards_Numbers and Dots` if `deletedBuiltinSets` contains `"numbers"` and `savedCardSets` contains a matching name. Always use this function to get the correct key.
 
 ## Debugging Lessons
 - **Always validate JS syntax first** when user reports "nothing works" / "frozen". Use: `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"`
@@ -92,6 +104,10 @@
 - **Symbol toggle swapping operators**: `applySymbolToggle` rotated ALL elements including +, -, ×, ÷, =; now filters out operators and only swaps numerals (March 7)
 - **Variations disappearing on reload for ABC/custom sets**: `saveVariations()` now stores card set; `loadVariations()` defers ABC/custom set variations until those sets are lazily built (March 7)
 - **Custom card set data wiped when previewing in Library**: `beforeunload` handler called `saveCustomCards()` with empty `#card-set-custom` div; now guards save to only run when Card Maker is visible (March 8)
+- **Card data wiped by beforeunload/iframe saves**: `saveVariations()`→`saveCustomCards()` read from Card Maker DOM which is empty if never opened; `beforeunload` and Play iframe triggered this. Fixed with `_cardMakerBuilt` guard + `safeSaveCards()` (March 25)
+- **Cloud sync wiping local card data**: `syncLogin()` replaced ALL localStorage with cloud data including empty card arrays. Fixed with sync guard that preserves ALL `customDrawnCards*` keys when cloud version is empty (March 25)
+- **Play button showing empty page**: Play mode iframe ran `startCustomGame()` before `populateStartScreenGames()` populated game data. Fixed by moving play mode init after initialization. Also fixed `VALUE_RANK` not defined error (March 25)
+- **Numbers and Dots cards lost and recovered**: Cards were extracted from git history (commit `561692f^`) and restored via `recover-cards.html` page. Root cause was chain of: empty DOM save → sync to cloud → cloud overwrites local on reload (March 25)
 
 ## March 7 Session Notes
 - **Variation toolbar**: Reorganized from single row into 2×4 grid (2 rows of 4 buttons). Removed separator divs. All SVG icons changed from hardcoded `#2255aa` to `currentColor`. Key: `index.html` ~line 343, `css/style.css` ~line 623.
@@ -141,10 +157,18 @@
 - **Key lesson**: Any localStorage migration must run AFTER async Firestore sync completes, not before
 - Key commits: `56d966d` (v2 migration with key detection), `d3888a7` (fix timing — run after sync)
 
-## Current State (March 24)
+## Development Workflow Rules
+- **ALWAYS validate JS syntax before committing**: Run `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"` for JS files. For inline scripts in HTML, extract and validate each `<script>` block. Broken syntax (e.g., unescaped quotes in innerHTML strings) causes silent failures that are hard to debug.
+- **Test data flow end-to-end**: When saving data to localStorage, verify the key matches what the reading code expects. This project has multiple storage key patterns (`customDrawnCards` vs `customDrawnCards_<SetName>`) depending on whether a set is built-in or custom.
+- **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
+- **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
+
+## Current State (March 25)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development)
 - **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
 - **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
 - **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
 - **Sync status**: Working — migration runs after Firestore restore, `migration_builtins_converted = 'v2'`
+- **Card data protection**: 3 layers of safeguards against card data loss (see March 25 session notes)
+- **Auto card backup**: Every 20 minutes to Firebase `card_backups` subcollection (last 3 kept)
 - **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)

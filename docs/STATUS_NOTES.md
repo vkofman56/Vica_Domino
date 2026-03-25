@@ -560,13 +560,85 @@ Vica_Domino/
 
 ---
 
+## March 25, 2026 Session — Card Data Loss Prevention & Recovery
+
+### Summary
+Critical session focused on preventing card data loss, recovering lost Numbers and Dots cards, and adding automatic cloud backups. Also fixed the Play test button and VALUE_RANK error.
+
+### Problems Discovered & Fixed
+
+1. **Play test button showing empty page** (`pm-studio-DrV.html`)
+   - Play mode loaded an iframe with `pm-studio-DrV.html?play=X`
+   - `checkPlayMode()` ran BEFORE `populateStartScreenGames()` — game data wasn't ready
+   - `VALUE_RANK` (defined in `domino.js`) wasn't loaded yet when `startCustomGame()` ran
+   - Fix: moved play mode init AFTER initialization; added `VALUE_RANK` fallback
+
+2. **Card data loss from beforeunload + iframe** (`pm-studio-DrV.html`)
+   - `saveVariations()` → `saveCustomCards()` reads from Card Maker DOM
+   - If Card Maker never opened, DOM is empty → saves empty arrays → wipes card data
+   - `beforeunload` handler triggered this on every page close/refresh
+   - Play mode iframe made it worse (loads Studio, never opens Card Maker, unloads → empty save)
+   - Fix: Added `_cardMakerBuilt` flag — only set `true` when `buildNumbersCardSet()` or `buildAbcCardSet()` runs; `saveVariations()` and `saveCustomCards()` skip if flag is `false`
+
+3. **`safeSaveCards()` wrapper** (`pm-studio-DrV.html`)
+   - New function that blocks saving `[]` (empty array) when localStorage already has non-empty card data
+   - Applied to all card save paths: Numbers, ABC, custom sets, variations
+   - Console warning logged when a save is blocked
+   - Explicit deletion (`deleteBuiltinCardSet`, `deleteCardSet`) uses `localStorage.removeItem()` directly, bypassing the guard
+
+4. **Cloud sync wiping local cards** (`js/sync.js`)
+   - `syncLogin()` pull replaced ALL localStorage with cloud data
+   - If cloud had empty/missing card keys, local cards were wiped
+   - Initially protected only 3 hardcoded keys — missed `customDrawnCards_Numbers and Dots` (custom set key)
+   - Fix: now protects ALL keys matching `customDrawnCards*`, `cardMakerVariations`, `cardArrangement*`, `abcCardSnapshot`
+
+5. **Numbers and Dots card recovery** (`recover-cards.html`)
+   - Cards were lost from both localStorage and Firebase
+   - Extracted all 45 original card SVGs from git history (commit `561692f^`)
+   - Created `recover-cards.html` — standalone page that saves cards to correct localStorage key
+   - Initial version had broken JS (unescaped quotes in innerHTML) — fixed with DOM API
+   - Had to detect correct storage key (`customDrawnCards` vs `customDrawnCards_Numbers and Dots`)
+
+6. **Automatic card backup to Firebase** (`js/sync.js`)
+   - New `card_backups` subcollection in Firestore: `users/{userId}/card_backups/{timestamp}`
+   - Saves all card-related localStorage keys every 20 minutes
+   - First backup runs 30 seconds after login
+   - Keeps last 3 backups, auto-deletes older ones
+   - "Restore Cards from Cloud" button added to Backup & Restore section
+   - Public API: `syncListCardBackups()`, `syncRestoreCardBackup(id)`
+
+### Key Files Changed
+- `pm-studio-DrV.html` — `_cardMakerBuilt` guard, `safeSaveCards()`, play mode fix, VALUE_RANK fix, cloud backup restore UI
+- `js/sync.js` — sync guard for ALL card keys, auto card backup system
+- `recover-cards.html` (NEW) — standalone card recovery page
+- `data/numbers-cards-backup.json` (NEW) — JSON backup of 45 original cards
+
+### Key Commits
+- `8e75d1a` — Fix Play button empty page + initial card loss prevention
+- `3000943` — Comprehensive card data loss guards
+- `890037c` — Fix VALUE_RANK not defined in play mode
+- `22a427a` — Fix sync guard to protect ALL card data keys
+- `c49b8c3` — Fix recovery page storage key detection
+- `3b03815` — Auto card backup to Firebase every 20 minutes
+
+### Architecture Insights
+- **Storage key complexity**: Numbers & Dots cards can be stored under `customDrawnCards` (built-in key) OR `customDrawnCards_Numbers and Dots` (custom set key). Always use `getNumbersStorageKey()` to get the right one. Check `deletedBuiltinSets` and `savedCardSets` to understand current state.
+- **3 layers of card protection**: (1) `_cardMakerBuilt` flag prevents saving when DOM isn't populated, (2) `safeSaveCards()` blocks empty-over-non-empty saves, (3) sync guard preserves local cards when cloud is empty
+- **Firebase backup structure**: `users/{userId}/card_backups/{ISO-timestamp}` with fields `{ timestamp, data }` where `data` is JSON string of all card-related localStorage keys
+- **Syntax validation is critical**: Always run `node -e "new Function(code)"` before committing JS. Broken syntax in HTML inline scripts causes silent failures with no error in the page.
+
+---
+
 ## Quick Start for New Session
 
 1. The project is at `/home/user/Vica_Domino` on branch `claude/review-project-docs-JOOeh`
 2. Main files: `index.html` (player UI), `pm-studio-DrV.html` (admin UI), `js/game.js` (game logic), `js/domino.js` (card data), `js/sync.js` (Firebase sync), `css/style.css` (styles)
 3. No build step — open HTML files directly in a browser or via GitHub Pages
 4. All state persisted in localStorage + Firebase sync for superusers
-5. **Both player and admin pages are working** as of March 24
-6. **Card migration**: Working — built-in cards migrated and syncing to Firebase (`migration_builtins_converted = 'v2'`)
-7. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
-8. Key area to investigate next: crop/pan drag handlers in `index.html` — search for "crop" or "pan" or "overscale"
+5. **Both player and admin pages are working** as of March 25
+6. **Card data protection**: 3 layers — `_cardMakerBuilt` flag, `safeSaveCards()`, sync guard
+7. **Auto card backup**: Every 20 min to Firebase `card_backups` subcollection
+8. **ALWAYS validate JS syntax before committing** — use `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"`
+9. **Numbers & Dots storage key**: Use `getNumbersStorageKey()` — returns `customDrawnCards` or `customDrawnCards_Numbers and Dots` depending on `deletedBuiltinSets`
+10. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
+11. **Recovery page**: `recover-cards.html` available if cards are ever lost again

@@ -3983,7 +3983,12 @@
         }
 
         // --- Persistence: save/load variations to localStorage ---
+        var _cardMakerBuilt = false; // true once Card Maker DOM has been populated
+
         function saveVariations() {
+            // Guard: do NOT save if Card Maker was never opened/built — DOM is empty
+            // and saving would overwrite real card data with empty arrays
+            if (!_cardMakerBuilt) return;
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             var vars = content.querySelectorAll('.library-card.variation');
             var data = [];
@@ -4128,6 +4133,7 @@
             var container = document.getElementById('card-set-numbers');
             if (!container) return;
             container.innerHTML = '';
+            _cardMakerBuilt = true;
 
             // Load ALL Numbers cards from the correct storage key
             var numbersCards = [];
@@ -6109,6 +6115,7 @@
             var container = document.getElementById('card-set-abc');
             if (!container) return;
             container.innerHTML = '';
+            _cardMakerBuilt = true;
 
             // Load ALL ABC cards from customDrawnCards_abc (all cards are custom now)
             var abcCards = [];
@@ -7576,7 +7583,13 @@
             }
         }
 
+        // Initialize game lists on page load
+        populateLibraryGames();
+        populateStartScreenGames();
+        populateCardMakerGames();
+
         // === Play mode: auto-start game from URL parameter ===
+        // Must run AFTER populateStartScreenGames() so game data is ready
         (function checkPlayMode() {
             var params = new URLSearchParams(window.location.search);
             var playIndex = params.get('play');
@@ -7584,33 +7597,15 @@
             playIndex = parseInt(playIndex, 10);
             if (isNaN(playIndex)) return;
 
-            // We're in play mode — wait for DOM and data, then go straight to game
-            function initPlayMode() {
-                // Hide all screens
-                document.getElementById('intro-screen').style.display = 'none';
-                document.getElementById('card-library-screen').style.display = 'none';
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(function(s) { s.style.display = 'none'; });
 
-                // Load and start the game (bypasses published check)
-                startCustomGame(playIndex, null);
+            // Load and start the game (bypasses published check)
+            startCustomGame(playIndex, null);
 
-                // Show the start screen (player setup)
-                document.getElementById('start-screen').style.display = 'flex';
-            }
-
-            // If populateLibraryGames already ran, data is ready
-            if (typeof startCustomGame === 'function' && document.getElementById('start-screen')) {
-                initPlayMode();
-            } else {
-                window.addEventListener('DOMContentLoaded', function() {
-                    setTimeout(initPlayMode, 100);
-                });
-            }
+            // Show the start screen (player setup)
+            document.getElementById('start-screen').style.display = 'flex';
         })();
-
-        // Initialize game lists on page load
-        populateLibraryGames();
-        populateStartScreenGames();
-        populateCardMakerGames();
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>

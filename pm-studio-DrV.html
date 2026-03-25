@@ -5363,19 +5363,18 @@
             }
         }
 
-        // Returns the set key ('numbers' or 'abc') that a game belongs to,
-        // based on the cardSet property of its cards. Returns null if mixed/unknown.
-        function getGameSetKey(game) {
-            if (!game.cards || game.cards.length === 0) return null;
-            var hasNumbers = false, hasAbc = false;
+        // Check if a game contains any cards from the given card set.
+        // setKey is the preview key ('numbers', 'abc', or a custom set name).
+        function gameUsesCardSet(game, setKey) {
+            if (!game.cards || game.cards.length === 0) return false;
+            // Map preview keys to the cardSet values stored on cards
+            var targetName = setKey;
+            if (setKey === 'numbers') targetName = 'Numbers and Dots';
+            else if (setKey === 'abc') targetName = 'ABC';
             for (var i = 0; i < game.cards.length; i++) {
-                var cs = game.cards[i].cardSet;
-                if (cs === 'ABC') hasAbc = true;
-                else hasNumbers = true; // 'Numbers and Dots' or missing = numbers
+                if (game.cards[i].cardSet === targetName) return true;
             }
-            if (hasAbc && !hasNumbers) return 'abc';
-            if (hasNumbers && !hasAbc) return 'numbers';
-            return null; // mixed
+            return false;
         }
 
         function updateGameVisibility() {
@@ -5386,8 +5385,7 @@
                 if (!checkbox) return; // combined game rows don't have checkboxes
                 var idx = parseInt(checkbox.dataset.gameIndex, 10);
                 if (isNaN(idx) || idx >= games.length) return;
-                var gameSetKey = getGameSetKey(games[idx]);
-                if (previewedCardSet && gameSetKey && gameSetKey !== previewedCardSet) {
+                if (previewedCardSet && !gameUsesCardSet(games[idx], previewedCardSet)) {
                     row.classList.add('game-dimmed');
                 } else {
                     row.classList.remove('game-dimmed');

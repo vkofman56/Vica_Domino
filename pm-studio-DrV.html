@@ -36,6 +36,7 @@
                         <div class="sync-backup-btns">
                             <button class="btn sync-backup-btn" onclick="downloadBackup()">Download Backup</button>
                             <button class="btn sync-restore-btn" onclick="triggerRestoreBackup()">Restore from File</button>
+                            <button class="btn sync-backup-btn" onclick="showCardBackups()" style="background:rgba(100,180,255,0.2);border-color:rgba(100,180,255,0.5);">Restore Cards from Cloud</button>
                             <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="handleRestoreFile(event)">
                         </div>
                     </div>
@@ -800,6 +801,46 @@
             };
             reader.readAsText(file);
             event.target.value = '';
+        }
+
+        function showCardBackups() {
+            var hint = document.getElementById('sync-login-hint');
+            if (typeof syncListCardBackups !== 'function') {
+                hint.textContent = 'Cloud backups not available.';
+                hint.style.color = '#e74c3c';
+                return;
+            }
+            hint.textContent = 'Loading backups...';
+            hint.style.color = '#aaa';
+            syncListCardBackups().then(function(list) {
+                if (list.length === 0) {
+                    hint.textContent = 'No card backups found in cloud. Backups are created automatically every 20 minutes.';
+                    hint.style.color = '#ffa500';
+                    return;
+                }
+                hint.innerHTML = '<strong style="color:#ffd700;">Available card backups:</strong><br>';
+                list.forEach(function(b) {
+                    var date = new Date(b.timestamp);
+                    var label = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    var btn = document.createElement('button');
+                    btn.className = 'btn sync-backup-btn';
+                    btn.style.cssText = 'margin:4px;font-size:0.8rem;padding:5px 12px;';
+                    btn.textContent = label;
+                    btn.onclick = function() {
+                        if (!confirm('Restore card data from ' + label + '? This will replace your current cards.')) return;
+                        syncRestoreCardBackup(b.id).then(function(count) {
+                            hint.innerHTML = '<span style="color:#4CAF50;">Restored ' + count + ' card keys! Reloading...</span>';
+                            setTimeout(function() { location.reload(); }, 1000);
+                        }).catch(function(err) {
+                            hint.innerHTML = '<span style="color:#e74c3c;">Restore failed: ' + err + '</span>';
+                        });
+                    };
+                    hint.appendChild(btn);
+                });
+            }).catch(function(err) {
+                hint.textContent = 'Error loading backups: ' + err;
+                hint.style.color = '#e74c3c';
+            });
         }
 
         /* ---- Sync login UI logic ---- */

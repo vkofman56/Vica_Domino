@@ -404,6 +404,10 @@
                     return _loadSharedData();
                 }
             })
+            .then(function () {
+                // Start periodic card backup after successful login
+                if (_userRole === 'superuser') _startCardBackupTimer();
+            })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
                 alert('[Sync] Error: ' + (err.code || '') + ' ' + (err.message || err));
@@ -497,6 +501,110 @@
         _pushToServer();
     };
 
+    // ---- Auto-backup card data to Firebase every 20 minutes ----
+    var BACKUP_INTERVAL = 20 * 60 * 1000; // 20 minutes
+    var MAX_BACKUPS = 3; // Keep only the last 3 backups
+    var _backupTimer = null;
+
+    function _getCardBackupData() {
+        var backup = {};
+        for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (!k) continue;
+            if (k.indexOf('customDrawnCards') === 0 ||
+                k === 'cardMakerVariations' ||
+                k.indexOf('cardArrangement') === 0 ||
+                k === 'abcCardSnapshot' ||
+                k === 'savedCardSets' ||
+                k === 'deletedBuiltinSets') {
+                backup[k] = _origGetItem(k);
+            }
+        }
+        return backup;
+    }
+
+    function _pushCardBackup() {
+        if (!_userId || !_firebaseReady || !_db) return;
+        if (_userRole !== 'superuser') return;
+
+        var backup = _getCardBackupData();
+        if (Object.keys(backup).length === 0) return;
+
+        var backupsRef = _db.collection('users').doc(_userId).collection('card_backups');
+        var docId = new Date().toISOString().replace(/[:.]/g, '-');
+
+        backupsRef.doc(docId).set({
+            timestamp: new Date().toISOString(),
+            data: JSON.stringify(backup)
+        })
+        .then(function () {
+            console.log('[Sync] Card backup saved:', docId);
+            // Clean up old backups, keep only the last MAX_BACKUPS
+            return backupsRef.orderBy('timestamp', 'desc').get();
+        })
+        .then(function (snapshot) {
+            if (!snapshot || snapshot.size <= MAX_BACKUPS) return;
+            var batch = _db.batch();
+            var count = 0;
+            snapshot.forEach(function (doc) {
+                count++;
+                if (count > MAX_BACKUPS) {
+                    batch.delete(doc.ref);
+                }
+            });
+            return batch.commit();
+        })
+        .catch(function (err) {
+            console.error('[Sync] Card backup failed:', err);
+        });
+    }
+
+    function _startCardBackupTimer() {
+        if (_backupTimer) clearInterval(_backupTimer);
+        _backupTimer = setInterval(_pushCardBackup, BACKUP_INTERVAL);
+        // Also do an initial backup after 30 seconds (give sync time to settle)
+        setTimeout(_pushCardBackup, 30000);
+    }
+
+    /**
+     * List available card backups from Firebase.
+     * Returns a promise with array of { id, timestamp } objects.
+     */
+    window.syncListCardBackups = function () {
+        if (!_userId || !_firebaseReady || !_db) return Promise.resolve([]);
+        return _db.collection('users').doc(_userId).collection('card_backups')
+            .orderBy('timestamp', 'desc').get()
+            .then(function (snapshot) {
+                var list = [];
+                snapshot.forEach(function (doc) {
+                    var d = doc.data();
+                    list.push({ id: doc.id, timestamp: d.timestamp });
+                });
+                return list;
+            })
+            .catch(function () { return []; });
+    };
+
+    /**
+     * Restore card data from a specific backup.
+     * Returns a promise that resolves when done.
+     */
+    window.syncRestoreCardBackup = function (backupId) {
+        if (!_userId || !_firebaseReady || !_db) return Promise.reject('Not connected');
+        return _db.collection('users').doc(_userId).collection('card_backups')
+            .doc(backupId).get()
+            .then(function (doc) {
+                if (!doc.exists) throw new Error('Backup not found');
+                var backup = JSON.parse(doc.data().data);
+                var keys = Object.keys(backup);
+                keys.forEach(function (k) {
+                    localStorage.setItem(k, backup[k]);
+                });
+                console.log('[Sync] Restored card backup:', backupId, '(' + keys.length + ' keys)');
+                return keys.length;
+            });
+    };
+
     /**
      * Get list of existing users from Firestore.
      * Returns a promise with an array of user id strings.
@@ -537,6 +645,19 @@
         _applyRoleUI();
     } else {
         document.addEventListener('DOMContentLoaded', _applyRoleUI);
+    }
+
+    // Start card backup timer if already logged in as superuser
+    if (_userId && _userRole === 'superuser') {
+        // Wait for Firebase to initialize, then start backups
+        var _fbWait = setInterval(function () {
+            if (_firebaseReady && _db) {
+                clearInterval(_fbWait);
+                _startCardBackupTimer();
+            }
+        }, 2000);
+        // Stop waiting after 30 seconds
+        setTimeout(function () { clearInterval(_fbWait); }, 30000);
     }
 
     // Try to sync on page unload (superusers only)

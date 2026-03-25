@@ -2448,8 +2448,18 @@
                 }
                 var dx = rawX - dragStartX;
                 var dy = rawY - dragStartY;
-                var newX = snapToGrid(Math.max(-15, Math.min(60, elemStartX + dx)));
-                var newY = snapToGrid(Math.max(-15, Math.min(60, elemStartY + dy)));
+                // Imported stamps can be large (scaled up) — their translate can be very negative
+                // to center on the card, so use wide bounds proportional to stamp size
+                var clampMin = -15, clampMax = 60;
+                if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
+                    var t = selectedElement.getAttribute('transform') || '';
+                    var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+                    var stampSz = sm ? +sm[1] * 100 : 60;
+                    clampMin = -stampSz;
+                    clampMax = 60 + stampSz;
+                }
+                var newX = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartX + dx)));
+                var newY = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartY + dy)));
                 setElementPos(selectedElement, newX, newY);
                 updateSelectionRing();
                 hasEditedExisting = true;
@@ -2488,17 +2498,25 @@
                     dxU = 0; dyU = -step;
                     dxD = 0; dyD = step;
                 }
+                // Wider clamp bounds for imported stamps (their translate can be very negative)
+                var kMin = -15, kMax = 60;
+                if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
+                    var kt = selectedElement.getAttribute('transform') || '';
+                    var ksm = kt.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+                    var kStampSz = ksm ? +ksm[1] * 100 : 60;
+                    kMin = -kStampSz; kMax = 60 + kStampSz;
+                }
                 if (e.key === 'ArrowLeft') {
-                    setElementPos(selectedElement, Math.max(-15, pos.x + dxL), Math.max(-15, Math.min(60, pos.y + dyL)));
+                    setElementPos(selectedElement, Math.max(kMin, pos.x + dxL), Math.max(kMin, Math.min(kMax, pos.y + dyL)));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowRight') {
-                    setElementPos(selectedElement, Math.min(60, pos.x + dxR), Math.max(-15, Math.min(60, pos.y + dyR)));
+                    setElementPos(selectedElement, Math.min(kMax, pos.x + dxR), Math.max(kMin, Math.min(kMax, pos.y + dyR)));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowUp') {
-                    setElementPos(selectedElement, Math.max(-15, Math.min(60, pos.x + dxU)), Math.max(-15, pos.y + dyU));
+                    setElementPos(selectedElement, Math.max(kMin, Math.min(kMax, pos.x + dxU)), Math.max(kMin, pos.y + dyU));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'ArrowDown') {
-                    setElementPos(selectedElement, Math.max(-15, Math.min(60, pos.x + dxD)), Math.min(60, pos.y + dyD));
+                    setElementPos(selectedElement, Math.max(kMin, Math.min(kMax, pos.x + dxD)), Math.min(kMax, pos.y + dyD));
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
                 } else if (e.key === 'Delete' || e.key === 'Backspace') {
                     drawDeleteSelected();

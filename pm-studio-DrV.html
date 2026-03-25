@@ -2166,6 +2166,11 @@
                     var cx = +m[1] + oldSz / 2;
                     var cy = +m[2] + oldSz / 2;
                     selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
+                } else {
+                    // Fallback: no existing translate/scale — center on card (30,30 = card center in SVG units)
+                    var cx = 30, cy = 30;
+                    if (m) { cx = +m[1] + stampSizeSvg / 2; cy = +m[2] + stampSizeSvg / 2; }
+                    selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
                 }
                 if (isImported) {
                     selectedElement.setAttribute('data-over-scale', drawOverScale);
@@ -2343,6 +2348,14 @@
                     var appendTarget = cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
                     appendTarget.appendChild(el);
                     drawHistory.push(el);
+                    // Auto-select imported stamps after placement so overscale slider stays visible
+                    if (isImportedStamp) {
+                        selectedElement = el;
+                        updateSelectionRing();
+                        populatePropsFromElement(el);
+                        var delBtn = document.getElementById('draw-delete-btn');
+                        if (delBtn) delBtn.style.display = 'inline-flex';
+                    }
                 }
             };
             container.addEventListener('click', drawClickHandler);

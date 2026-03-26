@@ -478,8 +478,10 @@
                 </div>
                 <div class="draw-size-row" id="draw-overscale-row" style="position:relative;left:-14px;">
                     <label>&times;</label>
-                    <input type="range" id="draw-overscale-slider" min="1" max="10" value="1" step="1" oninput="onOverScaleChange(+this.value)">
-                    <span id="draw-overscale-val" class="draw-val">&times;1</span>
+                    <input type="range" id="draw-overscale-slider" min="0.4" max="1" value="1" step="0.02" oninput="onOverScaleChange(+this.value)">
+                    <span id="draw-overscale-val" class="draw-val" style="min-width:24px;">&times;1</span>
+                    <span id="draw-overscale-max" class="draw-val" style="cursor:pointer;text-decoration:underline;margin-left:1px;" onclick="toggleOverscaleMaxPopup()" title="Click to change max scale">&times;1</span>
+                    <div id="draw-overscale-max-popup" style="display:none;position:absolute;bottom:100%;right:0;background:rgba(0,0,0,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:6px;padding:4px;z-index:100;"></div>
                     <button class="draw-tool-btn" id="draw-crop-btn" onclick="toggleCropMode()" title="Crop/Pan: drag to reposition oversized SVG" style="display:none;width:24px;height:24px;margin-left:4px;">
                         <svg viewBox="0 0 20 20" width="14" height="14"><path d="M4 1v15h15M1 4h15v15" stroke="white" stroke-width="1.8" fill="none"/></svg>
                     </button>
@@ -1281,13 +1283,106 @@
         function getEffectiveSize() { return Math.min(drawSizeCoarse + drawSizeFine, 100); }
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
-        var drawOverScale = 1; // Over-scale multiplier for imported SVGs (1-10)
+        var drawOverScale = 1; // Over-scale multiplier (default 1)
+        var drawOverScaleMax = 1; // Current max for the overscale slider
+        var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         var cropModeActive = false; // Crop/pan drag mode for oversized imported SVGs
 
+        // Compute slider min from the chosen max
+        function getOverscaleMin(max) {
+            if (max <= 0.5) return 0;
+            if (max <= 2) return Math.round((max - 0.6) * 100) / 100;
+            return Math.round((max - 1.1) * 100) / 100;
+        }
+
+        // Format a scale value for display
+        function formatScale(v) {
+            var r = Math.round(v * 100) / 100;
+            if (r === Math.floor(r)) return '\u00d7' + r;
+            return '\u00d7' + r;
+        }
+
+        function setOverscaleMax(max) {
+            drawOverScaleMax = max;
+            var slider = document.getElementById('draw-overscale-slider');
+            var maxLabel = document.getElementById('draw-overscale-max');
+            if (!slider) return;
+            var newMin = getOverscaleMin(max);
+            slider.min = newMin;
+            slider.max = max;
+            slider.step = 0.02;
+            // Clamp current value
+            if (drawOverScale > max) drawOverScale = max;
+            if (drawOverScale < newMin) drawOverScale = newMin;
+            slider.value = drawOverScale;
+            var valLabel = document.getElementById('draw-overscale-val');
+            if (valLabel) valLabel.textContent = formatScale(drawOverScale);
+            if (maxLabel) maxLabel.textContent = formatScale(max);
+            // Apply to selected element
+            if (selectedElement) applyEffectiveSize();
+        }
+
+        function resetOverscaleSlider() {
+            drawOverScale = 1;
+            drawOverScaleMax = 1;
+            var slider = document.getElementById('draw-overscale-slider');
+            if (slider) {
+                slider.min = 0.4;
+                slider.max = 1;
+                slider.step = 0.02;
+                slider.value = 1;
+            }
+            var valLabel = document.getElementById('draw-overscale-val');
+            if (valLabel) valLabel.textContent = '\u00d71';
+            var maxLabel = document.getElementById('draw-overscale-max');
+            if (maxLabel) maxLabel.textContent = '\u00d71';
+        }
+
+        function toggleOverscaleMaxPopup() {
+            var popup = document.getElementById('draw-overscale-max-popup');
+            if (!popup) return;
+            if (popup.style.display !== 'none') {
+                popup.style.display = 'none';
+                return;
+            }
+            popup.innerHTML = '';
+            overscaleMaxOptions.forEach(function(opt) {
+                var item = document.createElement('div');
+                item.textContent = formatScale(opt);
+                item.style.cssText = 'padding:3px 8px;cursor:pointer;color:#ccc;font-size:11px;white-space:nowrap;border-radius:3px;';
+                if (opt === drawOverScaleMax) {
+                    item.style.background = 'rgba(255,215,0,0.3)';
+                    item.style.color = '#FFD700';
+                    item.style.fontWeight = 'bold';
+                }
+                item.addEventListener('mouseenter', function() {
+                    if (opt !== drawOverScaleMax) item.style.background = 'rgba(255,215,0,0.15)';
+                });
+                item.addEventListener('mouseleave', function() {
+                    if (opt !== drawOverScaleMax) item.style.background = '';
+                });
+                item.addEventListener('click', function() {
+                    setOverscaleMax(opt);
+                    popup.style.display = 'none';
+                });
+                popup.appendChild(item);
+            });
+            popup.style.display = 'block';
+        }
+
+        // Close popup when clicking elsewhere
+        document.addEventListener('click', function(e) {
+            var popup = document.getElementById('draw-overscale-max-popup');
+            var maxLabel = document.getElementById('draw-overscale-max');
+            if (popup && popup.style.display !== 'none' && !popup.contains(e.target) && e.target !== maxLabel) {
+                popup.style.display = 'none';
+            }
+        });
+
         function onOverScaleChange(val) {
-            drawOverScale = val;
+            drawOverScale = Math.round(val * 100) / 100;
             var label = document.getElementById('draw-overscale-val');
-            if (label) label.textContent = '\u00d7' + val;
+            if (label) label.textContent = formatScale(drawOverScale);
             // Show crop button for imported stamps
             if (selectedElement && selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
                 var cropBtn = document.getElementById('draw-crop-btn');
@@ -2022,6 +2117,8 @@
             }
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
+            // Reset overscale slider to default
+            resetOverscaleSlider();
         }
 
         function populatePropsFromElement(el) {
@@ -2082,14 +2179,18 @@
             document.getElementById('draw-fine-val').textContent = fine;
             updateTotalDisplay();
             // Restore over-scale state from element (all types support it)
-            var overscaleSlider = document.getElementById('draw-overscale-slider');
-            var overscaleLabel = document.getElementById('draw-overscale-val');
-            var cropBtn = document.getElementById('draw-crop-btn');
             var savedScale = +el.getAttribute('data-over-scale') || 1;
+            var savedMax = +el.getAttribute('data-over-scale-max') || 1;
             drawOverScale = savedScale;
+            // Restore max first (sets slider range), then set value
+            setOverscaleMax(savedMax);
+            drawOverScale = savedScale;
+            var overscaleSlider = document.getElementById('draw-overscale-slider');
             if (overscaleSlider) overscaleSlider.value = savedScale;
-            if (overscaleLabel) overscaleLabel.textContent = '\u00d7' + savedScale;
+            var overscaleLabel = document.getElementById('draw-overscale-val');
+            if (overscaleLabel) overscaleLabel.textContent = formatScale(savedScale);
             // Crop button only for imported stamps
+            var cropBtn = document.getElementById('draw-crop-btn');
             if (tag === 'g' && el.hasAttribute('data-imported-stamp')) {
                 if (cropBtn) cropBtn.style.display = 'inline-flex';
             } else {
@@ -2131,6 +2232,7 @@
                 }
                 selectedElement.setAttribute('data-draw-size', sz);
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
+                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
                 updateSelectionRing();
             } else if (tag === 'g') {
                 hasEditedExisting = true;
@@ -2153,6 +2255,7 @@
                     selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
                 }
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
+                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
                 selectedElement.setAttribute('data-draw-size', sz);
                 updateSelectionRing();
             } else if (tag === 'text') {
@@ -2160,6 +2263,7 @@
                 selectedElement.setAttribute('font-size', gridToSvg(sz * drawOverScale));
                 selectedElement.setAttribute('data-draw-size', sz);
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
+                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
                 updateSelectionRing();
             }
         }
@@ -2278,7 +2382,7 @@
                     el.setAttribute('r', gridToSvg(halfSz));
                     el.setAttribute('fill', '#333');
                     el.setAttribute('data-draw-size', sz);
-                    el.setAttribute('data-over-scale', drawOverScale);
+                    el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                 } else if (drawTool === 'hollow') {
                     var halfSz = scaledSz / 2;
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -2289,7 +2393,7 @@
                     el.setAttribute('stroke', '#333');
                     el.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
                     el.setAttribute('data-draw-size', sz);
-                    el.setAttribute('data-over-scale', drawOverScale);
+                    el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                 } else if (drawTool === 'text') {
                     var ch = selectedTextChar;
                     if (!ch) return;
@@ -2302,7 +2406,7 @@
                     el.setAttribute('font-weight', '500');
                     el.setAttribute('fill', '#333');
                     el.setAttribute('data-draw-size', sz);
-                    el.setAttribute('data-over-scale', drawOverScale);
+                    el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                     el.textContent = ch;
                 } else if (stampSVGs[drawTool]) {
                     var isImportedStamp = (typeof drawTool === 'string' && drawTool.indexOf('stamp-imported-') === 0);
@@ -2315,7 +2419,7 @@
                     el.setAttribute('transform', 'translate(' + (x - stampSizeSvg / 2) + ',' + (y - stampSizeSvg / 2) + ') scale(' + scale + ')');
                     el.innerHTML = stampSVGs[drawTool];
                     el.setAttribute('data-draw-size', sz);
-                    el.setAttribute('data-over-scale', drawOverScale);
+                    el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                     if (isImportedStamp) {
                         el.setAttribute('data-imported-stamp', 'true');
                     }

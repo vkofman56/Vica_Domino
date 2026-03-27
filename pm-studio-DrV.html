@@ -2214,19 +2214,27 @@
             applyEffectiveSize();
         }
         // Apply the combined size (coarse + fine) to the currently selected element
+        // Anchor: bottom-left corner stays fixed when scaling
         function applyEffectiveSize() {
             if (!selectedElement) return;
             var sz = getEffectiveSize();
             var tag = selectedElement.tagName.toLowerCase();
             if (tag === 'circle') {
                 hasEditedExisting = true;
-                var halfSz = (sz * drawOverScale) / 2;
+                var oldR = +selectedElement.getAttribute('r') || 1;
                 var isHollow = selectedElement.getAttribute('fill') === 'none';
+                var halfSz = (sz * drawOverScale) / 2;
+                var newR = isHollow ? gridToSvg(halfSz * 0.9) : gridToSvg(halfSz);
+                // Bottom-left anchor: (cx - oldR, cy + oldR) stays fixed
+                var oldCx = +selectedElement.getAttribute('cx');
+                var oldCy = +selectedElement.getAttribute('cy');
+                var blX = oldCx - oldR;
+                var blY = oldCy + oldR;
+                selectedElement.setAttribute('cx', blX + newR);
+                selectedElement.setAttribute('cy', blY - newR);
+                selectedElement.setAttribute('r', newR);
                 if (isHollow) {
-                    selectedElement.setAttribute('r', gridToSvg(halfSz * 0.9));
                     selectedElement.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
-                } else {
-                    selectedElement.setAttribute('r', gridToSvg(halfSz));
                 }
                 selectedElement.setAttribute('data-draw-size', sz);
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
@@ -2243,14 +2251,14 @@
                 var oldScale = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                 if (m && oldScale) {
                     var oldSz = +oldScale[1] * 100;
-                    var cx = +m[1] + oldSz / 2;
-                    var cy = +m[2] + oldSz / 2;
-                    selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
+                    // Bottom-left anchor: (tx, ty + oldSz) stays fixed
+                    var blX = +m[1];
+                    var blY = +m[2] + oldSz;
+                    selectedElement.setAttribute('transform', 'translate(' + blX + ',' + (blY - stampSizeSvg) + ') scale(' + scale + ')');
                 } else {
-                    // Fallback: no existing translate/scale — center on card (30,30 = card center in SVG units)
                     var cx = 30, cy = 30;
-                    if (m) { cx = +m[1] + stampSizeSvg / 2; cy = +m[2] + stampSizeSvg / 2; }
-                    selectedElement.setAttribute('transform', 'translate(' + (cx - stampSizeSvg / 2) + ',' + (cy - stampSizeSvg / 2) + ') scale(' + scale + ')');
+                    if (m) { cx = +m[1]; cy = +m[2]; }
+                    selectedElement.setAttribute('transform', 'translate(' + cx + ',' + (cy + stampSizeSvg) + ') scale(' + scale + ')');
                 }
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
                 selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
@@ -2258,7 +2266,19 @@
                 updateSelectionRing();
             } else if (tag === 'text') {
                 hasEditedExisting = true;
-                selectedElement.setAttribute('font-size', gridToSvg(sz * drawOverScale));
+                var oldFontSize = +selectedElement.getAttribute('font-size') || 1;
+                var newFontSize = gridToSvg(sz * drawOverScale);
+                // For text with text-anchor:middle, bottom-left = (x - oldWidth/2, y)
+                // Approximate width as fontSize * 0.6 per character
+                var text = selectedElement.textContent || '';
+                var charCount = text.length || 1;
+                var oldWidth = oldFontSize * 0.6 * charCount;
+                var newWidth = newFontSize * 0.6 * charCount;
+                // Keep left edge and baseline (y) fixed
+                var oldX = +selectedElement.getAttribute('x');
+                var leftEdge = oldX - oldWidth / 2;
+                selectedElement.setAttribute('x', leftEdge + newWidth / 2);
+                selectedElement.setAttribute('font-size', newFontSize);
                 selectedElement.setAttribute('data-draw-size', sz);
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
                 selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);

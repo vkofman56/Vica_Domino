@@ -1285,7 +1285,7 @@
         var drawOverScale = 1; // Over-scale multiplier (default 1)
         var drawOverScaleMax = 1; // Current max for the overscale slider
         var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        var cropModeActive = false; // Crop/pan drag mode for oversized imported SVGs
+        var cropModeActive = false; // Crop/pan drag mode for oversized elements
 
         // Compute slider min from the chosen max
         function getOverscaleMin(max) {
@@ -1377,8 +1377,8 @@
 
         function onOverScaleChange(val) {
             drawOverScale = Math.round(val * 100) / 100;
-            // Show crop button for imported stamps
-            if (selectedElement && selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
+            // Show crop button when scale > 1 for any selected element
+            if (selectedElement && drawOverScale > 1) {
                 var cropBtn = document.getElementById('draw-crop-btn');
                 if (cropBtn) cropBtn.style.display = 'inline-flex';
             }
@@ -1404,26 +1404,33 @@
             }
         }
 
-        // Crop/pan drag state
+        // Crop/pan drag state — works with any element type
         var cropDragState = null;
         function initCropDrag(container) {
             container.addEventListener('mousedown', function(e) {
                 if (!cropModeActive || !drawModeActive) return;
-                // Find the imported stamp <g> to drag
                 var target = selectedElement;
-                if (!target || target.tagName.toLowerCase() !== 'g' || !target.hasAttribute('data-imported-stamp')) return;
+                if (!target) return;
                 e.preventDefault();
                 e.stopPropagation();
                 var rect = container.getBoundingClientRect();
-                var t = target.getAttribute('transform') || '';
-                var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
-                if (!m) return;
+                var tag = target.tagName.toLowerCase();
+                var startPos;
+                if (tag === 'g') {
+                    var t = target.getAttribute('transform') || '';
+                    var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
+                    if (!m) return;
+                    startPos = { x: +m[1], y: +m[2] };
+                } else {
+                    startPos = getElementPos(target);
+                }
                 cropDragState = {
                     el: target,
+                    tag: tag,
                     startMouseX: e.clientX,
                     startMouseY: e.clientY,
-                    startTx: +m[1],
-                    startTy: +m[2],
+                    startX: startPos.x,
+                    startY: startPos.y,
                     rectW: rect.width,
                     rectH: rect.height
                 };
@@ -1434,12 +1441,16 @@
                 e.preventDefault();
                 var dx = (e.clientX - cropDragState.startMouseX) / cropDragState.rectW * 60;
                 var dy = (e.clientY - cropDragState.startMouseY) / cropDragState.rectH * 60;
-                var newTx = cropDragState.startTx + dx;
-                var newTy = cropDragState.startTy + dy;
-                var t = cropDragState.el.getAttribute('transform') || '';
-                var scaleMatch = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
-                var scaleStr = scaleMatch ? ' scale(' + scaleMatch[1] + ')' : '';
-                cropDragState.el.setAttribute('transform', 'translate(' + newTx + ',' + newTy + ')' + scaleStr);
+                var newX = cropDragState.startX + dx;
+                var newY = cropDragState.startY + dy;
+                if (cropDragState.tag === 'g') {
+                    var t = cropDragState.el.getAttribute('transform') || '';
+                    var scaleMatch = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
+                    var scaleStr = scaleMatch ? ' scale(' + scaleMatch[1] + ')' : '';
+                    cropDragState.el.setAttribute('transform', 'translate(' + newX + ',' + newY + ')' + scaleStr);
+                } else {
+                    setElementPos(cropDragState.el, newX, newY);
+                }
                 updateSelectionRing();
             });
             container.addEventListener('mouseup', function(e) {
@@ -1759,11 +1770,10 @@
                 var impBtn = document.getElementById('draw-svg-import-btn');
                 if (impBtn) impBtn.classList.add('active');
             }
-            // Show crop button only for imported stamps
-            var isImportedStamp = (typeof tool === 'string' && tool.indexOf('stamp-imported-') === 0);
+            // Show crop button when scale > 1 (for any element type)
             var cropBtn = document.getElementById('draw-crop-btn');
             if (cropBtn) {
-                cropBtn.style.display = isImportedStamp ? 'inline-flex' : 'none';
+                cropBtn.style.display = (drawOverScale > 1 && selectedElement) ? 'inline-flex' : 'none';
             }
             // Deactivate crop mode when switching tools
             if (cropModeActive) {
@@ -2181,13 +2191,9 @@
             drawOverScale = savedScale;
             var overscaleSlider = document.getElementById('draw-overscale-slider');
             if (overscaleSlider) overscaleSlider.value = savedScale;
-            // Crop button only for imported stamps
+            // Show crop button when element's scale > 1
             var cropBtn = document.getElementById('draw-crop-btn');
-            if (tag === 'g' && el.hasAttribute('data-imported-stamp')) {
-                if (cropBtn) cropBtn.style.display = 'inline-flex';
-            } else {
-                if (cropBtn) cropBtn.style.display = 'none';
-            }
+            if (cropBtn) cropBtn.style.display = (savedScale > 1) ? 'inline-flex' : 'none';
         }
 
         // --- Property change handlers (update selected element live) ---

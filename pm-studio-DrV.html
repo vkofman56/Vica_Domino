@@ -2546,10 +2546,14 @@
                 }
                 var dx = rawX - dragStartX;
                 var dy = rawY - dragStartY;
-                // Imported stamps can be large (scaled up) — their translate can be very negative
-                // to center on the card, so use wide bounds proportional to stamp size
+                // Widen drag bounds for any oversized element (scale > 1)
                 var clampMin = -15, clampMax = 60;
-                if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
+                var elScale = +selectedElement.getAttribute('data-over-scale') || 1;
+                if (elScale > 1) {
+                    var extraRange = elScale * 60;
+                    clampMin = -extraRange;
+                    clampMax = 60 + extraRange;
+                } else if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
                     var t = selectedElement.getAttribute('transform') || '';
                     var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     var stampSz = sm ? +sm[1] * 100 : 60;
@@ -2596,9 +2600,13 @@
                     dxU = 0; dyU = -step;
                     dxD = 0; dyD = step;
                 }
-                // Wider clamp bounds for imported stamps (their translate can be very negative)
+                // Widen clamp bounds for any oversized element
                 var kMin = -15, kMax = 60;
-                if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
+                var kScale = +selectedElement.getAttribute('data-over-scale') || 1;
+                if (kScale > 1) {
+                    var kExtra = kScale * 60;
+                    kMin = -kExtra; kMax = 60 + kExtra;
+                } else if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
                     var kt = selectedElement.getAttribute('transform') || '';
                     var ksm = kt.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     var kStampSz = ksm ? +ksm[1] * 100 : 60;

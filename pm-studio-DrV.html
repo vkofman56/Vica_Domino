@@ -5074,6 +5074,8 @@
                     dominoArea.style.display = 'none';
                     showBtn.textContent = 'Show Dominos';
                 } else {
+                    // Rebuild dominos from fresh game data
+                    rebuildGameViewDominos();
                     dominoArea.style.display = 'block';
                     showBtn.textContent = 'Hide Dominos';
                 }
@@ -5156,6 +5158,37 @@
 
             document.getElementById(returnScreen).style.display = 'none';
             document.getElementById('game-view-screen').style.display = 'block';
+        }
+
+        function rebuildGameViewDominos() {
+            if (currentGameViewIndex < 0) return;
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            // Collect original (non-variation) cards from fresh data
+            var origCards = [];
+            var seenLabels = {};
+            game.cards.forEach(function(c) {
+                if (!c.isVariation && !seenLabels[c.label]) {
+                    seenLabels[c.label] = true;
+                    origCards.push(c);
+                }
+            });
+            // Generate all domino pairs
+            var allDominos = [];
+            for (var i = 0; i < origCards.length; i++) {
+                for (var j = i + 1; j < origCards.length; j++) {
+                    allDominos.push({
+                        leftCard: origCards[i],
+                        rightCard: origCards[j],
+                        leftValue: origCards[i].label.charAt(0),
+                        rightValue: origCards[j].label.charAt(0),
+                        isDouble: origCards[i].label.charAt(0) === origCards[j].label.charAt(0)
+                    });
+                }
+            }
+            var excludedKeys = getExcludedDominos(currentGameViewIndex);
+            renderDominoBoxes(allDominos, excludedKeys, currentGameViewIndex);
         }
 
         function renderDominoBoxes(allDominos, excludedKeys, gameIndex) {

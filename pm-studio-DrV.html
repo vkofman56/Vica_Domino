@@ -5182,41 +5182,36 @@
             container.innerHTML = '';
 
             // Group cards by row letter (skip cards with empty SVG content)
-            // Cards just added in this session go to a separate "Added" row at bottom
-            var cardsByRow = {};
-            var rowOrder = [];
+            // Render cards in saved order — preserve drag arrangement
+            // Group consecutive cards with same first letter into rows
+            // Cards with _addedToGame flag go to bottom "Added" row
             var addedCards = [];
+            var orderedCards = [];
             game.cards.forEach(function(c) {
-                // Skip cards with no visual content
                 if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
-                // Cards with _addedToGame flag go to bottom "Added" row
                 if (c._addedToGame) {
                     addedCards.push(c);
-                    return;
+                } else {
+                    orderedCards.push(c);
                 }
-                var row = c.label.charAt(0);
-                if (!cardsByRow[row]) {
-                    cardsByRow[row] = [];
-                    rowOrder.push(row);
-                }
-                cardsByRow[row].push(c);
             });
 
-            rowOrder.sort();
-            rowOrder.forEach(function(row) {
-                var section = document.createElement('div');
-                section.className = 'library-section';
-                container.appendChild(section);
-
-                var rowDiv = document.createElement('div');
-                rowDiv.className = 'library-row';
-
-                cardsByRow[row].forEach(function(cardInfo) {
-                    var cardEl = buildGameViewCard(cardInfo);
-                    if (cardEl) rowDiv.appendChild(cardEl);
-                });
-
-                container.appendChild(rowDiv);
+            // Group by _gameRow if available, otherwise by first letter
+            var currentRow = null;
+            var lastRowIdx = -1;
+            orderedCards.forEach(function(cardInfo) {
+                var rowIdx = (cardInfo._gameRow !== undefined) ? cardInfo._gameRow : cardInfo.label.charAt(0);
+                if (rowIdx !== lastRowIdx) {
+                    var section = document.createElement('div');
+                    section.className = 'library-section';
+                    container.appendChild(section);
+                    currentRow = document.createElement('div');
+                    currentRow.className = 'library-row';
+                    container.appendChild(currentRow);
+                    lastRowIdx = rowIdx;
+                }
+                var cardEl = buildGameViewCard(cardInfo);
+                if (cardEl) currentRow.appendChild(cardEl);
             });
 
             // Render just-added cards in a separate row at the bottom
@@ -5413,28 +5408,29 @@
                 // Read current card order from DOM
                 var newCards = [];
                 var rows = containerEl.querySelectorAll('.library-row');
+                var rowIdx = 0;
                 rows.forEach(function(row) {
                     var isAddedRow = row.dataset.addedRow === 'true';
                     row.querySelectorAll('.library-card').forEach(function(cardEl) {
                         var lbl = cardEl.querySelector('.library-label');
                         if (!lbl) return;
                         var label = lbl.textContent;
-                        // Find matching card in game data
                         for (var i = 0; i < game.cards.length; i++) {
                             if (game.cards[i].label === label) {
                                 var card = game.cards[i];
-                                // Clear _addedToGame if card was dragged out of added row
                                 if (!isAddedRow && card._addedToGame) {
                                     delete card._addedToGame;
                                 }
-                                // Set _addedToGame if card is in the added row
                                 if (isAddedRow) card._addedToGame = true;
+                                // Store row index so we can reconstruct rows on reopen
+                                if (!isAddedRow) card._gameRow = rowIdx;
                                 newCards.push(card);
                                 game.cards.splice(i, 1);
                                 break;
                             }
                         }
                     });
+                    if (!isAddedRow) rowIdx++;
                 });
                 // Append any remaining cards not found in DOM (shouldn't happen, but safe)
                 game.cards.forEach(function(c) { newCards.push(c); });

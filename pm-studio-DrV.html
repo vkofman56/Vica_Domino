@@ -4880,22 +4880,21 @@
             _addCardActiveSetName = (setId === 'numbers') ? 'Numbers and Dots' : (setId === 'abc') ? 'ABC' : setName;
             actions.style.display = 'none';
 
-            // Get current game's card labels
+            // Get current game's card labels (just labels, since we filter within one set)
             var games = loadCustomGames();
             var game = games[currentGameViewIndex];
             if (!game) return;
             var existingLabels = {};
             game.cards.forEach(function(c) {
-                existingLabels[c.label + '|' + (c.cardSet || '')] = true;
+                existingLabels[c.label] = true;
             });
 
             // Load cards from the chosen set
             var cards = getCardsFromStorage(setId);
-            var cardSetLabel = (setId === 'numbers') ? 'Numbers and Dots' : (setId === 'abc') ? 'ABC' : setName;
 
-            // Filter out cards already in the game
+            // Filter out cards whose label already exists in the game
             var available = cards.filter(function(c) {
-                return !existingLabels[c.label + '|' + cardSetLabel];
+                return !existingLabels[c.label];
             });
 
             if (available.length === 0) {
@@ -5309,6 +5308,7 @@
             if (!cardInfo.svgMarkup) return null;
             var card = document.createElement('div');
             card.className = 'library-card';
+            card.dataset.custom = 'true';
             var labelDiv = document.createElement('div');
             labelDiv.className = 'library-label';
             labelDiv.textContent = cardInfo.label;
@@ -5328,8 +5328,12 @@
             card.appendChild(preview);
             var desc = document.createElement('div');
             desc.className = 'library-desc';
-            desc.textContent = '';
+            desc.textContent = cardInfo.desc || '';
             card.appendChild(desc);
+            // Add action buttons
+            addCardDeleteButton(card);
+            addVarButton(card);
+            addCopyButton(card);
             return card;
         }
 

@@ -1824,13 +1824,51 @@
         function triggerSvgFileImport() {
             document.getElementById('svg-file-input').click();
         }
+        // Compress SVG markup: strip metadata, editor attrs, reduce precision, compact whitespace
+        function compressSVG(svgString) {
+            // Remove XML declaration and doctype
+            var s = svgString.replace(/<\?xml[^?]*\?>/gi, '');
+            s = s.replace(/<!DOCTYPE[^>]*>/gi, '');
+            // Remove comments
+            s = s.replace(/<!--[\s\S]*?-->/g, '');
+            // Remove metadata, title, desc elements
+            s = s.replace(/<metadata[\s\S]*?<\/metadata>/gi, '');
+            s = s.replace(/<title[\s\S]*?<\/title>/gi, '');
+            s = s.replace(/<desc[\s\S]*?<\/desc>/gi, '');
+            // Remove editor-specific elements (Inkscape, Illustrator, Sketch)
+            s = s.replace(/<sodipodi:[^>]*\/>/gi, '');
+            s = s.replace(/<sodipodi:[^>]*>[\s\S]*?<\/sodipodi:[^>]*>/gi, '');
+            s = s.replace(/<inkscape:[^>]*\/>/gi, '');
+            s = s.replace(/<inkscape:[^>]*>[\s\S]*?<\/inkscape:[^>]*>/gi, '');
+            // Remove editor-specific attributes
+            s = s.replace(/\s+(inkscape|sodipodi|sketch|illustrator|xmlns:inkscape|xmlns:sodipodi|xmlns:sketch|xmlns:xlink|xml:space|data-name|class)="[^"]*"/gi, '');
+            // Remove id attributes (usually not needed for display)
+            s = s.replace(/\s+id="[^"]*"/gi, '');
+            // Remove style attributes that are empty
+            s = s.replace(/\s+style=""/gi, '');
+            // Reduce numeric precision in d/points/transform attributes to 2 decimals
+            s = s.replace(/(\d+\.\d{3,})/g, function(match) {
+                return parseFloat(match).toFixed(2).replace(/\.?0+$/, '');
+            });
+            // Collapse whitespace
+            s = s.replace(/\s{2,}/g, ' ');
+            s = s.replace(/>\s+</g, '><');
+            s = s.trim();
+            return s;
+        }
+
         function handleSvgFileSelected(event) {
             var file = event.target.files[0];
             if (!file) return;
             var reader = new FileReader();
             reader.onload = function(e) {
+                var rawSvg = e.target.result;
+                var originalSize = rawSvg.length;
+                // Compress first
+                var compressed = compressSVG(rawSvg);
+                console.log('[SVG Import] Original:', Math.round(originalSize/1024) + 'KB, Compressed:', Math.round(compressed.length/1024) + 'KB (' + Math.round(100 - compressed.length/originalSize*100) + '% reduction)');
                 var parser = new DOMParser();
-                var doc = parser.parseFromString(e.target.result, 'image/svg+xml');
+                var doc = parser.parseFromString(compressed, 'image/svg+xml');
                 var svgEl = doc.querySelector('svg');
                 if (!svgEl) { alert('Not a valid SVG file'); return; }
                 var vb = svgEl.getAttribute('viewBox') || '0 0 100 100';

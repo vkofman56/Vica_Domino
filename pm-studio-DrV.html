@@ -482,9 +482,6 @@
                     <span id="draw-overscale-max" class="draw-val" style="cursor:pointer;text-decoration:underline;margin-left:1px;" onclick="toggleOverscaleMaxPopup()" title="Click to change max scale">&times;1</span>
                     <div id="draw-overscale-max-popup" style="display:none;position:absolute;bottom:100%;right:0;background:rgba(0,0,0,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:6px;padding:4px;z-index:100;"></div>
                 </div>
-                <button class="draw-tool-btn" id="draw-crop-btn" onclick="toggleCropMode()" title="Crop/Pan: drag to reposition oversized element" style="display:none;width:24px;height:24px;">
-                    <svg viewBox="0 0 20 20" width="14" height="14"><path d="M4 1v15h15M1 4h15v15" stroke="white" stroke-width="1.8" fill="none"/></svg>
-                </button>
                 <div class="draw-font-row">
                     <select id="draw-font-select" onchange="onDrawFontFamilyChange(this.value)" title="Font">
                         <option value="Arial, sans-serif">Arial</option>
@@ -1285,7 +1282,7 @@
         var drawOverScale = 1; // Over-scale multiplier (default 1)
         var drawOverScaleMax = 1; // Current max for the overscale slider
         var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        var cropModeActive = false; // Crop/pan drag mode for oversized elements
+
 
         // Compute slider min from the chosen max
         function getOverscaleMin(max) {
@@ -1377,88 +1374,10 @@
 
         function onOverScaleChange(val) {
             drawOverScale = Math.round(val * 100) / 100;
-            // Show crop button when scale > 1 for any selected element
-            if (selectedElement && drawOverScale > 1) {
-                var cropBtn = document.getElementById('draw-crop-btn');
-                if (cropBtn) cropBtn.style.display = 'inline-flex';
-            }
             // Apply to selected element (any type)
             if (selectedElement) {
                 applyEffectiveSize();
             }
-        }
-
-        function toggleCropMode() {
-            cropModeActive = !cropModeActive;
-            var btn = document.getElementById('draw-crop-btn');
-            if (btn) {
-                if (cropModeActive) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            }
-            var container = document.getElementById('loupe-card-container');
-            if (container) {
-                container.style.cursor = cropModeActive ? 'grab' : 'crosshair';
-            }
-        }
-
-        // Crop/pan drag state — works with any element type
-        var cropDragState = null;
-        function initCropDrag(container) {
-            container.addEventListener('mousedown', function(e) {
-                if (!cropModeActive || !drawModeActive) return;
-                var target = selectedElement;
-                if (!target) return;
-                e.preventDefault();
-                e.stopPropagation();
-                var rect = container.getBoundingClientRect();
-                var tag = target.tagName.toLowerCase();
-                var startPos;
-                if (tag === 'g') {
-                    var t = target.getAttribute('transform') || '';
-                    var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
-                    if (!m) return;
-                    startPos = { x: +m[1], y: +m[2] };
-                } else {
-                    startPos = getElementPos(target);
-                }
-                cropDragState = {
-                    el: target,
-                    tag: tag,
-                    startMouseX: e.clientX,
-                    startMouseY: e.clientY,
-                    startX: startPos.x,
-                    startY: startPos.y,
-                    rectW: rect.width,
-                    rectH: rect.height
-                };
-                container.style.cursor = 'grabbing';
-            });
-            container.addEventListener('mousemove', function(e) {
-                if (!cropDragState) return;
-                e.preventDefault();
-                var dx = (e.clientX - cropDragState.startMouseX) / cropDragState.rectW * 60;
-                var dy = (e.clientY - cropDragState.startMouseY) / cropDragState.rectH * 60;
-                var newX = cropDragState.startX + dx;
-                var newY = cropDragState.startY + dy;
-                if (cropDragState.tag === 'g') {
-                    var t = cropDragState.el.getAttribute('transform') || '';
-                    var scaleMatch = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
-                    var scaleStr = scaleMatch ? ' scale(' + scaleMatch[1] + ')' : '';
-                    cropDragState.el.setAttribute('transform', 'translate(' + newX + ',' + newY + ')' + scaleStr);
-                } else {
-                    setElementPos(cropDragState.el, newX, newY);
-                }
-                updateSelectionRing();
-            });
-            container.addEventListener('mouseup', function(e) {
-                if (!cropDragState) return;
-                hasEditedExisting = true;
-                cropDragState = null;
-                container.style.cursor = 'grab';
-            });
         }
 
         // Convert SVG root-space coordinates to variation <g> local-space coordinates
@@ -1769,16 +1688,6 @@
             if (typeof tool === 'string' && tool.indexOf('stamp-imported-') === 0) {
                 var impBtn = document.getElementById('draw-svg-import-btn');
                 if (impBtn) impBtn.classList.add('active');
-            }
-            // Show crop button when scale > 1 (for any element type)
-            var cropBtn = document.getElementById('draw-crop-btn');
-            if (cropBtn) {
-                cropBtn.style.display = (drawOverScale > 1 && selectedElement) ? 'inline-flex' : 'none';
-            }
-            // Deactivate crop mode when switching tools
-            if (cropModeActive) {
-                cropModeActive = false;
-                if (cropBtn) cropBtn.classList.remove('active');
             }
             // Highlight active item in submenu
             document.querySelectorAll('.draw-submenu-item').forEach(function(it) { it.classList.remove('active'); });
@@ -2192,8 +2101,6 @@
             var overscaleSlider = document.getElementById('draw-overscale-slider');
             if (overscaleSlider) overscaleSlider.value = savedScale;
             // Show crop button when element's scale > 1
-            var cropBtn = document.getElementById('draw-crop-btn');
-            if (cropBtn) cropBtn.style.display = (savedScale > 1) ? 'inline-flex' : 'none';
         }
 
         // --- Property change handlers (update selected element live) ---
@@ -2319,7 +2226,7 @@
             var lastMouseDownTime = 0;
             drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
-                if (cropModeActive) return; // Don't start regular drag while crop/panning
+
                 var target = e.target;
                 if (!isSelectableElement(target)) return;
                 target = getSelectableElement(target);
@@ -2355,7 +2262,7 @@
             // --- click: used for drawing new elements, selecting, deselecting ---
             drawClickHandler = function(e) {
                 if (!drawModeActive) return;
-                if (cropModeActive) return; // Don't place elements while crop/panning
+
                 // If we just finished a drag, don't also draw/select
                 if (justDragged) { justDragged = false; return; }
 
@@ -2459,7 +2366,7 @@
                 }
             };
             container.addEventListener('click', drawClickHandler);
-            initCropDrag(container);
+
 
             // --- Double-click to edit text content ---
             container.addEventListener('dblclick', function(e) {
@@ -2534,7 +2441,7 @@
 
             // --- Mouse move for dragging ---
             drawMouseMoveHandler = function(e) {
-                if (cropModeActive) return; // Don't interfere with crop/pan dragging
+
                 if (!isDragging || !selectedElement) return;
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;

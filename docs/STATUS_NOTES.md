@@ -635,10 +635,14 @@ Critical session focused on preventing card data loss, recovering lost Numbers a
 2. Main files: `index.html` (player UI), `pm-studio-DrV.html` (admin UI), `js/game.js` (game logic), `js/domino.js` (card data), `js/sync.js` (Firebase sync), `css/style.css` (styles)
 3. No build step — open HTML files directly in a browser or via GitHub Pages
 4. All state persisted in localStorage + Firebase sync for superusers
-5. **Both player and admin pages are working** as of March 25
+5. **Both player and admin pages are working** as of March 28
 6. **Card data protection**: 3 layers — `_cardMakerBuilt` flag, `safeSaveCards()`, sync guard
 7. **Auto card backup**: Every 20 min to Firebase `card_backups` subcollection
 8. **ALWAYS validate JS syntax before committing** — use `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"`
 9. **Numbers & Dots storage key**: Use `getNumbersStorageKey()` — returns `customDrawnCards` or `customDrawnCards_Numbers and Dots` depending on `deletedBuiltinSets`
-10. **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
+10. **Crop/Pan tool**: Removed — was non-functional
 11. **Recovery page**: `recover-cards.html` available if cards are ever lost again
+12. **× slider**: Dynamic range with clickable max popup, 0.02 step, bottom-left anchor scaling
+13. **SVG import**: Large SVGs (>200KB) auto-rasterized to 600×600 PNG; auto-sets Aa=90, r=10
+14. **Game Creator +**: Add cards from any card set; deletion updates game data + auto-refreshes dominos
+15. **localStorage quota**: Cards >500KB skipped; QuotaExceededError handled with revert

@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: March 23, 2026
+**Last Updated**: March 28, 2026
 
 ## Project Overview
 - **Brand**: "Pinky Math"
@@ -163,12 +163,45 @@
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
 - **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
 
-## Current State (March 25)
+## Current State (March 28)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development)
 - **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
 - **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
 - **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
 - **Sync status**: Working — migration runs after Firestore restore, `migration_builtins_converted = 'v2'`
-- **Card data protection**: 3 layers of safeguards against card data loss (see March 25 session notes)
+- **Card data protection**: 3 layers of safeguards against card data loss
 - **Auto card backup**: Every 20 minutes to Firebase `card_backups` subcollection (last 3 kept)
-- **Crop/Pan tool**: Still NOT FULLY WORKING (from March 10-11, not addressed recently)
+- **Crop/Pan tool**: Removed (was not functional, just an alternate drag mode)
+- **× slider**: Redesigned with dynamic range, clickable max selector popup (2-column), bottom-left anchor scaling
+- **SVG import**: Large SVGs (>200KB) auto-rasterized to 600×600 PNG (~50-450KB instead of 3MB)
+- **Game Creator**: New "+" button to add cards from any card set; card deletion updates game data; dominos auto-refresh
+- **Card Maker back button**: Fixed (was missing onclick handler)
+
+## March 28 Session Notes — Card Maker Scaling, Game Creator, SVG Import
+
+### Card Maker Improvements
+- **× slider always visible**: Works with all element types (text, stamps, circles, imported SVGs)
+- **× slider redesigned**: Dynamic range with clickable max selector popup (0.5, 1, 1.5, 2, 3...10); 2-column dropdown layout; 0.02 step increments for fine control
+- **Bottom-left anchor scaling**: When resizing with × slider, bottom-left corner stays fixed
+- **Imported SVG hit-area**: Transparent rect added so drag works on transparent gaps
+- **Drag bounds widened**: Any element with data-over-scale > 1 gets wider drag bounds (not just imported stamps)
+- **Card save fix**: `_cardMakerBuilt` was not set for custom card sets; fixed so edits persist
+- **Auto-generate card names**: New cards get auto-generated names (e.g., "E3") instead of prompting
+- **drawSave try/catch**: Wrapped save logic so closeLoupe() always runs even if save errors
+
+### SVG Import Improvements
+- **compressSVG()**: Strips XML declarations, comments, metadata, editor attributes, reduces numeric precision, collapses whitespace
+- **Auto-rasterization**: SVGs >200KB are rasterized to 600×600 PNG via canvas (3MB → ~50-450KB)
+- **Auto-size sliders**: Aa=90, r=10 set on import so image fills card at ×1
+- **Rasterized images**: Use 100×100 internal coords matching stamp coordinate system; `<image>` with both `href` and `xlink:href`
+
+### Game Creator Improvements
+- **Add Card button (+)**: Green "+" in Game View toolbar opens overlay to add cards from any card set
+- **Card set picker**: Shows all sets (Numbers & Dots, ABC, custom sets) with renamed display names from localStorage
+- **Multi-card selection**: Click cards to select (green highlight), click "Add Selected"
+- **Cross-set adding**: Cards from any set can be added to any game with SVG markup stored inline
+- **Cards in "Added" row**: Newly added cards appear at bottom with green border; sort into proper letter rows when game is reopened
+- **Card deletion in Game View**: Now updates `savedCustomGames` localStorage (not just DOM)
+- **Dominos auto-refresh**: Show Dominos rebuilds from fresh data; auto-refreshes after card add/delete
+- **Large SVG guard**: Cards >500KB skipped with warning; QuotaExceededError handled with revert
+- **Crop feature removed**: Was non-functional; all crop-related code deleted (~98 lines)

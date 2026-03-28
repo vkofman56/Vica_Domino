@@ -5299,13 +5299,14 @@
             dominoArea.style.display = 'none';
 
             // Generate ALL card-to-card pair combinations
+            // Use _gameValue (from drag position) if available, otherwise label first letter
             var allDominos = [];
             for (var i = 0; i < origCards.length; i++) {
                 for (var j = i + 1; j < origCards.length; j++) {
                     var leftCard = origCards[i];
                     var rightCard = origCards[j];
-                    var leftValue = leftCard.label.charAt(0);
-                    var rightValue = rightCard.label.charAt(0);
+                    var leftValue = leftCard._gameValue || leftCard.label.charAt(0);
+                    var rightValue = rightCard._gameValue || rightCard.label.charAt(0);
                     allDominos.push({
                         leftCard: leftCard,
                         rightCard: rightCard,
@@ -5411,6 +5412,10 @@
                 var rowIdx = 0;
                 rows.forEach(function(row) {
                     var isAddedRow = row.dataset.addedRow === 'true';
+                    // Determine the row's value letter from the first card's original label
+                    var rowValueLetter = null;
+                    var firstLabel = row.querySelector('.library-label');
+                    if (firstLabel) rowValueLetter = firstLabel.textContent.charAt(0);
                     row.querySelectorAll('.library-card').forEach(function(cardEl) {
                         var lbl = cardEl.querySelector('.library-label');
                         if (!lbl) return;
@@ -5422,8 +5427,11 @@
                                     delete card._addedToGame;
                                 }
                                 if (isAddedRow) card._addedToGame = true;
-                                // Store row index so we can reconstruct rows on reopen
-                                if (!isAddedRow) card._gameRow = rowIdx;
+                                if (!isAddedRow) {
+                                    card._gameRow = rowIdx;
+                                    // Set game value to the row's value letter
+                                    card._gameValue = rowValueLetter;
+                                }
                                 newCards.push(card);
                                 game.cards.splice(i, 1);
                                 break;
@@ -5570,16 +5578,18 @@
                     origCards.push(c);
                 }
             });
-            // Generate all domino pairs
+            // Generate all domino pairs — use _gameValue if available
             var allDominos = [];
             for (var i = 0; i < origCards.length; i++) {
                 for (var j = i + 1; j < origCards.length; j++) {
+                    var lv = origCards[i]._gameValue || origCards[i].label.charAt(0);
+                    var rv = origCards[j]._gameValue || origCards[j].label.charAt(0);
                     allDominos.push({
                         leftCard: origCards[i],
                         rightCard: origCards[j],
-                        leftValue: origCards[i].label.charAt(0),
-                        rightValue: origCards[j].label.charAt(0),
-                        isDouble: origCards[i].label.charAt(0) === origCards[j].label.charAt(0)
+                        leftValue: lv,
+                        rightValue: rv,
+                        isDouble: lv === rv
                     });
                 }
             }

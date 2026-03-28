@@ -4857,14 +4857,15 @@
 
             // Build card set buttons
             var sets = [];
-            // Check Numbers set
+            var renames = {};
+            try { renames = JSON.parse(localStorage.getItem('renamedBuiltinSets') || '{}'); } catch(e) {}
             try {
                 var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
-                if (deleted.indexOf('numbers') === -1) sets.push({ name: 'Numbers and Dots', id: 'numbers' });
-                if (deleted.indexOf('abc') === -1) sets.push({ name: 'ABC', id: 'abc' });
+                if (deleted.indexOf('numbers') === -1) sets.push({ name: renames.numbers || 'Numbers and Dots', id: 'numbers' });
+                if (deleted.indexOf('abc') === -1) sets.push({ name: renames.abc || 'ABC', id: 'abc' });
             } catch(e) {
-                sets.push({ name: 'Numbers and Dots', id: 'numbers' });
-                sets.push({ name: 'ABC', id: 'abc' });
+                sets.push({ name: renames.numbers || 'Numbers and Dots', id: 'numbers' });
+                sets.push({ name: renames.abc || 'ABC', id: 'abc' });
             }
             // Custom sets
             var customSets = loadCardSets();
@@ -4966,12 +4967,14 @@
             console.log('[AddCard] Adding', _addCardSelectedCards.length, 'cards from set:', cardSetLabel);
 
             _addCardSelectedCards.forEach(function(cardData) {
+                var markup = cardData.svgContent || cardData.svgMarkup || '';
                 game.cards.push({
                     label: cardData.label,
                     isVariation: false,
                     cardSet: cardSetLabel,
-                    svgMarkup: cardData.svgContent || ''
+                    svgMarkup: markup
                 });
+                console.log('[AddCard] Added card:', cardData.label, 'markup length:', markup.length);
             });
 
             // Save and refresh

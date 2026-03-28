@@ -5197,22 +5197,45 @@
             });
 
             // Group by _gameRow if available, otherwise by first letter
+            // Also assign _gameValue to each card based on its row's first card
             var currentRow = null;
             var lastRowIdx = -1;
+            var currentRowCards = [];
+            var rowGroups = []; // [[card, card, ...], [card, ...], ...]
             orderedCards.forEach(function(cardInfo) {
                 var rowIdx = (cardInfo._gameRow !== undefined) ? cardInfo._gameRow : cardInfo.label.charAt(0);
                 if (rowIdx !== lastRowIdx) {
-                    var section = document.createElement('div');
-                    section.className = 'library-section';
-                    container.appendChild(section);
-                    currentRow = document.createElement('div');
-                    currentRow.className = 'library-row';
-                    container.appendChild(currentRow);
+                    if (currentRowCards.length > 0) rowGroups.push(currentRowCards);
+                    currentRowCards = [];
                     lastRowIdx = rowIdx;
                 }
-                var cardEl = buildGameViewCard(cardInfo);
-                if (cardEl) currentRow.appendChild(cardEl);
+                currentRowCards.push(cardInfo);
             });
+            if (currentRowCards.length > 0) rowGroups.push(currentRowCards);
+
+            // Assign _gameValue based on row's first card, then render
+            var needsSave = false;
+            rowGroups.forEach(function(rowCards) {
+                var rowValue = rowCards[0].label.charAt(0);
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                container.appendChild(section);
+                currentRow = document.createElement('div');
+                currentRow.className = 'library-row';
+                container.appendChild(currentRow);
+                rowCards.forEach(function(cardInfo) {
+                    if (cardInfo._gameValue !== rowValue) {
+                        cardInfo._gameValue = rowValue;
+                        needsSave = true;
+                    }
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) currentRow.appendChild(cardEl);
+                });
+            });
+            // Save if _gameValue was updated (migration from old data)
+            if (needsSave) {
+                try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
+            }
 
             // Render just-added cards in a separate row at the bottom
             if (addedCards.length > 0) {

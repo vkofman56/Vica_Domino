@@ -1859,6 +1859,21 @@
 
         // Rasterize SVG to PNG data URL using canvas (for large SVGs that can't be compressed enough)
         function rasterizeSVG(svgString, callback) {
+            // Parse the SVG to get its viewBox dimensions for proper rendering
+            var parser = new DOMParser();
+            var svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+            var svgRoot = svgDoc.querySelector('svg');
+            // Ensure SVG has explicit width/height for canvas rendering
+            if (svgRoot) {
+                var vb = svgRoot.getAttribute('viewBox') || '';
+                var vbParts = vb.split(/[\s,]+/).map(Number);
+                var svgW = vbParts[2] || 600;
+                var svgH = vbParts[3] || 600;
+                // Force width/height attributes so the image renders at full size
+                svgRoot.setAttribute('width', '600');
+                svgRoot.setAttribute('height', '600');
+                svgString = new XMLSerializer().serializeToString(svgRoot);
+            }
             var canvas = document.createElement('canvas');
             canvas.width = 600;
             canvas.height = 600;
@@ -1928,9 +1943,13 @@
             var stampKey = 'stamp-imported-' + Date.now();
             stampSVGs[stampKey] = wrappedSVG;
             selectedStampTool = stampKey;
-            // Auto-set size to fill card (Aa=90, r=10 = 100)
+            // Auto-set size to fill card (Aa=90, r=10 = 100) and × to 1.5 for imported SVGs
             drawSizeCoarse = 90;
             drawSizeFine = 10;
+            setOverscaleMax(2);
+            drawOverScale = 1.5;
+            var osSlider = document.getElementById('draw-overscale-slider');
+            if (osSlider) osSlider.value = 1.5;
             var cSlider = document.getElementById('draw-coarse-slider');
             if (cSlider) cSlider.value = 90;
             var cVal = document.getElementById('draw-coarse-val');

@@ -4966,16 +4966,25 @@
             var cardSetLabel = _addCardActiveSetName;
             console.log('[AddCard] Adding', _addCardSelectedCards.length, 'cards from set:', cardSetLabel);
 
+            var skippedCards = [];
             _addCardSelectedCards.forEach(function(cardData) {
                 var markup = cardData.svgContent || cardData.svgMarkup || '';
+                // Warn if SVG is very large (>500KB) — may exceed localStorage quota
+                if (markup.length > 500000) {
+                    skippedCards.push(cardData.label + ' (' + Math.round(markup.length/1024) + 'KB)');
+                    return;
+                }
                 game.cards.push({
                     label: cardData.label,
                     isVariation: false,
                     cardSet: cardSetLabel,
                     svgMarkup: markup
                 });
-                console.log('[AddCard] Added card:', cardData.label, 'markup length:', markup.length);
             });
+
+            if (skippedCards.length > 0) {
+                alert('Skipped cards (SVG too large for storage):\n' + skippedCards.join('\n') + '\n\nTip: Re-import the SVG file and use a smaller scale.');
+            }
 
             // Save and refresh
             try {
@@ -4983,6 +4992,18 @@
                 console.log('[AddCard] Saved successfully, game now has', game.cards.length, 'cards');
             } catch(e) {
                 console.error('[AddCard] Save error:', e);
+                if (e.name === 'QuotaExceededError') {
+                    alert('Storage full! The game data is too large to save. Try removing some cards with large SVG images.');
+                    // Revert the additions
+                    game.cards = game.cards.filter(function(c) {
+                        var isNew = false;
+                        _addCardSelectedCards.forEach(function(sel) {
+                            if (sel.label === c.label && c.cardSet === cardSetLabel) isNew = true;
+                        });
+                        return !isNew;
+                    });
+                    try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e2) {}
+                }
             }
             // Check if dominos were visible before refresh
             var dominoArea = document.getElementById('game-view-dominos-area');

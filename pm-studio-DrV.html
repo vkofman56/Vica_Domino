@@ -4925,7 +4925,6 @@
 
         var currentGameViewIndex = -1;
         var lastDeletedGameViewVariation = null;
-        var _justAddedCardLabels = []; // labels added in current session, shown at bottom
 
         function getDominoKey(d) {
             return d.leftCard.label + ':' + d.rightCard.label;
@@ -5112,9 +5111,9 @@
                     label: cardData.label,
                     isVariation: false,
                     cardSet: cardSetLabel,
-                    svgMarkup: markup
+                    svgMarkup: markup,
+                    _addedToGame: true
                 });
-                _justAddedCardLabels.push(cardData.label);
             });
 
             if (skippedCards.length > 0) {
@@ -5145,7 +5144,6 @@
             var dominosWereVisible = dominoArea && dominoArea.style.display === 'block';
             closeAddCardOverlay();
             try {
-                _keepJustAdded = true;
                 openGameView(currentGameViewIndex);
                 // Restore dominos visibility and rebuild
                 if (dominosWereVisible) {
@@ -5167,11 +5165,7 @@
             _addCardSelectedCards = [];
         }
 
-        var _keepJustAdded = false; // flag to preserve added-row on refresh
         function openGameView(gameIndex, returnScreen) {
-            // Clear just-added tracking unless refreshing after add
-            if (!_keepJustAdded) _justAddedCardLabels = [];
-            _keepJustAdded = false;
             // Save all card edits before leaving card maker
             if (typeof saveVariations === 'function') saveVariations();
             var games = loadCustomGames();
@@ -5195,8 +5189,8 @@
             game.cards.forEach(function(c) {
                 // Skip cards with no visual content
                 if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
-                // Just-added cards go to bottom
-                if (_justAddedCardLabels.indexOf(c.label) >= 0) {
+                // Cards with _addedToGame flag go to bottom "Added" row
+                if (c._addedToGame) {
                     addedCards.push(c);
                     return;
                 }
@@ -5232,6 +5226,7 @@
                 container.appendChild(addedSection);
                 var addedRow = document.createElement('div');
                 addedRow.className = 'library-row';
+                addedRow.dataset.addedRow = 'true';
                 addedRow.style.borderTop = '2px solid #4CAF50';
                 addedCards.forEach(function(cardInfo) {
                     var cardEl = buildGameViewCard(cardInfo);
@@ -5419,6 +5414,7 @@
                 var newCards = [];
                 var rows = containerEl.querySelectorAll('.library-row');
                 rows.forEach(function(row) {
+                    var isAddedRow = row.dataset.addedRow === 'true';
                     row.querySelectorAll('.library-card').forEach(function(cardEl) {
                         var lbl = cardEl.querySelector('.library-label');
                         if (!lbl) return;
@@ -5426,8 +5422,15 @@
                         // Find matching card in game data
                         for (var i = 0; i < game.cards.length; i++) {
                             if (game.cards[i].label === label) {
-                                newCards.push(game.cards[i]);
-                                game.cards.splice(i, 1); // remove to avoid duplicates
+                                var card = game.cards[i];
+                                // Clear _addedToGame if card was dragged out of added row
+                                if (!isAddedRow && card._addedToGame) {
+                                    delete card._addedToGame;
+                                }
+                                // Set _addedToGame if card is in the added row
+                                if (isAddedRow) card._addedToGame = true;
+                                newCards.push(card);
+                                game.cards.splice(i, 1);
                                 break;
                             }
                         }
@@ -5952,7 +5955,6 @@
             // Close MPP panel if open
             if (mppGameIndex >= 0) closeMainPagePictures();
             // Clear just-added tracking so cards sort properly next time
-            _justAddedCardLabels = [];
             document.getElementById('game-view-screen').style.display = 'none';
             document.getElementById(gameViewReturnScreen).style.display = 'block';
             populateCardMakerGames();

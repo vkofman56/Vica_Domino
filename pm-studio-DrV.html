@@ -5363,6 +5363,198 @@
             var returnEl = document.getElementById(returnScreen);
             if (returnEl) returnEl.style.display = 'none';
             document.getElementById('game-view-screen').style.display = 'block';
+
+            // Attach drag-to-reorder for Game View cards
+            attachGameViewDrag(container);
+        }
+
+        // === Drag-to-reorder in Game View ===
+        var _gvDropIndicator = null;
+        var _gvDragJustEnded = false;
+
+        function attachGameViewDrag(containerEl) {
+            if (!containerEl) return;
+            // Create drop indicator if not yet
+            if (!_gvDropIndicator) {
+                _gvDropIndicator = document.createElement('div');
+                _gvDropIndicator.className = 'card-drop-indicator';
+                _gvDropIndicator.style.display = 'none';
+                document.body.appendChild(_gvDropIndicator);
+            }
+
+            var dragCard = null, dragStartX = 0, dragStartY = 0;
+            var dragActive = false, dragPending = false;
+            var dragSourceRow = null, dragOverRow = null;
+            var dragPointerId = null;
+            var dropRefCard = null, dropAtEnd = false;
+            var DRAG_THRESHOLD = 8;
+
+            function hideIndicator() {
+                _gvDropIndicator.style.display = 'none';
+                dropRefCard = null;
+                dropAtEnd = false;
+            }
+
+            function findInsertPos(row, pointerX) {
+                var cards = Array.prototype.slice.call(
+                    row.querySelectorAll('.library-card:not(.variation)')
+                ).filter(function(c) { return c !== dragCard; });
+                if (cards.length === 0) return { refCard: null, atEnd: true, indicatorX: 0, indicatorTop: 0, indicatorHeight: 0 };
+                for (var i = 0; i < cards.length; i++) {
+                    var rect = cards[i].getBoundingClientRect();
+                    if (pointerX < rect.left + rect.width / 2) {
+                        return { refCard: cards[i], atEnd: false, indicatorX: rect.left - 4, indicatorTop: rect.top, indicatorHeight: rect.height };
+                    }
+                }
+                var lastRect = cards[cards.length - 1].getBoundingClientRect();
+                return { refCard: null, atEnd: true, indicatorX: lastRect.right + 2, indicatorTop: lastRect.top, indicatorHeight: lastRect.height };
+            }
+
+            function saveGameViewOrder() {
+                if (currentGameViewIndex < 0) return;
+                var games = loadCustomGames();
+                var game = games[currentGameViewIndex];
+                if (!game) return;
+                // Read current card order from DOM
+                var newCards = [];
+                var rows = containerEl.querySelectorAll('.library-row');
+                rows.forEach(function(row) {
+                    row.querySelectorAll('.library-card').forEach(function(cardEl) {
+                        var lbl = cardEl.querySelector('.library-label');
+                        if (!lbl) return;
+                        var label = lbl.textContent;
+                        // Find matching card in game data
+                        for (var i = 0; i < game.cards.length; i++) {
+                            if (game.cards[i].label === label) {
+                                newCards.push(game.cards[i]);
+                                game.cards.splice(i, 1); // remove to avoid duplicates
+                                break;
+                            }
+                        }
+                    });
+                });
+                // Append any remaining cards not found in DOM (shouldn't happen, but safe)
+                game.cards.forEach(function(c) { newCards.push(c); });
+                game.cards = newCards;
+                try {
+                    localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                } catch(e) {
+                    console.error('[GameView] Error saving reordered cards:', e);
+                }
+            }
+
+            // Remove old handlers if re-attaching
+            if (containerEl._gvPointerDown) {
+                containerEl.removeEventListener('pointerdown', containerEl._gvPointerDown);
+                document.removeEventListener('pointermove', containerEl._gvPointerMove);
+                document.removeEventListener('pointerup', containerEl._gvPointerUp);
+            }
+
+            containerEl._gvPointerDown = function(e) {
+                if (e.button !== 0) return;
+                if (e.target.closest('.card-delete-btn') || e.target.closest('.card-var-btn') ||
+                    e.target.closest('.card-copy-btn') || e.target.closest('.variation-delete-btn')) return;
+                var card = e.target.closest('.library-card');
+                if (!card) return;
+                dragCard = card;
+                dragSourceRow = card.closest('.library-row');
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragPending = true;
+                dragActive = false;
+                dragPointerId = e.pointerId;
+            };
+
+            containerEl._gvPointerMove = function(e) {
+                if (!dragPending) return;
+                var dx = e.clientX - dragStartX;
+                var dy = e.clientY - dragStartY;
+                if (!dragActive && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+                    dragActive = true;
+                    dragCard.classList.add('dragging');
+                    try { containerEl.setPointerCapture(dragPointerId); } catch(ex) {}
+                }
+                if (!dragActive) return;
+                var rows = containerEl.querySelectorAll('.library-row');
+                var newOver = null;
+                rows.forEach(function(row) {
+                    var rect = row.getBoundingClientRect();
+                    if (e.clientY >= rect.top && e.clientY <= rect.bottom &&
+                        e.clientX >= rect.left && e.clientX <= rect.right) {
+                        newOver = row;
+                    }
+                });
+                if (!newOver) {
+                    var bestDist = Infinity;
+                    rows.forEach(function(row) {
+                        var rect = row.getBoundingClientRect();
+                        if (e.clientY >= rect.top - 10 && e.clientY <= rect.bottom + 10 &&
+                            e.clientX >= rect.left - 40 && e.clientX <= rect.right + 40) {
+                            var dist = Math.abs(e.clientY - (rect.top + rect.bottom) / 2);
+                            if (dist < bestDist) { bestDist = dist; newOver = row; }
+                        }
+                    });
+                }
+                if (newOver !== dragOverRow) {
+                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
+                    dragOverRow = newOver;
+                    if (dragOverRow && dragOverRow !== dragSourceRow) dragOverRow.classList.add('drag-over');
+                }
+                if (dragOverRow) {
+                    var pos = findInsertPos(dragOverRow, e.clientX);
+                    dropRefCard = pos.refCard;
+                    dropAtEnd = pos.atEnd;
+                    if (pos.indicatorHeight > 0) {
+                        _gvDropIndicator.style.display = 'block';
+                        _gvDropIndicator.style.left = pos.indicatorX + 'px';
+                        _gvDropIndicator.style.top = pos.indicatorTop + 'px';
+                        _gvDropIndicator.style.height = pos.indicatorHeight + 'px';
+                    } else { hideIndicator(); }
+                } else { hideIndicator(); }
+            };
+
+            containerEl._gvPointerUp = function(e) {
+                if (!dragPending) return;
+                if (dragActive) {
+                    if (dragOverRow) {
+                        if (dropRefCard) {
+                            dragOverRow.insertBefore(dragCard, dropRefCard);
+                        } else {
+                            dragOverRow.appendChild(dragCard);
+                        }
+                        if (dragOverRow !== dragSourceRow) {
+                            // Check if source row is now empty — remove it
+                            if (dragSourceRow && dragSourceRow.querySelectorAll('.library-card').length === 0) {
+                                var prevSection = dragSourceRow.previousElementSibling;
+                                if (prevSection && prevSection.classList.contains('library-section')) prevSection.remove();
+                                dragSourceRow.remove();
+                            }
+                        }
+                    }
+                    saveGameViewOrder();
+                    // Refresh dominos if visible
+                    var dominoArea = document.getElementById('game-view-dominos-area');
+                    if (dominoArea && dominoArea.style.display === 'block') {
+                        rebuildGameViewDominos();
+                    }
+                    dragCard.classList.remove('dragging');
+                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
+                    hideIndicator();
+                    try { containerEl.releasePointerCapture(dragPointerId); } catch(ex) {}
+                    _gvDragJustEnded = true;
+                    setTimeout(function() { _gvDragJustEnded = false; }, 50);
+                }
+                dragCard = null;
+                dragSourceRow = null;
+                dragOverRow = null;
+                dragPointerId = null;
+                dragPending = false;
+                dragActive = false;
+            };
+
+            containerEl.addEventListener('pointerdown', containerEl._gvPointerDown);
+            document.addEventListener('pointermove', containerEl._gvPointerMove);
+            document.addEventListener('pointerup', containerEl._gvPointerUp);
         }
 
         function rebuildGameViewDominos() {

@@ -4830,6 +4830,7 @@
 
         var currentGameViewIndex = -1;
         var lastDeletedGameViewVariation = null;
+        var _justAddedCardLabels = []; // labels added in current session, shown at bottom
 
         function getDominoKey(d) {
             return d.leftCard.label + ':' + d.rightCard.label;
@@ -5018,6 +5019,7 @@
                     cardSet: cardSetLabel,
                     svgMarkup: markup
                 });
+                _justAddedCardLabels.push(cardData.label);
             });
 
             if (skippedCards.length > 0) {
@@ -5070,6 +5072,8 @@
         }
 
         function openGameView(gameIndex, returnScreen) {
+            // Clear just-added tracking when opening a different game
+            if (gameIndex !== currentGameViewIndex) _justAddedCardLabels = [];
             // Save all card edits before leaving card maker
             if (typeof saveVariations === 'function') saveVariations();
             var games = loadCustomGames();
@@ -5086,11 +5090,18 @@
             container.innerHTML = '';
 
             // Group cards by row letter (skip cards with empty SVG content)
+            // Cards just added in this session go to a separate "Added" row at bottom
             var cardsByRow = {};
             var rowOrder = [];
+            var addedCards = [];
             game.cards.forEach(function(c) {
                 // Skip cards with no visual content
                 if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
+                // Just-added cards go to bottom
+                if (_justAddedCardLabels.indexOf(c.label) >= 0) {
+                    addedCards.push(c);
+                    return;
+                }
                 var row = c.label.charAt(0);
                 if (!cardsByRow[row]) {
                     cardsByRow[row] = [];
@@ -5115,6 +5126,21 @@
 
                 container.appendChild(rowDiv);
             });
+
+            // Render just-added cards in a separate row at the bottom
+            if (addedCards.length > 0) {
+                var addedSection = document.createElement('div');
+                addedSection.className = 'library-section';
+                container.appendChild(addedSection);
+                var addedRow = document.createElement('div');
+                addedRow.className = 'library-row';
+                addedRow.style.borderTop = '2px solid #4CAF50';
+                addedCards.forEach(function(cardInfo) {
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) addedRow.appendChild(cardEl);
+                });
+                container.appendChild(addedRow);
+            }
 
             // Collect only original (non-variation) cards, deduplicated by label
             var origCards = [];

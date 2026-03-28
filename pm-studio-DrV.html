@@ -342,12 +342,28 @@
                 <button class="zoom-btn" id="game-view-undo-btn" onclick="undoDeleteVariation()" title="Undo delete variation" style="display:none;">&#x21BA;</button>
                 <button class="zoom-btn" id="game-view-flip-btn" onclick="toggleGameFlip()" title="UP/DOWN mode: top/bottom flips during the game" style="opacity:0.4;">&#x2195;</button>
                 <button class="zoom-btn" id="game-view-mpp-btn" onclick="openMainPagePictures(currentGameViewIndex)" title="Main page domino pictures">MPP</button>
+                <button class="zoom-btn" id="game-view-add-card-btn" onclick="openAddCardToGame()" title="Add cards from card sets" style="font-size:20px;color:#7eff7e;">+</button>
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <h1 class="library-title" style="margin-bottom: 2px;">Game Creator</h1>
                 <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
                 <p class="game-view-desc game-view-editable" id="game-view-desc" onclick="editGameDesc()" title="Click to edit description"></p>
                 <div id="game-view-cards"></div>
+            </div>
+        </div>
+
+        <!-- Add Card to Game Overlay -->
+        <div id="add-card-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:3000;overflow-y:auto;">
+            <div style="max-width:500px;margin:40px auto;background:#2a2a3e;border-radius:16px;padding:20px;color:white;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h2 style="margin:0;font-size:1.1rem;">Add Cards to Game</h2>
+                    <button onclick="closeAddCardOverlay()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer;">&times;</button>
+                </div>
+                <div id="add-card-set-buttons" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+                <div id="add-card-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+                <div id="add-card-actions" style="display:none;text-align:center;">
+                    <button onclick="confirmAddCards()" style="padding:10px 28px;border-radius:10px;border:none;background:#4CAF50;color:white;font-size:1rem;font-weight:600;cursor:pointer;">Add Selected</button>
+                </div>
             </div>
         </div>
 
@@ -4788,6 +4804,162 @@
 
         function getVariationKey(originalLabel, transform) {
             return originalLabel + ':' + transform;
+        }
+
+        // === Add Card to Game feature ===
+        var _addCardSelectedCards = []; // cards selected in the add-card overlay
+
+        function getCardsFromStorage(setName) {
+            var key;
+            if (setName === 'numbers' || setName === 'Numbers and Dots') {
+                key = getNumbersStorageKey();
+            } else if (setName === 'abc' || setName === 'ABC') {
+                key = 'customDrawnCards_abc';
+            } else {
+                key = 'customDrawnCards_' + setName;
+            }
+            try {
+                var raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : [];
+            } catch(e) { return []; }
+        }
+
+        function openAddCardToGame() {
+            if (currentGameViewIndex < 0) return;
+            _addCardSelectedCards = [];
+            var overlay = document.getElementById('add-card-overlay');
+            var btnContainer = document.getElementById('add-card-set-buttons');
+            var grid = document.getElementById('add-card-grid');
+            var actions = document.getElementById('add-card-actions');
+            btnContainer.innerHTML = '';
+            grid.innerHTML = '<p style="color:#999;font-size:13px;">Choose a card set above</p>';
+            actions.style.display = 'none';
+            overlay.style.display = 'block';
+
+            // Build card set buttons
+            var sets = [];
+            // Check Numbers set
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deleted.indexOf('numbers') === -1) sets.push({ name: 'Numbers and Dots', id: 'numbers' });
+                if (deleted.indexOf('abc') === -1) sets.push({ name: 'ABC', id: 'abc' });
+            } catch(e) {
+                sets.push({ name: 'Numbers and Dots', id: 'numbers' });
+                sets.push({ name: 'ABC', id: 'abc' });
+            }
+            // Custom sets
+            var customSets = loadCardSets();
+            customSets.forEach(function(name) {
+                sets.push({ name: name, id: name });
+            });
+
+            sets.forEach(function(s) {
+                var btn = document.createElement('button');
+                btn.textContent = s.name;
+                btn.style.cssText = 'padding:6px 14px;border-radius:8px;border:1.5px solid rgba(255,215,0,0.4);background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:13px;';
+                btn.addEventListener('click', function() {
+                    // Highlight active set button
+                    btnContainer.querySelectorAll('button').forEach(function(b) {
+                        b.style.background = 'rgba(255,255,255,0.1)';
+                        b.style.color = '#ccc';
+                    });
+                    btn.style.background = 'rgba(255,215,0,0.3)';
+                    btn.style.color = '#FFD700';
+                    showCardsFromSet(s.id, s.name);
+                });
+                btnContainer.appendChild(btn);
+            });
+        }
+
+        function showCardsFromSet(setId, setName) {
+            var grid = document.getElementById('add-card-grid');
+            var actions = document.getElementById('add-card-actions');
+            grid.innerHTML = '';
+            _addCardSelectedCards = [];
+            actions.style.display = 'none';
+
+            // Get current game's card labels
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            var existingLabels = {};
+            game.cards.forEach(function(c) {
+                existingLabels[c.label + '|' + (c.cardSet || '')] = true;
+            });
+
+            // Load cards from the chosen set
+            var cards = getCardsFromStorage(setId);
+            var cardSetLabel = (setId === 'numbers') ? 'Numbers and Dots' : (setId === 'abc') ? 'ABC' : setName;
+
+            // Filter out cards already in the game
+            var available = cards.filter(function(c) {
+                return !existingLabels[c.label + '|' + cardSetLabel];
+            });
+
+            if (available.length === 0) {
+                grid.innerHTML = '<p style="color:#999;font-size:13px;">All cards from this set are already in the game</p>';
+                return;
+            }
+
+            available.forEach(function(cardData) {
+                var wrapper = document.createElement('div');
+                wrapper.style.cssText = 'width:60px;height:60px;background:#f5e6c8;border:2px solid #c4a45a;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;';
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', '0 0 60 60');
+                svg.style.cssText = 'width:56px;height:56px;overflow:hidden;';
+                svg.innerHTML = cardData.svgContent || '';
+                wrapper.appendChild(svg);
+                // Label
+                var lbl = document.createElement('div');
+                lbl.textContent = cardData.label;
+                lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;background:rgba(0,0,0,0.5);color:white;padding:1px;';
+                wrapper.appendChild(lbl);
+
+                wrapper.addEventListener('click', function() {
+                    var idx = _addCardSelectedCards.indexOf(cardData);
+                    if (idx === -1) {
+                        _addCardSelectedCards.push(cardData);
+                        wrapper.style.border = '3px solid #4CAF50';
+                        wrapper.style.boxShadow = '0 0 8px rgba(76,175,80,0.6)';
+                    } else {
+                        _addCardSelectedCards.splice(idx, 1);
+                        wrapper.style.border = '2px solid #c4a45a';
+                        wrapper.style.boxShadow = '';
+                    }
+                    actions.style.display = _addCardSelectedCards.length > 0 ? 'block' : 'none';
+                });
+                grid.appendChild(wrapper);
+            });
+        }
+
+        function confirmAddCards() {
+            if (_addCardSelectedCards.length === 0) return;
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+
+            // Determine card set name from the selected set button
+            var activeBtn = document.querySelector('#add-card-set-buttons button[style*="rgb(255, 215, 0)"]');
+            var cardSetLabel = activeBtn ? activeBtn.textContent : '';
+
+            _addCardSelectedCards.forEach(function(cardData) {
+                game.cards.push({
+                    label: cardData.label,
+                    isVariation: false,
+                    cardSet: cardSetLabel,
+                    svgMarkup: cardData.svgContent || ''
+                });
+            });
+
+            // Save and refresh
+            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            closeAddCardOverlay();
+            openGameView(currentGameViewIndex);
+        }
+
+        function closeAddCardOverlay() {
+            document.getElementById('add-card-overlay').style.display = 'none';
+            _addCardSelectedCards = [];
         }
 
         function openGameView(gameIndex, returnScreen) {

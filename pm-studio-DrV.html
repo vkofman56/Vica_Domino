@@ -4935,12 +4935,16 @@
         }
 
         function confirmAddCards() {
-            if (_addCardSelectedCards.length === 0) return;
+            console.log('[AddCard] confirmAddCards called, selected:', _addCardSelectedCards.length, 'gameIndex:', currentGameViewIndex);
+            if (_addCardSelectedCards.length === 0) { console.warn('[AddCard] No cards selected'); return; }
             var games = loadCustomGames();
+            console.log('[AddCard] Loaded', games.length, 'games');
             var game = games[currentGameViewIndex];
-            if (!game) return;
+            if (!game) { console.warn('[AddCard] Game not found at index', currentGameViewIndex); return; }
+            if (!game.cards) game.cards = [];
 
             var cardSetLabel = _addCardActiveSetName;
+            console.log('[AddCard] Adding', _addCardSelectedCards.length, 'cards from set:', cardSetLabel);
 
             _addCardSelectedCards.forEach(function(cardData) {
                 game.cards.push({
@@ -4952,7 +4956,12 @@
             });
 
             // Save and refresh
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            try {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                console.log('[AddCard] Saved successfully, game now has', game.cards.length, 'cards');
+            } catch(e) {
+                console.error('[AddCard] Save error:', e);
+            }
             closeAddCardOverlay();
             openGameView(currentGameViewIndex);
         }

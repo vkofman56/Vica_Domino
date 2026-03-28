@@ -1857,6 +1857,32 @@
             return s;
         }
 
+        // Rasterize SVG to PNG data URL using canvas (for large SVGs that can't be compressed enough)
+        function rasterizeSVG(svgString, callback) {
+            var canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            var ctx = canvas.getContext('2d');
+            var img = new Image();
+            var blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0, 200, 200);
+                URL.revokeObjectURL(url);
+                var dataUrl = canvas.toDataURL('image/png');
+                // Build an SVG that embeds the rasterized image
+                var rasterSvg = '<image href="' + dataUrl + '" width="100" height="100" />';
+                console.log('[SVG Import] Rasterized to PNG:', Math.round(rasterSvg.length/1024) + 'KB');
+                callback(rasterSvg);
+            };
+            img.onerror = function() {
+                URL.revokeObjectURL(url);
+                console.error('[SVG Import] Failed to rasterize SVG');
+                callback(null);
+            };
+            img.src = url;
+        }
+
         function handleSvgFileSelected(event) {
             var file = event.target.files[0];
             if (!file) return;
@@ -1867,6 +1893,20 @@
                 // Compress first
                 var compressed = compressSVG(rawSvg);
                 console.log('[SVG Import] Original:', Math.round(originalSize/1024) + 'KB, Compressed:', Math.round(compressed.length/1024) + 'KB (' + Math.round(100 - compressed.length/originalSize*100) + '% reduction)');
+
+                // If still too large (>200KB), rasterize to PNG
+                if (compressed.length > 200000) {
+                    console.log('[SVG Import] SVG too large (' + Math.round(compressed.length/1024) + 'KB), rasterizing to PNG...');
+                    rasterizeSVG(compressed, function(rasterMarkup) {
+                        if (!rasterMarkup) {
+                            alert('Failed to process large SVG file. Try a simpler SVG.');
+                            return;
+                        }
+                        finishSvgImport(rasterMarkup, 100, 100);
+                    });
+                    return;
+                }
+
                 var parser = new DOMParser();
                 var doc = parser.parseFromString(compressed, 'image/svg+xml');
                 var svgEl = doc.querySelector('svg');
@@ -1874,18 +1914,20 @@
                 var vb = svgEl.getAttribute('viewBox') || '0 0 100 100';
                 var parts = vb.split(/[\s,]+/).map(Number);
                 var vbW = parts[2] || 100, vbH = parts[3] || 100;
-                var innerMarkup = svgEl.innerHTML;
-                // Invisible hit-area rect so clicks on transparent gaps still target this group
-                var hitRect = '<rect width="' + vbW + '" height="' + vbH + '" fill="transparent" pointer-events="all" data-hit-area="true"/>';
-                var wrappedSVG = '<g transform="scale(' + (100/vbW) + ',' + (100/vbH) + ')">'
-                                  + hitRect + innerMarkup + '</g>';
-                var stampKey = 'stamp-imported-' + Date.now();
-                stampSVGs[stampKey] = wrappedSVG;
-                selectedStampTool = stampKey;
-                selectDrawTool(stampKey);
+                finishSvgImport(svgEl.innerHTML, vbW, vbH);
             };
             reader.readAsText(file);
             event.target.value = '';
+        }
+
+        function finishSvgImport(innerMarkup, vbW, vbH) {
+            var hitRect = '<rect width="' + vbW + '" height="' + vbH + '" fill="transparent" pointer-events="all" data-hit-area="true"/>';
+            var wrappedSVG = '<g transform="scale(' + (100/vbW) + ',' + (100/vbH) + ')">'
+                              + hitRect + innerMarkup + '</g>';
+            var stampKey = 'stamp-imported-' + Date.now();
+            stampSVGs[stampKey] = wrappedSVG;
+            selectedStampTool = stampKey;
+            selectDrawTool(stampKey);
         }
         function toggleStampsSubmenu() {
             var menu = document.getElementById('stamps-submenu');

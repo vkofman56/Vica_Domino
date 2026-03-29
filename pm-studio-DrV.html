@@ -3184,9 +3184,7 @@
                     card.classList.remove('card-selected');
                     gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
                 } else {
-                    // Don't allow selecting cards with empty SVG content
                     var cardSvgEl = card.querySelector('svg');
-                    if (cardSvgEl && !cardSvgEl.innerHTML.trim()) return;
                     card.classList.add('card-selected');
                     var info = { label: labelText, isVariation: card.classList.contains('variation') };
                     if (info.isVariation) {
@@ -4796,14 +4794,9 @@
                             // Store SVG markup for self-contained game data
                             var cardSvgEl = cardEl.querySelector('svg');
                             if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
-                            // Skip cards with empty SVG content
-                            if (info.svgMarkup && !info.svgMarkup.trim()) {
-                                found = false;
-                            } else {
-                                cardEl.classList.add('card-selected');
-                                gameMakerSelected.push(info);
-                                matched[ecKey] = true;
-                            }
+                            cardEl.classList.add('card-selected');
+                            gameMakerSelected.push(info);
+                            matched[ecKey] = true;
                         }
                     });
                 });
@@ -4877,12 +4870,9 @@
             Object.keys(selectedByLabel).forEach(function(label) {
                 ordered.push(selectedByLabel[label]);
             });
-            // Filter out cards with empty SVG content (e.g. unfilled ABC slots)
-            gameMakerSelected = ordered.filter(function(info) {
-                return info.svgMarkup && info.svgMarkup.trim().length > 0;
-            });
+            gameMakerSelected = ordered;
             if (gameMakerSelected.length === 0) {
-                alert('Please select at least one card with visual content.');
+                alert('Please select at least one card.');
                 return;
             }
 
@@ -5188,7 +5178,6 @@
             var addedCards = [];
             var orderedCards = [];
             game.cards.forEach(function(c) {
-                if (c.svgMarkup !== undefined && (!c.svgMarkup || !c.svgMarkup.trim())) return;
                 if (c._addedToGame) {
                     addedCards.push(c);
                 } else {
@@ -5780,7 +5769,7 @@
         }
 
         function buildCardFromMarkup(cardInfo) {
-            if (!cardInfo.svgMarkup) return null;
+            if (cardInfo.svgMarkup === undefined) return null;
             var card = document.createElement('div');
             card.className = 'library-card';
             card.dataset.custom = 'true';
@@ -5866,10 +5855,10 @@
             var svg = getGameCardSVG(cardInfo);
             if (svg) return svg;
             // Fallback: build from stored svgMarkup
-            if (cardInfo.svgMarkup) {
+            if (cardInfo.svgMarkup !== undefined) {
                 var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 fallbackSvg.setAttribute('viewBox', '0 0 60 60');
-                fallbackSvg.innerHTML = cardInfo.svgMarkup;
+                fallbackSvg.innerHTML = cardInfo.svgMarkup || '';
                 if (cardInfo.isVariation && cardInfo.transform) {
                     var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('transform', cardInfo.transform);
@@ -7041,8 +7030,7 @@
                 var lbl = card.querySelector('.library-label');
                 var svg = card.querySelector('svg');
                 if (!lbl || !svg) return;
-                var markup = svg.innerHTML.trim();
-                if (!markup) return;
+                var markup = svg.innerHTML;
                 var gameLabel = cardMakerLabelToGameLabel(lbl.textContent);
                 markupMap[gameLabel] = markup;
             });
@@ -7319,8 +7307,7 @@
             var seenLabels = {};
             game.cards.forEach(function(c) {
                 if (!c.isVariation && !seenLabels[c.label]) {
-                    // Skip cards with no visual content (empty placeholder slots)
-                    var hasMarkup = c.svgMarkup && c.svgMarkup.trim();
+                    var hasMarkup = c.svgMarkup !== undefined;
                     var inDom = !!findCardByLabel(c.label, c.cardSet);
                     if (!hasMarkup && !inDom) return;
                     seenLabels[c.label] = true;
@@ -8321,7 +8308,7 @@
                     var domCard = findCardByLabel(c.label, c.cardSet);
                     if (domCard) {
                         var svg = domCard.querySelector('svg');
-                        if (svg && svg.innerHTML.trim()) {
+                        if (svg) {
                             c.svgMarkup = svg.innerHTML;
                             changed = true;
                         }

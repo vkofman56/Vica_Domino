@@ -195,21 +195,7 @@ class VicaDominoGame {
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('intro-screen').style.display = 'flex';
-        });
-
-        // Creator screen: "Games" button -> open intro screen (game selection)
-        document.getElementById('creator-games-btn').addEventListener('click', () => {
-            document.getElementById('creator-screen').style.display = 'none';
-            document.getElementById('intro-screen').style.display = 'flex';
-        });
-
-        // Creator screen: "Create and Edit" button -> open card library
-        document.getElementById('creator-create-edit-btn').addEventListener('click', () => this.showCreateEdit());
-
-        // Back from intro screen to creator screen
-        document.getElementById('back-to-creator-btn').addEventListener('click', () => {
-            document.getElementById('intro-screen').style.display = 'none';
-            document.getElementById('creator-screen').style.display = 'flex';
+            resetIntroScreen();
         });
 
         // Back from create-edit screen
@@ -2971,13 +2957,13 @@ class VicaDominoGame {
         // Go directly to card library screen, skipping the intermediate menu
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'none';
-        document.getElementById('creator-screen').style.display = 'none';
         document.getElementById('card-library-screen').style.display = 'block';
     }
 
     hideCreateEdit() {
         document.getElementById('create-edit-screen').style.display = 'none';
-        document.getElementById('creator-screen').style.display = 'flex';
+        document.getElementById('intro-screen').style.display = 'flex';
+        resetIntroScreen();
     }
 
     showCardLibrary() {
@@ -2986,9 +2972,10 @@ class VicaDominoGame {
     }
 
     hideCardLibrary() {
-        // Go back to creator screen directly
+        // Go back to intro screen directly
         document.getElementById('card-library-screen').style.display = 'none';
-        document.getElementById('creator-screen').style.display = 'flex';
+        document.getElementById('intro-screen').style.display = 'flex';
+        resetIntroScreen();
     }
 
     showLibrarySet() {

@@ -4856,14 +4856,22 @@
             var contentArea = document.querySelector('#domino-library-screen .domino-library-content');
             var scanRoot = cardSetContainer || contentArea;
             if (scanRoot) {
-                scanRoot.querySelectorAll('.library-card').forEach(function(cardEl) {
-                    var lbl = cardEl.querySelector('.library-label');
-                    if (!lbl) return;
-                    var labelText = lbl.textContent;
-                    if (selectedByLabel[labelText]) {
-                        ordered.push(selectedByLabel[labelText]);
-                        delete selectedByLabel[labelText];
-                    }
+                var rows = scanRoot.querySelectorAll('.library-row');
+                var rowIdx = 0;
+                rows.forEach(function(row) {
+                    var foundInRow = false;
+                    row.querySelectorAll('.library-card').forEach(function(cardEl) {
+                        var lbl = cardEl.querySelector('.library-label');
+                        if (!lbl) return;
+                        var labelText = lbl.textContent;
+                        if (selectedByLabel[labelText]) {
+                            selectedByLabel[labelText]._gameRow = rowIdx;
+                            ordered.push(selectedByLabel[labelText]);
+                            delete selectedByLabel[labelText];
+                            foundInRow = true;
+                        }
+                    });
+                    if (foundInRow) rowIdx++;
                 });
             }
             // Append any remaining cards not found in DOM (shouldn't happen, but be safe)

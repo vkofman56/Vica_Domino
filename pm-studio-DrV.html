@@ -505,6 +505,7 @@
                     <div class="font-picker" id="font-picker">
                         <button class="font-category-btn" id="font-current-btn" onclick="toggleFontCategories()" title="Font">Aa</button>
                         <div class="font-categories-panel" id="font-categories-panel" style="display:none;">
+                            <div class="font-recent-section" id="font-recent-section" style="display:none;"></div>
                             <div class="font-cat" data-cat="sans">Sans-serif</div>
                             <div class="font-cat" data-cat="serif">Serif</div>
                             <div class="font-cat" data-cat="display">Display</div>
@@ -2393,12 +2394,69 @@
         var fontPickerOpen = false;
         var fontPickerActiveCat = null;
 
+        function getRecentFonts() {
+            // Scan active card set for font-family attributes on text elements
+            var container;
+            if (isCustomCardSet(activeCardSet)) {
+                container = document.getElementById('card-set-custom');
+            } else if (activeCardSet === 'abc') {
+                container = document.getElementById('card-set-abc');
+            } else {
+                container = document.getElementById('card-set-numbers');
+            }
+            if (!container) container = document.querySelector('#domino-library-screen .domino-library-content');
+            var fontCounts = {};
+            container.querySelectorAll('text[font-family]').forEach(function(t) {
+                var ff = t.getAttribute('font-family');
+                if (ff) fontCounts[ff] = (fontCounts[ff] || 0) + 1;
+            });
+            // Sort by usage count, exclude current font
+            var sorted = Object.keys(fontCounts).sort(function(a, b) { return fontCounts[b] - fontCounts[a]; });
+            var recent = [];
+            var allFonts = [].concat(fontData.sans, fontData.serif, fontData.display, fontData.hand, fontData.mono);
+            sorted.forEach(function(ff) {
+                if (recent.length >= 2) return;
+                if (ff === drawFontFamily) return;
+                // Find matching font data for label and preview
+                var ffPrimary = ff.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+                for (var i = 0; i < allFonts.length; i++) {
+                    if (allFonts[i].value === ff || allFonts[i].value.replace(/['"]/g, '').toLowerCase().indexOf(ffPrimary) >= 0) {
+                        recent.push(allFonts[i]);
+                        return;
+                    }
+                }
+                // Unknown font — still show it
+                recent.push({ value: ff, label: ffPrimary.charAt(0).toUpperCase() + ffPrimary.slice(1), preview: ff });
+            });
+            return recent;
+        }
+
         function toggleFontCategories() {
             var catPanel = document.getElementById('font-categories-panel');
             var listPanel = document.getElementById('font-list-panel');
             if (fontPickerOpen) {
                 closeFontPicker();
             } else {
+                // Populate recent fonts section
+                var recentDiv = document.getElementById('font-recent-section');
+                recentDiv.innerHTML = '';
+                var recent = getRecentFonts();
+                if (recent.length > 0) {
+                    recent.forEach(function(f) {
+                        var item = document.createElement('div');
+                        item.className = 'font-recent-item';
+                        item.textContent = f.label;
+                        item.style.fontFamily = f.preview;
+                        item.onclick = function(e) {
+                            e.stopPropagation();
+                            selectFont(f.value, f.label);
+                        };
+                        recentDiv.appendChild(item);
+                    });
+                    recentDiv.style.display = 'block';
+                } else {
+                    recentDiv.style.display = 'none';
+                }
                 catPanel.style.display = 'block';
                 fontPickerOpen = true;
             }

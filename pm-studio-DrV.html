@@ -4020,6 +4020,41 @@
             addCardDeleteButton(card);
             addVarButton(card);
             addCopyButton(card);
+
+            // If in Game View, add the new card to game data and rebuild dominos
+            var gameViewScreen = document.getElementById('game-view-screen');
+            if (gameViewScreen && gameViewScreen.style.display !== 'none' && currentGameViewIndex >= 0) {
+                var games = loadCustomGames();
+                var game = games[currentGameViewIndex];
+                if (game && game.cards) {
+                    // Find the source card in game data to copy its properties
+                    var sourceInfo = null;
+                    for (var si = 0; si < game.cards.length; si++) {
+                        if (game.cards[si].label === baseLabel) {
+                            sourceInfo = game.cards[si];
+                            break;
+                        }
+                    }
+                    var newCardInfo = {
+                        label: copyLabel,
+                        isVariation: false,
+                        cardSet: sourceInfo ? sourceInfo.cardSet : (activeCardSet === 'abc' ? 'ABC' : 'Numbers and Dots'),
+                        svgMarkup: clonedSvg.innerHTML,
+                        _gameRow: sourceInfo ? sourceInfo._gameRow : undefined,
+                        _gameValue: sourceInfo ? sourceInfo._gameValue : copyLabel.charAt(0)
+                    };
+                    // Insert after the source card in the cards array
+                    var insertIdx = sourceInfo ? game.cards.indexOf(sourceInfo) + 1 : game.cards.length;
+                    game.cards.splice(insertIdx, 0, newCardInfo);
+                    localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                    // Rebuild dominos if visible
+                    var dominoArea = document.getElementById('game-view-dominos-area');
+                    if (dominoArea && dominoArea.style.display === 'block') {
+                        rebuildGameViewDominos();
+                    }
+                }
+            }
+
             if (typeof saveVariations === 'function') saveVariations();
         }
 

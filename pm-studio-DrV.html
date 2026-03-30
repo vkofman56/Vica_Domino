@@ -521,6 +521,13 @@
                 <!-- Color palette -->
                 <div class="draw-color-section" id="draw-color-section">
                     <div class="draw-color-swatches" id="draw-color-swatches"></div>
+                    <div class="custom-color-row" id="custom-color-row" style="display:none;"></div>
+                    <button class="color-add-btn" id="color-add-btn" onclick="toggleColorPicker(event)" title="Add custom color">+</button>
+                    <div class="color-picker-panel" id="color-picker-panel" style="display:none;">
+                        <input type="color" id="custom-color-input" value="#FF0000">
+                        <input type="text" id="custom-color-hex" value="#FF0000" maxlength="7" placeholder="#RRGGBB">
+                        <button class="color-add-confirm" onclick="addCustomColor()">Add</button>
+                    </div>
                 </div>
                 <span class="draw-tool-sep">|</span>
                 <!-- Reflect + Rotate (click to pin submenu, side by side) -->
@@ -3021,6 +3028,96 @@
                 container.appendChild(swatch);
             });
         }
+        // --- Custom color palette ---
+        function loadCustomColors() {
+            try { return JSON.parse(localStorage.getItem('customColors') || '[]'); } catch(e) { return []; }
+        }
+        function saveCustomColors(colors) {
+            localStorage.setItem('customColors', JSON.stringify(colors));
+        }
+        function renderCustomColors() {
+            var row = document.getElementById('custom-color-row');
+            if (!row) return;
+            var colors = loadCustomColors();
+            row.innerHTML = '';
+            if (colors.length === 0) { row.style.display = 'none'; return; }
+            row.style.display = 'grid';
+            colors.forEach(function(c) {
+                var swatch = document.createElement('button');
+                swatch.className = 'color-swatch';
+                swatch.style.background = c;
+                if (c.toUpperCase() === '#FFFFFF' || c.toUpperCase() === '#FFF') swatch.style.border = '1px solid #999';
+                swatch.title = c;
+                swatch.onclick = function(e) {
+                    e.stopPropagation();
+                    applyColorInLoupe(c);
+                };
+                swatch.oncontextmenu = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (confirm('Remove custom color ' + c + '?')) {
+                        var cols = loadCustomColors().filter(function(x) { return x !== c; });
+                        saveCustomColors(cols);
+                        renderCustomColors();
+                    }
+                };
+                // Long-press for touch devices
+                var pressTimer;
+                swatch.addEventListener('touchstart', function(e) {
+                    pressTimer = setTimeout(function() {
+                        e.preventDefault();
+                        if (confirm('Remove custom color ' + c + '?')) {
+                            var cols = loadCustomColors().filter(function(x) { return x !== c; });
+                            saveCustomColors(cols);
+                            renderCustomColors();
+                        }
+                    }, 600);
+                });
+                swatch.addEventListener('touchend', function() { clearTimeout(pressTimer); });
+                swatch.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
+                row.appendChild(swatch);
+            });
+        }
+        function toggleColorPicker(e) {
+            e.stopPropagation();
+            var panel = document.getElementById('color-picker-panel');
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        }
+        function addCustomColor() {
+            var hex = document.getElementById('custom-color-hex').value.trim();
+            if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) { alert('Enter a valid hex color (e.g. #FF5500)'); return; }
+            var colors = loadCustomColors();
+            if (colors.indexOf(hex.toUpperCase()) >= 0 || colors.indexOf(hex.toLowerCase()) >= 0) {
+                document.getElementById('color-picker-panel').style.display = 'none';
+                return;
+            }
+            colors.push(hex.toUpperCase());
+            saveCustomColors(colors);
+            renderCustomColors();
+            document.getElementById('color-picker-panel').style.display = 'none';
+            // Also apply the color immediately
+            applyColorInLoupe(hex.toUpperCase());
+        }
+        // Sync color picker and hex input
+        document.addEventListener('DOMContentLoaded', function() {
+            var colorInput = document.getElementById('custom-color-input');
+            var hexInput = document.getElementById('custom-color-hex');
+            if (colorInput && hexInput) {
+                colorInput.addEventListener('input', function() { hexInput.value = colorInput.value.toUpperCase(); });
+                hexInput.addEventListener('input', function() {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(hexInput.value)) colorInput.value = hexInput.value;
+                });
+            }
+            renderCustomColors();
+            // Close color picker when clicking outside
+            document.addEventListener('click', function(e) {
+                var panel = document.getElementById('color-picker-panel');
+                if (panel && panel.style.display !== 'none' && !e.target.closest('.color-picker-panel') && !e.target.closest('.color-add-btn')) {
+                    panel.style.display = 'none';
+                }
+            });
+        });
+
         function applyColorInLoupe(color) {
             // If an element is selected, color only that element
             if (selectedElement) {

@@ -2250,8 +2250,18 @@
                 drawFontFamily = ff;
                 var sel = document.getElementById('draw-font-select');
                 if (sel) {
+                    // Exact match first, then fuzzy match on primary font name
+                    var matched = false;
                     for (var i = 0; i < sel.options.length; i++) {
-                        if (sel.options[i].value === ff) { sel.selectedIndex = i; break; }
+                        if (sel.options[i].value === ff) { sel.selectedIndex = i; matched = true; break; }
+                    }
+                    if (!matched) {
+                        // Extract first font name from the value for fuzzy matching
+                        var ffPrimary = ff.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+                        for (var i = 0; i < sel.options.length; i++) {
+                            var optVal = sel.options[i].value.replace(/['"]/g, '').toLowerCase();
+                            if (optVal.indexOf(ffPrimary) >= 0) { sel.selectedIndex = i; break; }
+                        }
                     }
                 }
             }
@@ -8437,6 +8447,55 @@
                 });
             });
             if (changed) saveCombinedGames(combinedGames);
+        })();
+
+        // Migrate: update font-family fallbacks to include Google Fonts
+        (function migrateFontFallbacks() {
+            if (localStorage.getItem('migration_font_fallbacks') === 'v1') return;
+            var fontMap = [
+                // [search pattern, replacement]
+                [/(['"]?)Comic Sans MS\1\s*,\s*cursive/g, "'Comic Sans MS', 'Comic Neue', cursive"],
+                [/(['"]?)Comic Sans MS\1\s*,\s*(['"]?)Comic Neue\2/g, "'Comic Sans MS', 'Comic Neue', cursive"], // already partially migrated
+                [/Impact\s*,\s*sans-serif/g, "Impact, Anton, sans-serif"],
+                [/(['"]?)Trebuchet MS\1\s*,\s*sans-serif/g, "'Trebuchet MS', 'Source Sans 3', sans-serif"],
+                [/(['"]?)Times New Roman\1\s*,\s*serif/g, "'Times New Roman', 'Noto Serif', serif"],
+                [/(['"]?)Courier New\1\s*,\s*monospace/g, "'Courier New', 'Roboto Mono', monospace"],
+                [/(['"]?)Segoe Print\1[^'"]*,\s*cursive/g, "'Segoe Print', 'Patrick Hand', cursive"],
+            ];
+            function migrateFonts(str) {
+                if (!str) return str;
+                var result = str;
+                fontMap.forEach(function(pair) {
+                    result = result.replace(pair[0], pair[1]);
+                });
+                return result;
+            }
+            function migrateStorageKey(key) {
+                var raw = localStorage.getItem(key);
+                if (!raw) return;
+                var migrated = migrateFonts(raw);
+                if (migrated !== raw) {
+                    localStorage.setItem(key, migrated);
+                }
+            }
+            // Migrate all card storage keys
+            migrateStorageKey('savedCustomGames');
+            migrateStorageKey('customDrawnCards');
+            migrateStorageKey('customDrawnCards_abc');
+            migrateStorageKey('cardMakerVariations');
+            migrateStorageKey('editedBuiltinCards');
+            migrateStorageKey('editedBuiltinCards_abc');
+            migrateStorageKey('abcCardSnapshot');
+            // Migrate custom card set keys
+            try {
+                var setNames = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                setNames.forEach(function(name) {
+                    migrateStorageKey('customDrawnCards_' + name);
+                });
+            } catch(e) {}
+            // Also migrate Numbers and Dots custom key variant
+            migrateStorageKey('customDrawnCards_Numbers and Dots');
+            localStorage.setItem('migration_font_fallbacks', 'v1');
         })();
 
         // === Play Test Modal ===

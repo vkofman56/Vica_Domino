@@ -2414,19 +2414,24 @@
             var sorted = Object.keys(fontCounts).sort(function(a, b) { return fontCounts[b] - fontCounts[a]; });
             var recent = [];
             var allFonts = [].concat(fontData.sans, fontData.serif, fontData.display, fontData.hand, fontData.mono);
+            var currentPrimary = drawFontFamily.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
             sorted.forEach(function(ff) {
                 if (recent.length >= 2) return;
-                if (ff === drawFontFamily) return;
+                var thisPrimary = ff.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+                if (ff === drawFontFamily || thisPrimary === currentPrimary) return;
                 // Find matching font data for label and preview
-                var ffPrimary = ff.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+                var ffPrimary = thisPrimary;
                 for (var i = 0; i < allFonts.length; i++) {
                     if (allFonts[i].value === ff || allFonts[i].value.replace(/['"]/g, '').toLowerCase().indexOf(ffPrimary) >= 0) {
-                        recent.push(allFonts[i]);
+                        // Skip if this font entry is already in recent
+                        var alreadyAdded = recent.some(function(r) { return r.value === allFonts[i].value; });
+                        if (!alreadyAdded) recent.push(allFonts[i]);
                         return;
                     }
                 }
-                // Unknown font — still show it
-                recent.push({ value: ff, label: ffPrimary.charAt(0).toUpperCase() + ffPrimary.slice(1), preview: ff });
+                // Unknown font — still show it if not duplicate
+                var alreadyAdded = recent.some(function(r) { return r.value === ff; });
+                if (!alreadyAdded) recent.push({ value: ff, label: ffPrimary.charAt(0).toUpperCase() + ffPrimary.slice(1), preview: ff });
             });
             return recent;
         }

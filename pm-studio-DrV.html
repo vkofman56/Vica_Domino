@@ -502,44 +502,18 @@
                     <div id="draw-overscale-max-popup" style="display:none;position:absolute;bottom:100%;right:0;background:rgba(0,0,0,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:6px;padding:4px;z-index:100;"></div>
                 </div>
                 <div class="draw-font-row">
-                    <select id="draw-font-select" onchange="onDrawFontFamilyChange(this.value)" title="Font">
-                        <optgroup label="Sans-serif">
-                        <option value="Arial, sans-serif">Arial</option>
-                        <option value="Roboto, sans-serif">Roboto</option>
-                        <option value="'Open Sans', sans-serif">Open Sans</option>
-                        <option value="'Noto Sans', sans-serif">Noto Sans</option>
-                        <option value="'Source Sans 3', sans-serif">Source Sans</option>
-                        <option value="Oswald, sans-serif">Oswald</option>
-                        <option value="Verdana, sans-serif">Verdana</option>
-                        </optgroup>
-                        <optgroup label="Serif">
-                        <option value="'Times New Roman', 'Noto Serif', serif">Times</option>
-                        <option value="Georgia, serif">Georgia</option>
-                        <option value="'Noto Serif', serif">Noto Serif</option>
-                        <option value="'Libre Baskerville', serif">Baskerville</option>
-                        <option value="'EB Garamond', serif">Garamond</option>
-                        <option value="Merriweather, serif">Merriweather</option>
-                        <option value="Lora, serif">Lora</option>
-                        <option value="'Playfair Display', serif">Playfair</option>
-                        </optgroup>
-                        <optgroup label="Display">
-                        <option value="Anton, sans-serif">Anton</option>
-                        <option value="Lobster, cursive">Lobster</option>
-                        <option value="'Permanent Marker', cursive">Marker</option>
-                        <option value="Impact, Anton, sans-serif">Impact</option>
-                        </optgroup>
-                        <optgroup label="Handwriting">
-                        <option value="'Comic Neue', 'Comic Sans MS', cursive">Comic</option>
-                        <option value="'Patrick Hand', cursive">Patrick Hand</option>
-                        <option value="Caveat, cursive">Caveat</option>
-                        <option value="'Indie Flower', cursive">Indie Flower</option>
-                        <option value="Pacifico, cursive">Pacifico</option>
-                        </optgroup>
-                        <optgroup label="Monospace">
-                        <option value="'Courier New', 'Roboto Mono', monospace">Courier</option>
-                        <option value="'Roboto Mono', monospace">Roboto Mono</option>
-                        </optgroup>
-                    </select>
+                    <div class="font-picker" id="font-picker">
+                        <button class="font-category-btn" id="font-current-btn" onclick="toggleFontCategories()" title="Font">Aa</button>
+                        <div class="font-categories-panel" id="font-categories-panel" style="display:none;">
+                            <div class="font-cat" data-cat="sans">Sans-serif</div>
+                            <div class="font-cat" data-cat="serif">Serif</div>
+                            <div class="font-cat" data-cat="display">Display</div>
+                            <div class="font-cat" data-cat="hand">Handwriting</div>
+                            <div class="font-cat" data-cat="mono">Monospace</div>
+                        </div>
+                        <div class="font-list-panel" id="font-list-panel" style="display:none;"></div>
+                    </div>
+                    <input type="hidden" id="draw-font-select" value="Arial, sans-serif">
                 </div>
                 <button class="draw-tool-btn draw-delete-btn" id="draw-delete-btn" onclick="drawDeleteSelected()" title="Delete selected" style="display:none;">&#10005;</button>
                 <span class="draw-tool-sep">|</span>
@@ -2248,22 +2222,8 @@
                 }
                 var ff = el.getAttribute('font-family') || 'Arial, sans-serif';
                 drawFontFamily = ff;
-                var sel = document.getElementById('draw-font-select');
-                if (sel) {
-                    // Exact match first, then fuzzy match on primary font name
-                    var matched = false;
-                    for (var i = 0; i < sel.options.length; i++) {
-                        if (sel.options[i].value === ff) { sel.selectedIndex = i; matched = true; break; }
-                    }
-                    if (!matched) {
-                        // Extract first font name from the value for fuzzy matching
-                        var ffPrimary = ff.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
-                        for (var i = 0; i < sel.options.length; i++) {
-                            var optVal = sel.options[i].value.replace(/['"]/g, '').toLowerCase();
-                            if (optVal.indexOf(ffPrimary) >= 0) { sel.selectedIndex = i; break; }
-                        }
-                    }
-                }
+                document.getElementById('draw-font-select').value = ff;
+                updateFontButtonLabel();
             }
             if (!sz) sz = 30;
             if (sz > 100) sz = 100;
@@ -2390,6 +2350,135 @@
                 updateSelectionRing();
             }
         }
+
+        // --- Font picker (two-level: categories → fonts) ---
+        var fontData = {
+            sans: [
+                { value: "Arial, sans-serif", label: "Arial", preview: "Arial, sans-serif" },
+                { value: "Roboto, sans-serif", label: "Roboto", preview: "Roboto, sans-serif" },
+                { value: "'Open Sans', sans-serif", label: "Open Sans", preview: "'Open Sans', sans-serif" },
+                { value: "'Noto Sans', sans-serif", label: "Noto Sans", preview: "'Noto Sans', sans-serif" },
+                { value: "'Source Sans 3', sans-serif", label: "Source Sans", preview: "'Source Sans 3', sans-serif" },
+                { value: "Oswald, sans-serif", label: "Oswald", preview: "Oswald, sans-serif" },
+                { value: "Verdana, sans-serif", label: "Verdana", preview: "Verdana, sans-serif" }
+            ],
+            serif: [
+                { value: "'Times New Roman', 'Noto Serif', serif", label: "Times", preview: "'Times New Roman', 'Noto Serif', serif" },
+                { value: "Georgia, serif", label: "Georgia", preview: "Georgia, serif" },
+                { value: "'Noto Serif', serif", label: "Noto Serif", preview: "'Noto Serif', serif" },
+                { value: "'Libre Baskerville', serif", label: "Baskerville", preview: "'Libre Baskerville', serif" },
+                { value: "'EB Garamond', serif", label: "Garamond", preview: "'EB Garamond', serif" },
+                { value: "Merriweather, serif", label: "Merriweather", preview: "Merriweather, serif" },
+                { value: "Lora, serif", label: "Lora", preview: "Lora, serif" },
+                { value: "'Playfair Display', serif", label: "Playfair", preview: "'Playfair Display', serif" }
+            ],
+            display: [
+                { value: "Anton, sans-serif", label: "Anton", preview: "Anton, sans-serif" },
+                { value: "Lobster, cursive", label: "Lobster", preview: "Lobster, cursive" },
+                { value: "'Permanent Marker', cursive", label: "Marker", preview: "'Permanent Marker', cursive" },
+                { value: "Impact, Anton, sans-serif", label: "Impact", preview: "Impact, Anton, sans-serif" }
+            ],
+            hand: [
+                { value: "'Comic Neue', 'Comic Sans MS', cursive", label: "Comic", preview: "'Comic Neue', cursive" },
+                { value: "'Patrick Hand', cursive", label: "Patrick Hand", preview: "'Patrick Hand', cursive" },
+                { value: "Caveat, cursive", label: "Caveat", preview: "Caveat, cursive" },
+                { value: "'Indie Flower', cursive", label: "Indie Flower", preview: "'Indie Flower', cursive" },
+                { value: "Pacifico, cursive", label: "Pacifico", preview: "Pacifico, cursive" }
+            ],
+            mono: [
+                { value: "'Courier New', 'Roboto Mono', monospace", label: "Courier", preview: "'Courier New', 'Roboto Mono', monospace" },
+                { value: "'Roboto Mono', monospace", label: "Roboto Mono", preview: "'Roboto Mono', monospace" }
+            ]
+        };
+        var fontPickerOpen = false;
+        var fontPickerActiveCat = null;
+
+        function toggleFontCategories() {
+            var catPanel = document.getElementById('font-categories-panel');
+            var listPanel = document.getElementById('font-list-panel');
+            if (fontPickerOpen) {
+                closeFontPicker();
+            } else {
+                catPanel.style.display = 'block';
+                fontPickerOpen = true;
+            }
+        }
+        function closeFontPicker() {
+            document.getElementById('font-categories-panel').style.display = 'none';
+            document.getElementById('font-list-panel').style.display = 'none';
+            fontPickerOpen = false;
+            fontPickerActiveCat = null;
+            document.querySelectorAll('.font-cat').forEach(function(c) { c.classList.remove('active'); });
+        }
+        function showFontList(catKey) {
+            fontPickerActiveCat = catKey;
+            document.querySelectorAll('.font-cat').forEach(function(c) {
+                c.classList.toggle('active', c.dataset.cat === catKey);
+            });
+            var listPanel = document.getElementById('font-list-panel');
+            listPanel.innerHTML = '';
+            var fonts = fontData[catKey] || [];
+            fonts.forEach(function(f) {
+                var item = document.createElement('div');
+                item.className = 'font-list-item';
+                if (f.value === drawFontFamily) item.classList.add('selected');
+                item.textContent = f.label;
+                item.style.fontFamily = f.preview;
+                item.onclick = function(e) {
+                    e.stopPropagation();
+                    selectFont(f.value, f.label);
+                };
+                listPanel.appendChild(item);
+            });
+            listPanel.style.display = 'block';
+        }
+        function selectFont(value, label) {
+            onDrawFontFamilyChange(value);
+            document.getElementById('draw-font-select').value = value;
+            document.getElementById('font-current-btn').textContent = label;
+            closeFontPicker();
+        }
+        // Set the button label from current font on load
+        function updateFontButtonLabel() {
+            var btn = document.getElementById('font-current-btn');
+            if (!btn) return;
+            var allFonts = [].concat(fontData.sans, fontData.serif, fontData.display, fontData.hand, fontData.mono);
+            var found = false;
+            var ffPrimary = drawFontFamily.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+            for (var i = 0; i < allFonts.length; i++) {
+                if (allFonts[i].value === drawFontFamily) {
+                    btn.textContent = allFonts[i].label;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (var i = 0; i < allFonts.length; i++) {
+                    var optPrimary = allFonts[i].value.replace(/['"]/g, '').split(',')[0].trim().toLowerCase();
+                    if (optPrimary === ffPrimary || allFonts[i].value.toLowerCase().indexOf(ffPrimary) >= 0) {
+                        btn.textContent = allFonts[i].label;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) btn.textContent = 'Aa';
+        }
+        // Wire up category hover/click
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.font-cat').forEach(function(cat) {
+                cat.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    showFontList(cat.dataset.cat);
+                });
+            });
+            // Close font picker when clicking outside
+            document.addEventListener('click', function(e) {
+                if (fontPickerOpen && !e.target.closest('.font-picker')) {
+                    closeFontPicker();
+                }
+            });
+        });
 
         // --- Delete selected element ---
         function drawDeleteSelected() {

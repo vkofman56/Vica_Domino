@@ -1394,6 +1394,42 @@
             _applyCardShapeToLoupe();
         }
 
+        function _buildGrid(container, vbX, vbY, vbW, vbH) {
+            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            gridSvg.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
+            gridSvg.setAttribute('preserveAspectRatio', 'none');
+            gridSvg.classList.add('loupe-grid');
+            // Vertical lines covering the full width
+            var startX = Math.floor(vbX);
+            var endX = Math.ceil(vbX + vbW);
+            for (var i = startX; i <= endX; i++) {
+                if (i === 0) continue; // skip edge
+                var cls = (i % 10 === 0) ? 'loupe-grid-major' : (i % 5 === 0) ? 'loupe-grid-mid' : '';
+                var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', i);
+                vLine.setAttribute('y1', vbY);
+                vLine.setAttribute('x2', i);
+                vLine.setAttribute('y2', vbY + vbH);
+                if (cls) vLine.classList.add(cls);
+                gridSvg.appendChild(vLine);
+            }
+            // Horizontal lines covering the full height
+            var startY = Math.floor(vbY);
+            var endY = Math.ceil(vbY + vbH);
+            for (var j = startY; j <= endY; j++) {
+                if (j === 0) continue;
+                var cls2 = (j % 10 === 0) ? 'loupe-grid-major' : (j % 5 === 0) ? 'loupe-grid-mid' : '';
+                var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hLine.setAttribute('x1', vbX);
+                hLine.setAttribute('y1', j);
+                hLine.setAttribute('x2', vbX + vbW);
+                hLine.setAttribute('y2', j);
+                if (cls2) hLine.classList.add(cls2);
+                gridSvg.appendChild(hLine);
+            }
+            container.appendChild(gridSvg);
+        }
+
         function _applyCardShapeToLoupe() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
@@ -1446,14 +1482,12 @@
                 container.style.height = cH + 'px';
                 container.style.borderRadius = '12px';
 
-                // Extend grid to match
+                // Rebuild grid to cover the wider area
                 var gridSvg = container.querySelector('.loupe-grid');
-                if (gridSvg) {
-                    // Grid uses units where 100 = 60 SVG units, so scale proportionally
-                    var gridW = (w / 60) * 100;
-                    var gridOffsetX = (offsetX / 60) * 100;
-                    gridSvg.setAttribute('viewBox', (-gridOffsetX) + ' 0 ' + gridW + ' 100');
-                }
+                if (gridSvg) gridSvg.remove();
+                var gridW = (w / 60) * 100;
+                var gridOffsetX = (offsetX / 60) * 100;
+                _buildGrid(container, -gridOffsetX, 0, gridW, 100);
                 return;
             }
 

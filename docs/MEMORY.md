@@ -67,6 +67,7 @@
 | `cardMakerVariations` | Card variation definitions |
 | `abcCardSnapshot` | ABC card set snapshot for Library preview |
 | `savedCombinedGames` | Combined game stage configurations |
+| `savedCatchGames` | "Catch the double" cloned game definitions |
 | `_singlePlayerWins` | Tutorial progression counter |
 | `__sync_userId` | Firebase sync user ID |
 | `__sync_userRole` | Firebase sync role (superuser/player) |
@@ -163,8 +164,9 @@
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
 - **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
 
-## Current State (March 28)
+## Current State (March 31)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development)
+- **Backup tag**: `backup-before-catch-game-20260331` (created before Catch the Double gameplay implementation)
 - **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
 - **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
 - **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
@@ -205,3 +207,42 @@
 - **Dominos auto-refresh**: Show Dominos rebuilds from fresh data; auto-refreshes after card add/delete
 - **Large SVG guard**: Cards >500KB skipped with warning; QuotaExceededError handled with revert
 - **Crop feature removed**: Was non-functional; all crop-related code deleted (~98 lines)
+
+## March 31 Session Notes — UI Improvements & Catch the Double Infrastructure
+
+### Card Maker UI Improvements
+- **Google Fonts integration**: Replaced system fonts with Google Fonts for cross-device consistency; added `<link>` tag in `<head>`
+- **Two-level font picker**: Categories panel (Sans-serif, Serif, Display, Handwriting, Monospace) → font list panel with live preview; replaces old `<select>` dropdown
+- **Recent fonts**: Up to 2 recently used fonts shown above category list (excludes current font)
+- **Font migration**: `migrateFontFallbacks()` IIFE updates existing localStorage card data to use Google Fonts equivalents
+- **Custom color palette**: `loadCustomColors()`/`saveCustomColors()` with color picker panel using native `<input type="color">`; colors persist in localStorage
+
+### Card Fixes
+- **Empty cards selectable**: Removed 9 empty-SVG filters across selection, saving, loading, display, and gameplay code so empty cards (representing zero) can be used in Game Maker
+- **Card copy in Game View**: `copyCardInRow` now updates `savedCustomGames` and regenerates domino pairs when in Game View context
+- **Row assignment at game creation**: `completeGame` assigns `_gameRow` to each card based on its position
+
+### Library Games Section
+- **Subtitles**: "Find the Doubles" and "Catch the double" subtitles under Games heading
+- **Indentation**: Games title 15px right, game rows 10px right
+- **Game type prefixes**: All game names display with type prefix — "Find the doubles: Name" / "Catch the double: Name" — in Library, Game View, Card Maker, Start Screen, Intro Screen
+
+### Catch the Double — Clone Infrastructure (gameplay not yet implemented)
+- **New localStorage key**: `savedCatchGames` — stores cloned game definitions independently from source
+- **Clone button (⤵)**: On each "Find the Doubles" game row; creates a copy under "Catch the double" section
+- **Data model**: Each clone stores `name`, `sourceName` (for update tracking), independent `cards` copy, `published` flag
+- **Update from source (⟳)**: Pulls latest cards from original "Find the Doubles" game, overwrites clone's cards
+- **Publish/Unpublish**: Same Pub/Unpub toggle as original games; unpublished clones hidden from player-facing screens
+- **Delete (✕)**: Removes clone with confirmation
+- **Duplicate prevention**: Cannot clone same source game twice
+- **openCatchGameView()**: Displays catch game cards in Game View (read-only for now)
+
+### Catch the Double — Gameplay Design (next to implement)
+- Static enlarged card on left side; falling cards on right side
+- Start with 2 falling cards, gradually increase to max 4
+- Cards fall with slight horizontal drift + ±10° tilt animation
+- Speed increases as player progresses through rounds
+- Scoring: points per correct catch; wrong tap → sound + "wrong" flash; after 10 points, deduct for wrong taps
+- 3 misses (double falls off screen) = game over
+- Same card/domino data as "Find the Doubles" game
+- Key commits: `5e1654f`, `5c81f4a`, `c43aece`

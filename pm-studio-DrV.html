@@ -1250,31 +1250,8 @@
                 } catch(ex) {}
             }
 
-            // Add grid overlay (99 lines each direction = 10000 squares)
-            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            gridSvg.setAttribute('viewBox', '0 0 100 100');
-            gridSvg.setAttribute('preserveAspectRatio', 'none');
-            gridSvg.classList.add('loupe-grid');
-            for (var i = 1; i < 100; i++) {
-                var cls = (i % 10 === 0) ? 'loupe-grid-major' : (i % 5 === 0) ? 'loupe-grid-mid' : '';
-                // Vertical line
-                var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                vLine.setAttribute('x1', i);
-                vLine.setAttribute('y1', 0);
-                vLine.setAttribute('x2', i);
-                vLine.setAttribute('y2', 100);
-                if (cls) vLine.classList.add(cls);
-                gridSvg.appendChild(vLine);
-                // Horizontal line
-                var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                hLine.setAttribute('x1', 0);
-                hLine.setAttribute('y1', i);
-                hLine.setAttribute('x2', 100);
-                hLine.setAttribute('y2', i);
-                if (cls) hLine.classList.add(cls);
-                gridSvg.appendChild(hLine);
-            }
-            container.appendChild(gridSvg);
+            // Add grid overlay
+            _buildGrid(container, 0, 0, 60, 60);
 
             overlay.style.display = 'flex';
 
@@ -1394,36 +1371,40 @@
             _applyCardShapeToLoupe();
         }
 
-        function _buildGrid(container, vbX, vbY, vbW, vbH) {
+        function _buildGrid(container, svgVbX, svgVbY, svgVbW, svgVbH) {
+            var oldGrid = container.querySelector('.loupe-grid');
+            if (oldGrid) oldGrid.remove();
             var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            gridSvg.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
-            gridSvg.setAttribute('preserveAspectRatio', 'none');
+            gridSvg.setAttribute('viewBox', svgVbX + ' ' + svgVbY + ' ' + svgVbW + ' ' + svgVbH);
             gridSvg.classList.add('loupe-grid');
-            // Vertical lines covering the full width
-            var startX = Math.floor(vbX);
-            var endX = Math.ceil(vbX + vbW);
-            for (var i = startX; i <= endX; i++) {
-                if (i === 0) continue; // skip edge
-                var cls = (i % 10 === 0) ? 'loupe-grid-major' : (i % 5 === 0) ? 'loupe-grid-mid' : '';
+            var GU = 0.6;
+            // Vertical lines
+            var startIx = Math.ceil(svgVbX / GU);
+            var endIx = Math.floor((svgVbX + svgVbW) / GU);
+            for (var ix = startIx; ix <= endIx; ix++) {
+                if (ix === 0) continue;
+                var x = ix * GU;
+                var cls = (ix % 10 === 0) ? 'loupe-grid-major' : (ix % 5 === 0) ? 'loupe-grid-mid' : '';
                 var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                vLine.setAttribute('x1', i);
-                vLine.setAttribute('y1', vbY);
-                vLine.setAttribute('x2', i);
-                vLine.setAttribute('y2', vbY + vbH);
+                vLine.setAttribute('x1', x);
+                vLine.setAttribute('y1', svgVbY);
+                vLine.setAttribute('x2', x);
+                vLine.setAttribute('y2', svgVbY + svgVbH);
                 if (cls) vLine.classList.add(cls);
                 gridSvg.appendChild(vLine);
             }
-            // Horizontal lines covering the full height
-            var startY = Math.floor(vbY);
-            var endY = Math.ceil(vbY + vbH);
-            for (var j = startY; j <= endY; j++) {
-                if (j === 0) continue;
-                var cls2 = (j % 10 === 0) ? 'loupe-grid-major' : (j % 5 === 0) ? 'loupe-grid-mid' : '';
+            // Horizontal lines
+            var startIy = Math.ceil(svgVbY / GU);
+            var endIy = Math.floor((svgVbY + svgVbH) / GU);
+            for (var iy = startIy; iy <= endIy; iy++) {
+                if (iy === 0) continue;
+                var y = iy * GU;
+                var cls2 = (iy % 10 === 0) ? 'loupe-grid-major' : (iy % 5 === 0) ? 'loupe-grid-mid' : '';
                 var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                hLine.setAttribute('x1', vbX);
-                hLine.setAttribute('y1', j);
-                hLine.setAttribute('x2', vbX + vbW);
-                hLine.setAttribute('y2', j);
+                hLine.setAttribute('x1', svgVbX);
+                hLine.setAttribute('y1', y);
+                hLine.setAttribute('x2', svgVbX + svgVbW);
+                hLine.setAttribute('y2', y);
                 if (cls2) hLine.classList.add(cls2);
                 gridSvg.appendChild(hLine);
             }
@@ -1448,8 +1429,7 @@
             // For square cards, restore original behavior — no changes
             if (currentCardShape === 'square') {
                 cardSvg.setAttribute('viewBox', '0 0 60 60');
-                var gridSvg = container.querySelector('.loupe-grid');
-                if (gridSvg) gridSvg.setAttribute('viewBox', '0 0 100 100');
+                _buildGrid(container, 0, 0, 60, 60);
                 var size = Math.min(availW, screenH) * 0.85;
                 container.style.width = size + 'px';
                 container.style.height = size + 'px';
@@ -1482,12 +1462,8 @@
                 container.style.height = cH + 'px';
                 container.style.borderRadius = '12px';
 
-                // Rebuild grid to cover the wider area
-                var gridSvg = container.querySelector('.loupe-grid');
-                if (gridSvg) gridSvg.remove();
-                var gridW = (w / 60) * 100;
-                var gridOffsetX = (offsetX / 60) * 100;
-                _buildGrid(container, -gridOffsetX, 0, gridW, 100);
+                // Rebuild grid to cover the wider area (same viewBox as card SVG)
+                _buildGrid(container, -offsetX, 0, w, 60);
                 return;
             }
 
@@ -1515,11 +1491,8 @@
             // Shape boundary overlay for circle/oval
             _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound);
 
-            // Update grid overlay
-            var gridSvg = container.querySelector('.loupe-grid');
-            if (gridSvg) {
-                gridSvg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + viewW + ' ' + viewH);
-            }
+            // Rebuild grid to cover the full view area
+            _buildGrid(container, -offsetX, -offsetY, viewW, viewH);
         }
 
         function _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound) {
@@ -2031,24 +2004,7 @@
             svgClone.removeAttribute('height');
             container.appendChild(svgClone);
             // Grid
-            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            gridSvg.setAttribute('viewBox', '0 0 100 100');
-            gridSvg.setAttribute('preserveAspectRatio', 'none');
-            gridSvg.classList.add('loupe-grid');
-            for (var i = 1; i < 100; i++) {
-                var cls = (i % 10 === 0) ? 'loupe-grid-major' : (i % 5 === 0) ? 'loupe-grid-mid' : '';
-                var vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                vLine.setAttribute('x1', i); vLine.setAttribute('y1', 0);
-                vLine.setAttribute('x2', i); vLine.setAttribute('y2', 100);
-                if (cls) vLine.classList.add(cls);
-                gridSvg.appendChild(vLine);
-                var hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                hLine.setAttribute('x1', 0); hLine.setAttribute('y1', i);
-                hLine.setAttribute('x2', 100); hLine.setAttribute('y2', i);
-                if (cls) hLine.classList.add(cls);
-                gridSvg.appendChild(hLine);
-            }
-            container.appendChild(gridSvg);
+            _buildGrid(container, 0, 0, 60, 60);
             overlay.style.display = 'flex';
         }
 

@@ -491,13 +491,13 @@
                         <button class="draw-shape-btn active" data-shape="square" onclick="setCardShape('square')" title="Square">
                             <svg viewBox="0 0 20 20" width="16" height="16"><rect x="2" y="2" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                         </button>
-                        <button class="draw-shape-btn" data-shape="rect" onclick="setCardShape('rect')" title="Rectangle">
-                            <svg viewBox="0 0 20 20" width="16" height="16"><rect x="1" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-                        </button>
                         <button class="draw-shape-btn" data-shape="circle" onclick="setCardShape('circle')" title="Circle">
                             <svg viewBox="0 0 20 20" width="16" height="16"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                         </button>
-                        <button class="draw-shape-btn" data-shape="oval" onclick="setCardShape('oval')" title="Oval">
+                        <button class="draw-shape-btn" data-shape="rect" onclick="setCardShape('rect')" title="Rectangle">
+                            <svg viewBox="0 0 20 20" width="16" height="16"><rect x="1" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                        </button>
+                        <button class="draw-shape-btn" id="corner-radius-btn" onclick="toggleCornerRadius()" title="Corner radius">
                             <svg viewBox="0 0 20 20" width="16" height="16"><ellipse cx="10" cy="10" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                         </button>
                     </div>
@@ -505,6 +505,11 @@
                         <label style="font-size:10px;color:#aaa;">W</label>
                         <input type="range" id="draw-shape-width-slider" min="6" max="130" value="60" step="1" oninput="onCardShapeWidthChange(+this.value)">
                         <span id="draw-shape-width-val" class="draw-val" onclick="onShapeWidthValClick()" title="Click to type exact value">60</span>
+                    </div>
+                    <div class="draw-shape-slider-row" id="draw-corner-slider-row" style="display:none;">
+                        <label style="font-size:10px;color:#aaa;">R</label>
+                        <input type="range" id="draw-corner-slider" min="0" max="50" value="0" step="1" oninput="onCornerRadiusChange(+this.value)">
+                        <span id="draw-corner-val" class="draw-val" onclick="onCornerValClick()" title="Click to type exact value">0</span>
                     </div>
                 </div>
                 <div class="draw-size-row">
@@ -1193,6 +1198,7 @@
         var loupeOrigShape = null; // original card shape when loupe opened
         var loupeOrigShapeW = 60;
         var loupeOrigShapeH = 60;
+        var loupeOrigCornerR = 0;
 
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
@@ -1276,6 +1282,7 @@
             loupeOrigShape = currentCardShape;
             loupeOrigShapeW = currentCardWidth;
             loupeOrigShapeH = currentCardHeight;
+            loupeOrigCornerR = currentCardCornerRadius;
             _applyCardShapeToLoupe();
         }
 
@@ -1336,14 +1343,15 @@
         var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
         // Card shape state
-        var currentCardShape = 'square'; // 'square', 'rect', 'circle', 'oval'
-        var currentCardWidth = 60;  // SVG units; height is always 60 for rect, 72 for circle/oval
+        var currentCardShape = 'square'; // 'square', 'rect', 'circle'
+        var currentCardWidth = 60;  // SVG units; height is always 60
         var currentCardHeight = 60;
+        var currentCardCornerRadius = 0; // 0-50 (percentage for border-radius)
 
         function setCardShape(shape) {
             currentCardShape = shape;
-            // Update button active state
-            document.querySelectorAll('.draw-shape-btn').forEach(function(b) {
+            // Update shape button active state
+            document.querySelectorAll('.draw-shape-btn[data-shape]').forEach(function(b) {
                 b.classList.toggle('active', b.dataset.shape === shape);
             });
             var sliderRow = document.getElementById('draw-shape-slider-row');
@@ -1352,23 +1360,80 @@
                 currentCardWidth = 60;
                 currentCardHeight = 60;
                 if (sliderRow) sliderRow.style.display = 'none';
-            } else if (shape === 'rect') {
-                currentCardHeight = 60;
-                if (sliderRow) sliderRow.style.display = 'flex';
-                if (slider) { slider.value = currentCardWidth; }
             } else if (shape === 'circle') {
                 currentCardWidth = 60;
                 currentCardHeight = 60;
                 if (sliderRow) sliderRow.style.display = 'none';
-            } else if (shape === 'oval') {
-                currentCardHeight = 72;
-                if (currentCardWidth === 60 || currentCardWidth === 72) currentCardWidth = 90;
+            } else if (shape === 'rect') {
+                currentCardHeight = 60;
                 if (sliderRow) sliderRow.style.display = 'flex';
                 if (slider) { slider.value = currentCardWidth; }
             }
             var valSpan = document.getElementById('draw-shape-width-val');
             if (valSpan) valSpan.textContent = currentCardWidth;
             _applyCardShapeToLoupe();
+        }
+
+        function toggleCornerRadius() {
+            var btn = document.getElementById('corner-radius-btn');
+            var sliderRow = document.getElementById('draw-corner-slider-row');
+            var isActive = btn && btn.classList.contains('active');
+            if (isActive) {
+                // Turn off: reset to 0
+                if (btn) btn.classList.remove('active');
+                if (sliderRow) sliderRow.style.display = 'none';
+                currentCardCornerRadius = 0;
+            } else {
+                // Turn on: show slider
+                if (btn) btn.classList.add('active');
+                if (sliderRow) sliderRow.style.display = 'flex';
+                if (currentCardCornerRadius === 0) currentCardCornerRadius = 15;
+                var slider = document.getElementById('draw-corner-slider');
+                if (slider) slider.value = currentCardCornerRadius;
+                var valSpan = document.getElementById('draw-corner-val');
+                if (valSpan) valSpan.textContent = currentCardCornerRadius;
+            }
+            _applyCardShapeToLoupe();
+        }
+
+        function onCornerRadiusChange(val) {
+            currentCardCornerRadius = val;
+            var valSpan = document.getElementById('draw-corner-val');
+            if (valSpan) valSpan.textContent = val;
+            _applyCardShapeToLoupe();
+        }
+
+        function onCornerValClick() {
+            var valSpan = document.getElementById('draw-corner-val');
+            if (!valSpan) return;
+            var inp = document.createElement('input');
+            inp.type = 'text';
+            inp.inputMode = 'numeric';
+            inp.value = currentCardCornerRadius;
+            inp.placeholder = '0–50';
+            inp.title = 'Range: 0–50';
+            inp.style.cssText = 'width:42px;font-size:11px;text-align:center;background:#222;color:#fff;border:1px solid #FFD700;border-radius:3px;padding:1px;';
+            valSpan.style.display = 'none';
+            valSpan.parentNode.insertBefore(inp, valSpan.nextSibling);
+            inp.focus();
+            inp.select();
+            function commit() {
+                var v = Math.round(+inp.value);
+                if (isNaN(v)) v = 0;
+                v = Math.max(0, Math.min(50, v));
+                inp.remove();
+                valSpan.style.display = '';
+                valSpan.textContent = v;
+                var slider = document.getElementById('draw-corner-slider');
+                if (slider) slider.value = v;
+                currentCardCornerRadius = v;
+                _applyCardShapeToLoupe();
+            }
+            inp.addEventListener('blur', commit);
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+                if (e.key === 'Escape') { inp.value = currentCardCornerRadius; inp.blur(); }
+            });
         }
 
         function onCardShapeWidthChange(val) {
@@ -1474,32 +1539,30 @@
             var screenH = window.innerHeight;
             var availW = screenW - toolbarWidth;
 
-            // For square cards, restore original behavior — no changes
-            if (currentCardShape === 'square') {
+            // Compute border-radius from shape and corner radius
+            var borderR = currentCardCornerRadius > 0 ? currentCardCornerRadius + '%' : '12px';
+            if (currentCardShape === 'circle') borderR = '50%';
+
+            var w = currentCardWidth;
+
+            if (currentCardShape === 'square' || currentCardShape === 'circle') {
                 cardSvg.setAttribute('viewBox', '0 0 60 60');
                 cardSvg.removeAttribute('preserveAspectRatio');
                 _buildGrid(container, 0, 0, 60, 60);
                 var size = Math.min(availW, screenH) * 0.85;
                 container.style.width = size + 'px';
                 container.style.height = size + 'px';
-                container.style.borderRadius = '12px';
+                container.style.borderRadius = borderR;
                 return;
             }
 
-            var w = currentCardWidth;
-            var h = currentCardHeight;
-            var isRound = (currentCardShape === 'circle' || currentCardShape === 'oval');
-
             if (currentCardShape === 'rect') {
-                // Rectangle: same height as square, just widen the viewBox
-                // Extra width is split equally left and right
                 var extraW = w - 60;
                 var offsetX = extraW / 2;
                 cardSvg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
                 cardSvg.setAttribute('preserveAspectRatio', 'none');
 
-                // Account for border (box-sizing: border-box)
-                var border = 6; // 3px border on each side
+                var border = 6;
                 var squareSize = Math.min(availW, screenH) * 0.85;
                 var cH = squareSize;
                 var innerH = cH - border;
@@ -1513,52 +1576,11 @@
                 }
                 container.style.width = cW + 'px';
                 container.style.height = cH + 'px';
-                container.style.borderRadius = '12px';
+                container.style.borderRadius = borderR;
 
-                // Rebuild grid to cover the wider area (same viewBox as card SVG)
                 _buildGrid(container, -offsetX, 0, w, 60);
                 return;
             }
-
-            if (currentCardShape === 'circle') {
-                // Circle: same grid and picture size as square, just round container
-                // Diameter = 60 * 1.2 = 72, centered on the 60x60 card
-                cardSvg.setAttribute('viewBox', '0 0 60 60');
-                cardSvg.removeAttribute('preserveAspectRatio');
-                var size = Math.min(availW, screenH) * 0.85;
-                container.style.width = size + 'px';
-                container.style.height = size + 'px';
-                container.style.borderRadius = '50%';
-                _buildGrid(container, 0, 0, 60, 60);
-                return;
-            }
-
-            // Oval: show boundary overlay with dimming
-            var viewW = Math.max(w + 20, 80);
-            var viewH = Math.max(h + 20, 80);
-            var offsetX = (viewW - w) / 2;
-            var offsetY = (viewH - h) / 2;
-            cardSvg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + viewW + ' ' + viewH);
-
-            // Keep height constant, extend width
-            var maxH = screenH * 0.85;
-            var cH = maxH;
-            var pixelsPerUnit = cH / viewH;
-            var cW = viewW * pixelsPerUnit;
-            if (cW > availW - 100) {
-                cW = availW - 100;
-                pixelsPerUnit = cW / viewW;
-                cH = viewH * pixelsPerUnit;
-            }
-            container.style.width = cW + 'px';
-            container.style.height = cH + 'px';
-            container.style.borderRadius = '50%';
-
-            // Shape boundary overlay for circle/oval
-            _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound);
-
-            // Rebuild grid to cover the full view area
-            _buildGrid(container, -offsetX, -offsetY, viewW, viewH);
         }
 
         function _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound) {
@@ -1647,21 +1669,39 @@
         function _loadCardShapeFromCard(cardEl) {
             // Read shape data from card element
             var shape = cardEl.dataset.cardShape || 'square';
+            if (shape === 'oval') shape = 'square'; // migrate old oval cards
             var w = parseFloat(cardEl.dataset.cardShapeW) || 60;
             var h = parseFloat(cardEl.dataset.cardShapeH) || 60;
+            var cornerR = parseFloat(cardEl.dataset.cardCornerR) || 0;
             currentCardShape = shape;
             currentCardWidth = w;
             currentCardHeight = h;
-            // Update UI buttons
-            document.querySelectorAll('.draw-shape-btn').forEach(function(b) {
+            currentCardCornerRadius = cornerR;
+            // Update shape buttons
+            document.querySelectorAll('.draw-shape-btn[data-shape]').forEach(function(b) {
                 b.classList.toggle('active', b.dataset.shape === shape);
             });
+            // W slider
             var sliderRow = document.getElementById('draw-shape-slider-row');
-            if (sliderRow) sliderRow.style.display = (shape === 'rect' || shape === 'oval') ? 'flex' : 'none';
+            if (sliderRow) sliderRow.style.display = (shape === 'rect') ? 'flex' : 'none';
             var slider = document.getElementById('draw-shape-width-slider');
             if (slider) slider.value = w;
             var valSpan = document.getElementById('draw-shape-width-val');
             if (valSpan) valSpan.textContent = w;
+            // Corner radius
+            var cornerBtn = document.getElementById('corner-radius-btn');
+            var cornerSliderRow = document.getElementById('draw-corner-slider-row');
+            if (cornerR > 0) {
+                if (cornerBtn) cornerBtn.classList.add('active');
+                if (cornerSliderRow) cornerSliderRow.style.display = 'flex';
+                var cSlider = document.getElementById('draw-corner-slider');
+                if (cSlider) cSlider.value = cornerR;
+                var cVal = document.getElementById('draw-corner-val');
+                if (cVal) cVal.textContent = cornerR;
+            } else {
+                if (cornerBtn) cornerBtn.classList.remove('active');
+                if (cornerSliderRow) cornerSliderRow.style.display = 'none';
+            }
         }
 
         function _saveCardShapeToCard(cardEl) {
@@ -1669,6 +1709,7 @@
             cardEl.dataset.cardShape = currentCardShape;
             cardEl.dataset.cardShapeW = currentCardWidth;
             cardEl.dataset.cardShapeH = currentCardHeight;
+            cardEl.dataset.cardCornerR = currentCardCornerRadius;
         }
 
         function _applyShapeToPreview(cardEl) {
@@ -1676,25 +1717,30 @@
             var shape = cardEl.dataset.cardShape || 'square';
             var w = parseFloat(cardEl.dataset.cardShapeW) || 60;
             var h = parseFloat(cardEl.dataset.cardShapeH) || 60;
+            var cornerR = parseFloat(cardEl.dataset.cardCornerR) || 0;
             var preview = cardEl.querySelector('.domino-half-preview');
             if (!preview) return;
-            var isRound = (shape === 'circle' || shape === 'oval');
             // Scale to preview size: base is 70px for 60 units
             var scale = 70 / 60;
             var previewW = Math.round(w * scale);
             var previewH = Math.round(h * scale);
             preview.style.width = previewW + 'px';
             preview.style.height = previewH + 'px';
-            preview.style.borderRadius = isRound ? '50%' : '8px';
+            // Border radius
+            if (shape === 'circle') {
+                preview.style.borderRadius = '50%';
+            } else if (cornerR > 0) {
+                preview.style.borderRadius = cornerR + '%';
+            } else {
+                preview.style.borderRadius = '8px';
+            }
             var svg = preview.querySelector('svg');
             if (svg) {
                 svg.style.width = (previewW - 10) + 'px';
                 svg.style.height = (previewH - 10) + 'px';
-                // Set viewBox to match card shape so extended content is visible
-                if (shape === 'rect' || shape === 'oval') {
+                if (shape === 'rect') {
                     var offsetX = (w - 60) / 2;
-                    var offsetY = (h - 60) / 2;
-                    svg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + w + ' ' + h);
+                    svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
                 } else {
                     svg.setAttribute('viewBox', '0 0 60 60');
                 }
@@ -1707,8 +1753,14 @@
             var shape = shapeData.type || 'square';
             var w = shapeData.width || 60;
             var h = shapeData.height || 60;
-            var isRound = (shape === 'circle' || shape === 'oval');
-            el.style.borderRadius = isRound ? '50%' : '';
+            var cornerR = shapeData.cornerR || 0;
+            if (shape === 'circle') {
+                el.style.borderRadius = '50%';
+            } else if (cornerR > 0) {
+                el.style.borderRadius = cornerR + '%';
+            } else {
+                el.style.borderRadius = '';
+            }
             if (shape !== 'square') {
                 // Scale relative to element's current height
                 var currentH = el.offsetHeight || 90;
@@ -3320,7 +3372,8 @@
             if (!cardSvg) return;
             var shapeChanged = (currentCardShape !== loupeOrigShape ||
                 currentCardWidth !== loupeOrigShapeW ||
-                currentCardHeight !== loupeOrigShapeH);
+                currentCardHeight !== loupeOrigShapeH ||
+                currentCardCornerRadius !== loupeOrigCornerR);
             if (drawHistory.length === 0 && !hasEditedExisting && !shapeChanged && loupeSourceCard) {
                 // No changes, just close
                 closeLoupe();
@@ -3894,6 +3947,7 @@
                         info.cardShape = card.dataset.cardShape;
                         info.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
                         info.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                        info.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                     }
                     gameMakerSelected.push(info);
                 }
@@ -5088,6 +5142,7 @@
                         cardData.cardShape = card.dataset.cardShape;
                         cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
                         cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                        cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                     }
                     data.push(cardData);
                 }
@@ -5112,6 +5167,7 @@
                             cardData.cardShape = card.dataset.cardShape;
                             cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
                             cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                            cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                         }
                         data.push(cardData);
                     }
@@ -5136,6 +5192,7 @@
                                 abcCardData.cardShape = card.dataset.cardShape;
                                 abcCardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
                                 abcCardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                                abcCardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                             }
                             abcCustom.push(abcCardData);
                         }
@@ -5166,6 +5223,7 @@
                                     custCardData.cardShape = card.dataset.cardShape;
                                     custCardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
                                     custCardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                                    custCardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                                 }
                                 customData.push(custCardData);
                             }
@@ -5225,6 +5283,7 @@
                         card.dataset.cardShape = item.cardShape;
                         card.dataset.cardShapeW = item.cardShapeW || 60;
                         card.dataset.cardShapeH = item.cardShapeH || 60;
+                        card.dataset.cardCornerR = item.cardCornerR || 0;
                     }
                     var labelDiv = document.createElement('div');
                     labelDiv.className = 'library-label';
@@ -6708,6 +6767,7 @@
                 card.dataset.cardShape = cardInfo.cardShape;
                 card.dataset.cardShapeW = cardInfo.cardShapeW || 60;
                 card.dataset.cardShapeH = cardInfo.cardShapeH || 60;
+                card.dataset.cardCornerR = cardInfo.cardCornerR || 0;
             }
             var labelDiv = document.createElement('div');
             labelDiv.className = 'library-label';
@@ -7381,8 +7441,10 @@
                         var offsetX = (sw - 60) / 2;
                         var offsetY = (sh - 60) / 2;
                         svg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + sw + ' ' + sh);
-                        if (item.cardShape === 'circle' || item.cardShape === 'oval') {
+                        if (item.cardShape === 'circle') {
                             thumb.style.borderRadius = '50%';
+                        } else if (item.cardCornerR > 0) {
+                            thumb.style.borderRadius = item.cardCornerR + '%';
                         }
                     }
                     previewRow.appendChild(thumb);
@@ -7446,7 +7508,7 @@
             abcCards.forEach(function(item) {
                 var ch = item.label.charAt(0).toUpperCase();
                 if (!rowCards[ch]) rowCards[ch] = [];
-                allCards[item.label] = { svg: item.svgContent, cardShape: item.cardShape, cardShapeW: item.cardShapeW, cardShapeH: item.cardShapeH };
+                allCards[item.label] = { svg: item.svgContent, cardShape: item.cardShape, cardShapeW: item.cardShapeW, cardShapeH: item.cardShapeH, cardCornerR: item.cardCornerR };
                 rowCards[ch].push(item.label);
             });
             // Apply arrangement
@@ -7495,7 +7557,8 @@
                         var offsetX = (sw - 60) / 2;
                         var offsetY = (sh - 60) / 2;
                         svg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + sw + ' ' + sh);
-                        if (card.cardShape === 'circle' || card.cardShape === 'oval') thumb.style.borderRadius = '50%';
+                        if (card.cardShape === 'circle') { thumb.style.borderRadius = '50%'; }
+                        else if (card.cardCornerR > 0) { thumb.style.borderRadius = card.cardCornerR + '%'; }
                     }
                     previewRow.appendChild(thumb);
                 });
@@ -7572,7 +7635,8 @@
                                     var offsetX = (sw - 60) / 2;
                                     var offsetY = (sh - 60) / 2;
                                     svg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + sw + ' ' + sh);
-                                    if (item.cardShape === 'circle' || item.cardShape === 'oval') thumb.style.borderRadius = '50%';
+                                    if (item.cardShape === 'circle') { thumb.style.borderRadius = '50%'; }
+                                    else if (item.cardCornerR > 0) { thumb.style.borderRadius = item.cardCornerR + '%'; }
                                 }
                                 previewRow.appendChild(thumb);
                             });
@@ -7903,6 +7967,7 @@
                                 card.dataset.cardShape = item.cardShape;
                                 card.dataset.cardShapeW = item.cardShapeW || 60;
                                 card.dataset.cardShapeH = item.cardShapeH || 60;
+                                card.dataset.cardCornerR = item.cardCornerR || 0;
                             }
                             var labelEl = document.createElement('div');
                             labelEl.className = 'library-label';
@@ -8048,6 +8113,7 @@
                         card.dataset.cardShape = item.cardShape;
                         card.dataset.cardShapeW = item.cardShapeW || 60;
                         card.dataset.cardShapeH = item.cardShapeH || 60;
+                        card.dataset.cardCornerR = item.cardCornerR || 0;
                     }
                     var labelDiv = document.createElement('div');
                     labelDiv.className = 'library-label';
@@ -9955,16 +10021,22 @@
         function _catchApplyShape(el, cardInfo) {
             if (!el || !cardInfo) return;
             var shape = cardInfo.cardShape;
-            if (!shape || shape === 'square') return;
+            var cornerR = cardInfo.cardCornerR || 0;
+            if (!shape || shape === 'square') {
+                if (cornerR > 0) el.style.borderRadius = cornerR + '%';
+                return;
+            }
             var w = cardInfo.cardShapeW || 60;
             var h = cardInfo.cardShapeH || 60;
-            var isRound = (shape === 'circle' || shape === 'oval');
-            // Scale from SVG units to pixel size
             var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
             var scaleRatio = baseSize / h;
             var pixelW = Math.round(w * scaleRatio);
             el.style.width = pixelW + 'px';
-            if (isRound) el.style.borderRadius = '50%';
+            if (shape === 'circle') {
+                el.style.borderRadius = '50%';
+            } else if (cornerR > 0) {
+                el.style.borderRadius = cornerR + '%';
+            }
         }
 
         function _catchShuffle(arr) {

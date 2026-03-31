@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:18 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:29 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7937,11 +7937,57 @@
             return 'customDrawnCards_' + setName;
         }
 
-        function _doCopySet(srcSetName, displayName) {
-            var storageKey = _getSetStorageKey(srcSetName);
+        function _loadSetCards(setName) {
+            // Try main card storage first
+            var storageKey = _getSetStorageKey(setName);
             var srcData = localStorage.getItem(storageKey);
             var cards = [];
             try { cards = srcData ? JSON.parse(srcData) : []; } catch(e) {}
+            if (cards.length > 0) return cards;
+
+            // For ABC: try snapshot format {A: [svg1, svg2], B: [svg3]}
+            if (setName === 'abc') {
+                try {
+                    var snapRaw = localStorage.getItem('abcCardSnapshot');
+                    if (snapRaw) {
+                        var snapshot = JSON.parse(snapRaw);
+                        var result = [];
+                        Object.keys(snapshot).sort().forEach(function(letter) {
+                            var svgs = snapshot[letter];
+                            if (!svgs || !svgs.length) return;
+                            svgs.forEach(function(svg, i) {
+                                result.push({ label: letter + (i + 1), svgContent: svg || '', desc: '' });
+                            });
+                        });
+                        if (result.length > 0) return result;
+                    }
+                } catch(e) {}
+            }
+
+            // For numbers: try cardArrangement + DOM fallback
+            if (setName === 'numbers') {
+                try {
+                    var arrRaw = localStorage.getItem('cardArrangement');
+                    if (arrRaw) {
+                        var arr = JSON.parse(arrRaw);
+                        var result2 = [];
+                        Object.keys(arr).sort().forEach(function(letter) {
+                            var labels = arr[letter];
+                            if (!labels || !labels.length) return;
+                            labels.forEach(function(lbl) {
+                                result2.push({ label: lbl, svgContent: '', desc: '' });
+                            });
+                        });
+                        if (result2.length > 0) return result2;
+                    }
+                } catch(e) {}
+            }
+
+            return [];
+        }
+
+        function _doCopySet(srcSetName, displayName) {
+            var cards = _loadSetCards(srcSetName);
             if (cards.length === 0) { alert('Cannot copy an empty card set.'); return; }
 
             var newName = 'Copy of ' + displayName;

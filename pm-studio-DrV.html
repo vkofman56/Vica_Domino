@@ -6704,6 +6704,20 @@
                 var cgRow = document.createElement('div');
                 cgRow.className = 'library-game-row';
 
+                var cgPubBtn = document.createElement('button');
+                cgPubBtn.className = 'publish-toggle-btn' + (cg.published === false ? ' unpublished' : '');
+                cgPubBtn.title = cg.published === false ? 'Click to publish' : 'Click to unpublish';
+                cgPubBtn.textContent = cg.published === false ? 'Pub' : 'Unpub';
+                cgPubBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    var g = loadCatchGames();
+                    g[idx].published = g[idx].published === false ? true : false;
+                    saveCatchGames(g);
+                    populateLibraryGames();
+                    populateStartScreenGames();
+                }; })(ci);
+                cgRow.appendChild(cgPubBtn);
+
                 var cgPlayBtn = document.createElement('button');
                 cgPlayBtn.className = 'play-test-btn';
                 cgPlayBtn.innerHTML = '&#9654;';
@@ -6716,7 +6730,7 @@
                 cgRow.appendChild(cgPlayBtn);
 
                 var cgBtn = document.createElement('button');
-                cgBtn.className = 'library-game-link';
+                cgBtn.className = 'library-game-link' + (cg.published === false ? ' game-unpublished' : '');
                 cgBtn.textContent = 'Catch the double: ' + cg.name;
                 cgBtn.onclick = (function(idx) { return function() {
                     openCatchGameView(idx, 'card-library-screen');
@@ -7814,6 +7828,7 @@
             // Add catch the double games
             var catchGames = loadCatchGames();
             catchGames.forEach(function(cg, ci) {
+                if (cg.published === false) return; // skip unpublished
                 var btn = document.createElement('button');
                 btn.className = 'intro-game-btn';
                 btn.textContent = 'Catch the double: ' + cg.name;

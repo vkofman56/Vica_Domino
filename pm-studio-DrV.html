@@ -1404,16 +1404,16 @@
             var oldBoundary = container.querySelector('.card-shape-boundary');
             if (oldBoundary) oldBoundary.remove();
 
+            var toolbarWidth = 60;
+            var screenW = window.innerWidth;
+            var screenH = window.innerHeight;
+            var availW = screenW - toolbarWidth;
+
             // For square cards, restore original behavior — no changes
             if (currentCardShape === 'square') {
                 cardSvg.setAttribute('viewBox', '0 0 60 60');
                 var gridSvg = container.querySelector('.loupe-grid');
                 if (gridSvg) gridSvg.setAttribute('viewBox', '0 0 100 100');
-                // Restore original sizing
-                var toolbarWidth = 60;
-                var screenW = window.innerWidth;
-                var screenH = window.innerHeight;
-                var availW = screenW - toolbarWidth;
                 var size = Math.min(availW, screenH) * 0.85;
                 container.style.width = size + 'px';
                 container.style.height = size + 'px';
@@ -1425,35 +1425,60 @@
             var h = currentCardHeight;
             var isRound = (currentCardShape === 'circle' || currentCardShape === 'oval');
 
-            // Update SVG viewBox to show extended width (or keep square for circle)
-            // Use wider viewBox so content outside the card boundary is visible
-            var viewW = Math.max(w + 20, 80); // extra space to see outside elements
+            if (currentCardShape === 'rect') {
+                // Rectangle: same height as square, just widen the viewBox
+                // Extra width is split equally left and right
+                var extraW = w - 60;
+                var offsetX = extraW / 2;
+                cardSvg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
+
+                // Keep container height the same as square
+                var squareSize = Math.min(availW, screenH) * 0.85;
+                var cH = squareSize;
+                var pixelsPerUnit = cH / 60;
+                var cW = w * pixelsPerUnit;
+                if (cW > availW - 100) {
+                    cW = availW - 100;
+                    pixelsPerUnit = cW / w;
+                    cH = 60 * pixelsPerUnit;
+                }
+                container.style.width = cW + 'px';
+                container.style.height = cH + 'px';
+                container.style.borderRadius = '12px';
+
+                // Extend grid to match
+                var gridSvg = container.querySelector('.loupe-grid');
+                if (gridSvg) {
+                    // Grid uses units where 100 = 60 SVG units, so scale proportionally
+                    var gridW = (w / 60) * 100;
+                    var gridOffsetX = (offsetX / 60) * 100;
+                    gridSvg.setAttribute('viewBox', (-gridOffsetX) + ' 0 ' + gridW + ' 100');
+                }
+                return;
+            }
+
+            // Circle / Oval: show boundary overlay with dimming
+            var viewW = Math.max(w + 20, 80);
             var viewH = Math.max(h + 20, 80);
             var offsetX = (viewW - w) / 2;
             var offsetY = (viewH - h) / 2;
             cardSvg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + viewW + ' ' + viewH);
 
-            // Update container size — keep height constant, adjust width
-            var toolbarWidth = 60;
-            var screenW = window.innerWidth;
-            var screenH = window.innerHeight;
-            var availW = screenW - toolbarWidth - 100;
+            // Keep height constant, extend width
             var maxH = screenH * 0.85;
-            // Base height from the card height in view
             var cH = maxH;
             var pixelsPerUnit = cH / viewH;
             var cW = viewW * pixelsPerUnit;
-            // If too wide, cap width and scale down
-            if (cW > availW) {
-                cW = availW;
+            if (cW > availW - 100) {
+                cW = availW - 100;
                 pixelsPerUnit = cW / viewW;
                 cH = viewH * pixelsPerUnit;
             }
             container.style.width = cW + 'px';
             container.style.height = cH + 'px';
-            container.style.borderRadius = isRound ? '50%' : '12px';
+            container.style.borderRadius = '50%';
 
-            // Update or create the shape boundary overlay
+            // Shape boundary overlay for circle/oval
             _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound);
 
             // Update grid overlay

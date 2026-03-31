@@ -504,7 +504,7 @@
                     <div class="draw-shape-slider-row" id="draw-shape-slider-row" style="display:none;">
                         <label style="font-size:10px;color:#aaa;">W</label>
                         <input type="range" id="draw-shape-width-slider" min="6" max="130" value="60" step="1" oninput="onCardShapeWidthChange(+this.value)">
-                        <span id="draw-shape-width-val" class="draw-val">60</span>
+                        <span id="draw-shape-width-val" class="draw-val" onclick="onShapeWidthValClick()" title="Click to type exact value">60</span>
                     </div>
                 </div>
                 <div class="draw-size-row">
@@ -1376,6 +1376,42 @@
             var valSpan = document.getElementById('draw-shape-width-val');
             if (valSpan) valSpan.textContent = val;
             _applyCardShapeToLoupe();
+        }
+
+        function onShapeWidthValClick() {
+            var valSpan = document.getElementById('draw-shape-width-val');
+            if (!valSpan) return;
+            var slider = document.getElementById('draw-shape-width-slider');
+            var minVal = slider ? +slider.min : 6;
+            var maxVal = slider ? +slider.max : 130;
+            var inp = document.createElement('input');
+            inp.type = 'number';
+            inp.min = minVal;
+            inp.max = maxVal;
+            inp.value = currentCardWidth;
+            inp.placeholder = minVal + '–' + maxVal;
+            inp.title = 'Range: ' + minVal + '–' + maxVal;
+            inp.style.cssText = 'width:42px;font-size:11px;text-align:center;background:#222;color:#fff;border:1px solid #FFD700;border-radius:3px;padding:1px;';
+            valSpan.style.display = 'none';
+            valSpan.parentNode.insertBefore(inp, valSpan.nextSibling);
+            inp.focus();
+            inp.select();
+            function commit() {
+                var v = Math.round(+inp.value);
+                if (isNaN(v)) v = 60;
+                v = Math.max(minVal, Math.min(maxVal, v));
+                inp.remove();
+                valSpan.style.display = '';
+                valSpan.textContent = v;
+                if (slider) slider.value = v;
+                currentCardWidth = v;
+                _applyCardShapeToLoupe();
+            }
+            inp.addEventListener('blur', commit);
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+                if (e.key === 'Escape') { inp.value = currentCardWidth; inp.blur(); }
+            });
         }
 
         function _buildGrid(container, svgVbX, svgVbY, svgVbW, svgVbH) {

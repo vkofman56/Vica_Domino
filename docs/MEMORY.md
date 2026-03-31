@@ -3,10 +3,11 @@
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
-- **Deployed from**: `main` branch on GitHub (GitHub Pages)
-- **IMPORTANT**: Every push must go to BOTH `master` (working branch) AND `main` (deployment branch)
+- **Deployed from**: `claude/review-project-docs-JOOeh` branch on GitHub (GitHub Pages)
+- **IMPORTANT**: Every push must include `git push origin master:claude/review-project-docs-JOOeh` to deploy
+- **Push command**: `git push origin master && git push origin master:claude/review-project-docs-JOOeh`
 - **Trial timestamp**: Update the trial timestamp in the Library title (`pm-studio-DrV.html` line ~302) with every push so the user can verify they're seeing the latest version. Use San Francisco time (TZ='America/Los_Angeles').
-- **GitHub Pages delay**: Deployment can take 1-2 minutes after pushing to `main`
+- **GitHub Pages delay**: Deployment takes 30-120 seconds after pushing
 
 ## Project Overview
 - **Brand**: "Pinky Math"

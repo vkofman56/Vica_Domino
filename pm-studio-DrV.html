@@ -6724,8 +6724,7 @@
                 cgPlayBtn.title = 'Test play this game';
                 cgPlayBtn.onclick = (function(idx) { return function(e) {
                     e.stopPropagation();
-                    // TODO: openCatchPlayModal(idx);
-                    alert('Catch the double gameplay coming soon!');
+                    openCatchPlayModal(idx);
                 }; })(ci);
                 cgRow.appendChild(cgPlayBtn);
 
@@ -9015,6 +9014,522 @@
         })();
 
         // === Play Test Modal ===
+        // ============================================
+        // Catch the Double — Falling Cards Game
+        // ============================================
+        var _catchGame = null; // current game state
+
+        function openCatchPlayModal(catchIndex) {
+            var catchGames = loadCatchGames();
+            var game = catchGames[catchIndex];
+            if (!game || !game.cards || game.cards.length === 0) {
+                alert('No cards in this game.');
+                return;
+            }
+
+            // Build unique original cards and group by value
+            var origCards = [];
+            var seenLabels = {};
+            game.cards.forEach(function(c) {
+                if (!c.isVariation && !seenLabels[c.label]) {
+                    seenLabels[c.label] = true;
+                    origCards.push(c);
+                }
+            });
+
+            // Group cards by value (_gameValue or first letter of label)
+            var valueGroups = {};
+            origCards.forEach(function(c) {
+                var val = c._gameValue || c.label.charAt(0);
+                if (!valueGroups[val]) valueGroups[val] = [];
+                valueGroups[val].push(c);
+            });
+
+            // Need at least 2 values to make meaningful distractors
+            var valueKeys = Object.keys(valueGroups);
+            if (valueKeys.length < 2) {
+                alert('Need cards with at least 2 different values to play.');
+                return;
+            }
+
+            // Build the overlay
+            var overlay = document.createElement('div');
+            overlay.className = 'catch-game-overlay';
+            overlay.id = 'catch-game-overlay';
+
+            // HUD
+            var hud = document.createElement('div');
+            hud.className = 'catch-hud';
+            hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Round 1</div>' +
+                '<div class="catch-hud-score" id="catch-score">Score: 0</div>' +
+                '<div class="catch-hud-lives" id="catch-lives"></div>' +
+                '<button class="catch-close-btn" id="catch-close-btn">&times;</button>';
+            overlay.appendChild(hud);
+
+            // Game area
+            var gameArea = document.createElement('div');
+            gameArea.className = 'catch-game-area';
+
+            // Left static panel
+            var staticPanel = document.createElement('div');
+            staticPanel.className = 'catch-static-panel';
+            staticPanel.innerHTML = '<div class="catch-static-label">Find this card</div>' +
+                '<div class="catch-static-card" id="catch-static-card"></div>';
+            gameArea.appendChild(staticPanel);
+
+            // Right falling area
+            var fallingArea = document.createElement('div');
+            fallingArea.className = 'catch-falling-area';
+            fallingArea.id = 'catch-falling-area';
+            gameArea.appendChild(fallingArea);
+
+            overlay.appendChild(gameArea);
+            document.body.appendChild(overlay);
+
+            // Init game state
+            _catchGame = {
+                catchIndex: catchIndex,
+                origCards: origCards,
+                valueGroups: valueGroups,
+                valueKeys: valueKeys,
+                score: 0,
+                lives: 3,
+                round: 1,
+                numFalling: 2,
+                baseFallDuration: 6, // seconds
+                fallDuration: 6,
+                active: true,
+                roundActive: false,
+                fallingCards: [],
+                animFrameId: null,
+                lastUsedValues: []
+            };
+
+            _catchUpdateHUD();
+
+            // Close button
+            document.getElementById('catch-close-btn').onclick = function() {
+                _catchCleanup();
+            };
+
+            // Start first round after brief delay
+            setTimeout(function() { _catchStartRound(); }, 600);
+        }
+
+        function _catchUpdateHUD() {
+            if (!_catchGame) return;
+            var scoreEl = document.getElementById('catch-score');
+            var livesEl = document.getElementById('catch-lives');
+            var roundEl = document.getElementById('catch-round');
+            if (scoreEl) scoreEl.textContent = 'Score: ' + _catchGame.score;
+            if (livesEl) {
+                var hearts = '';
+                for (var i = 0; i < _catchGame.lives; i++) hearts += '\u2764 ';
+                for (var j = _catchGame.lives; j < 3; j++) hearts += '\u2661 ';
+                livesEl.textContent = hearts;
+            }
+            if (roundEl) roundEl.textContent = 'Round ' + _catchGame.round;
+        }
+
+        function _catchStartRound() {
+            if (!_catchGame || !_catchGame.active) return;
+            _catchGame.roundActive = true;
+
+            var vGroups = _catchGame.valueGroups;
+            var vKeys = _catchGame.valueKeys;
+
+            // Pick a target value (avoid repeating last 2)
+            var available = vKeys.filter(function(v) {
+                return _catchGame.lastUsedValues.indexOf(v) < 0;
+            });
+            if (available.length === 0) available = vKeys.slice();
+            var targetValue = available[Math.floor(Math.random() * available.length)];
+            _catchGame.lastUsedValues.push(targetValue);
+            if (_catchGame.lastUsedValues.length > 2) _catchGame.lastUsedValues.shift();
+
+            // Pick a random card with this value for the static display
+            var targetCards = vGroups[targetValue];
+            var staticCard = targetCards[Math.floor(Math.random() * targetCards.length)];
+
+            // Show static card
+            var staticEl = document.getElementById('catch-static-card');
+            if (staticEl) {
+                staticEl.innerHTML = '';
+                var svg = _catchBuildCardSVG(staticCard);
+                if (svg) staticEl.appendChild(svg);
+            }
+
+            // Build falling cards: 1 correct + (numFalling-1) distractors
+            var fallingCards = [];
+
+            // Pick a different card with same value as the match (double)
+            var matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
+            var matchCard;
+            if (matchCandidates.length > 0) {
+                matchCard = matchCandidates[Math.floor(Math.random() * matchCandidates.length)];
+            } else {
+                // Only one card with this value — use same card
+                matchCard = staticCard;
+            }
+            fallingCards.push({ card: matchCard, isMatch: true });
+
+            // Pick distractor cards from other values
+            var distractorValues = vKeys.filter(function(v) { return v !== targetValue; });
+            var distractorPool = [];
+            distractorValues.forEach(function(v) {
+                vGroups[v].forEach(function(c) { distractorPool.push(c); });
+            });
+            _catchShuffle(distractorPool);
+
+            var numDistractors = _catchGame.numFalling - 1;
+            for (var i = 0; i < numDistractors && i < distractorPool.length; i++) {
+                fallingCards.push({ card: distractorPool[i], isMatch: false });
+            }
+
+            _catchShuffle(fallingCards);
+
+            // Spawn falling cards with stagger
+            var fallingArea = document.getElementById('catch-falling-area');
+            if (!fallingArea) return;
+            var areaRect = fallingArea.getBoundingClientRect();
+            var areaWidth = areaRect.width;
+            var cardSize = 90;
+
+            _catchGame.fallingCards = [];
+
+            fallingCards.forEach(function(fc, idx) {
+                var el = document.createElement('div');
+                el.className = 'catch-falling-card';
+
+                var svg = _catchBuildCardSVG(fc.card);
+                if (svg) el.appendChild(svg);
+
+                // Random horizontal position (with margin)
+                var margin = 20;
+                var maxX = areaWidth - cardSize - margin * 2;
+                var x = margin + Math.random() * Math.max(maxX, 0);
+
+                // Random tilt ±10 degrees
+                var tilt = (Math.random() * 20 - 10);
+                // Random horizontal drift speed (pixels per second)
+                var drift = (Math.random() * 30 - 15);
+
+                el.style.left = x + 'px';
+                el.style.top = '-100px';
+                el.style.transform = 'rotate(' + tilt + 'deg)';
+
+                var cardData = {
+                    el: el,
+                    isMatch: fc.isMatch,
+                    x: x,
+                    y: -100 - idx * 80, // stagger start positions
+                    tilt: tilt,
+                    tiltDir: (Math.random() > 0.5 ? 1 : -1),
+                    tiltSpeed: 2 + Math.random() * 3, // degrees per second
+                    drift: drift,
+                    clicked: false
+                };
+                _catchGame.fallingCards.push(cardData);
+
+                el.onclick = (function(cd) { return function(e) {
+                    e.stopPropagation();
+                    _catchCardClicked(cd);
+                }; })(cardData);
+
+                fallingArea.appendChild(el);
+            });
+
+            // Start animation loop
+            _catchGame._lastTime = null;
+            _catchGame.animFrameId = requestAnimationFrame(_catchAnimLoop);
+        }
+
+        function _catchAnimLoop(timestamp) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive) return;
+
+            if (!_catchGame._lastTime) _catchGame._lastTime = timestamp;
+            var dt = (timestamp - _catchGame._lastTime) / 1000; // seconds
+            _catchGame._lastTime = timestamp;
+
+            var fallingArea = document.getElementById('catch-falling-area');
+            if (!fallingArea) return;
+            var areaHeight = fallingArea.getBoundingClientRect().height;
+            var areaWidth = fallingArea.getBoundingClientRect().width;
+            var cardSize = 90;
+
+            var speed = areaHeight / _catchGame.fallDuration; // pixels per second
+            var allDone = true;
+            var matchMissed = false;
+
+            _catchGame.fallingCards.forEach(function(cd) {
+                if (cd.clicked) return;
+
+                cd.y += speed * dt;
+                cd.x += cd.drift * dt;
+                cd.tilt += cd.tiltDir * cd.tiltSpeed * dt;
+
+                // Bounce off walls
+                if (cd.x < 5) { cd.x = 5; cd.drift = Math.abs(cd.drift); }
+                if (cd.x > areaWidth - cardSize - 5) { cd.x = areaWidth - cardSize - 5; cd.drift = -Math.abs(cd.drift); }
+
+                // Reverse tilt direction at ±10 degrees
+                if (cd.tilt > 10) { cd.tiltDir = -1; }
+                if (cd.tilt < -10) { cd.tiltDir = 1; }
+
+                cd.el.style.left = cd.x + 'px';
+                cd.el.style.top = cd.y + 'px';
+                cd.el.style.transform = 'rotate(' + cd.tilt.toFixed(1) + 'deg)';
+
+                if (cd.y < areaHeight + cardSize) {
+                    allDone = false;
+                } else {
+                    // Card fell off screen
+                    cd.clicked = true; // mark as done
+                    cd.el.style.display = 'none';
+                    if (cd.isMatch) matchMissed = true;
+                }
+            });
+
+            if (matchMissed) {
+                _catchGame.roundActive = false;
+                _catchGame.lives--;
+                _catchUpdateHUD();
+                _catchShowFlash('Missed!', 'catch-missed-flash');
+                _catchPlayWrongSound();
+
+                if (_catchGame.lives <= 0) {
+                    setTimeout(function() { _catchGameOver(); }, 800);
+                } else {
+                    setTimeout(function() { _catchClearFalling(); _catchStartRound(); }, 1200);
+                }
+                return;
+            }
+
+            if (!allDone) {
+                _catchGame.animFrameId = requestAnimationFrame(_catchAnimLoop);
+            }
+        }
+
+        function _catchCardClicked(cardData) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive || cardData.clicked) return;
+            cardData.clicked = true;
+
+            if (cardData.isMatch) {
+                // Correct!
+                cardData.el.classList.add('catch-correct');
+                _catchGame.roundActive = false;
+                _catchGame.score++;
+                _catchUpdateHUD();
+                _catchPlayCorrectSound();
+
+                // Increase difficulty every 3 rounds
+                if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) {
+                    _catchGame.numFalling++;
+                }
+                // Speed up every 2 rounds
+                if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) {
+                    _catchGame.fallDuration -= 0.3;
+                }
+
+                _catchGame.round++;
+                _catchShowFlash('+1', 'catch-round-flash');
+
+                setTimeout(function() {
+                    _catchClearFalling();
+                    _catchStartRound();
+                }, 800);
+
+            } else {
+                // Wrong!
+                cardData.el.classList.add('catch-wrong');
+                _catchPlayWrongSound();
+                _catchShowFlash('Wrong!', 'catch-wrong-flash');
+
+                // Penalty after 10 points
+                if (_catchGame.score >= 10) {
+                    _catchGame.score = Math.max(0, _catchGame.score - 1);
+                    _catchUpdateHUD();
+                }
+
+                // Allow re-clicking other cards (unmark this one after shake)
+                setTimeout(function() {
+                    cardData.el.classList.remove('catch-wrong');
+                }, 500);
+            }
+        }
+
+        function _catchClearFalling() {
+            var area = document.getElementById('catch-falling-area');
+            if (area) {
+                // Remove falling cards
+                var cards = area.querySelectorAll('.catch-falling-card');
+                cards.forEach(function(c) { c.remove(); });
+                // Remove flash texts
+                var flashes = area.querySelectorAll('.catch-missed-flash, .catch-wrong-flash, .catch-round-flash');
+                flashes.forEach(function(f) { f.remove(); });
+            }
+            _catchGame.fallingCards = [];
+        }
+
+        function _catchGameOver() {
+            if (!_catchGame) return;
+            _catchGame.active = false;
+            if (_catchGame.animFrameId) cancelAnimationFrame(_catchGame.animFrameId);
+
+            _catchPlayLossSound();
+
+            var area = document.getElementById('catch-falling-area');
+            if (!area) return;
+
+            var go = document.createElement('div');
+            go.className = 'catch-gameover';
+            go.innerHTML = '<h2>Game Over</h2>' +
+                '<div class="catch-gameover-score">Final Score: ' + _catchGame.score + '</div>' +
+                '<div><button class="catch-gameover-btn" id="catch-play-again">Play Again</button>' +
+                '<button class="catch-gameover-btn catch-exit-btn" id="catch-exit">Exit</button></div>';
+            area.appendChild(go);
+
+            document.getElementById('catch-play-again').onclick = function() {
+                var idx = _catchGame.catchIndex;
+                _catchCleanup();
+                openCatchPlayModal(idx);
+            };
+            document.getElementById('catch-exit').onclick = function() {
+                _catchCleanup();
+            };
+        }
+
+        function _catchCleanup() {
+            if (_catchGame && _catchGame.animFrameId) {
+                cancelAnimationFrame(_catchGame.animFrameId);
+            }
+            _catchGame = null;
+            var overlay = document.getElementById('catch-game-overlay');
+            if (overlay) overlay.remove();
+        }
+
+        function _catchBuildCardSVG(cardInfo) {
+            // Try to build SVG from stored markup
+            if (cardInfo.svgMarkup !== undefined) {
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', '0 0 60 60');
+                svg.innerHTML = cardInfo.svgMarkup || '';
+                if (cardInfo.isVariation && cardInfo.transform) {
+                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('transform', cardInfo.transform);
+                    while (svg.firstChild) g.appendChild(svg.firstChild);
+                    svg.appendChild(g);
+                }
+                return svg;
+            }
+            // Fallback: try DOM lookup
+            var domCard = findCardByLabel(cardInfo.label, cardInfo.cardSet);
+            if (domCard) {
+                var domSvg = domCard.querySelector('svg');
+                if (domSvg) return domSvg.cloneNode(true);
+            }
+            // Last resort: text label
+            var fallback = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            fallback.setAttribute('viewBox', '0 0 60 60');
+            fallback.innerHTML = '<text x="30" y="38" text-anchor="middle" font-size="24" fill="#333">' +
+                (cardInfo.label || '?') + '</text>';
+            return fallback;
+        }
+
+        function _catchShowFlash(text, className) {
+            var area = document.getElementById('catch-falling-area');
+            if (!area) return;
+            var flash = document.createElement('div');
+            flash.className = className;
+            flash.textContent = text;
+            area.appendChild(flash);
+            setTimeout(function() { if (flash.parentNode) flash.remove(); }, 1500);
+        }
+
+        function _catchShuffle(arr) {
+            for (var i = arr.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+
+        // Sound effects (Web Audio API, same pattern as Find the Doubles)
+        function _catchPlayWrongSound() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e) {}
+        }
+
+        function _catchPlayCorrectSound() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.2);
+                // Second tone
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(900, ctx.currentTime + 0.12);
+                osc2.frequency.linearRampToValueAtTime(1200, ctx.currentTime + 0.3);
+                gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.12);
+                gain2.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                osc2.start(ctx.currentTime + 0.12);
+                osc2.stop(ctx.currentTime + 0.35);
+            } catch(e) {}
+        }
+
+        function _catchPlayLossSound() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(120, ctx.currentTime + 2);
+                gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 2);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 2);
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(250, ctx.currentTime);
+                osc2.frequency.linearRampToValueAtTime(60, ctx.currentTime + 2);
+                gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain2.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 2);
+                osc2.start(ctx.currentTime);
+                osc2.stop(ctx.currentTime + 2);
+            } catch(e) {}
+        }
+
         function openPlayModal(gameIndex) {
             var overlay = document.createElement('div');
             overlay.className = 'play-modal-overlay';

@@ -1414,11 +1414,15 @@
         }
 
         function _buildGrid(container, svgVbX, svgVbY, svgVbW, svgVbH) {
-            var oldGrid = container.querySelector('.loupe-grid');
+            var cardSvg = container.querySelector('svg');
+            if (!cardSvg) return;
+            var oldGrid = cardSvg.querySelector('.loupe-grid');
             if (oldGrid) oldGrid.remove();
-            var gridSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            gridSvg.setAttribute('viewBox', svgVbX + ' ' + svgVbY + ' ' + svgVbW + ' ' + svgVbH);
-            gridSvg.classList.add('loupe-grid');
+            // Also remove any legacy separate grid SVG
+            var oldSvgGrid = container.querySelector('svg.loupe-grid');
+            if (oldSvgGrid) oldSvgGrid.remove();
+            var gridG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            gridG.classList.add('loupe-grid');
             var GU = 0.6;
             // Vertical lines
             var startIx = Math.ceil(svgVbX / GU);
@@ -1433,7 +1437,7 @@
                 vLine.setAttribute('x2', x);
                 vLine.setAttribute('y2', svgVbY + svgVbH);
                 if (cls) vLine.classList.add(cls);
-                gridSvg.appendChild(vLine);
+                gridG.appendChild(vLine);
             }
             // Horizontal lines
             var startIy = Math.ceil(svgVbY / GU);
@@ -1448,9 +1452,9 @@
                 hLine.setAttribute('x2', svgVbX + svgVbW);
                 hLine.setAttribute('y2', y);
                 if (cls2) hLine.classList.add(cls2);
-                gridSvg.appendChild(hLine);
+                gridG.appendChild(hLine);
             }
-            container.appendChild(gridSvg);
+            cardSvg.appendChild(gridG);
         }
 
         function _applyCardShapeToLoupe() {
@@ -2435,6 +2439,8 @@
             var tag = el.tagName.toLowerCase();
             var cardSvg = el.closest('svg:not(.loupe-grid)');
             if (!cardSvg) return false;
+            // Grid lines are not selectable
+            if (el.closest('.loupe-grid')) return false;
             // The variation transform <g> wrapper is NOT selectable itself
             if (tag === 'g' && el.hasAttribute('data-variation-transform')) return false;
             // Any shape element inside the card SVG
@@ -3304,6 +3310,9 @@
             // Build a clean SVG for the card
             var cleanSvg = cardSvg.cloneNode(true);
             cleanSvg.removeAttribute('style');
+            // Remove grid group from the clone (it's editor-only)
+            var gridG = cleanSvg.querySelector('.loupe-grid');
+            if (gridG) gridG.remove();
             cleanSvg.querySelectorAll('.draw-placed').forEach(function(el) {
                 el.classList.remove('draw-placed');
             });
@@ -3583,6 +3592,8 @@
             // Build a clean clone of the current Loupe state
             var cleanSvg = loupeSvg.cloneNode(true);
             cleanSvg.removeAttribute('style');
+            var gridG = cleanSvg.querySelector('.loupe-grid');
+            if (gridG) gridG.remove();
             cleanSvg.querySelectorAll('.draw-placed').forEach(function(el) { el.classList.remove('draw-placed'); });
             cleanSvg.querySelectorAll('.draw-selected').forEach(function(el) { el.classList.remove('draw-selected'); });
             cleanSvg.querySelectorAll('.draw-sel-ring').forEach(function(el) { el.parentNode.removeChild(el); });

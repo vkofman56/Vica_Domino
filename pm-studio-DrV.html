@@ -5032,7 +5032,7 @@
                 // Game name button → opens Game View
                 var btn = document.createElement('button');
                 btn.className = 'gm-popup-btn';
-                btn.textContent = game.name;
+                btn.textContent = 'Find the doubles: ' + game.name;
                 btn.onclick = function() {
                     popup.style.display = 'none';
                     openGameView(i, 'domino-library-screen');
@@ -5243,10 +5243,84 @@
             } catch(e) { return []; }
         }
 
+        // --- Catch the Double games ---
+        function loadCatchGames() {
+            try {
+                var data = localStorage.getItem('savedCatchGames');
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveCatchGames(games) {
+            localStorage.setItem('savedCatchGames', JSON.stringify(games));
+        }
+
+        function cloneGameToCatch(sourceGameIndex) {
+            var games = loadCustomGames();
+            var game = games[sourceGameIndex];
+            if (!game) return;
+            var catchGames = loadCatchGames();
+            // Check if already cloned
+            for (var i = 0; i < catchGames.length; i++) {
+                if (catchGames[i].sourceName === game.name) {
+                    alert('A "Catch the double" clone of "' + game.name + '" already exists.');
+                    return;
+                }
+            }
+            var clone = {
+                name: game.name,
+                sourceName: game.name,
+                description: game.description,
+                cards: JSON.parse(JSON.stringify(game.cards)),
+                flipEnabled: !!game.flipEnabled
+            };
+            catchGames.push(clone);
+            saveCatchGames(catchGames);
+            populateLibraryGames();
+        }
+
+        function updateCatchGameFromSource(catchIndex) {
+            var catchGames = loadCatchGames();
+            var catchGame = catchGames[catchIndex];
+            if (!catchGame) return;
+            var games = loadCustomGames();
+            var sourceGame = null;
+            for (var i = 0; i < games.length; i++) {
+                if (games[i].name === catchGame.sourceName) {
+                    sourceGame = games[i];
+                    break;
+                }
+            }
+            if (!sourceGame) {
+                alert('Source game "' + catchGame.sourceName + '" not found.');
+                return;
+            }
+            if (!confirm('Update "Catch the double: ' + catchGame.name + '" with cards from "Find the doubles: ' + sourceGame.name + '"?\nThis will overwrite current cards.')) return;
+            catchGame.cards = JSON.parse(JSON.stringify(sourceGame.cards));
+            catchGame.flipEnabled = !!sourceGame.flipEnabled;
+            saveCatchGames(catchGames);
+            populateLibraryGames();
+            alert('Updated from source.');
+        }
+
+        function deleteCatchGame(catchIndex) {
+            var catchGames = loadCatchGames();
+            var game = catchGames[catchIndex];
+            if (!game) return;
+            if (!confirm('Delete "Catch the double: ' + game.name + '"?')) return;
+            catchGames.splice(catchIndex, 1);
+            saveCatchGames(catchGames);
+            populateLibraryGames();
+            if (currentCatchGameViewIndex === catchIndex) {
+                hideGameView();
+            }
+        }
+
         // --- Game view ---
         var gameViewReturnScreen = 'card-library-screen';
 
         var currentGameViewIndex = -1;
+        var currentCatchGameViewIndex = -1; // -1 = not viewing a catch game
         var lastDeletedGameViewVariation = null;
 
         function getDominoKey(d) {
@@ -5488,6 +5562,87 @@
             _addCardSelectedCards = [];
         }
 
+        function openCatchGameView(catchIndex, returnScreen) {
+            var catchGames = loadCatchGames();
+            var game = catchGames[catchIndex];
+            if (!game) return;
+
+            currentCatchGameViewIndex = catchIndex;
+            currentGameViewIndex = -1; // not a regular game
+            gameViewReturnScreen = returnScreen || 'card-library-screen';
+
+            document.getElementById('game-view-title').textContent = 'Catch the double: ' + game.name;
+            document.getElementById('game-view-desc').textContent = game.description || '';
+
+            var container = document.getElementById('game-view-cards');
+            container.innerHTML = '';
+
+            // Group cards by row
+            var addedCards = [];
+            var orderedCards = [];
+            game.cards.forEach(function(c) {
+                if (c._addedToGame) addedCards.push(c);
+                else orderedCards.push(c);
+            });
+            var lastRowIdx = -1;
+            var currentRowCards = [];
+            var rowGroups = [];
+            orderedCards.forEach(function(cardInfo) {
+                var rowIdx = (cardInfo._gameRow !== undefined) ? cardInfo._gameRow : cardInfo.label.charAt(0);
+                if (rowIdx !== lastRowIdx) {
+                    if (currentRowCards.length > 0) rowGroups.push(currentRowCards);
+                    currentRowCards = [];
+                    lastRowIdx = rowIdx;
+                }
+                currentRowCards.push(cardInfo);
+            });
+            if (currentRowCards.length > 0) rowGroups.push(currentRowCards);
+
+            rowGroups.forEach(function(rowCards) {
+                var section = document.createElement('div');
+                section.className = 'library-section';
+                container.appendChild(section);
+                var row = document.createElement('div');
+                row.className = 'library-row';
+                container.appendChild(row);
+                rowCards.forEach(function(cardInfo) {
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) row.appendChild(cardEl);
+                });
+            });
+
+            if (addedCards.length > 0) {
+                var addedSection = document.createElement('div');
+                addedSection.className = 'library-section';
+                container.appendChild(addedSection);
+                var addedRow = document.createElement('div');
+                addedRow.className = 'library-row';
+                addedRow.dataset.addedRow = 'true';
+                addedRow.style.borderTop = '2px solid #4CAF50';
+                addedCards.forEach(function(cardInfo) {
+                    var cardEl = buildGameViewCard(cardInfo);
+                    if (cardEl) addedRow.appendChild(cardEl);
+                });
+                container.appendChild(addedRow);
+            }
+
+            // Buttons row
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'margin: 20px 0 10px 40px;';
+
+            var delBtn = document.createElement('button');
+            delBtn.className = 'delete-game-btn';
+            delBtn.textContent = 'Delete Game';
+            delBtn.onclick = function() { deleteCatchGame(catchIndex); };
+            btnRow.appendChild(delBtn);
+
+            container.appendChild(btnRow);
+
+            var returnEl = document.getElementById(returnScreen);
+            if (returnEl) returnEl.style.display = 'none';
+            document.getElementById('game-view-screen').style.display = 'block';
+        }
+
         function openGameView(gameIndex, returnScreen) {
             // Save all card edits before leaving card maker
             if (typeof saveVariations === 'function') saveVariations();
@@ -5495,10 +5650,11 @@
             var game = games[gameIndex];
             if (!game) return;
 
+            currentCatchGameViewIndex = -1; // not a catch game
             currentGameViewIndex = gameIndex;
             gameViewReturnScreen = returnScreen || 'card-library-screen';
 
-            document.getElementById('game-view-title').textContent = game.name;
+            document.getElementById('game-view-title').textContent = 'Find the doubles: ' + game.name;
             document.getElementById('game-view-desc').textContent = game.description;
 
             var container = document.getElementById('game-view-cards');
@@ -6335,10 +6491,25 @@
             // Clear just-added tracking so cards sort properly next time
             document.getElementById('game-view-screen').style.display = 'none';
             document.getElementById(gameViewReturnScreen).style.display = 'block';
+            currentCatchGameViewIndex = -1;
             populateCardMakerGames();
         }
 
         function editGameTitle() {
+            // Handle Catch the double game
+            if (currentCatchGameViewIndex >= 0) {
+                var catchGames = loadCatchGames();
+                var cg = catchGames[currentCatchGameViewIndex];
+                if (!cg) return;
+                var newCatchName = prompt('Game name:', cg.name);
+                if (!newCatchName || !newCatchName.trim()) return;
+                newCatchName = newCatchName.trim();
+                catchGames[currentCatchGameViewIndex].name = newCatchName;
+                saveCatchGames(catchGames);
+                document.getElementById('game-view-title').textContent = 'Catch the double: ' + newCatchName;
+                populateLibraryGames();
+                return;
+            }
             if (currentGameViewIndex < 0) return;
             var games = loadCustomGames();
             var game = games[currentGameViewIndex];
@@ -6348,7 +6519,7 @@
             newName = newName.trim();
             games[currentGameViewIndex].name = newName;
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            document.getElementById('game-view-title').textContent = newName;
+            document.getElementById('game-view-title').textContent = 'Find the doubles: ' + newName;
             populateLibraryGames();
             populateStartScreenGames();
             populateCardMakerGames();
@@ -6504,9 +6675,19 @@
 
                 var btn = document.createElement('button');
                 btn.className = 'library-game-link' + (game.published === false ? ' game-unpublished' : '');
-                btn.textContent = game.name;
+                btn.textContent = 'Find the doubles: ' + game.name;
                 btn.onclick = function() { openGameView(i, 'card-library-screen'); };
                 row.appendChild(btn);
+
+                var cloneBtn = document.createElement('button');
+                cloneBtn.className = 'clone-catch-btn';
+                cloneBtn.title = 'Clone to Catch the double';
+                cloneBtn.textContent = '⤵';
+                cloneBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    cloneGameToCatch(idx);
+                }; })(i);
+                row.appendChild(cloneBtn);
 
                 list.appendChild(row);
             });
@@ -6516,6 +6697,54 @@
             subtitle2.className = 'library-game-subtitle';
             subtitle2.textContent = 'Catch the double';
             list.appendChild(subtitle2);
+
+            // Display Catch the double games
+            var catchGames = loadCatchGames();
+            catchGames.forEach(function(cg, ci) {
+                var cgRow = document.createElement('div');
+                cgRow.className = 'library-game-row';
+
+                var cgPlayBtn = document.createElement('button');
+                cgPlayBtn.className = 'play-test-btn';
+                cgPlayBtn.innerHTML = '&#9654;';
+                cgPlayBtn.title = 'Test play this game';
+                cgPlayBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    // TODO: openCatchPlayModal(idx);
+                    alert('Catch the double gameplay coming soon!');
+                }; })(ci);
+                cgRow.appendChild(cgPlayBtn);
+
+                var cgBtn = document.createElement('button');
+                cgBtn.className = 'library-game-link';
+                cgBtn.textContent = 'Catch the double: ' + cg.name;
+                cgBtn.onclick = (function(idx) { return function() {
+                    openCatchGameView(idx, 'card-library-screen');
+                }; })(ci);
+                cgRow.appendChild(cgBtn);
+
+                var updateBtn = document.createElement('button');
+                updateBtn.className = 'update-source-btn';
+                updateBtn.title = 'Update from source game';
+                updateBtn.textContent = '⟳';
+                updateBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    updateCatchGameFromSource(idx);
+                }; })(ci);
+                cgRow.appendChild(updateBtn);
+
+                var delBtn = document.createElement('button');
+                delBtn.className = 'delete-catch-btn';
+                delBtn.title = 'Delete this catch game';
+                delBtn.innerHTML = '&#10005;';
+                delBtn.onclick = (function(idx) { return function(e) {
+                    e.stopPropagation();
+                    deleteCatchGame(idx);
+                }; })(ci);
+                cgRow.appendChild(delBtn);
+
+                list.appendChild(cgRow);
+            });
 
             // Add "Combine Selected Games" button (hidden until 2+ checked)
             var combineBtn = document.createElement('button');
@@ -7569,7 +7798,7 @@
                 if (game.published === false) return; // skip unpublished games
                 var btn = document.createElement('button');
                 btn.className = 'intro-game-btn';
-                btn.textContent = game.name;
+                btn.textContent = 'Find the doubles: ' + game.name;
                 btn.onclick = function() { selectIntroGame('custom-' + i, btn); };
                 container.appendChild(btn);
             });
@@ -7580,6 +7809,15 @@
                 btn.className = 'intro-game-btn';
                 btn.textContent = cg.name;
                 btn.onclick = function() { selectIntroGame('combined-' + ci, btn); };
+                container.appendChild(btn);
+            });
+            // Add catch the double games
+            var catchGames = loadCatchGames();
+            catchGames.forEach(function(cg, ci) {
+                var btn = document.createElement('button');
+                btn.className = 'intro-game-btn';
+                btn.textContent = 'Catch the double: ' + cg.name;
+                btn.onclick = function() { selectIntroGame('catch-' + ci, btn); };
                 container.appendChild(btn);
             });
         }
@@ -7655,7 +7893,7 @@
             if (mppBtn) mppBtn.style.display = '';
 
             // Update subtitle
-            document.querySelector('#start-screen .subtitle').textContent = 'Game: ' + game.name;
+            document.querySelector('#start-screen .subtitle').textContent = 'Find the doubles: ' + game.name;
 
             // Collect original (non-variation) cards, deduplicated by label
             // Skip cards with empty SVG content or cards deleted from card sets
@@ -8590,10 +8828,11 @@
             var games = loadCustomGames();
             var game = games[currentGameViewIndex];
             if (!game) return;
+            var prefix = (currentCatchGameViewIndex >= 0) ? 'Catch the double: ' : 'Find the doubles: ';
             var btn = document.createElement('button');
             btn.className = 'card-maker-game-btn';
-            btn.textContent = game.name;
-            btn.title = 'Go to: ' + game.name;
+            btn.textContent = prefix + game.name;
+            btn.title = 'Go to: ' + prefix + game.name;
             btn.onclick = function() { openGameView(currentGameViewIndex, 'domino-library-screen'); };
             container.appendChild(btn);
         }

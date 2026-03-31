@@ -1190,6 +1190,9 @@
         var loupeSourceCard = null; // reference to the original card element in loupe
         var loupeVariationMatrix = null; // SVGMatrix for the variation transform <g>
         var loupeVariationInverse = null; // inverse SVGMatrix for coordinate conversion
+        var loupeOrigShape = null; // original card shape when loupe opened
+        var loupeOrigShapeW = 60;
+        var loupeOrigShapeH = 60;
 
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
@@ -1269,6 +1272,10 @@
                 var sliderRow = document.getElementById('draw-shape-slider-row');
                 if (sliderRow) sliderRow.style.display = 'none';
             }
+            // Remember original shape so drawSave knows if shape changed
+            loupeOrigShape = currentCardShape;
+            loupeOrigShapeW = currentCardWidth;
+            loupeOrigShapeH = currentCardHeight;
             _applyCardShapeToLoupe();
         }
 
@@ -1624,6 +1631,14 @@
             if (svg) {
                 svg.style.width = (previewW - 10) + 'px';
                 svg.style.height = (previewH - 10) + 'px';
+                // Set viewBox to match card shape so extended content is visible
+                if (shape === 'rect' || shape === 'oval') {
+                    var offsetX = (w - 60) / 2;
+                    var offsetY = (h - 60) / 2;
+                    svg.setAttribute('viewBox', (-offsetX) + ' ' + (-offsetY) + ' ' + w + ' ' + h);
+                } else {
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                }
             }
         }
 
@@ -3242,7 +3257,10 @@
             var container = document.getElementById('loupe-card-container');
             var cardSvg = container.querySelector('svg:not(.loupe-grid)');
             if (!cardSvg) return;
-            if (drawHistory.length === 0 && !hasEditedExisting && loupeSourceCard) {
+            var shapeChanged = (currentCardShape !== loupeOrigShape ||
+                currentCardWidth !== loupeOrigShapeW ||
+                currentCardHeight !== loupeOrigShapeH);
+            if (drawHistory.length === 0 && !hasEditedExisting && !shapeChanged && loupeSourceCard) {
                 // No changes, just close
                 closeLoupe();
                 return;

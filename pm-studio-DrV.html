@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:02 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:07 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7831,13 +7831,16 @@
             }
         }
 
+        var _addSetMode = false;
+
         function createNewCardSet() {
             var col = document.querySelector('.library-col-sets');
             // If already in add mode, cancel it
-            if (col.querySelector('.new-set-input')) {
+            if (_addSetMode) {
                 _exitAddSetMode();
                 return;
             }
+            _addSetMode = true;
 
             // Show "Copy" button on each existing set row
             var rows = col.querySelectorAll('.library-set-row, .library-set-item-custom');
@@ -7848,21 +7851,18 @@
                 copyBtn.className = 'library-set-copy-btn';
                 copyBtn.textContent = 'Copy';
                 copyBtn.title = 'Copy this card set';
-                var setName = setBtn.dataset.shape; // won't exist
-                // Determine set name from context
                 if (setBtn.id === 'set-numbers-btn') {
                     copyBtn.addEventListener('click', function(e) { e.stopPropagation(); _doCopySet('numbers', setBtn.textContent); });
                 } else if (setBtn.id === 'set-abc-btn') {
                     copyBtn.addEventListener('click', function(e) { e.stopPropagation(); _doCopySet('abc', setBtn.textContent); });
                 } else {
-                    // Custom set — find name from click handler
                     var name = setBtn.textContent;
                     copyBtn.addEventListener('click', (function(n) { return function(e) { e.stopPropagation(); _doCopySet(n, n); }; })(name));
                 }
                 row.appendChild(copyBtn);
             });
 
-            // Show empty input at bottom for new set
+            // Show empty input for new set — insert BEFORE the preview area
             var existingCount = col.querySelectorAll('.library-set-btn').length;
             var n = existingCount + 1;
             var input = document.createElement('input');
@@ -7876,44 +7876,56 @@
                 committed = true;
                 var name = input.value.trim();
                 if (!name) {
-                    // User left it blank — just exit add mode without creating
                     _exitAddSetMode();
                     return;
                 }
-                // Create a button for the new set
-                var el = createCustomSetElement(name);
-                input.replaceWith(el.wrapper);
-
-                // Save to localStorage
-                var sets = loadCardSets();
-                sets.push(name);
-                saveCardSets(sets);
-
-                // Initialize with 2 rows (A, B) each containing one empty card
-                var initialCards = [
-                    { label: 'A1', svgContent: '', desc: 'Empty' },
-                    { label: 'B1', svgContent: '', desc: 'Empty' }
-                ];
-                localStorage.setItem('customDrawnCards_' + name, JSON.stringify(initialCards));
                 _exitAddSetMode();
+                _createNamedSet(name);
             }
 
             input.addEventListener('blur', function() { commitSet(); });
             input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') { e.preventDefault(); commitSet(); }
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
                 if (e.key === 'Escape') { committed = true; _exitAddSetMode(); }
             });
 
-            col.appendChild(input);
+            // Insert before the preview div
+            var preview = document.getElementById('card-set-preview');
+            if (preview) {
+                col.insertBefore(input, preview);
+            } else {
+                col.appendChild(input);
+            }
             input.focus();
         }
 
         function _exitAddSetMode() {
-            // Remove all Copy buttons
+            _addSetMode = false;
             document.querySelectorAll('.library-set-copy-btn').forEach(function(b) { b.remove(); });
-            // Remove pending input if still there
             var inp = document.querySelector('.new-set-input');
             if (inp) inp.remove();
+        }
+
+        function _createNamedSet(name) {
+            var col = document.querySelector('.library-col-sets');
+            var el = createCustomSetElement(name);
+            var preview = document.getElementById('card-set-preview');
+            if (preview) {
+                col.insertBefore(el.wrapper, preview);
+            } else {
+                col.appendChild(el.wrapper);
+            }
+
+            var sets = loadCardSets();
+            sets.push(name);
+            saveCardSets(sets);
+
+            var initialCards = [
+                { label: 'A1', svgContent: '', desc: 'Empty' },
+                { label: 'B1', svgContent: '', desc: 'Empty' }
+            ];
+            localStorage.setItem('customDrawnCards_' + name, JSON.stringify(initialCards));
+            selectCustomSet(el.btn, name);
         }
 
         function _getSetStorageKey(setName) {
@@ -7941,7 +7953,12 @@
 
             var col = document.querySelector('.library-col-sets');
             var el = createCustomSetElement(newName);
-            col.appendChild(el.wrapper);
+            var preview = document.getElementById('card-set-preview');
+            if (preview) {
+                col.insertBefore(el.wrapper, preview);
+            } else {
+                col.appendChild(el.wrapper);
+            }
 
             _exitAddSetMode();
             selectCustomSet(el.btn, newName);

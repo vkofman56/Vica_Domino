@@ -1198,7 +1198,7 @@
         var loupeOrigShape = null; // original card shape when loupe opened
         var loupeOrigShapeW = 60;
         var loupeOrigShapeH = 60;
-        var loupeOrigCornerR = 0;
+        var loupeOrigCornerR = -1;
 
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
@@ -1346,7 +1346,7 @@
         var currentCardShape = 'square'; // 'square', 'rect', 'circle'
         var currentCardWidth = 60;  // SVG units; height is always 60
         var currentCardHeight = 60;
-        var currentCardCornerRadius = 0; // 0-50 (percentage for border-radius)
+        var currentCardCornerRadius = -1; // -1 = default (12px), 0-50 = active (percentage)
 
         function setCardShape(shape) {
             currentCardShape = shape;
@@ -1379,15 +1379,15 @@
             var sliderRow = document.getElementById('draw-corner-slider-row');
             var isActive = btn && btn.classList.contains('active');
             if (isActive) {
-                // Turn off: reset to 0
+                // Turn off: restore default corners
                 if (btn) btn.classList.remove('active');
                 if (sliderRow) sliderRow.style.display = 'none';
-                currentCardCornerRadius = 0;
+                currentCardCornerRadius = -1;
             } else {
-                // Turn on: show slider
+                // Turn on: show slider, default to 5 (slight rounding)
                 if (btn) btn.classList.add('active');
                 if (sliderRow) sliderRow.style.display = 'flex';
-                if (currentCardCornerRadius === 0) currentCardCornerRadius = 15;
+                if (currentCardCornerRadius < 0) currentCardCornerRadius = 5;
                 var slider = document.getElementById('draw-corner-slider');
                 if (slider) slider.value = currentCardCornerRadius;
                 var valSpan = document.getElementById('draw-corner-val');
@@ -1539,8 +1539,8 @@
             var screenH = window.innerHeight;
             var availW = screenW - toolbarWidth;
 
-            // Compute border-radius from shape and corner radius
-            var borderR = currentCardCornerRadius > 0 ? currentCardCornerRadius + '%' : '12px';
+            // Compute border-radius: -1 = default (12px), 0+ = active (percentage)
+            var borderR = currentCardCornerRadius >= 0 ? currentCardCornerRadius + '%' : '12px';
             if (currentCardShape === 'circle') borderR = '50%';
 
             var w = currentCardWidth;
@@ -1674,7 +1674,9 @@
             var h = parseFloat(cardEl.dataset.cardShapeH) || 60;
             // Circle is always 60x60 (same as square)
             if (shape === 'circle') { w = 60; h = 60; }
-            var cornerR = parseFloat(cardEl.dataset.cardCornerR) || 0;
+            var cornerRaw = cardEl.dataset.cardCornerR;
+            var cornerR = (cornerRaw !== undefined && cornerRaw !== '') ? parseFloat(cornerRaw) : -1;
+            if (isNaN(cornerR)) cornerR = -1;
             currentCardShape = shape;
             currentCardWidth = w;
             currentCardHeight = h;
@@ -1690,10 +1692,10 @@
             if (slider) slider.value = w;
             var valSpan = document.getElementById('draw-shape-width-val');
             if (valSpan) valSpan.textContent = w;
-            // Corner radius
+            // Corner radius: >= 0 means active, < 0 means default
             var cornerBtn = document.getElementById('corner-radius-btn');
             var cornerSliderRow = document.getElementById('draw-corner-slider-row');
-            if (cornerR > 0) {
+            if (cornerR >= 0) {
                 if (cornerBtn) cornerBtn.classList.add('active');
                 if (cornerSliderRow) cornerSliderRow.style.display = 'flex';
                 var cSlider = document.getElementById('draw-corner-slider');
@@ -1719,7 +1721,9 @@
             var shape = cardEl.dataset.cardShape || 'square';
             var w = parseFloat(cardEl.dataset.cardShapeW) || 60;
             var h = parseFloat(cardEl.dataset.cardShapeH) || 60;
-            var cornerR = parseFloat(cardEl.dataset.cardCornerR) || 0;
+            var cornerRaw = cardEl.dataset.cardCornerR;
+            var cornerR = (cornerRaw !== undefined && cornerRaw !== '') ? parseFloat(cornerRaw) : -1;
+            if (isNaN(cornerR)) cornerR = -1;
             // Circle is always 60x60 (same as square)
             if (shape === 'circle') { w = 60; h = 60; }
             var preview = cardEl.querySelector('.domino-half-preview');
@@ -1730,10 +1734,10 @@
             var previewH = Math.round(h * scale);
             preview.style.width = previewW + 'px';
             preview.style.height = previewH + 'px';
-            // Border radius
+            // Border radius: -1/missing = default, 0+ = active percentage
             if (shape === 'circle') {
                 preview.style.borderRadius = '50%';
-            } else if (cornerR > 0) {
+            } else if (cornerR >= 0) {
                 preview.style.borderRadius = cornerR + '%';
             } else {
                 preview.style.borderRadius = '8px';
@@ -1757,10 +1761,10 @@
             var shape = shapeData.type || 'square';
             var w = shapeData.width || 60;
             var h = shapeData.height || 60;
-            var cornerR = shapeData.cornerR || 0;
+            var cornerR = shapeData.cornerR != null ? shapeData.cornerR : -1;
             if (shape === 'circle') {
                 el.style.borderRadius = '50%';
-            } else if (cornerR > 0) {
+            } else if (cornerR >= 0) {
                 el.style.borderRadius = cornerR + '%';
             } else {
                 el.style.borderRadius = '';
@@ -7446,7 +7450,7 @@
                         thumb.style.height = Math.round(sh * scale) + 'px';
                         var offsetX = (sw - 60) / 2;
                         svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + sw + ' ' + sh);
-                        if (item.cardCornerR > 0) {
+                        if (item.cardCornerR != null && item.cardCornerR >= 0) {
                             thumb.style.borderRadius = item.cardCornerR + '%';
                         }
                     }
@@ -7561,7 +7565,7 @@
                         thumb.style.height = Math.round(sh * scale) + 'px';
                         var offsetX = (sw - 60) / 2;
                         svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + sw + ' ' + sh);
-                        if (card.cardCornerR > 0) { thumb.style.borderRadius = card.cardCornerR + '%'; }
+                        if (card.cardCornerR != null && card.cardCornerR >= 0) { thumb.style.borderRadius = card.cardCornerR + '%'; }
                     }
                     previewRow.appendChild(thumb);
                 });
@@ -7639,7 +7643,7 @@
                                     thumb.style.height = Math.round(sh * scale) + 'px';
                                     var offsetX = (sw - 60) / 2;
                                     svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + sw + ' ' + sh);
-                                    if (item.cardCornerR > 0) { thumb.style.borderRadius = item.cardCornerR + '%'; }
+                                    if (item.cardCornerR != null && item.cardCornerR >= 0) { thumb.style.borderRadius = item.cardCornerR + '%'; }
                                 }
                                 previewRow.appendChild(thumb);
                             });
@@ -10024,9 +10028,10 @@
         function _catchApplyShape(el, cardInfo) {
             if (!el || !cardInfo) return;
             var shape = cardInfo.cardShape;
-            var cornerR = cardInfo.cardCornerR || 0;
+            var cornerR = cardInfo.cardCornerR != null ? parseFloat(cardInfo.cardCornerR) : -1;
+            if (isNaN(cornerR)) cornerR = -1;
             if (!shape || shape === 'square') {
-                if (cornerR > 0) el.style.borderRadius = cornerR + '%';
+                if (cornerR >= 0) el.style.borderRadius = cornerR + '%';
                 return;
             }
             if (shape === 'circle') {
@@ -10039,7 +10044,7 @@
             var scaleRatio = baseSize / h;
             var pixelW = Math.round(w * scaleRatio);
             el.style.width = pixelW + 'px';
-            if (cornerR > 0) {
+            if (cornerR >= 0) {
                 el.style.borderRadius = cornerR + '%';
             }
         }

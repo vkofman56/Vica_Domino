@@ -206,6 +206,20 @@ class VicaDominoGame {
             }
         });
 
+        // Home buttons — always go to GP 0 (intro/welcome)
+        var _goHome = () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+            resetIntroScreen();
+            var lbl = document.getElementById('setup-page-label');
+            if (lbl) lbl.textContent = 'GP Setup';
+        };
+        var _homeSetup = document.getElementById('home-btn-setup');
+        if (_homeSetup) _homeSetup.addEventListener('click', _goHome);
+        var _homeGame = document.getElementById('home-btn-game');
+        if (_homeGame) _homeGame.addEventListener('click', _goHome);
+
         // Back from create-edit screen (admin only)
         var _createEditBtn = document.getElementById('back-from-create-edit-btn');
         if (_createEditBtn) _createEditBtn.addEventListener('click', () => this.hideCreateEdit());

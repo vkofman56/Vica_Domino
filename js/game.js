@@ -862,6 +862,15 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
+        // Update board page name based on choices
+        var _boardLbl = document.getElementById('board-page-label');
+        if (_boardLbl) {
+            var _d = this.selectedLevel === 'circle' ? '2' : this.selectedLevel === 'triangle' ? '3' : '4';
+            var _p = (this.players.length === 1 && this.includeXeno) ? '1' :
+                     (this.players.length === 2 && !this.includeXeno) ? '2' : '3';
+            _boardLbl.textContent = 'GP Board ' + _d + '.' + _p;
+        }
+
         // Show current game name temporarily next to title
         this.showGameName();
 

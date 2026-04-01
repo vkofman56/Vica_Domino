@@ -195,7 +195,7 @@ class VicaDominoGame {
         // Helper: restore a page-name-label from localStorage
         var _restoreLabel = function(el) {
             if (!el) return;
-            var saved = JSON.parse(localStorage.getItem('pageNameLabels_gp') || '{}');
+            var saved = JSON.parse(localStorage.getItem('pageNameLabels_gp2') || '{}');
             var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
             if (saved[id]) el.textContent = saved[id];
         };

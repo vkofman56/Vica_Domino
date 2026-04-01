@@ -192,13 +192,20 @@ class VicaDominoGame {
         var _btsBtn = document.getElementById('back-to-setup-btn');
         if (_btsBtn) _btsBtn.addEventListener('click', () => this.backToGameSetup());
 
+        // Helper: restore a page-name-label from localStorage
+        var _restoreLabel = function(el) {
+            if (!el) return;
+            var saved = JSON.parse(localStorage.getItem('pageNameLabels_gp') || '{}');
+            var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
+            if (saved[id]) el.textContent = saved[id];
+        };
+
         // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
             var pn = document.getElementById('player-names');
             if (pn && pn.style.display !== 'none') {
                 this.backToGameSetup();
-                var lbl = document.getElementById('setup-page-label');
-                if (lbl) lbl.textContent = 'GP Setup';
+                _restoreLabel(document.getElementById('setup-page-label'));
             } else {
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('intro-screen').style.display = 'flex';
@@ -212,8 +219,7 @@ class VicaDominoGame {
             document.getElementById('game-screen').style.display = 'none';
             document.getElementById('intro-screen').style.display = 'flex';
             resetIntroScreen();
-            var lbl = document.getElementById('setup-page-label');
-            if (lbl) lbl.textContent = 'GP Setup';
+            _restoreLabel(document.getElementById('setup-page-label'));
         };
         var _homeSetup = document.getElementById('home-btn-setup');
         if (_homeSetup) _homeSetup.addEventListener('click', _goHome);

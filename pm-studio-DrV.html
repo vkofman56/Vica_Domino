@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 5:01 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 5:33 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -644,8 +644,13 @@
                     <button class="shape-mode-shape-btn" onclick="applyBatchShape('circle')" title="Circle">
                         <svg viewBox="0 0 20 20" width="22" height="22"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                     </button>
+                </div>
+                <div class="shape-mode-row shape-mode-shapes">
                     <button class="shape-mode-shape-btn" onclick="applyBatchShape('rect')" title="Rectangle">
                         <svg viewBox="0 0 20 20" width="22" height="22"><rect x="1" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                    </button>
+                    <button class="shape-mode-shape-btn" style="opacity:0.45;" onclick="applyBatchShape('corner')" title="Corner radius">
+                        <svg viewBox="0 0 20 20" width="22" height="22"><ellipse cx="10" cy="10" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
                     </button>
                 </div>
                 <div class="shape-mode-row" id="shape-mode-width-row" style="display:none;">
@@ -653,6 +658,12 @@
                     <input type="range" id="shape-mode-width-slider" min="6" max="130" value="72" step="1">
                     <span id="shape-mode-width-val" style="color:#fff;font-size:11px;">72</span>
                     <button id="shape-mode-apply-rect" onclick="applyBatchRectWidth()" style="font-size:10px;padding:2px 8px;">Apply</button>
+                </div>
+                <div class="shape-mode-row" id="shape-mode-corner-row" style="display:none;">
+                    <label style="font-size:10px;color:#aaa;">R</label>
+                    <input type="range" id="shape-mode-corner-slider" min="0" max="50" value="5" step="1">
+                    <span id="shape-mode-corner-val" style="color:#fff;font-size:11px;">5</span>
+                    <button id="shape-mode-apply-corner" onclick="applyBatchCornerRadius()" style="font-size:10px;padding:2px 8px;">Apply</button>
                 </div>
                 <div class="shape-mode-row">
                     <button class="shape-mode-cancel" onclick="cancelShapeMode()">Cancel</button>
@@ -5747,8 +5758,9 @@
             popup.style.display = 'flex';
             // Highlight the toolbar button
             btn.classList.add('active');
-            // Hide width row initially
+            // Hide slider rows initially
             document.getElementById('shape-mode-width-row').style.display = 'none';
+            document.getElementById('shape-mode-corner-row').style.display = 'none';
         }
 
         function cancelShapeMode() {
@@ -5783,8 +5795,10 @@
                 alert('Please select at least one card first.');
                 return;
             }
+            // Hide both slider rows first
+            document.getElementById('shape-mode-width-row').style.display = 'none';
+            document.getElementById('shape-mode-corner-row').style.display = 'none';
             if (shape === 'rect') {
-                // Show width slider row
                 var widthRow = document.getElementById('shape-mode-width-row');
                 widthRow.style.display = 'flex';
                 var slider = document.getElementById('shape-mode-width-slider');
@@ -5792,8 +5806,15 @@
                 slider.oninput = function() { valSpan.textContent = slider.value; };
                 return;
             }
+            if (shape === 'corner') {
+                var cornerRow = document.getElementById('shape-mode-corner-row');
+                cornerRow.style.display = 'flex';
+                var cSlider = document.getElementById('shape-mode-corner-slider');
+                var cVal = document.getElementById('shape-mode-corner-val');
+                cSlider.oninput = function() { cVal.textContent = cSlider.value; };
+                return;
+            }
             // Square and circle apply immediately
-            document.getElementById('shape-mode-width-row').style.display = 'none';
             if (shape === 'square') {
                 _doBatchShape('square', 60, 60, -1);
             } else if (shape === 'circle') {
@@ -5804,6 +5825,17 @@
         function applyBatchRectWidth() {
             var w = parseInt(document.getElementById('shape-mode-width-slider').value) || 72;
             _doBatchShape('rect', w, 60, -1);
+        }
+
+        function applyBatchCornerRadius() {
+            var r = parseInt(document.getElementById('shape-mode-corner-slider').value);
+            // Apply corner radius to selected cards without changing their shape type
+            shapeModeSelectedCards.forEach(function(cardEl) {
+                cardEl.dataset.cardCornerR = r;
+                _applyShapeToPreview(cardEl);
+            });
+            if (typeof saveVariations === 'function') saveVariations();
+            cancelShapeMode();
         }
 
         function _doBatchShape(shape, w, h, cornerR) {

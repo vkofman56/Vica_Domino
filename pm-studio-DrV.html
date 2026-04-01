@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 5:57 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5566,6 +5566,8 @@
         var gameMakerDesc = '';
         var gameMakerSelected = []; // array of { label, isVariation, originalLabel?, transform? }
         var gameMakerEditIndex = -1; // -1 = new game, >= 0 = editing existing game
+        var gameMakerType = 'find'; // 'find' = Find the Double, 'catch' = Catch the Double
+        var gameMakerEditCatch = false; // true when editing a catch game
 
         function toggleGmPopup() {
             var popup = document.getElementById('gm-popup');
@@ -5576,25 +5578,31 @@
             // Build the list
             popup.innerHTML = '';
             var games = loadCustomGames();
-            // "+ New Game" first
+            var catchGames = loadCatchGames();
+
+            // "+ New Game" with game type choice
             var newBtn = document.createElement('button');
             newBtn.className = 'gm-popup-btn gm-new-game';
             newBtn.textContent = '+ New Game';
             newBtn.onclick = function() {
                 popup.style.display = 'none';
-                var name = prompt('Game name:');
-                if (!name || !name.trim()) return;
-                gameMakerEditIndex = -1;
-                gameMakerName = name.trim();
-                gameMakerDesc = '';
-                enterSelectionMode();
+                _showGameTypeChoice(function(type) {
+                    var name = prompt('Game name:');
+                    if (!name || !name.trim()) return;
+                    gameMakerEditIndex = -1;
+                    gameMakerEditCatch = false;
+                    gameMakerType = type;
+                    gameMakerName = name.trim();
+                    gameMakerDesc = '';
+                    enterSelectionMode();
+                });
             };
             popup.appendChild(newBtn);
-            // Existing games
+
+            // Existing "Find the Double" games
             games.forEach(function(game, i) {
                 var row = document.createElement('div');
                 row.className = 'gm-popup-row';
-                // Game name button → opens Game View
                 var btn = document.createElement('button');
                 btn.className = 'gm-popup-btn';
                 btn.textContent = 'Find the doubles: ' + game.name;
@@ -5603,15 +5611,16 @@
                     openGameView(i, 'domino-library-screen');
                 };
                 row.appendChild(btn);
-                // Edit (pencil) button → enters selection mode
                 var editBtn = document.createElement('button');
                 editBtn.className = 'gm-popup-edit-btn';
-                editBtn.innerHTML = '&#9998;'; // pencil icon
+                editBtn.innerHTML = '&#9998;';
                 editBtn.title = 'Edit card selection';
                 editBtn.onclick = function(e) {
                     e.stopPropagation();
                     popup.style.display = 'none';
                     gameMakerEditIndex = i;
+                    gameMakerEditCatch = false;
+                    gameMakerType = 'find';
                     gameMakerName = game.name;
                     gameMakerDesc = game.description || '';
                     enterSelectionMode();
@@ -5619,7 +5628,70 @@
                 row.appendChild(editBtn);
                 popup.appendChild(row);
             });
+
+            // Existing "Catch the Double" games
+            catchGames.forEach(function(game, i) {
+                var row = document.createElement('div');
+                row.className = 'gm-popup-row';
+                var btn = document.createElement('button');
+                btn.className = 'gm-popup-btn';
+                btn.textContent = 'Catch the double: ' + game.name;
+                btn.onclick = function() {
+                    popup.style.display = 'none';
+                    openCatchGameView(i, 'domino-library-screen');
+                };
+                row.appendChild(btn);
+                var editBtn = document.createElement('button');
+                editBtn.className = 'gm-popup-edit-btn';
+                editBtn.innerHTML = '&#9998;';
+                editBtn.title = 'Edit card selection';
+                editBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    popup.style.display = 'none';
+                    gameMakerEditIndex = i;
+                    gameMakerEditCatch = true;
+                    gameMakerType = 'catch';
+                    gameMakerName = game.name;
+                    gameMakerDesc = game.description || '';
+                    enterSelectionMode();
+                };
+                row.appendChild(editBtn);
+                popup.appendChild(row);
+            });
+
             popup.style.display = 'flex';
+        }
+
+        function _showGameTypeChoice(callback) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#222;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:220px;';
+            var title = document.createElement('div');
+            title.style.cssText = 'color:#fff;font-size:14px;font-weight:bold;text-align:center;';
+            title.textContent = 'Choose game type';
+            box.appendChild(title);
+
+            var findBtn = document.createElement('button');
+            findBtn.style.cssText = 'padding:10px 16px;border:2px solid #FFD700;border-radius:8px;background:transparent;color:#FFD700;font-size:13px;font-weight:bold;cursor:pointer;';
+            findBtn.textContent = 'Find the Double';
+            findBtn.onclick = function() { document.body.removeChild(overlay); callback('find'); };
+            box.appendChild(findBtn);
+
+            var catchBtn = document.createElement('button');
+            catchBtn.style.cssText = 'padding:10px 16px;border:2px solid #00BFFF;border-radius:8px;background:transparent;color:#00BFFF;font-size:13px;font-weight:bold;cursor:pointer;';
+            catchBtn.textContent = 'Catch the Double';
+            catchBtn.onclick = function() { document.body.removeChild(overlay); callback('catch'); };
+            box.appendChild(catchBtn);
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.style.cssText = 'padding:8px 16px;border:1px solid #666;border-radius:8px;background:transparent;color:#999;font-size:12px;cursor:pointer;margin-top:4px;';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = function() { document.body.removeChild(overlay); };
+            box.appendChild(cancelBtn);
+
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
         }
 
         // Close GM popup when clicking outside
@@ -5649,7 +5721,7 @@
             });
             // If editing, pre-highlight existing cards
             if (gameMakerEditIndex >= 0) {
-                var games = loadCustomGames();
+                var games = gameMakerEditCatch ? loadCatchGames() : loadCustomGames();
                 var existingCards = games[gameMakerEditIndex].cards || [];
                 var allCards = document.querySelectorAll('#domino-library-screen .library-card');
                 var matched = {};
@@ -5693,12 +5765,14 @@
             }
             // Show game name in title span
             var titleSpan = document.getElementById('card-maker-set-title');
+            var typeLabel = gameMakerType === 'catch' ? 'Catch the double' : 'Find the double';
+            var titleColor = gameMakerType === 'catch' ? '#00BFFF' : '#FFD700';
             if (gameMakerEditIndex >= 0) {
-                titleSpan.textContent = 'Editing: ' + gameMakerName;
-                titleSpan.style.color = '#FFD700';
+                titleSpan.textContent = 'Editing ' + typeLabel + ': ' + gameMakerName;
+                titleSpan.style.color = titleColor;
             } else {
-                titleSpan.textContent = 'New game: ' + gameMakerName;
-                titleSpan.style.color = '#FFD700';
+                titleSpan.textContent = 'New ' + typeLabel + ': ' + gameMakerName;
+                titleSpan.style.color = titleColor;
             }
             // Red box around unselected cards when editing existing game
             var cmContent = document.querySelector('#domino-library-screen .domino-library-content');
@@ -5709,7 +5783,7 @@
             }
             // Show selection bar
             var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
-            document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for \u201C' + gameMakerName + '\u201D';
+            document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D';
             document.getElementById('game-maker-bar').style.display = 'flex';
         }
 
@@ -5921,23 +5995,40 @@
                 return;
             }
 
-            // Save the game
-            var games = loadCustomGames();
-            if (gameMakerEditIndex >= 0) {
-                // Update existing game
-                games[gameMakerEditIndex].description = gameMakerDesc;
-                games[gameMakerEditIndex].cards = gameMakerSelected;
-                alert('The game \u201C' + gameMakerName + '\u201D has been updated!');
+            // Save the game — route to correct storage by type
+            var gameTypeLabel = gameMakerType === 'catch' ? 'Catch the double' : 'Find the double';
+            if (gameMakerType === 'catch') {
+                var catchGames = loadCatchGames();
+                if (gameMakerEditCatch && gameMakerEditIndex >= 0) {
+                    catchGames[gameMakerEditIndex].description = gameMakerDesc;
+                    catchGames[gameMakerEditIndex].cards = gameMakerSelected;
+                    alert(gameTypeLabel + ' \u201C' + gameMakerName + '\u201D has been updated!');
+                } else {
+                    catchGames.push({
+                        name: gameMakerName,
+                        sourceName: gameMakerName,
+                        description: gameMakerDesc,
+                        cards: gameMakerSelected
+                    });
+                    alert(gameTypeLabel + ' \u201C' + gameMakerName + '\u201D is completed!');
+                }
+                saveCatchGames(catchGames);
             } else {
-                // Create new game
-                games.push({
-                    name: gameMakerName,
-                    description: gameMakerDesc,
-                    cards: gameMakerSelected
-                });
-                alert('The game \u201C' + gameMakerName + '\u201D is completed!');
+                var games = loadCustomGames();
+                if (gameMakerEditIndex >= 0 && !gameMakerEditCatch) {
+                    games[gameMakerEditIndex].description = gameMakerDesc;
+                    games[gameMakerEditIndex].cards = gameMakerSelected;
+                    alert(gameTypeLabel + ' \u201C' + gameMakerName + '\u201D has been updated!');
+                } else {
+                    games.push({
+                        name: gameMakerName,
+                        description: gameMakerDesc,
+                        cards: gameMakerSelected
+                    });
+                    alert(gameTypeLabel + ' \u201C' + gameMakerName + '\u201D is completed!');
+                }
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
             }
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
 
             // Exit selection mode
             cancelGameMaker();

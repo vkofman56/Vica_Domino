@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:24 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:29 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -10015,6 +10015,32 @@
         var _catchGame = null; // current game state
 
         function openCatchPlayModal(catchIndex) {
+            var overlay = document.createElement('div');
+            overlay.className = 'play-modal-overlay';
+            overlay.id = 'play-modal-overlay';
+
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'play-modal-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.title = 'Close';
+            closeBtn.onclick = function() { closePlayModal(); };
+            overlay.appendChild(closeBtn);
+
+            var iframe = document.createElement('iframe');
+            iframe.className = 'play-modal-iframe';
+            iframe.src = 'pm-studio-DrV.html?catchplay=' + catchIndex;
+            overlay.appendChild(iframe);
+
+            document.body.appendChild(overlay);
+
+            overlay._escHandler = function(e) {
+                if (e.key === 'Escape') closePlayModal();
+            };
+            document.addEventListener('keydown', overlay._escHandler);
+        }
+
+        // Direct launch (used internally after setup screen)
+        function _launchCatchGameDirect(catchIndex) {
             var catchGames = loadCatchGames();
             var game = catchGames[catchIndex];
             if (!game || !game.cards || game.cards.length === 0) {
@@ -10600,8 +10626,33 @@
 
         // === Play mode: auto-start game from URL parameter ===
         // Must run AFTER populateStartScreenGames() so game data is ready
+        var _catchPlayModeIndex = -1; // >= 0 when in catch play mode
+
         (function checkPlayMode() {
             var params = new URLSearchParams(window.location.search);
+
+            // Check for catch game play mode
+            var catchPlayIndex = params.get('catchplay');
+            if (catchPlayIndex !== null) {
+                catchPlayIndex = parseInt(catchPlayIndex, 10);
+                if (!isNaN(catchPlayIndex)) {
+                    _catchPlayModeIndex = catchPlayIndex;
+                    var catchGames = loadCatchGames();
+                    var catchGame = catchGames[catchPlayIndex];
+                    if (!catchGame) return;
+
+                    // Hide all screens
+                    document.querySelectorAll('.screen').forEach(function(s) { s.style.display = 'none'; });
+
+                    // Update subtitle for catch game
+                    document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
+
+                    // Show the start screen (player setup)
+                    document.getElementById('start-screen').style.display = 'flex';
+                    return;
+                }
+            }
+
             var playIndex = params.get('play');
             if (playIndex === null) return;
             playIndex = parseInt(playIndex, 10);
@@ -10619,5 +10670,20 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
+    <script>
+        // Intercept Start Game button for catch play mode (after game.js binds)
+        if (typeof _catchPlayModeIndex !== 'undefined' && _catchPlayModeIndex >= 0) {
+            var _startBtn = document.getElementById('start-game-btn');
+            if (_startBtn) {
+                // Clone to remove game.js listener, add catch game launcher
+                var _newStartBtn = _startBtn.cloneNode(true);
+                _startBtn.parentNode.replaceChild(_newStartBtn, _startBtn);
+                _newStartBtn.addEventListener('click', function() {
+                    document.getElementById('start-screen').style.display = 'none';
+                    _launchCatchGameDirect(_catchPlayModeIndex);
+                });
+            }
+        }
+    </script>
 </body>
 </html>

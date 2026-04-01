@@ -200,12 +200,20 @@ class VicaDominoGame {
             if (saved[id]) el.textContent = saved[id];
         };
 
+        // Helper: show GP Setup label, hide GP S label
+        var _showSetupLabel = function() {
+            var lbl1 = document.getElementById('setup-page-label');
+            var lbl2 = document.getElementById('setup2-page-label');
+            if (lbl1) { lbl1.style.display = ''; _restoreLabel(lbl1); }
+            if (lbl2) lbl2.style.display = 'none';
+        };
+
         // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
             var pn = document.getElementById('player-names');
             if (pn && pn.style.display !== 'none') {
                 this.backToGameSetup();
-                _restoreLabel(document.getElementById('setup-page-label'));
+                _showSetupLabel();
             } else {
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('intro-screen').style.display = 'flex';
@@ -219,7 +227,7 @@ class VicaDominoGame {
             document.getElementById('game-screen').style.display = 'none';
             document.getElementById('intro-screen').style.display = 'flex';
             resetIntroScreen();
-            _restoreLabel(document.getElementById('setup-page-label'));
+            _showSetupLabel();
         };
         var _homeSetup = document.getElementById('home-btn-setup');
         if (_homeSetup) _homeSetup.addEventListener('click', _goHome);

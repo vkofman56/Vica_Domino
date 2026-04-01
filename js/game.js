@@ -188,14 +188,22 @@ class VicaDominoGame {
         // Back arrow button (game screen)
         document.getElementById('back-arrow-btn').addEventListener('click', () => this.resetToSetup());
 
-        // Back arrow button (player names/icon selection screen)
-        document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
+        // Back arrow button (player names/icon selection screen) - kept for compat
+        var _btsBtn = document.getElementById('back-to-setup-btn');
+        if (_btsBtn) _btsBtn.addEventListener('click', () => this.backToGameSetup());
 
-        // Back arrow button (start screen -> intro screen)
+        // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('intro-screen').style.display = 'flex';
-            resetIntroScreen();
+            var pn = document.getElementById('player-names');
+            if (pn && pn.style.display !== 'none') {
+                this.backToGameSetup();
+                var lbl = document.getElementById('setup-page-label');
+                if (lbl) lbl.textContent = 'GP Setup';
+            } else {
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                resetIntroScreen();
+            }
         });
 
         // Back from create-edit screen (admin only)

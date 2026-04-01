@@ -299,7 +299,7 @@
         <div class="screen" id="card-library-screen" style="display: none;">
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:29 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:34 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1979,7 +1979,47 @@
             if (newCardModeActive) {
                 exitNewCardMode();
             } else {
-                enterNewCardMode();
+                // Determine next letter and create an empty card on a new row
+                var content = document.querySelector('#domino-library-screen .domino-library-content');
+                var activeContainer;
+                if (isCustomCardSet(activeCardSet)) {
+                    activeContainer = document.getElementById('card-set-custom');
+                } else if (activeCardSet === 'abc') {
+                    activeContainer = document.getElementById('card-set-abc');
+                } else {
+                    activeContainer = document.getElementById('card-set-numbers');
+                }
+                var rows = (activeContainer || content).querySelectorAll('.library-row');
+                var usedLetters = [];
+                rows.forEach(function(row) {
+                    var letter = row.dataset.rowLetter;
+                    if (!letter) {
+                        var firstLabel = row.querySelector('.library-label');
+                        if (firstLabel) letter = firstLabel.textContent.charAt(0).toUpperCase();
+                    }
+                    if (letter) usedLetters.push(letter);
+                });
+                var nextLetter = getNextLetter(usedLetters);
+                if (!nextLetter) nextLetter = 'A';
+                // Create a blank SVG for the empty card
+                var blankSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                blankSvg.setAttribute('viewBox', '0 0 60 60');
+                var cardName = nextLetter + '1';
+                addNewDrawnCard(blankSvg, cardName);
+                // Save so it persists
+                if (typeof saveVariations === 'function') saveVariations();
+                // Now open the new card in the loupe for editing
+                var allCards = (activeContainer || content).querySelectorAll('.library-card');
+                var newCard = null;
+                allCards.forEach(function(c) {
+                    var lbl = c.querySelector('.library-label');
+                    if (lbl && lbl.textContent === cardName) newCard = c;
+                });
+                if (newCard) {
+                    pendingNewCardName = null;
+                    openLoupe(newCard);
+                    if (!drawModeActive) toggleDrawMode();
+                }
             }
         }
 

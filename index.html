@@ -25,7 +25,7 @@
 
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
-            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:21 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:24 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -40,7 +40,7 @@
         <!-- Start Screen -->
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:21 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:24 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -632,13 +632,22 @@
             if (btnEl) btnEl.classList.add('selected');
         }
 
+        var _pendingCatchGameIndex = -1; // >= 0 when setting up a catch game
+
         function goToMainPage() {
             if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
-                // Launch catch game directly (no start screen needed)
+                // Show start screen for catch game (same setup as Find the Double)
                 var idx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
-                openCatchPlayModal(idx);
+                var catchGames = loadCatchGames();
+                var catchGame = catchGames[idx];
+                if (!catchGame) return;
+                _pendingCatchGameIndex = idx;
+                document.getElementById('intro-screen').style.display = 'none';
+                document.getElementById('start-screen').style.display = 'flex';
+                document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
                 return;
             }
+            _pendingCatchGameIndex = -1;
             document.getElementById('intro-screen').style.display = 'none';
             document.getElementById('start-screen').style.display = 'flex';
             clearCustomGame();
@@ -1340,5 +1349,20 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
+    <script>
+        // After game.js loads, intercept Start Game for catch mode
+        (function() {
+            var origStartBtn = document.getElementById('start-game-btn');
+            if (!origStartBtn) return;
+            origStartBtn.addEventListener('click', function(e) {
+                if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                    e.stopImmediatePropagation();
+                    document.getElementById('start-screen').style.display = 'none';
+                    openCatchPlayModal(_pendingCatchGameIndex);
+                    _pendingCatchGameIndex = -1;
+                }
+            }, true); // capture phase to fire before game.js handler
+        })();
+    </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: March 31, 2026
+**Last Updated**: April 2, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -172,20 +172,21 @@
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
 - **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
 
-## Current State (March 31)
-- **Branch**: `claude/review-project-docs-JOOeh` (active development)
-- **Backup tag**: `backup-before-catch-game-20260331` (created before Catch the Double gameplay implementation)
-- **Player page** (`index.html`): Working — Player/Admin role selection on intro screen
-- **Admin page** (`pm-studio-DrV.html`): Working — shows superuser ID login directly, no empty dialog
+## Current State (April 2)
+- **Branch**: `claude/review-project-docs-JOOeh` (active development, also `claude/general-session-yVBQq`)
+- **Backup tags**: `backup-before-catch-game-20260331`, `backup-before-math-editor-20260402` (local only — remote tag push blocked by 403)
+- **Player page** (`index.html`): Working — Full navigation flow GP 0 → GP F Setup/C Setup → GP Fnm Start → GP Fnm Board
+- **Admin page** (`pm-studio-DrV.html`): Working — All 8+ screens have page name labels with unique IDs
+- **Page name labels**: Temporary dev aid — editable, persistent via localStorage (`pageNameLabels_gp2` / `pageNameLabels_admin`)
+- **Navigation**: Back-arrow returns to previous page, home button goes to GP 0. Works for both Find and Catch games.
+- **Catch the Double gameplay**: Fully working — falling cards, scoring, coin/gem economy matching Find the Double
+- **Coin/gem system**: Both Find and Catch games have gold disk coins, gem conversion at 10 coins, glin-glin sound, fall animations
+- **Google Fonts**: Full font list loaded in both files for cross-device card rendering (page UI fonts unchanged)
 - **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
 - **Sync status**: Working — migration runs after Firestore restore, `migration_builtins_converted = 'v2'`
 - **Card data protection**: 3 layers of safeguards against card data loss
 - **Auto card backup**: Every 20 minutes to Firebase `card_backups` subcollection (last 3 kept)
-- **Crop/Pan tool**: Removed (was not functional, just an alternate drag mode)
-- **× slider**: Redesigned with dynamic range, clickable max selector popup (2-column), bottom-left anchor scaling
-- **SVG import**: Large SVGs (>200KB) auto-rasterized to 600×600 PNG (~50-450KB instead of 3MB)
-- **Game Creator**: New "+" button to add cards from any card set; card deletion updates game data; dominos auto-refresh
-- **Card Maker back button**: Fixed (was missing onclick handler)
+- **Next planned feature**: Math equation editor for cards (WYSIWYG toolbar approach)
 
 ## March 28 Session Notes — Card Maker Scaling, Game Creator, SVG Import
 
@@ -245,12 +246,60 @@
 - **Duplicate prevention**: Cannot clone same source game twice
 - **openCatchGameView()**: Displays catch game cards in Game View (read-only for now)
 
-### Catch the Double — Gameplay Design (next to implement)
+### Catch the Double — Gameplay (implemented)
 - Static enlarged card on left side; falling cards on right side
 - Start with 2 falling cards, gradually increase to max 4
 - Cards fall with slight horizontal drift + ±10° tilt animation
 - Speed increases as player progresses through rounds
-- Scoring: points per correct catch; wrong tap → sound + "wrong" flash; after 10 points, deduct for wrong taps
+- Scoring: correct catch = 1 coin, wrong tap = lose 1 coin, 10 coins = 1 gem with glin-glin sound
 - 3 misses (double falls off screen) = game over
 - Same card/domino data as "Find the Doubles" game
 - Key commits: `5e1654f`, `5c81f4a`, `c43aece`
+
+## April 2 Session Notes — Navigation, Coins, Fonts
+
+### Page Name Labels (temporary dev aid)
+- **All screens labeled**: Both `index.html` (GP prefix) and `pm-studio-DrV.html` (A prefix) have editable page name labels
+- **Label IDs**: Each label has a stable HTML `id` for localStorage persistence (e.g., `welcome-page-label`, `a-card-maker-label`)
+- **localStorage keys**: `pageNameLabels_gp2` (game player), `pageNameLabels_admin` (admin) — separate from each other
+- **Dynamic naming**: Board pages auto-generate names like "GP F21 Board" or "GP C32 Board" based on game type, domino count, player count
+- **Admin dynamic labels**: Game View shows "A GC Find" or "A GC Catch" depending on game type
+
+### Navigation Flow
+- **GP 0** → **GP F Setup / GP C Setup** → **GP Fnm Start** (player names) → **GP Fnm Board** (gameplay)
+- **Back button**: Returns to previous page (e.g., Board → Start, Start → Setup, Setup → GP 0)
+- **Home button**: Goes directly to GP 0 from any page
+- **Catch overlay navigation**: Back button saves `_pendingCatchGameIndex`, calls `_catchCleanup()`, restores pending index, shows Start screen
+- **Context-aware back on game-screen**: Capture-phase listener checks if player-names visible → go to setup or intro
+- **`_resetSetupPanel()`**: Restores hidden setup elements (`.setup-columns`, `.game-level-select`, `.player-select`) after back navigation
+
+### Coin/Gem System in Catch the Double
+- **Same visual system as Find the Double**: Gold disk coins (`.gold-disk`), two columns of 5, gem conversion at 10 coins
+- **`_catchAddCoins(n)`**: Adds coins, triggers gem exchange at 10 coins; uses `game.active` check (not round number) for timeout staleness
+- **`_catchRenderCoins()`**: Renders gold disks and gems in HUD with pop-in/fall/gem animations
+- **`_catchRemoveCoin()`**: Removes 1 coin on wrong click; gem-to-coins conversion when no coins left
+- **`_catchPlayGlinGlin()`**: Sound effect for gem conversion
+- **`_catchGameOver()`**: Shows gems and coins visually instead of text score
+
+### Google Fonts for Cards
+- **Full font list loaded**: All Google Fonts from Card Maker's font picker loaded in both `index.html` and `pm-studio-DrV.html` via `<link>` tag
+- **Purpose**: Ensures cards render correctly on all devices (iPad, etc.) regardless of installed fonts
+- **Page UI unchanged**: All page elements keep Segoe UI / system fonts; Google Fonts only used by card SVG rendering
+- **Lazy loading**: Google Fonts only downloads actual font files when text uses them, so minimal performance impact
+
+### Key Technical Details
+- **Catch overlay is dynamic**: Created in `openCatchPlayModal()` (~line 1057 of index.html), not a static screen
+- **`_pendingCatchGameIndex` lifecycle**: Set when catch game selected, consumed (reset to -1) on launch; must be saved/restored for back navigation
+- **Capture-phase event listeners**: Used for back-arrow-btn on game-screen and Start Game button intercept for catch games
+- **Catch overlay z-index**: 10000 for overlay, 10001 for buttons/labels (position: fixed)
+
+### Backup
+- **Local tag**: `backup-before-math-editor-20260402` — marks state before math equation editor work
+- **Restore command**: `git checkout backup-before-math-editor-20260402`
+- **Remote push blocked**: Tag push returns 403 error; tag exists locally only
+
+### Pending
+- **Math equation editor**: Cards need words, math equations (+−×÷), fractions, parentheses, braces. Proposed WYSIWYG math toolbar approach. Not yet implemented.
+- **Childish UI for Catch the Double**: Background/fonts for young children (mentioned but not yet addressed)
+- **Remove trial timestamps**: Still present as temporary dev aids
+- **Remove page name labels**: Temporary dev aids, to be removed eventually

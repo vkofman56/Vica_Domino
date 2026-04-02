@@ -26,7 +26,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:32 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -44,7 +44,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:32 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1131,7 +1131,7 @@
             var hud = document.createElement('div');
             hud.className = 'catch-hud';
             hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Round 1</div>' +
-                '<div class="catch-hud-score" id="catch-score">Score: 0</div>' +
+                '<div class="catch-coin-gem-display" id="catch-coin-display"></div>' +
                 '<div class="catch-hud-lives" id="catch-lives"></div>' +
                 '<button class="catch-close-btn" id="catch-close-btn">&times;</button>';
             overlay.appendChild(hud);
@@ -1153,10 +1153,12 @@
                 origCards: origCards,
                 valueGroups: valueGroups,
                 valueKeys: valueKeys,
-                score: 0, lives: 3, round: 1, numFalling: 2,
+                score: 0, coins: 0, gems: 0, lives: 3, round: 1, numFalling: 2,
                 baseFallDuration: 6, fallDuration: 6,
                 active: true, roundActive: false,
-                fallingCards: [], animFrameId: null, lastUsedValues: []
+                fallingCards: [], animFrameId: null, lastUsedValues: [],
+                _coinAddedAt: 0, _coinAddedCount: 0,
+                _gemAddedAt: 0, _coinFallAt: 0, _exchangeTimeout: null
             };
             _catchUpdateHUD();
             document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
@@ -1165,10 +1167,8 @@
 
         function _catchUpdateHUD() {
             if (!_catchGame) return;
-            var scoreEl = document.getElementById('catch-score');
             var livesEl = document.getElementById('catch-lives');
             var roundEl = document.getElementById('catch-round');
-            if (scoreEl) scoreEl.textContent = 'Score: ' + _catchGame.score;
             if (livesEl) {
                 var hearts = '';
                 for (var i = 0; i < _catchGame.lives; i++) hearts += '\u2764 ';
@@ -1176,6 +1176,95 @@
                 livesEl.textContent = hearts;
             }
             if (roundEl) roundEl.textContent = 'Round ' + _catchGame.round;
+            _catchRenderCoins();
+        }
+
+        function _catchRenderCoins() {
+            if (!_catchGame) return;
+            var container = document.getElementById('catch-coin-display');
+            if (!container) return;
+            var coins = _catchGame.coins;
+            var gems = _catchGame.gems;
+            var now = Date.now();
+            var newCoinCount = (now - _catchGame._coinAddedAt < 600) ? _catchGame._coinAddedCount : 0;
+            var isNewGem = (now - _catchGame._gemAddedAt < 600);
+            var isFalling = (now - _catchGame._coinFallAt < 800);
+            var html = '';
+            for (var g = 0; g < gems; g++) {
+                var gemNew = isNewGem && g === gems - 1;
+                html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">\uD83D\uDC8E</span>';
+            }
+            if (coins > 0) {
+                html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+                var col1 = Math.min(coins, 5);
+                var col2 = Math.max(0, coins - 5);
+                html += '<div class="coin-column">';
+                for (var i = 0; i < col1; i++) {
+                    var isNew = i >= (col1 - newCoinCount) && i < col1;
+                    html += '<div class="gold-disk' + (isNew ? ' coin-appear' : '') + '"></div>';
+                }
+                html += '</div><div class="coin-column">';
+                for (var j = 0; j < col2; j++) {
+                    var isNew2 = (5 + j) >= (coins - newCoinCount) && newCoinCount > 0;
+                    html += '<div class="gold-disk' + (isNew2 ? ' coin-appear' : '') + '"></div>';
+                }
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function _catchAddCoins(amount) {
+            if (!_catchGame) return;
+            _catchGame.coins += amount;
+            _catchGame.score += amount;
+            _catchGame._coinAddedAt = Date.now();
+            _catchGame._coinAddedCount = amount;
+            if (_catchGame.coins >= 10) {
+                if (_catchGame._exchangeTimeout) clearTimeout(_catchGame._exchangeTimeout);
+                var roundAtStart = _catchGame.round;
+                _catchGame._exchangeTimeout = setTimeout(function() {
+                    if (!_catchGame || _catchGame.round !== roundAtStart) return;
+                    // Play glin-glin sound
+                    _catchPlayGlinGlin();
+                    _catchGame._coinFallAt = Date.now();
+                    _catchRenderCoins();
+                    setTimeout(function() {
+                        if (!_catchGame) return;
+                        while (_catchGame.coins >= 10) {
+                            _catchGame.coins -= 10;
+                            _catchGame.gems++;
+                        }
+                        _catchGame._gemAddedAt = Date.now();
+                        _catchGame._coinFallAt = 0;
+                        _catchRenderCoins();
+                    }, 800);
+                }, amount * 300 + 700);
+            }
+            _catchRenderCoins();
+        }
+
+        function _catchRemoveCoin() {
+            if (!_catchGame || _catchGame.coins <= 0) return;
+            _catchGame.coins--;
+            _catchGame.score = Math.max(0, _catchGame.score - 1);
+            _catchRenderCoins();
+        }
+
+        function _catchPlayGlinGlin() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                for (var n = 0; n < 3; n++) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = 1200 + n * 400;
+                    gain.gain.setValueAtTime(0.15, ctx.currentTime + n * 0.12);
+                    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + n * 0.12 + 0.2);
+                    osc.start(ctx.currentTime + n * 0.12);
+                    osc.stop(ctx.currentTime + n * 0.12 + 0.2);
+                }
+            } catch(e) {}
         }
 
         function _catchStartRound() {
@@ -1302,7 +1391,7 @@
             if (cardData.isMatch) {
                 cardData.el.classList.add('catch-correct');
                 _catchGame.roundActive = false;
-                _catchGame.score++;
+                _catchAddCoins(1);
                 _catchUpdateHUD();
                 _catchPlayCorrectSound();
                 if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
@@ -1314,9 +1403,13 @@
                 cardData.el.classList.add('catch-wrong');
                 _catchPlayWrongSound();
                 _catchShowFlash('Wrong!', 'catch-wrong-flash');
-                if (_catchGame.score >= 10) {
+                if (_catchGame.coins > 0) {
+                    _catchRemoveCoin();
+                } else if (_catchGame.gems > 0) {
+                    _catchGame.gems--;
+                    _catchGame.coins += 9;
                     _catchGame.score = Math.max(0, _catchGame.score - 1);
-                    _catchUpdateHUD();
+                    _catchRenderCoins();
                 }
                 setTimeout(function() {
                     cardData.el.classList.remove('catch-wrong');
@@ -1343,8 +1436,20 @@
             if (!area) return;
             var go = document.createElement('div');
             go.className = 'catch-gameover';
+            var finalDisplay = '';
+            for (var fg = 0; fg < _catchGame.gems; fg++) finalDisplay += '<span class="gem-icon">\uD83D\uDC8E</span>';
+            if (_catchGame.coins > 0) {
+                finalDisplay += '<div class="coin-columns" style="display:inline-flex;vertical-align:middle;">';
+                var fc1 = Math.min(_catchGame.coins, 5);
+                var fc2 = Math.max(0, _catchGame.coins - 5);
+                finalDisplay += '<div class="coin-column">';
+                for (var fi = 0; fi < fc1; fi++) finalDisplay += '<div class="gold-disk"></div>';
+                finalDisplay += '</div><div class="coin-column">';
+                for (var fj = 0; fj < fc2; fj++) finalDisplay += '<div class="gold-disk"></div>';
+                finalDisplay += '</div></div>';
+            }
             go.innerHTML = '<h2>Game Over</h2>' +
-                '<div class="catch-gameover-score">Final Score: ' + _catchGame.score + '</div>' +
+                '<div class="catch-gameover-score">' + finalDisplay + '</div>' +
                 '<div><button class="catch-gameover-btn" id="catch-play-again">Play Again</button>' +
                 '<button class="catch-gameover-btn catch-exit-btn" id="catch-exit">Exit</button></div>';
             area.appendChild(go);

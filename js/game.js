@@ -3397,15 +3397,9 @@ class VicaDominoGame {
 
         document.getElementById('winner-modal').classList.remove('show');
         document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'flex';
-        document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('intro-screen').style.display = 'flex';
         document.getElementById('player-names').style.display = 'none';
-        // Restore setup page label
-        var _spl = document.getElementById('setup-page-label');
-        var _s2l = document.getElementById('setup2-page-label');
-        if (_spl) _spl.style.display = '';
-        if (_s2l) _s2l.style.display = 'none';
-        if (typeof _restoreLabel === 'function') _restoreLabel(_spl);
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
 
         // Restore all level buttons visibility

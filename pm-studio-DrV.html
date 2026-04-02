@@ -462,6 +462,19 @@
                 <div class="draw-tool-group">
                     <button class="draw-tool-btn" id="draw-text-group-btn" onclick="toggleTextSubmenu()" title="Text: numbers, letters, math">T</button>
                     <div class="draw-submenu" id="text-submenu" style="display:none;">
+                        <div class="draw-submenu-section" id="text-word-section">
+                            <div class="draw-submenu-label">Word / Equation</div>
+                            <div style="display:flex;gap:4px;">
+                                <input type="text" id="text-word-input" placeholder="Type text..." style="flex:1;padding:4px 6px;font-size:13px;border:1px solid rgba(255,215,0,0.3);border-radius:4px;background:#1a1a2a;color:white;outline:none;min-width:0;">
+                                <button id="text-word-ok" class="draw-submenu-item" style="width:auto;padding:0 8px;font-size:12px;background:rgba(255,215,0,0.25);">OK</button>
+                            </div>
+                        </div>
+                        <div class="draw-submenu-section" id="text-fraction-section">
+                            <div class="draw-submenu-label">Fraction</div>
+                            <button id="text-fraction-btn" class="draw-submenu-item" style="width:auto;padding:2px 10px;font-size:15px;display:inline-flex;align-items:center;gap:2px;" title="Place a fraction on the card">
+                                <span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1;"><span style="font-size:10px;">a</span><span style="font-size:8px;border-top:1px solid white;padding-top:1px;">b</span></span>
+                            </button>
+                        </div>
                         <div class="draw-submenu-section">
                             <div class="draw-submenu-label">Numbers</div>
                             <div class="draw-submenu-grid" id="text-numbers-grid"></div>
@@ -473,6 +486,10 @@
                         <div class="draw-submenu-section">
                             <div class="draw-submenu-label">Math</div>
                             <div class="draw-submenu-grid" id="text-math-grid"></div>
+                        </div>
+                        <div class="draw-submenu-section">
+                            <div class="draw-submenu-label">Brackets</div>
+                            <div class="draw-submenu-grid" id="text-brackets-grid"></div>
                         </div>
                     </div>
                 </div>
@@ -2260,7 +2277,7 @@
             var btn = document.getElementById(idMap[tool]);
             if (btn) btn.classList.add('active');
             // Highlight group buttons for text/stamp tools
-            if (tool === 'text') {
+            if (tool === 'text' || tool === 'fraction') {
                 var tBtn = document.getElementById('draw-text-group-btn');
                 if (tBtn) tBtn.classList.add('active');
             }
@@ -2301,14 +2318,17 @@
         function populateTextSubmenu() {
             var numbers = '0123456789';
             var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            var mathOps = ['+', '-', '\u00D7', '\u00F7', '='];
+            var mathOps = ['+', '-', '\u00D7', '\u00F7', '=', '<', '>', '\u2264', '\u2265', '\u2260', '\u00B2', '\u00B3', '\u221A', '\u03C0'];
+            var brackets = ['(', ')', '{', '}', '[', ']'];
             var numGrid = document.getElementById('text-numbers-grid');
             var letGrid = document.getElementById('text-letters-grid');
             var mathGrid = document.getElementById('text-math-grid');
+            var brackGrid = document.getElementById('text-brackets-grid');
             if (!numGrid || !letGrid || !mathGrid) return;
             numGrid.innerHTML = '';
             letGrid.innerHTML = '';
             mathGrid.innerHTML = '';
+            if (brackGrid) brackGrid.innerHTML = '';
             for (var i = 0; i < numbers.length; i++) {
                 numGrid.appendChild(makeTextSubmenuItem(numbers[i]));
             }
@@ -2317,6 +2337,38 @@
             }
             for (var i = 0; i < mathOps.length; i++) {
                 mathGrid.appendChild(makeTextSubmenuItem(mathOps[i]));
+            }
+            if (brackGrid) {
+                for (var i = 0; i < brackets.length; i++) {
+                    brackGrid.appendChild(makeTextSubmenuItem(brackets[i]));
+                }
+            }
+            // Wire up word input
+            var wordInput = document.getElementById('text-word-input');
+            var wordOk = document.getElementById('text-word-ok');
+            if (wordOk && wordInput) {
+                wordOk.onclick = function() {
+                    var txt = wordInput.value.trim();
+                    if (!txt) return;
+                    selectedTextChar = txt;
+                    selectDrawTool('text');
+                    closeAllSubmenus();
+                    updateToolBadge('draw-text-group-btn', txt.length > 3 ? txt.substring(0, 3) + '\u2026' : txt);
+                };
+                wordInput.onkeydown = function(ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); wordOk.click(); }
+                    ev.stopPropagation();
+                };
+            }
+            // Wire up fraction button
+            var fracBtn = document.getElementById('text-fraction-btn');
+            if (fracBtn) {
+                fracBtn.onclick = function() {
+                    selectedTextChar = '';
+                    selectDrawTool('fraction');
+                    closeAllSubmenus();
+                    updateToolBadge('draw-text-group-btn', '\u2044');
+                };
             }
         }
         function makeTextSubmenuItem(ch) {
@@ -2779,6 +2831,16 @@
                     var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     if (sm) sz = Math.round(svgToGrid(+sm[1] * 100));
                 }
+                // For fraction groups, extract font from child text elements
+                if (el.hasAttribute('data-fraction')) {
+                    var fracText = el.querySelector('text');
+                    if (fracText) {
+                        var ff = fracText.getAttribute('font-family') || 'Arial, sans-serif';
+                        drawFontFamily = ff;
+                        document.getElementById('draw-font-select').value = ff;
+                        updateFontButtonLabel();
+                    }
+                }
             } else if (tag === 'text') {
                 sz = +el.getAttribute('data-draw-size');
                 if (!sz) {
@@ -2861,6 +2923,28 @@
                 selectedElement.setAttribute('data-over-scale', drawOverScale);
                 selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
                 updateSelectionRing();
+            } else if (tag === 'g' && selectedElement.hasAttribute('data-fraction')) {
+                // Fraction group: resize by updating child text font-size and repositioning
+                hasEditedExisting = true;
+                var newFontSize = gridToSvg(sz * drawOverScale);
+                var gap = newFontSize * 0.15;
+                var barWidth = newFontSize * 1.2;
+                var numEl = selectedElement.querySelector('[data-frac-role="numerator"]');
+                var denEl = selectedElement.querySelector('[data-frac-role="denominator"]');
+                var barEl = selectedElement.querySelector('[data-frac-role="bar"]');
+                if (numEl) { numEl.setAttribute('font-size', newFontSize); numEl.setAttribute('y', -gap); }
+                if (denEl) { denEl.setAttribute('font-size', newFontSize); denEl.setAttribute('y', newFontSize * 0.85 + gap); }
+                if (barEl) {
+                    var maxLen = Math.max((numEl ? numEl.textContent.length : 1), (denEl ? denEl.textContent.length : 1), 1);
+                    barWidth = Math.max(newFontSize * 1.2, newFontSize * 0.65 * maxLen);
+                    barEl.setAttribute('x1', -barWidth / 2);
+                    barEl.setAttribute('x2', barWidth / 2);
+                    barEl.setAttribute('stroke-width', Math.max(0.3, newFontSize * 0.06));
+                }
+                selectedElement.setAttribute('data-draw-size', sz);
+                selectedElement.setAttribute('data-over-scale', drawOverScale);
+                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
+                updateSelectionRing();
             } else if (tag === 'g') {
                 hasEditedExisting = true;
                 var stampSizeSvg = gridToSvg(sz) * drawOverScale;
@@ -2908,10 +2992,19 @@
         }
         function onDrawFontFamilyChange(val) {
             drawFontFamily = val;
-            if (selectedElement && selectedElement.tagName.toLowerCase() === 'text') {
-                hasEditedExisting = true;
-                selectedElement.setAttribute('font-family', val);
-                updateSelectionRing();
+            if (selectedElement) {
+                var tag = selectedElement.tagName.toLowerCase();
+                if (tag === 'text') {
+                    hasEditedExisting = true;
+                    selectedElement.setAttribute('font-family', val);
+                    updateSelectionRing();
+                } else if (tag === 'g' && selectedElement.hasAttribute('data-fraction')) {
+                    hasEditedExisting = true;
+                    selectedElement.querySelectorAll('text').forEach(function(t) {
+                        t.setAttribute('font-family', val);
+                    });
+                    updateSelectionRing();
+                }
             }
         }
 
@@ -3238,6 +3331,57 @@
                     el.setAttribute('data-draw-size', sz);
                     el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                     el.textContent = ch;
+                } else if (drawTool === 'fraction') {
+                    // Create fraction group: numerator, bar, denominator
+                    var ns = 'http://www.w3.org/2000/svg';
+                    el = document.createElementNS(ns, 'g');
+                    el.setAttribute('data-fraction', 'true');
+                    el.setAttribute('data-draw-size', sz);
+                    el.setAttribute('data-over-scale', drawOverScale);
+                    el.setAttribute('data-over-scale-max', drawOverScaleMax);
+                    var fontSize = gridToSvg(scaledSz);
+                    var barWidth = fontSize * 1.2;
+                    var gap = fontSize * 0.15;
+                    // Numerator
+                    var numText = document.createElementNS(ns, 'text');
+                    numText.setAttribute('text-anchor', 'middle');
+                    numText.setAttribute('font-size', fontSize);
+                    numText.setAttribute('font-family', drawFontFamily);
+                    numText.setAttribute('font-weight', '500');
+                    numText.setAttribute('fill', '#333');
+                    numText.setAttribute('data-frac-role', 'numerator');
+                    numText.textContent = 'a';
+                    // Denominator
+                    var denText = document.createElementNS(ns, 'text');
+                    denText.setAttribute('text-anchor', 'middle');
+                    denText.setAttribute('font-size', fontSize);
+                    denText.setAttribute('font-family', drawFontFamily);
+                    denText.setAttribute('font-weight', '500');
+                    denText.setAttribute('fill', '#333');
+                    denText.setAttribute('data-frac-role', 'denominator');
+                    denText.textContent = 'b';
+                    // Bar
+                    var bar = document.createElementNS(ns, 'line');
+                    bar.setAttribute('stroke', '#333');
+                    bar.setAttribute('stroke-width', Math.max(0.3, fontSize * 0.06));
+                    bar.setAttribute('data-frac-role', 'bar');
+                    // Position: numerator above bar, denominator below
+                    numText.setAttribute('x', 0);
+                    numText.setAttribute('y', -gap);
+                    bar.setAttribute('x1', -barWidth / 2);
+                    bar.setAttribute('y1', 0);
+                    bar.setAttribute('x2', barWidth / 2);
+                    bar.setAttribute('y2', 0);
+                    denText.setAttribute('x', 0);
+                    denText.setAttribute('y', fontSize * 0.85 + gap);
+                    el.appendChild(numText);
+                    el.appendChild(bar);
+                    el.appendChild(denText);
+                    el.setAttribute('transform', 'translate(' + x + ',' + y + ')');
+                    // Open fraction editor immediately after placement
+                    setTimeout(function() {
+                        openFractionEditor(el, container);
+                    }, 50);
                 } else if (stampSVGs[drawTool]) {
                     var isImportedStamp = (typeof drawTool === 'string' && drawTool.indexOf('stamp-imported-') === 0);
                     var stampSizeSvg = gridToSvg(sz) * drawOverScale;
@@ -3273,12 +3417,20 @@
             container.addEventListener('click', drawClickHandler);
 
 
-            // --- Double-click to edit text content ---
+            // --- Double-click to edit text or fraction content ---
             container.addEventListener('dblclick', function(e) {
                 if (!drawModeActive) return;
                 // Auto-switch to select tool on dblclick
                 if (drawTool !== 'select') selectDrawTool('select');
                 var target = e.target;
+                // Check if target is inside a fraction group
+                var fracGroup = target.closest('g[data-fraction]');
+                if (fracGroup) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openFractionEditor(fracGroup, container);
+                    return;
+                }
                 if (target.tagName.toLowerCase() === 'text' && isSelectableElement(target)) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -3341,6 +3493,102 @@
                 });
                 overlay.addEventListener('click', function(ev) {
                     if (ev.target === overlay) cancel();
+                });
+            }
+
+            // --- Fraction editor (numerator + denominator) ---
+            function openFractionEditor(fracGroup, parentContainer) {
+                var old = document.getElementById('inline-text-editor');
+                if (old) old.remove();
+                var numEl = fracGroup.querySelector('[data-frac-role="numerator"]');
+                var denEl = fracGroup.querySelector('[data-frac-role="denominator"]');
+                if (!numEl || !denEl) return;
+                var overlay = document.createElement('div');
+                overlay.id = 'inline-text-editor';
+                overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:9999;';
+                var box = document.createElement('div');
+                box.style.cssText = 'background:#2a2a3a;border:2px solid #FFD700;border-radius:10px;padding:16px 20px;min-width:220px;text-align:center;';
+                var label = document.createElement('div');
+                label.style.cssText = 'color:#ccc;font-size:13px;margin-bottom:10px;';
+                label.textContent = 'Edit fraction:';
+                box.appendChild(label);
+                // Numerator input
+                var numLabel = document.createElement('div');
+                numLabel.style.cssText = 'color:#aaa;font-size:11px;margin-bottom:2px;';
+                numLabel.textContent = 'Numerator';
+                box.appendChild(numLabel);
+                var numInput = document.createElement('input');
+                numInput.type = 'text';
+                numInput.value = numEl.textContent;
+                numInput.style.cssText = 'width:100%;padding:8px 10px;font-size:18px;border:1px solid #555;border-radius:6px;background:#1a1a2a;color:white;outline:none;box-sizing:border-box;text-align:center;';
+                box.appendChild(numInput);
+                // Fraction bar visual
+                var barDiv = document.createElement('div');
+                barDiv.style.cssText = 'width:80%;height:2px;background:#FFD700;margin:8px auto;';
+                box.appendChild(barDiv);
+                // Denominator input
+                var denLabel = document.createElement('div');
+                denLabel.style.cssText = 'color:#aaa;font-size:11px;margin-bottom:2px;';
+                denLabel.textContent = 'Denominator';
+                box.appendChild(denLabel);
+                var denInput = document.createElement('input');
+                denInput.type = 'text';
+                denInput.value = denEl.textContent;
+                denInput.style.cssText = 'width:100%;padding:8px 10px;font-size:18px;border:1px solid #555;border-radius:6px;background:#1a1a2a;color:white;outline:none;box-sizing:border-box;text-align:center;';
+                box.appendChild(denInput);
+                // Buttons
+                var btns = document.createElement('div');
+                btns.style.cssText = 'display:flex;gap:8px;margin-top:12px;justify-content:center;';
+                var okBtn = document.createElement('button');
+                okBtn.textContent = 'OK';
+                okBtn.style.cssText = 'padding:6px 20px;border-radius:6px;border:none;background:#FFD700;color:#222;font-weight:bold;cursor:pointer;';
+                var cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.cssText = 'padding:6px 20px;border-radius:6px;border:1px solid #555;background:transparent;color:#ccc;cursor:pointer;';
+                btns.appendChild(okBtn);
+                btns.appendChild(cancelBtn);
+                box.appendChild(btns);
+                overlay.appendChild(box);
+                parentContainer.style.position = 'relative';
+                parentContainer.appendChild(overlay);
+                numInput.focus();
+                numInput.select();
+                function confirmFrac() {
+                    var newNum = numInput.value;
+                    var newDen = denInput.value;
+                    if (newNum !== numEl.textContent || newDen !== denEl.textContent) {
+                        numEl.textContent = newNum;
+                        denEl.textContent = newDen;
+                        // Adjust bar width to fit longer text
+                        var barEl = fracGroup.querySelector('[data-frac-role="bar"]');
+                        if (barEl) {
+                            var fontSize = parseFloat(numEl.getAttribute('font-size')) || 10;
+                            var maxLen = Math.max(newNum.length, newDen.length, 1);
+                            var barW = fontSize * 0.65 * maxLen;
+                            if (barW < fontSize * 1.2) barW = fontSize * 1.2;
+                            barEl.setAttribute('x1', -barW / 2);
+                            barEl.setAttribute('x2', barW / 2);
+                        }
+                        hasEditedExisting = true;
+                        updateSelectionRing();
+                    }
+                    overlay.remove();
+                }
+                function cancelFrac() { overlay.remove(); }
+                okBtn.addEventListener('click', confirmFrac);
+                cancelBtn.addEventListener('click', cancelFrac);
+                numInput.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); denInput.focus(); denInput.select(); }
+                    if (ev.key === 'Escape') cancelFrac();
+                    ev.stopPropagation();
+                });
+                denInput.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); confirmFrac(); }
+                    if (ev.key === 'Escape') cancelFrac();
+                    ev.stopPropagation();
+                });
+                overlay.addEventListener('click', function(ev) {
+                    if (ev.target === overlay) cancelFrac();
                 });
             }
 

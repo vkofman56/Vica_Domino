@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 4:26 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:23 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 4:26 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:23 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,13 +303,18 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 4:26 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:23 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
                         <div class="library-set-actions">
                             <button class="library-create-btn" id="create-card-set-btn" onclick="createNewCardSet()">+</button>
+                            <button class="library-create-btn" id="create-folder-btn" onclick="createNewFolder()" title="New folder" style="font-size:14px;">&#128193;</button>
                             <button class="library-delete-mode-btn" id="delete-mode-btn" onclick="toggleDeleteMode()"></button>
+                        </div>
+                        <div id="library-recent-section" class="library-folder-section" style="display:none;">
+                            <div class="library-folder-heading">Recent</div>
+                            <div id="library-recent-list"></div>
                         </div>
                         <div class="library-set-row">
                             <button class="library-set-btn selected" id="set-numbers-btn" onclick="previewCardSet('numbers', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'numbers', true)">Numbers and Dots</button>
@@ -319,6 +324,7 @@
                             <button class="library-set-btn" id="set-abc-btn" onclick="previewCardSet('abc', this)" ondblclick="event.preventDefault(); renameCardSet(this, 'abc', true)">ABC</button>
                             <button class="library-set-delete-btn" onclick="deleteBuiltinCardSet('abc', this.parentNode)" title="Delete card set">&#10005;</button>
                         </div>
+                        <div id="library-folders-container"></div>
                         <div id="card-set-preview" class="card-set-preview" style="display:none;"></div>
                         <button class="library-edit-btn" id="edit-card-set-btn" style="display:none;" onclick="editCurrentCardSet()">Edit</button>
                     </div>
@@ -5548,9 +5554,10 @@
                 if (deletedSets.indexOf('numbers') !== -1) {
                     var customSets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
                     for (var i = 0; i < customSets.length; i++) {
-                        var lower = customSets[i].toLowerCase();
+                        var setName = typeof customSets[i] === 'string' ? customSets[i] : customSets[i].name;
+                        var lower = setName.toLowerCase();
                         if (lower === 'numbers and dots' || lower === 'numbers & dots' || lower === 'numbers') {
-                            return 'customDrawnCards_' + customSets[i];
+                            return 'customDrawnCards_' + setName;
                         }
                     }
                 }
@@ -6599,8 +6606,8 @@
             }
             // Custom sets
             var customSets = loadCardSets();
-            customSets.forEach(function(name) {
-                sets.push({ name: name, id: name });
+            customSets.forEach(function(setObj) {
+                sets.push({ name: setObj.name, id: setObj.name });
             });
 
             sets.forEach(function(s) {
@@ -8291,6 +8298,7 @@
             btn.classList.add('selected');
             previewedCardSet = setName;
             activeCardSet = setName;
+            if (isCustomCardSet(setName)) touchCardSet(setName);
 
             // Move preview after the clicked row
             var row = btn.closest('.library-set-item-custom') || btn.closest('.library-set-row');
@@ -8389,8 +8397,9 @@
                 } else {
                     // Update custom sets list
                     var sets = loadCardSets();
-                    var idx = sets.indexOf(oldName);
-                    if (idx !== -1) sets[idx] = newName;
+                    var idx = -1;
+                    for (var si = 0; si < sets.length; si++) { if (sets[si].name === oldName) { idx = si; break; } }
+                    if (idx !== -1) sets[idx].name = newName;
                     saveCardSets(sets);
                     // Rename card data key
                     var oldData = localStorage.getItem('customDrawnCards_' + oldName);
@@ -8437,7 +8446,8 @@
             if (!confirm('Delete card set "' + setName + '"? This will also erase all cards in the set.')) return;
             // Remove from saved sets list
             var sets = loadCardSets();
-            var idx = sets.indexOf(setName);
+            var idx = -1;
+            for (var si = 0; si < sets.length; si++) { if (sets[si].name === setName) { idx = si; break; } }
             if (idx !== -1) sets.splice(idx, 1);
             saveCardSets(sets);
             // Remove card data
@@ -8451,8 +8461,7 @@
                 var editBtn = document.getElementById('edit-card-set-btn');
                 if (editBtn) editBtn.style.display = 'none';
             }
-            // Remove from DOM
-            wrapper.remove();
+            rebuildCardSetsList();
         }
 
         function deleteBuiltinCardSet(setName, wrapper) {
@@ -8485,7 +8494,7 @@
             wrapper.remove();
         }
 
-        function createCustomSetElement(setName) {
+        function createCustomSetElement(setName, isRecent) {
             var wrapper = document.createElement('div');
             wrapper.className = 'library-set-item-custom';
             var btn = document.createElement('button');
@@ -8500,15 +8509,28 @@
                 renameCardSet(btn, setName, false);
             });
             wrapper.appendChild(btn);
-            var delBtn = document.createElement('button');
-            delBtn.className = 'library-set-delete-btn';
-            delBtn.title = 'Delete card set';
-            delBtn.innerHTML = '&#10005;';
-            delBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                deleteCardSet(setName, wrapper);
-            });
-            wrapper.appendChild(delBtn);
+            if (!isRecent) {
+                // "Move to" button
+                var moveBtn = document.createElement('button');
+                moveBtn.className = 'library-set-move-btn';
+                moveBtn.textContent = '\u21B7';
+                moveBtn.title = 'Move to folder';
+                moveBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    showMoveMenu(moveBtn, setName);
+                });
+                wrapper.appendChild(moveBtn);
+                // Delete button
+                var delBtn = document.createElement('button');
+                delBtn.className = 'library-set-delete-btn';
+                delBtn.title = 'Delete card set';
+                delBtn.innerHTML = '&#10005;';
+                delBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    deleteCardSet(setName, wrapper);
+                });
+                wrapper.appendChild(delBtn);
+            }
             return { wrapper: wrapper, btn: btn };
         }
 
@@ -8605,17 +8627,8 @@
         }
 
         function _createNamedSet(name) {
-            var col = document.querySelector('.library-col-sets');
-            var el = createCustomSetElement(name);
-            var preview = document.getElementById('card-set-preview');
-            if (preview) {
-                col.insertBefore(el.wrapper, preview);
-            } else {
-                col.appendChild(el.wrapper);
-            }
-
             var sets = loadCardSets();
-            sets.push(name);
+            sets.push({ name: name, folder: null, lastOpened: Date.now() });
             saveCardSets(sets);
 
             var initialCards = [
@@ -8623,7 +8636,13 @@
                 { label: 'B1', svgContent: '', desc: 'Empty' }
             ];
             localStorage.setItem('customDrawnCards_' + name, JSON.stringify(initialCards));
-            selectCustomSet(el.btn, name);
+            rebuildCardSetsList();
+            // Find and select the new set button
+            var col = document.querySelector('.library-col-sets');
+            var btns = col.querySelectorAll('.library-set-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].textContent === name) { selectCustomSet(btns[i], name); break; }
+            }
         }
 
         function _getSetStorageKey(setName) {
@@ -8687,36 +8706,287 @@
 
             var newName = 'Copy of ' + displayName;
             var sets = loadCardSets();
+            var names = sets.map(function(s) { return s.name; });
             var baseName = newName;
             var n = 2;
-            while (sets.indexOf(newName) !== -1) { newName = baseName + ' ' + n; n++; }
+            while (names.indexOf(newName) !== -1) { newName = baseName + ' ' + n; n++; }
 
             localStorage.setItem('customDrawnCards_' + newName, JSON.stringify(cards));
-            sets.push(newName);
+            sets.push({ name: newName, folder: null, lastOpened: Date.now() });
             saveCardSets(sets);
 
-            var col = document.querySelector('.library-col-sets');
-            var el = createCustomSetElement(newName);
-            var preview = document.getElementById('card-set-preview');
-            if (preview) {
-                col.insertBefore(el.wrapper, preview);
-            } else {
-                col.appendChild(el.wrapper);
-            }
-
             _exitAddSetMode();
-            selectCustomSet(el.btn, newName);
+            rebuildCardSetsList();
+            // Find and select the new set button
+            var col = document.querySelector('.library-col-sets');
+            var btns = col.querySelectorAll('.library-set-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].textContent === newName) { selectCustomSet(btns[i], newName); break; }
+            }
         }
 
         function loadCardSets() {
             try {
                 var data = localStorage.getItem('savedCardSets');
-                return data ? JSON.parse(data) : [];
+                if (!data) return [];
+                var parsed = JSON.parse(data);
+                // Support both old format (string[]) and new format (object[])
+                if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                    // Migrate in-memory: convert strings to objects
+                    parsed = parsed.map(function(name) {
+                        return { name: name, folder: null, lastOpened: 0 };
+                    });
+                }
+                return parsed;
             } catch(e) { return []; }
         }
 
         function saveCardSets(sets) {
             localStorage.setItem('savedCardSets', JSON.stringify(sets));
+        }
+
+        // Helper: get just the names as a flat array
+        function getCardSetNames() {
+            return loadCardSets().map(function(s) { return s.name; });
+        }
+
+        // Helper: find a card set object by name
+        function findCardSet(name) {
+            var sets = loadCardSets();
+            for (var i = 0; i < sets.length; i++) {
+                if (sets[i].name === name) return sets[i];
+            }
+            return null;
+        }
+
+        // Helper: update lastOpened for a card set
+        function touchCardSet(name) {
+            var sets = loadCardSets();
+            for (var i = 0; i < sets.length; i++) {
+                if (sets[i].name === name) {
+                    sets[i].lastOpened = Date.now();
+                    saveCardSets(sets);
+                    return;
+                }
+            }
+        }
+
+        // Migrate savedCardSets from string[] to object[] (one-time)
+        (function() {
+            try {
+                var data = localStorage.getItem('savedCardSets');
+                if (!data) return;
+                var parsed = JSON.parse(data);
+                if (parsed.length > 0 && typeof parsed[0] === 'string') {
+                    var migrated = parsed.map(function(name) {
+                        return { name: name, folder: null, lastOpened: 0 };
+                    });
+                    localStorage.setItem('savedCardSets', JSON.stringify(migrated));
+                }
+            } catch(e) {}
+        })();
+
+        // --- Folder management ---
+        function loadFolders() {
+            try {
+                return JSON.parse(localStorage.getItem('cardSetFolders') || '[]');
+            } catch(e) { return []; }
+        }
+        function saveFolders(folders) {
+            localStorage.setItem('cardSetFolders', JSON.stringify(folders));
+        }
+
+        function createNewFolder() {
+            var name = prompt('Folder name:');
+            if (!name || !name.trim()) return;
+            name = name.trim();
+            var folders = loadFolders();
+            if (folders.indexOf(name) !== -1) { alert('Folder "' + name + '" already exists.'); return; }
+            folders.push(name);
+            saveFolders(folders);
+            rebuildCardSetsList();
+        }
+
+        function deleteFolder(folderName) {
+            if (!confirm('Delete folder "' + folderName + '"? Card sets inside will be moved to unfiled.')) return;
+            // Move card sets out of folder
+            var sets = loadCardSets();
+            sets.forEach(function(s) { if (s.folder === folderName) s.folder = null; });
+            saveCardSets(sets);
+            // Remove folder
+            var folders = loadFolders();
+            var idx = folders.indexOf(folderName);
+            if (idx !== -1) folders.splice(idx, 1);
+            saveFolders(folders);
+            rebuildCardSetsList();
+        }
+
+        function renameFolder(folderName) {
+            var newName = prompt('Rename folder:', folderName);
+            if (!newName || !newName.trim() || newName.trim() === folderName) return;
+            newName = newName.trim();
+            var folders = loadFolders();
+            var idx = folders.indexOf(folderName);
+            if (idx === -1) return;
+            if (folders.indexOf(newName) !== -1) { alert('Folder "' + newName + '" already exists.'); return; }
+            folders[idx] = newName;
+            saveFolders(folders);
+            // Update card sets pointing to old folder
+            var sets = loadCardSets();
+            sets.forEach(function(s) { if (s.folder === folderName) s.folder = newName; });
+            saveCardSets(sets);
+            rebuildCardSetsList();
+        }
+
+        function moveCardSetToFolder(setName, folderName) {
+            var sets = loadCardSets();
+            for (var i = 0; i < sets.length; i++) {
+                if (sets[i].name === setName) {
+                    sets[i].folder = folderName;
+                    break;
+                }
+            }
+            saveCardSets(sets);
+            rebuildCardSetsList();
+        }
+
+        function showMoveMenu(btn, setName) {
+            // Remove existing menu
+            var old = document.querySelector('.move-menu');
+            if (old) old.remove();
+            var folders = loadFolders();
+            var currentSet = findCardSet(setName);
+            var currentFolder = currentSet ? currentSet.folder : null;
+            var menu = document.createElement('div');
+            menu.className = 'move-menu';
+            // "Unfiled" option
+            if (currentFolder !== null) {
+                var unfiledBtn = document.createElement('button');
+                unfiledBtn.textContent = '— Unfiled —';
+                unfiledBtn.onclick = function() { menu.remove(); moveCardSetToFolder(setName, null); };
+                menu.appendChild(unfiledBtn);
+            }
+            folders.forEach(function(f) {
+                if (f === currentFolder) return; // skip current folder
+                var fb = document.createElement('button');
+                fb.textContent = '\uD83D\uDCC1 ' + f;
+                fb.onclick = function() { menu.remove(); moveCardSetToFolder(setName, f); };
+                menu.appendChild(fb);
+            });
+            if (menu.children.length === 0) {
+                var empty = document.createElement('button');
+                empty.textContent = 'No folders yet';
+                empty.disabled = true;
+                empty.style.opacity = '0.5';
+                menu.appendChild(empty);
+            }
+            btn.style.position = 'relative';
+            btn.parentNode.style.position = 'relative';
+            menu.style.position = 'absolute';
+            menu.style.right = '0';
+            menu.style.top = btn.offsetHeight + 'px';
+            btn.parentNode.appendChild(menu);
+            // Close on outside click
+            setTimeout(function() {
+                document.addEventListener('click', function closeMenu(e) {
+                    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', closeMenu); }
+                });
+            }, 0);
+        }
+
+        // --- Rebuild card sets column (folders + recent + unfiled) ---
+        function rebuildCardSetsList() {
+            var col = document.querySelector('.library-col-sets');
+            var sets = loadCardSets();
+            var folders = loadFolders();
+
+            // Remove existing custom set elements and folder sections
+            col.querySelectorAll('.library-set-item-custom, .library-folder-section:not(#library-recent-section)').forEach(function(el) {
+                el.remove();
+            });
+            var foldersContainer = document.getElementById('library-folders-container');
+            if (foldersContainer) foldersContainer.innerHTML = '';
+
+            // Build recent section (top 3 most recently opened)
+            var recentSection = document.getElementById('library-recent-section');
+            var recentList = document.getElementById('library-recent-list');
+            if (recentSection && recentList) {
+                recentList.innerHTML = '';
+                var recentSets = sets.filter(function(s) { return s.lastOpened > 0; })
+                    .sort(function(a, b) { return b.lastOpened - a.lastOpened; })
+                    .slice(0, 3);
+                if (recentSets.length > 0) {
+                    recentSection.style.display = '';
+                    recentSets.forEach(function(setObj) {
+                        var el = createCustomSetElement(setObj.name, true);
+                        recentList.appendChild(el.wrapper);
+                    });
+                } else {
+                    recentSection.style.display = 'none';
+                }
+            }
+
+            // Group sets by folder
+            var unfiled = sets.filter(function(s) { return !s.folder; });
+            var preview = document.getElementById('card-set-preview');
+
+            // Render folders
+            folders.forEach(function(folderName) {
+                var folderSets = sets.filter(function(s) { return s.folder === folderName; });
+                var section = document.createElement('div');
+                section.className = 'library-folder-section';
+                var heading = document.createElement('div');
+                heading.className = 'library-folder-heading';
+                var arrow = document.createElement('span');
+                arrow.className = 'folder-arrow';
+                arrow.textContent = '\u25BC';
+                heading.appendChild(arrow);
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = folderName;
+                nameSpan.style.flex = '1';
+                heading.appendChild(nameSpan);
+                // Rename on double-click
+                nameSpan.ondblclick = function(e) { e.stopPropagation(); renameFolder(folderName); };
+                // Delete folder button (small ×)
+                var delBtn = document.createElement('span');
+                delBtn.textContent = '\u2715';
+                delBtn.style.cssText = 'cursor:pointer;font-size:10px;opacity:0.5;';
+                delBtn.title = 'Delete folder';
+                delBtn.onclick = function(e) { e.stopPropagation(); deleteFolder(folderName); };
+                heading.appendChild(delBtn);
+                section.appendChild(heading);
+                var contents = document.createElement('div');
+                contents.className = 'library-folder-contents';
+                folderSets.forEach(function(setObj) {
+                    var el = createCustomSetElement(setObj.name);
+                    contents.appendChild(el.wrapper);
+                });
+                section.appendChild(contents);
+                // Toggle collapse
+                heading.onclick = function() {
+                    arrow.classList.toggle('collapsed');
+                    contents.classList.toggle('collapsed');
+                };
+                if (foldersContainer) {
+                    foldersContainer.appendChild(section);
+                } else if (preview) {
+                    col.insertBefore(section, preview);
+                } else {
+                    col.appendChild(section);
+                }
+            });
+
+            // Render unfiled sets
+            unfiled.forEach(function(setObj) {
+                var el = createCustomSetElement(setObj.name);
+                if (foldersContainer) {
+                    foldersContainer.appendChild(el.wrapper);
+                } else if (preview) {
+                    col.insertBefore(el.wrapper, preview);
+                } else {
+                    col.appendChild(el.wrapper);
+                }
+            });
         }
 
         // Restore saved card sets on load
@@ -8740,13 +9010,7 @@
                 if (renames.abc && abcBtn) abcBtn.textContent = renames.abc;
             } catch(e) {}
 
-            var sets = loadCardSets();
-            if (!sets.length) return;
-            var col = document.querySelector('.library-col-sets');
-            sets.forEach(function(name) {
-                var el = createCustomSetElement(name);
-                col.appendChild(el.wrapper);
-            });
+            rebuildCardSetsList();
         })();
 
         // Open the full Card Maker editor for the currently previewed set
@@ -10399,8 +10663,9 @@
             migrateStorageKey('abcCardSnapshot');
             // Migrate custom card set keys
             try {
-                var setNames = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
-                setNames.forEach(function(name) {
+                var setData = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                setData.forEach(function(item) {
+                    var name = typeof item === 'string' ? item : item.name;
                     migrateStorageKey('customDrawnCards_' + name);
                 });
             } catch(e) {}

@@ -167,6 +167,7 @@
 - Key commits: `56d966d` (v2 migration with key detection), `d3888a7` (fix timing — run after sync)
 
 ## Development Workflow Rules
+- **ALWAYS update trial timestamps with every push**: Update `TRIAL HH:MM AM/PM PDT` in ALL locations across BOTH files (`index.html` and `pm-studio-DrV.html`) with every commit/push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'` to get the time.
 - **ALWAYS validate JS syntax before committing**: Run `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"` for JS files. For inline scripts in HTML, extract and validate each `<script>` block. Broken syntax (e.g., unescaped quotes in innerHTML strings) causes silent failures that are hard to debug.
 - **Test data flow end-to-end**: When saving data to localStorage, verify the key matches what the reading code expects. This project has multiple storage key patterns (`customDrawnCards` vs `customDrawnCards_<SetName>`) depending on whether a set is built-in or custom.
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.

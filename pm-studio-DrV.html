@@ -3260,19 +3260,31 @@
 
             // --- mousedown: only used to start dragging an existing element ---
             var lastMouseDownTime = 0;
+            var lastMouseDownTarget = null;
             drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
 
                 var target = e.target;
                 if (!isSelectableElement(target)) return;
                 target = getSelectableElement(target);
-                // Detect rapid clicks (dblclick) — don't start drag
+                // Detect rapid clicks — open editor immediately instead of waiting for dblclick
                 var now = Date.now();
-                if (now - lastMouseDownTime < 400) {
-                    lastMouseDownTime = now;
-                    return; // let dblclick fire cleanly
+                if (now - lastMouseDownTime < 400 && lastMouseDownTarget === target) {
+                    lastMouseDownTime = 0;
+                    lastMouseDownTarget = null;
+                    if (drawTool !== 'select') selectDrawTool('select');
+                    var fracGroup = target.hasAttribute('data-fraction') ? target : (target.closest ? target.closest('g[data-fraction]') : null);
+                    if (fracGroup) {
+                        e.preventDefault(); e.stopPropagation();
+                        openFractionEditor(fracGroup, container);
+                    } else if (target.tagName.toLowerCase() === 'text') {
+                        e.preventDefault(); e.stopPropagation();
+                        openInlineTextEditor(target, container);
+                    }
+                    return;
                 }
                 lastMouseDownTime = now;
+                lastMouseDownTarget = target;
                 // Start drag on existing element
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;

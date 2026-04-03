@@ -468,6 +468,7 @@
                                 <input type="text" id="text-word-input" placeholder="Type text..." style="flex:1;padding:4px 6px;font-size:13px;border:1px solid rgba(255,215,0,0.3);border-radius:4px;background:#1a1a2a;color:white;outline:none;min-width:0;">
                                 <button id="text-word-ok" class="draw-submenu-item" style="width:auto;padding:0 8px;font-size:12px;background:rgba(255,215,0,0.25);">OK</button>
                             </div>
+                            <div id="text-word-symbols" style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;"></div>
                         </div>
                         <div class="draw-submenu-section" id="text-fraction-section">
                             <div class="draw-submenu-label">Fraction</div>
@@ -2359,6 +2360,43 @@
                     if (ev.key === 'Enter') { ev.preventDefault(); wordOk.click(); }
                     ev.stopPropagation();
                 };
+            }
+            // Populate symbol insert buttons for Word/Equation input
+            var symContainer = document.getElementById('text-word-symbols');
+            if (symContainer && wordInput) {
+                symContainer.innerHTML = '';
+                var symbols = [
+                    { ch: '\u00D7', label: '\u00D7', title: 'Multiply (\u00D7)' },
+                    { ch: '\u22C5', label: '\u22C5', title: 'Multiply (dot)' },
+                    { ch: '\u00F7', label: '\u00F7', title: 'Divide (\u00F7)' },
+                    { ch: '\u221A', label: '\u221A', title: 'Square root' },
+                    { ch: '\u00B2', label: '\u00B2', title: 'Squared' },
+                    { ch: '\u00B3', label: '\u00B3', title: 'Cubed' },
+                    { ch: '\u2264', label: '\u2264', title: 'Less or equal' },
+                    { ch: '\u2265', label: '\u2265', title: 'Greater or equal' },
+                    { ch: '\u2260', label: '\u2260', title: 'Not equal' },
+                    { ch: '\u03C0', label: '\u03C0', title: 'Pi' },
+                    { ch: '(', label: '(', title: 'Left paren' },
+                    { ch: ')', label: ')', title: 'Right paren' },
+                    { ch: '{', label: '{', title: 'Left brace' },
+                    { ch: '}', label: '}', title: 'Right brace' }
+                ];
+                symbols.forEach(function(s) {
+                    var btn = document.createElement('button');
+                    btn.className = 'draw-submenu-item';
+                    btn.style.cssText = 'width:24px;height:24px;font-size:14px;padding:0;';
+                    btn.textContent = s.label;
+                    btn.title = s.title;
+                    btn.onclick = function(e) {
+                        e.preventDefault();
+                        var pos = wordInput.selectionStart || wordInput.value.length;
+                        var val = wordInput.value;
+                        wordInput.value = val.slice(0, pos) + s.ch + val.slice(pos);
+                        wordInput.focus();
+                        wordInput.selectionStart = wordInput.selectionEnd = pos + s.ch.length;
+                    };
+                    symContainer.appendChild(btn);
+                });
             }
             // Wire up fraction button
             var fracBtn = document.getElementById('text-fraction-btn');

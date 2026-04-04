@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:08 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:13 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:08 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:13 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:08 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:13 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8207,6 +8207,56 @@
             updateGameVisibility();
         }
 
+        // Load variations from localStorage for a given card set type
+        // Returns array of { originalLabel, transform, svgContent, desc }
+        function getVariationsForSet(cardSetType) {
+            try {
+                var raw = localStorage.getItem('cardMakerVariations');
+                if (!raw) return [];
+                var all = JSON.parse(raw);
+                return all.filter(function(v) { return v.cardSet === cardSetType; });
+            } catch(e) { return []; }
+        }
+
+        // Create a variation preview thumb from original card data and variation info
+        function createVariationThumb(originalSvgContent, variation, cardShape, cardShapeW, cardShapeH, cardCornerR) {
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 60 60');
+            if (variation.svgContent) {
+                // Edited variation: use saved SVG content directly
+                svg.innerHTML = variation.svgContent;
+            } else if (originalSvgContent && variation.transform) {
+                // Apply transform to original content
+                if (variation.transform === '__symbol_toggle__') {
+                    svg.innerHTML = originalSvgContent;
+                    applySymbolToggle(svg);
+                } else {
+                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('transform', variation.transform);
+                    g.setAttribute('data-variation-transform', '1');
+                    g.innerHTML = originalSvgContent;
+                    svg.appendChild(g);
+                }
+            }
+            var thumb = document.createElement('div');
+            thumb.className = 'card-preview-thumb';
+            thumb.style.opacity = '0.75';
+            thumb.appendChild(svg);
+            if (cardShape === 'circle') {
+                thumb.style.borderRadius = '50%';
+            } else if (cardShape === 'rect') {
+                var sw = cardShapeW || 60;
+                var sh = cardShapeH || 60;
+                var scale = 36 / 60;
+                thumb.style.width = Math.round(sw * scale) + 'px';
+                thumb.style.height = Math.round(sh * scale) + 'px';
+                var offsetX = (sw - 60) / 2;
+                svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + sw + ' ' + sh);
+                if (cardCornerR != null && cardCornerR >= 0) { thumb.style.borderRadius = cardCornerR + '%'; }
+            }
+            return thumb;
+        }
+
         function buildNumbersPreview(container) {
             // Build preview directly from localStorage
             var numbersCards = [];
@@ -8214,6 +8264,19 @@
                 var raw = localStorage.getItem(getNumbersStorageKey());
                 if (raw) numbersCards = JSON.parse(raw);
             } catch(e) {}
+
+            // Index cards by label for variation lookup
+            var cardByLabel = {};
+            numbersCards.forEach(function(item) { cardByLabel[item.label] = item; });
+
+            // Load variations for numbers set
+            var variations = getVariationsForSet('numbers');
+            // Group variations by original label
+            var varByLabel = {};
+            variations.forEach(function(v) {
+                if (!varByLabel[v.originalLabel]) varByLabel[v.originalLabel] = [];
+                varByLabel[v.originalLabel].push(v);
+            });
 
             // Group by letter
             var rowMap = {};
@@ -8248,6 +8311,14 @@
                         }
                     }
                     previewRow.appendChild(thumb);
+                    // Append variations for this card
+                    var vars = varByLabel[item.label];
+                    if (vars) {
+                        vars.forEach(function(v) {
+                            var vThumb = createVariationThumb(item.svgContent, v, item.cardShape, item.cardShapeW, item.cardShapeH, item.cardCornerR);
+                            previewRow.appendChild(vThumb);
+                        });
+                    }
                 });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
@@ -8263,19 +8334,39 @@
                 if (snapRaw) snapshot = JSON.parse(snapRaw);
             } catch(e) {}
 
+            // Load ABC variations
+            var abcVariations = getVariationsForSet('abc');
+            var abcVarByLetter = {};
+            abcVariations.forEach(function(v) {
+                var ch = v.originalLabel ? v.originalLabel.charAt(0).toUpperCase() : '';
+                if (!abcVarByLetter[ch]) abcVarByLetter[ch] = [];
+                abcVarByLetter[ch].push(v);
+            });
+            // Also index by exact label for fallback path
+            var abcVarByLabel = {};
+            abcVariations.forEach(function(v) {
+                if (!abcVarByLabel[v.originalLabel]) abcVarByLabel[v.originalLabel] = [];
+                abcVarByLabel[v.originalLabel].push(v);
+            });
+
             if (snapshot) {
                 // Include any extra letters beyond A-E (e.g. F, G, ...) from the snapshot
                 var allLetters = letters.slice();
                 Object.keys(snapshot).forEach(function(k) {
                     if (allLetters.indexOf(k) === -1) allLetters.push(k);
                 });
+                // Also include letters that only have variations
+                Object.keys(abcVarByLetter).forEach(function(k) {
+                    if (k && allLetters.indexOf(k) === -1) allLetters.push(k);
+                });
                 allLetters.sort();
                 allLetters.forEach(function(letter) {
-                    var cards = snapshot[letter];
-                    if (!cards || cards.length === 0) return;
+                    var cards = snapshot[letter] || [];
+                    var letterVars = abcVarByLetter[letter] || [];
+                    if (cards.length === 0 && letterVars.length === 0) return;
                     var previewRow = document.createElement('div');
                     previewRow.className = 'card-preview-row';
-                    cards.forEach(function(svgContent) {
+                    cards.forEach(function(svgContent, idx) {
                         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                         svg.setAttribute('viewBox', '0 0 60 60');
                         if (svgContent) svg.innerHTML = svgContent;
@@ -8283,6 +8374,15 @@
                         thumb.className = 'card-preview-thumb';
                         thumb.appendChild(svg);
                         previewRow.appendChild(thumb);
+                        // Append variations for this specific card (label = letter + (idx+1))
+                        var cardLabel = letter + (idx + 1);
+                        var vars = abcVarByLabel[cardLabel];
+                        if (vars) {
+                            vars.forEach(function(v) {
+                                var vThumb = createVariationThumb(svgContent, v);
+                                previewRow.appendChild(vThumb);
+                            });
+                        }
                     });
                     container.appendChild(previewRow);
                 });
@@ -8361,6 +8461,14 @@
                         if (card.cardCornerR != null && card.cardCornerR >= 0) { thumb.style.borderRadius = card.cardCornerR + '%'; }
                     }
                     previewRow.appendChild(thumb);
+                    // Append variations for this card
+                    var vars = abcVarByLabel[label];
+                    if (vars) {
+                        vars.forEach(function(v) {
+                            var vThumb = createVariationThumb(card.svg, v, card.cardShape, card.cardShapeW, card.cardShapeH, card.cardCornerR);
+                            previewRow.appendChild(vThumb);
+                        });
+                    }
                 });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
@@ -8405,6 +8513,16 @@
                     var cards = JSON.parse(raw);
                     if (cards.length > 0) {
                         hasCards = true;
+                        // Index cards by label for variation lookup
+                        var cardByLabel = {};
+                        cards.forEach(function(item) { cardByLabel[item.label] = item; });
+                        // Load variations for custom set
+                        var variations = getVariationsForSet('custom');
+                        var varByLabel = {};
+                        variations.forEach(function(v) {
+                            if (!varByLabel[v.originalLabel]) varByLabel[v.originalLabel] = [];
+                            varByLabel[v.originalLabel].push(v);
+                        });
                         // Group cards by row letter (first character of label)
                         var rowMap = {};
                         var rowOrder = [];
@@ -8440,6 +8558,14 @@
                                     if (item.cardCornerR != null && item.cardCornerR >= 0) { thumb.style.borderRadius = item.cardCornerR + '%'; }
                                 }
                                 previewRow.appendChild(thumb);
+                                // Append variations for this card
+                                var vars = varByLabel[item.label];
+                                if (vars) {
+                                    vars.forEach(function(v) {
+                                        var vThumb = createVariationThumb(item.svgContent, v, item.cardShape, item.cardShapeW, item.cardShapeH, item.cardCornerR);
+                                        previewRow.appendChild(vThumb);
+                                    });
+                                }
                             });
                             preview.appendChild(previewRow);
                         });

@@ -2766,6 +2766,8 @@
         }
 
         var selectionRing = null; // SVG rect/circle showing selection
+        var extraSelectedElements = []; // additional elements in multi-select
+        var extraSelectionRings = [];   // rings for extra selected elements
 
         // Get bounding box in SVG root coordinate space (handles <g> transforms)
         function getSvgSpaceBBox(el) {
@@ -2791,34 +2793,71 @@
             return bbox;
         }
 
-        function applySelectionRingFromBBox(bbox) {
-            selectionRing.setAttribute('x', bbox.x);
-            selectionRing.setAttribute('y', bbox.y);
-            selectionRing.setAttribute('width', bbox.width);
-            selectionRing.setAttribute('height', bbox.height);
+        function applySelectionRingFromBBox(bbox, ring) {
+            var r = ring || selectionRing;
+            if (!r) return;
+            r.setAttribute('x', bbox.x);
+            r.setAttribute('y', bbox.y);
+            r.setAttribute('width', bbox.width);
+            r.setAttribute('height', bbox.height);
         }
 
-        function selectElement(el) {
+        function createSelRing(el) {
+            var cardSvg = el.closest('svg');
+            if (!cardSvg) return null;
+            var bbox;
+            try { bbox = getSvgSpaceBBox(el); } catch(e) { return null; }
+            if (!bbox) return null;
+            var ring = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            applySelectionRingFromBBox.call(null, bbox, ring);
+            ring.setAttribute('fill', 'none');
+            ring.setAttribute('stroke', '#FFD700');
+            ring.setAttribute('stroke-width', '0.5');
+            ring.setAttribute('stroke-dasharray', '1.5,1');
+            ring.setAttribute('rx', '0.5');
+            ring.classList.add('draw-sel-ring');
+            ring.style.pointerEvents = 'none';
+            cardSvg.appendChild(ring);
+            return ring;
+        }
+
+        function selectElement(el, additive) {
+            if (additive && selectedElement) {
+                // If clicking already-selected primary, remove it and promote first extra
+                if (el === selectedElement) {
+                    if (selectionRing && selectionRing.parentNode) selectionRing.parentNode.removeChild(selectionRing);
+                    selectionRing = null;
+                    selectedElement = null;
+                    if (extraSelectedElements.length > 0) {
+                        selectedElement = extraSelectedElements.shift();
+                        selectionRing = extraSelectionRings.shift();
+                        populatePropsFromElement(selectedElement);
+                    } else {
+                        var delBtn = document.getElementById('draw-delete-btn');
+                        if (delBtn) delBtn.style.display = 'none';
+                        resetOverscaleSlider();
+                    }
+                    return;
+                }
+                // If clicking an extra element, remove it from selection
+                var idx = extraSelectedElements.indexOf(el);
+                if (idx !== -1) {
+                    if (extraSelectionRings[idx] && extraSelectionRings[idx].parentNode) {
+                        extraSelectionRings[idx].parentNode.removeChild(extraSelectionRings[idx]);
+                    }
+                    extraSelectedElements.splice(idx, 1);
+                    extraSelectionRings.splice(idx, 1);
+                    return;
+                }
+                // Add new element to multi-selection
+                var ring = createSelRing(el);
+                extraSelectedElements.push(el);
+                extraSelectionRings.push(ring);
+                return;
+            }
             deselectElement();
             selectedElement = el;
-            // Create a visible selection ring around the element
-            var cardSvg = el.closest('svg');
-            if (cardSvg) {
-                var bbox;
-                try { bbox = getSvgSpaceBBox(el); } catch(e) { bbox = null; }
-                if (bbox) {
-                    selectionRing = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    applySelectionRingFromBBox(bbox);
-                    selectionRing.setAttribute('fill', 'none');
-                    selectionRing.setAttribute('stroke', '#FFD700');
-                    selectionRing.setAttribute('stroke-width', '0.5');
-                    selectionRing.setAttribute('stroke-dasharray', '1.5,1');
-                    selectionRing.setAttribute('rx', '0.5');
-                    selectionRing.classList.add('draw-sel-ring');
-                    selectionRing.style.pointerEvents = 'none';
-                    cardSvg.appendChild(selectionRing);
-                }
-            }
+            selectionRing = createSelRing(el);
             // Show delete button
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = '';
@@ -2827,11 +2866,20 @@
         }
 
         function updateSelectionRing() {
-            if (!selectionRing || !selectedElement) return;
-            try {
-                var bbox = getSvgSpaceBBox(selectedElement);
-                applySelectionRingFromBBox(bbox);
-            } catch(e) {}
+            if (selectionRing && selectedElement) {
+                try { var b = getSvgSpaceBBox(selectedElement); applySelectionRingFromBBox(b, selectionRing); } catch(e) {}
+            }
+            for (var i = 0; i < extraSelectedElements.length; i++) {
+                if (extraSelectionRings[i] && extraSelectedElements[i]) {
+                    try { var b2 = getSvgSpaceBBox(extraSelectedElements[i]); applySelectionRingFromBBox(b2, extraSelectionRings[i]); } catch(e) {}
+                }
+            }
+        }
+
+        function getAllSelectedElements() {
+            var arr = [];
+            if (selectedElement) arr.push(selectedElement);
+            return arr.concat(extraSelectedElements);
         }
 
         function deselectElement() {
@@ -2839,9 +2887,15 @@
                 selectionRing.parentNode.removeChild(selectionRing);
             }
             selectionRing = null;
-            if (selectedElement) {
-                selectedElement = null;
+            selectedElement = null;
+            // Clear extra selections
+            for (var i = 0; i < extraSelectionRings.length; i++) {
+                if (extraSelectionRings[i] && extraSelectionRings[i].parentNode) {
+                    extraSelectionRings[i].parentNode.removeChild(extraSelectionRings[i]);
+                }
             }
+            extraSelectedElements = [];
+            extraSelectionRings = [];
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
             // Reset overscale slider to default
@@ -2940,42 +2994,36 @@
             updateTotalDisplay();
             applyEffectiveSize();
         }
-        // Apply the combined size (coarse + fine) to the currently selected element
-        // Anchor: bottom-left corner stays fixed when scaling
-        function applyEffectiveSize() {
-            if (!selectedElement) return;
-            var sz = getEffectiveSize();
-            var tag = selectedElement.tagName.toLowerCase();
+        // Apply the combined size to a single element
+        function applySizeToElement(el, sz) {
+            var tag = el.tagName.toLowerCase();
             if (tag === 'circle') {
                 hasEditedExisting = true;
-                var oldR = +selectedElement.getAttribute('r') || 1;
-                var isHollow = selectedElement.getAttribute('fill') === 'none';
+                var oldR = +el.getAttribute('r') || 1;
+                var isHollow = el.getAttribute('fill') === 'none';
                 var halfSz = (sz * drawOverScale) / 2;
                 var newR = isHollow ? gridToSvg(halfSz * 0.9) : gridToSvg(halfSz);
-                // Bottom-left anchor: (cx - oldR, cy + oldR) stays fixed
-                var oldCx = +selectedElement.getAttribute('cx');
-                var oldCy = +selectedElement.getAttribute('cy');
+                var oldCx = +el.getAttribute('cx');
+                var oldCy = +el.getAttribute('cy');
                 var blX = oldCx - oldR;
                 var blY = oldCy + oldR;
-                selectedElement.setAttribute('cx', blX + newR);
-                selectedElement.setAttribute('cy', blY - newR);
-                selectedElement.setAttribute('r', newR);
+                el.setAttribute('cx', blX + newR);
+                el.setAttribute('cy', blY - newR);
+                el.setAttribute('r', newR);
                 if (isHollow) {
-                    selectedElement.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
+                    el.setAttribute('stroke-width', gridToSvg(Math.max(1, Math.round(halfSz * 0.4))));
                 }
-                selectedElement.setAttribute('data-draw-size', sz);
-                selectedElement.setAttribute('data-over-scale', drawOverScale);
-                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
-                updateSelectionRing();
-            } else if (tag === 'g' && selectedElement.hasAttribute('data-fraction')) {
-                // Fraction group: resize by updating child text font-size and repositioning
+                el.setAttribute('data-draw-size', sz);
+                el.setAttribute('data-over-scale', drawOverScale);
+                el.setAttribute('data-over-scale-max', drawOverScaleMax);
+            } else if (tag === 'g' && el.hasAttribute('data-fraction')) {
                 hasEditedExisting = true;
                 var newFontSize = gridToSvg(sz * drawOverScale);
                 var gap = newFontSize * 0.15;
                 var barWidth = newFontSize * 1.2;
-                var numEl = selectedElement.querySelector('[data-frac-role="numerator"]');
-                var denEl = selectedElement.querySelector('[data-frac-role="denominator"]');
-                var barEl = selectedElement.querySelector('[data-frac-role="bar"]');
+                var numEl = el.querySelector('[data-frac-role="numerator"]');
+                var denEl = el.querySelector('[data-frac-role="denominator"]');
+                var barEl = el.querySelector('[data-frac-role="bar"]');
                 if (numEl) { numEl.setAttribute('font-size', newFontSize); numEl.setAttribute('y', -gap); }
                 if (denEl) { denEl.setAttribute('font-size', newFontSize); denEl.setAttribute('y', newFontSize * 0.85 + gap); }
                 if (barEl) {
@@ -2985,71 +3033,75 @@
                     barEl.setAttribute('x2', barWidth / 2);
                     barEl.setAttribute('stroke-width', Math.max(0.3, newFontSize * 0.06));
                 }
-                selectedElement.setAttribute('data-draw-size', sz);
-                selectedElement.setAttribute('data-over-scale', drawOverScale);
-                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
-                updateSelectionRing();
+                el.setAttribute('data-draw-size', sz);
+                el.setAttribute('data-over-scale', drawOverScale);
+                el.setAttribute('data-over-scale-max', drawOverScaleMax);
             } else if (tag === 'g') {
                 hasEditedExisting = true;
                 var stampSizeSvg = gridToSvg(sz) * drawOverScale;
                 if (stampSizeSvg < 1) stampSizeSvg = 1;
-                if (stampSizeSvg > 600) stampSizeSvg = 600; // max 10x card
+                if (stampSizeSvg > 600) stampSizeSvg = 600;
                 var scale = stampSizeSvg / 100;
-                var t = selectedElement.getAttribute('transform') || '';
+                var t = el.getAttribute('transform') || '';
                 var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
                 var oldScale = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                 if (m && oldScale) {
                     var oldSz = +oldScale[1] * 100;
-                    // Bottom-left anchor: (tx, ty + oldSz) stays fixed
                     var blX = +m[1];
                     var blY = +m[2] + oldSz;
-                    selectedElement.setAttribute('transform', 'translate(' + blX + ',' + (blY - stampSizeSvg) + ') scale(' + scale + ')');
+                    el.setAttribute('transform', 'translate(' + blX + ',' + (blY - stampSizeSvg) + ') scale(' + scale + ')');
                 } else {
                     var cx = 30, cy = 30;
                     if (m) { cx = +m[1]; cy = +m[2]; }
-                    selectedElement.setAttribute('transform', 'translate(' + cx + ',' + (cy + stampSizeSvg) + ') scale(' + scale + ')');
+                    el.setAttribute('transform', 'translate(' + cx + ',' + (cy + stampSizeSvg) + ') scale(' + scale + ')');
                 }
-                selectedElement.setAttribute('data-over-scale', drawOverScale);
-                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
-                selectedElement.setAttribute('data-draw-size', sz);
-                updateSelectionRing();
+                el.setAttribute('data-over-scale', drawOverScale);
+                el.setAttribute('data-over-scale-max', drawOverScaleMax);
+                el.setAttribute('data-draw-size', sz);
             } else if (tag === 'text') {
                 hasEditedExisting = true;
-                var oldFontSize = +selectedElement.getAttribute('font-size') || 1;
+                var oldFontSize = +el.getAttribute('font-size') || 1;
                 var newFontSize = gridToSvg(sz * drawOverScale);
-                // For text with text-anchor:middle, bottom-left = (x - oldWidth/2, y)
-                // Approximate width as fontSize * 0.6 per character
-                var text = selectedElement.textContent || '';
+                var text = el.textContent || '';
                 var charCount = text.length || 1;
                 var oldWidth = oldFontSize * 0.6 * charCount;
                 var newWidth = newFontSize * 0.6 * charCount;
-                // Keep left edge and baseline (y) fixed
-                var oldX = +selectedElement.getAttribute('x');
+                var oldX = +el.getAttribute('x');
                 var leftEdge = oldX - oldWidth / 2;
-                selectedElement.setAttribute('x', leftEdge + newWidth / 2);
-                selectedElement.setAttribute('font-size', newFontSize);
-                selectedElement.setAttribute('data-draw-size', sz);
-                selectedElement.setAttribute('data-over-scale', drawOverScale);
-                selectedElement.setAttribute('data-over-scale-max', drawOverScaleMax);
-                updateSelectionRing();
+                el.setAttribute('x', leftEdge + newWidth / 2);
+                el.setAttribute('font-size', newFontSize);
+                el.setAttribute('data-draw-size', sz);
+                el.setAttribute('data-over-scale', drawOverScale);
+                el.setAttribute('data-over-scale-max', drawOverScaleMax);
             }
+        }
+        // Apply size to all selected elements
+        function applyEffectiveSize() {
+            if (!selectedElement) return;
+            var sz = getEffectiveSize();
+            var all = getAllSelectedElements();
+            for (var i = 0; i < all.length; i++) {
+                applySizeToElement(all[i], sz);
+            }
+            updateSelectionRing();
         }
         function onDrawFontFamilyChange(val) {
             drawFontFamily = val;
-            if (selectedElement) {
-                var tag = selectedElement.tagName.toLowerCase();
+            var all = getAllSelectedElements();
+            for (var i = 0; i < all.length; i++) {
+                var el = all[i];
+                var tag = el.tagName.toLowerCase();
                 if (tag === 'text') {
                     hasEditedExisting = true;
-                    selectedElement.setAttribute('font-family', val);
-                    updateSelectionRing();
-                } else if (tag === 'g' && selectedElement.hasAttribute('data-fraction')) {
+                    el.setAttribute('font-family', val);
+                } else if (tag === 'g' && el.hasAttribute('data-fraction')) {
                     hasEditedExisting = true;
-                    selectedElement.querySelectorAll('text').forEach(function(t) {
+                    el.querySelectorAll('text').forEach(function(t) {
                         t.setAttribute('font-family', val);
                     });
-                    updateSelectionRing();
                 }
             }
+            updateSelectionRing();
         }
 
         // --- Font picker (two-level: categories → fonts) ---
@@ -3246,13 +3298,22 @@
         // --- Delete selected element ---
         function drawDeleteSelected() {
             if (!selectedElement) return;
-            // Remove from drawHistory if it's there
-            var idx = drawHistory.indexOf(selectedElement);
-            if (idx !== -1) drawHistory.splice(idx, 1);
-            // Remove from SVG
-            if (selectedElement.parentNode) selectedElement.parentNode.removeChild(selectedElement);
+            var all = getAllSelectedElements();
+            for (var i = 0; i < all.length; i++) {
+                var idx = drawHistory.indexOf(all[i]);
+                if (idx !== -1) drawHistory.splice(idx, 1);
+                if (all[i].parentNode) all[i].parentNode.removeChild(all[i]);
+            }
             hasEditedExisting = true;
+            // Clear selection state without calling deselectElement (elements already removed)
+            if (selectionRing && selectionRing.parentNode) selectionRing.parentNode.removeChild(selectionRing);
+            selectionRing = null;
             selectedElement = null;
+            for (var j = 0; j < extraSelectionRings.length; j++) {
+                if (extraSelectionRings[j] && extraSelectionRings[j].parentNode) extraSelectionRings[j].parentNode.removeChild(extraSelectionRings[j]);
+            }
+            extraSelectedElements = [];
+            extraSelectionRings = [];
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
         }
@@ -3300,8 +3361,9 @@
                     var local = toVariationLocalCoords(rawX, rawY);
                     rawX = local.x; rawY = local.y;
                 }
-                selectElement(target);
+                selectElement(target, e.shiftKey);
                 selectDrawTool('select');
+                if (e.shiftKey) { e.preventDefault(); return; } // Shift+click = toggle only, no drag
                 isDragging = true;
                 justDragged = false;
                 dragStartX = rawX;
@@ -3327,7 +3389,7 @@
 
                 // Click on existing element = select it (if not already dragging)
                 if (isSelectableElement(target)) {
-                    selectElement(getSelectableElement(target));
+                    selectElement(getSelectableElement(target), e.shiftKey);
                     selectDrawTool('select');
                     return;
                 }
@@ -4026,9 +4088,12 @@
         });
 
         function applyColorInLoupe(color) {
-            // If an element is selected, color only that element
+            // If element(s) selected, color all of them
             if (selectedElement) {
-                colorOneElement(selectedElement, color);
+                var allSel = getAllSelectedElements();
+                for (var ci = 0; ci < allSel.length; ci++) {
+                    colorOneElement(allSel[ci], color);
+                }
                 hasEditedExisting = true;
                 return;
             }

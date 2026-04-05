@@ -122,10 +122,28 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
         rightHalf.appendChild(rightDisplay);
     }
 
+    // Apply game-level card shape override
+    if (window.customGameCardShape && window.customGameCardShape !== 'square') {
+        _applyGameShapeToHalf(leftHalf);
+        _applyGameShapeToHalf(rightHalf);
+    }
+
     domino.appendChild(leftHalf);
     domino.appendChild(rightHalf);
 
     return domino;
+}
+
+function _applyGameShapeToHalf(half) {
+    var shape = window.customGameCardShape;
+    var cornerR = window.customGameCardCornerR || 0;
+    if (shape === 'circle') {
+        half.style.borderRadius = '50%';
+        half.style.overflow = 'hidden';
+    } else if (cornerR > 0) {
+        half.style.borderRadius = cornerR + '%';
+        half.style.overflow = 'hidden';
+    }
 }
 
 /**

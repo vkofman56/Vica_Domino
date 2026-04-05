@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 9:09 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 9:09 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 9:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2160,6 +2160,26 @@
         // Generate a unique card ID (purely additive — does not affect labels or rows)
         function generateCardUID() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        // Persist UIDs that were generated during DOM build back to localStorage
+        function _persistNewUIDs(storageKey, container) {
+            try {
+                var raw = localStorage.getItem(storageKey);
+                if (!raw) return;
+                var cards = JSON.parse(raw);
+                var domCards = container.querySelectorAll('.library-card');
+                var needsSave = false;
+                domCards.forEach(function(el, idx) {
+                    if (cards[idx] && !cards[idx].uid && el.dataset.uid) {
+                        cards[idx].uid = el.dataset.uid;
+                        needsSave = true;
+                    }
+                });
+                if (needsSave) {
+                    localStorage.setItem(storageKey, JSON.stringify(cards));
+                }
+            } catch(e) {}
         }
 
         function getNextNumber(letter) {
@@ -5874,6 +5894,8 @@
             // Apply saved card arrangement
             applyCardArrangement('card-set-numbers');
             saveCardArrangement('card-set-numbers');
+            // Persist UIDs for any cards that got new ones
+            _persistNewUIDs(getNumbersStorageKey(), container);
         }
 
         // --- Migration: convert old-style variations to regular cards in localStorage ---
@@ -9380,6 +9402,8 @@
                     });
                 }
             } catch(e) {}
+            // Persist UIDs: if any cards got new UIDs, save back to storage
+            _persistNewUIDs('customDrawnCards_' + setName, container);
             // Migrate any old-style deferred variations into regular cards
             loadDeferredVariations('custom');
         }
@@ -9543,6 +9567,8 @@
             saveCardArrangement('card-set-abc');
             // Save a snapshot of the rendered cards so the Library preview shows the exact same thing
             saveAbcSnapshot();
+            // Persist UIDs for any cards that got new ones
+            _persistNewUIDs('customDrawnCards_abc', container);
             // Restore any variations that were deferred until ABC cards were built
             loadDeferredVariations('abc');
         }

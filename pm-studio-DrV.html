@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:08 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:17 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:08 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:17 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:08 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:17 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5193,8 +5193,37 @@
             // Save as a regular card immediately
             if (!skipSave) {
                 console.log('[addVariation] Saving. activeCardSet:', activeCardSet, 'isCustom:', isCustomCardSet(activeCardSet), '_cardMakerBuilt:', _cardMakerBuilt);
-                saveCustomCards();
-                saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : (isCustomCardSet(activeCardSet) ? 'card-set-custom' : 'card-set-numbers'));
+                // Direct save: scan the correct container and write to localStorage
+                var containerId = activeCardSet === 'abc' ? 'card-set-abc' : (isCustomCardSet(activeCardSet) ? 'card-set-custom' : 'card-set-numbers');
+                var saveContainer = document.getElementById(containerId);
+                if (saveContainer) {
+                    var allCards = [];
+                    saveContainer.querySelectorAll('.library-card').forEach(function(c) {
+                        var cl = c.querySelector('.library-label');
+                        var cs = c.querySelector('svg');
+                        if (cl && cs) {
+                            var cd = {
+                                label: cl.textContent,
+                                svgContent: cs.innerHTML,
+                                desc: (c.querySelector('.library-desc') || {}).textContent || 'Card'
+                            };
+                            if (c.dataset.cardShape && c.dataset.cardShape !== 'square') {
+                                cd.cardShape = c.dataset.cardShape;
+                                cd.cardShapeW = parseFloat(c.dataset.cardShapeW) || 60;
+                                cd.cardShapeH = parseFloat(c.dataset.cardShapeH) || 60;
+                                cd.cardCornerR = parseFloat(c.dataset.cardCornerR) || 0;
+                            }
+                            allCards.push(cd);
+                        }
+                    });
+                    var storageKey;
+                    if (activeCardSet === 'abc') storageKey = 'customDrawnCards_abc';
+                    else if (isCustomCardSet(activeCardSet)) storageKey = 'customDrawnCards_' + activeCardSet;
+                    else storageKey = getNumbersStorageKey();
+                    console.log('[addVariation] Direct save: ' + allCards.length + ' cards to "' + storageKey + '"');
+                    localStorage.setItem(storageKey, JSON.stringify(allCards));
+                }
+                saveCardArrangement(containerId);
                 if (activeCardSet === 'abc') saveAbcSnapshot();
             }
         }
@@ -9315,7 +9344,15 @@
                     if (!abcDiv.querySelector('.library-card')) buildAbcCardSet();
                 }
             } else if (isCustomCardSet(setName)) {
-                if (customDiv) { customDiv.style.display = ''; buildCustomCardSet(setName); }
+                if (customDiv) {
+                    customDiv.style.display = '';
+                    // Only rebuild if empty or switching to a different custom set
+                    var currentCustomSet = customDiv.dataset.currentSet || '';
+                    if (!customDiv.querySelector('.library-card') || currentCustomSet !== setName) {
+                        buildCustomCardSet(setName);
+                        customDiv.dataset.currentSet = setName;
+                    }
+                }
             } else {
                 if (numbersDiv) {
                     numbersDiv.style.display = '';

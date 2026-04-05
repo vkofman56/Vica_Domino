@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:13 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 6:34 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:13 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 6:34 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:13 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:34 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5117,58 +5117,71 @@
             var svg = originalCard.querySelector('svg');
             if (!row || !svg) return;
 
-            // Create variation card
+            // Build the SVG content for the new card
+            var newSvgContent;
+            if (editedSvgContent) {
+                newSvgContent = editedSvgContent;
+            } else {
+                var varSvg = createVariationSVG(svg, transform);
+                newSvgContent = varSvg.innerHTML;
+            }
+
+            // Create a regular card (not a variation)
             var card = document.createElement('div');
-            card.className = 'library-card variation';
-            card.dataset.originalLabel = label;
-            card.dataset.transform = transform;
-            card.dataset.desc = desc;
+            card.className = 'library-card';
+            card.dataset.custom = 'true';
+
+            // Copy card shape from original
+            if (originalCard.dataset.cardShape && originalCard.dataset.cardShape !== 'square') {
+                card.dataset.cardShape = originalCard.dataset.cardShape;
+                card.dataset.cardShapeW = originalCard.dataset.cardShapeW || 60;
+                card.dataset.cardShapeH = originalCard.dataset.cardShapeH || 60;
+                card.dataset.cardCornerR = originalCard.dataset.cardCornerR || 0;
+            }
+
+            // Get next available label number
+            var letter = label.charAt(0).toUpperCase();
+            var num = getNextNumber(letter);
+            var newLabel = letter + num;
 
             var cardLabel = document.createElement('div');
             cardLabel.className = 'library-label';
+            cardLabel.textContent = newLabel;
             card.appendChild(cardLabel);
 
             var preview = document.createElement('div');
             preview.className = 'domino-half-preview';
-            if (editedSvgContent) {
-                // Use previously edited SVG content
-                var editedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                editedSvg.setAttribute('viewBox', '0 0 60 60');
-                editedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                editedSvg.innerHTML = editedSvgContent;
-                preview.appendChild(editedSvg);
-                card.dataset.edited = 'true';
-            } else {
-                preview.appendChild(createVariationSVG(svg, transform));
-            }
+            var newSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            newSvg.setAttribute('viewBox', '0 0 60 60');
+            newSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            newSvg.innerHTML = newSvgContent;
+            preview.appendChild(newSvg);
             card.appendChild(preview);
-
-            // Delete button
-            var delBtn = document.createElement('button');
-            delBtn.className = 'variation-delete-btn';
-            delBtn.textContent = '\u2715';
-            delBtn.onclick = function(e) {
-                e.stopPropagation();
-                removeVariation(card);
-            };
-            card.appendChild(delBtn);
 
             // Description
             var descEl = document.createElement('div');
             descEl.className = 'library-desc';
-            descEl.textContent = desc;
+            descEl.textContent = desc || 'Card';
             card.appendChild(descEl);
 
-            // Insert after original card and any existing variations of this card
+            // Apply card shape styling if applicable
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                _applyShapeToPreview(card);
+            }
+
+            // Insert after original card in the row
             var insertAfter = originalCard;
             var next = originalCard.nextElementSibling;
-            while (next && next.classList.contains('variation') && next.dataset.originalLabel === label) {
+            while (next && next.dataset.originalLabel === label) {
                 insertAfter = next;
                 next = next.nextElementSibling;
             }
             row.insertBefore(card, insertAfter.nextSibling);
 
-            renumberVariations(row, label);
+            // Add standard card buttons (delete, variations, copy)
+            addCardDeleteButton(card);
+            addVarButton(card);
+            addCopyButton(card);
 
             // Apply current zoom to the new card
             if (libZoom !== 1) {
@@ -5183,19 +5196,17 @@
                 }
             }
 
-            // Respect current hide-variations state
-            if (variationsHidden) {
-                card.style.display = 'none';
+            // Save as a regular card immediately
+            if (!skipSave) {
+                saveCustomCards();
+                saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : (isCustomCardSet(activeCardSet) ? 'card-set-custom' : 'card-set-numbers'));
+                if (activeCardSet === 'abc') saveAbcSnapshot();
             }
-
-            if (!skipSave) saveVariations();
         }
 
         function removeVariation(card) {
-            var row = card.closest('.library-row');
-            var label = card.dataset.originalLabel;
+            // Legacy compat — now just deletes the card
             card.remove();
-            if (row && label) renumberVariations(row, label);
             saveVariations();
         }
 
@@ -5572,41 +5583,12 @@
         var _cardMakerBuilt = false; // true once Card Maker DOM has been populated
 
         function saveVariations() {
-            // Guard: do NOT save if Card Maker was never opened/built — DOM is empty
-            // and saving would overwrite real card data with empty arrays
+            // Variations are now regular cards — just save all cards
             if (!_cardMakerBuilt) return;
-            var content = document.querySelector('#domino-library-screen .domino-library-content');
-            var vars = content.querySelectorAll('.library-card.variation');
-            var data = [];
-            vars.forEach(function(v) {
-                // Determine which card set this variation belongs to
-                var cardSetId = '';
-                var parent = v.closest('.card-set-content');
-                if (parent) {
-                    if (parent.id === 'card-set-abc') cardSetId = 'abc';
-                    else if (parent.id === 'card-set-custom') cardSetId = 'custom';
-                    else cardSetId = 'numbers';
-                }
-                var entry = {
-                    originalLabel: v.dataset.originalLabel,
-                    transform: v.dataset.transform,
-                    desc: v.dataset.desc || '',
-                    cardSet: cardSetId
-                };
-                // Save edited SVG content for variations that have been modified
-                if (v.dataset.edited) {
-                    var svgEl = v.querySelector('svg');
-                    if (svgEl) entry.svgContent = svgEl.innerHTML;
-                }
-                data.push(entry);
-            });
-            localStorage.setItem('cardMakerVariations', JSON.stringify(data));
-            // Also save custom drawn cards
             saveCustomCards();
-            // Persist current card arrangement (row assignments + order)
-            saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
+            var containerId = activeCardSet === 'abc' ? 'card-set-abc' : (isCustomCardSet(activeCardSet) ? 'card-set-custom' : 'card-set-numbers');
+            saveCardArrangement(containerId);
             if (activeCardSet === 'abc') saveAbcSnapshot();
-            // Mark as dirty for save/cancel prompt
             cardMakerDirty = true;
         }
 
@@ -5853,14 +5835,16 @@
             saveCardArrangement('card-set-numbers');
         }
 
+        // --- Migration: convert old-style variations to regular cards ---
         var _deferredVariations = { abc: [], custom: [] };
         function loadVariations() {
             var saved = localStorage.getItem('cardMakerVariations');
             if (!saved) return;
             try {
                 var data = JSON.parse(saved);
+                if (data.length === 0) { localStorage.removeItem('cardMakerVariations'); return; }
+                var migrated = false;
                 data.forEach(function(v) {
-                    // Defer ABC and custom card set variations until those sets are built
                     if (v.cardSet === 'abc') {
                         _deferredVariations.abc.push(v);
                         return;
@@ -5872,52 +5856,45 @@
                     var originalCard = findCardByLabel(v.originalLabel);
                     if (originalCard) {
                         addVariation(originalCard, v.transform, v.desc, true, v.svgContent);
+                        migrated = true;
                     } else if (!v.cardSet) {
-                        // Backward compat: old data without cardSet — card might be
-                        // in ABC or custom set which isn't built yet; defer for both
                         _deferredVariations.abc.push(v);
                         _deferredVariations.custom.push(v);
                     }
                 });
+                // If all non-deferred variations were migrated, save and clear
+                if (migrated) {
+                    saveCustomCards();
+                    saveCardArrangement('card-set-numbers');
+                }
             } catch(e) {}
         }
         function loadDeferredVariations(setType) {
             var deferred = _deferredVariations[setType] || [];
             if (deferred.length === 0) return;
             var cardSetName = setType === 'abc' ? 'ABC' : undefined;
+            var migrated = false;
             deferred.forEach(function(v) {
                 var originalCard = findCardByLabel(v.originalLabel, cardSetName);
                 if (originalCard) {
                     addVariation(originalCard, v.transform, v.desc, true, v.svgContent);
+                    migrated = true;
                 }
             });
             _deferredVariations[setType] = [];
+            if (migrated) {
+                saveCustomCards();
+                if (setType === 'abc') saveAbcSnapshot();
+                // Clear old variations from localStorage after successful migration
+                _clearMigratedVariations();
+            }
         }
-        // Reload variations from localStorage for a specific card set
-        // Needed when card set DOM is rebuilt (custom sets) and deferred queue is already consumed
-        function reloadVariationsForSet(setType) {
-            var saved = localStorage.getItem('cardMakerVariations');
-            if (!saved) return;
-            try {
-                var data = JSON.parse(saved);
-                var container = document.getElementById(setType === 'abc' ? 'card-set-abc' : (setType === 'custom' ? 'card-set-custom' : 'card-set-numbers'));
-                // Skip variations that already exist in the DOM
-                var existingVars = container ? container.querySelectorAll('.library-card.variation') : [];
-                var existingLabels = {};
-                existingVars.forEach(function(v) {
-                    existingLabels[v.dataset.originalLabel + '|' + v.dataset.transform] = true;
-                });
-                data.forEach(function(v) {
-                    if (v.cardSet !== setType) return;
-                    var key = v.originalLabel + '|' + v.transform;
-                    if (existingLabels[key]) return; // already loaded
-                    var cardSetName = setType === 'abc' ? 'ABC' : undefined;
-                    var originalCard = findCardByLabel(v.originalLabel, cardSetName);
-                    if (originalCard) {
-                        addVariation(originalCard, v.transform, v.desc, true, v.svgContent);
-                    }
-                });
-            } catch(e) {}
+        function _clearMigratedVariations() {
+            // Remove cardMakerVariations once all sets have been migrated
+            // Only clear if no deferred variations remain
+            if (_deferredVariations.abc.length === 0 && _deferredVariations.custom.length === 0) {
+                localStorage.removeItem('cardMakerVariations');
+            }
         }
 
         function findCardByLabel(label, cardSet) {
@@ -6736,45 +6713,8 @@
                 existingLabels[c.label] = true;
             });
 
-            // Load cards from the chosen set
+            // Load cards from the chosen set (variations are now regular cards)
             var cards = getCardsFromStorage(setId);
-
-            // Build a lookup of base cards by label
-            var cardByLabel = {};
-            cards.forEach(function(c) { cardByLabel[c.label] = c; });
-
-            // Load variations for this set and append as card entries
-            var varSetType = (setId === 'numbers') ? 'numbers' : (setId === 'abc') ? 'abc' : 'custom';
-            var variations = getVariationsForSet(varSetType);
-            variations.forEach(function(v) {
-                var orig = cardByLabel[v.originalLabel];
-                if (!orig) return;
-                // Build SVG content for the variation
-                var svgContent;
-                if (v.svgContent) {
-                    svgContent = v.svgContent;
-                } else if (v.transform && v.transform !== '__symbol_toggle__') {
-                    svgContent = '<g transform="' + v.transform.replace(/"/g, '&quot;') + '" data-variation-transform="1">' + (orig.svgContent || '') + '</g>';
-                } else if (v.transform === '__symbol_toggle__') {
-                    // Can't easily build symbol toggle inline; use original as approximation
-                    svgContent = orig.svgContent || '';
-                } else {
-                    svgContent = orig.svgContent || '';
-                }
-                var varLabel = v.originalLabel + 'v' + (v.desc || '').replace(/\s+/g, '').substring(0, 6);
-                cards.push({
-                    label: varLabel,
-                    svgContent: svgContent,
-                    desc: (v.desc || 'Variation'),
-                    cardShape: orig.cardShape,
-                    cardShapeW: orig.cardShapeW,
-                    cardShapeH: orig.cardShapeH,
-                    cardCornerR: orig.cardCornerR,
-                    _isVariation: true,
-                    _originalLabel: v.originalLabel,
-                    _transform: v.transform
-                });
-            });
 
             // Filter out cards whose label already exists in the game
             var available = cards.filter(function(c) {
@@ -6788,8 +6728,7 @@
 
             available.forEach(function(cardData) {
                 var wrapper = document.createElement('div');
-                var isVar = !!cardData._isVariation;
-                wrapper.style.cssText = 'width:60px;height:60px;background:' + (isVar ? '#e6dcc8' : '#f5e6c8') + ';border:2px solid ' + (isVar ? '#a08a5a' : '#c4a45a') + ';border-radius:8px;cursor:pointer;overflow:hidden;position:relative;' + (isVar ? 'opacity:0.85;' : '');
+                wrapper.style.cssText = 'width:60px;height:60px;background:#f5e6c8;border:2px solid #c4a45a;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;';
                 var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svg.setAttribute('viewBox', '0 0 60 60');
                 svg.style.cssText = 'width:56px;height:56px;overflow:hidden;';
@@ -6797,7 +6736,7 @@
                 wrapper.appendChild(svg);
                 // Label
                 var lbl = document.createElement('div');
-                lbl.textContent = isVar ? ('V: ' + (cardData.desc || cardData.label)) : cardData.label;
+                lbl.textContent = cardData.label;
                 lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;background:rgba(0,0,0,0.5);color:white;padding:1px;';
                 wrapper.appendChild(lbl);
 
@@ -6840,18 +6779,13 @@
                     skippedCards.push(cardData.label + ' (' + Math.round(markup.length/1024) + 'KB)');
                     return;
                 }
-                var cardEntry = {
+                game.cards.push({
                     label: cardData.label,
-                    isVariation: !!cardData._isVariation,
+                    isVariation: false,
                     cardSet: cardSetLabel,
                     svgMarkup: markup,
                     _addedToGame: true
-                };
-                if (cardData._isVariation) {
-                    cardEntry.originalLabel = cardData._originalLabel;
-                    cardEntry.transform = cardData._transform;
-                }
-                game.cards.push(cardEntry);
+                });
             });
 
             if (skippedCards.length > 0) {
@@ -7659,39 +7593,18 @@
         }
 
         function buildGameViewCard(cardInfo) {
-            if (!cardInfo.isVariation) {
-                var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
-                if (original) {
-                    var clone = original.cloneNode(true);
-                    clone.classList.remove('card-selected');
-                    var del = clone.querySelector('.variation-delete-btn');
-                    if (del) del.remove();
-                    // Re-bind buttons to work with the clone (not the original)
-                    rebindGameViewCardButtons(clone);
-                    return clone;
-                }
-                // Fallback: build from stored svgMarkup
-                return buildCardFromMarkup(cardInfo);
-            } else {
-                var original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
-                if (original) {
-                    var clone = original.cloneNode(true);
-                    clone.classList.remove('card-selected');
-                    var svg = clone.querySelector('svg');
-                    if (svg && cardInfo.transform) {
-                        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                        g.setAttribute('transform', cardInfo.transform);
-                        while (svg.firstChild) g.appendChild(svg.firstChild);
-                        svg.appendChild(g);
-                    }
-                    var lbl = clone.querySelector('.library-label');
-                    if (lbl) lbl.textContent = cardInfo.label;
-                    rebindGameViewCardButtons(clone);
-                    return clone;
-                }
-                // Fallback: build from stored svgMarkup
-                return buildCardFromMarkup(cardInfo);
+            // Try to find card in Card Maker DOM by label
+            var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
+            if (original) {
+                var clone = original.cloneNode(true);
+                clone.classList.remove('card-selected');
+                var del = clone.querySelector('.variation-delete-btn');
+                if (del) del.remove();
+                rebindGameViewCardButtons(clone);
+                return clone;
             }
+            // Fallback: build from stored svgMarkup
+            return buildCardFromMarkup(cardInfo);
         }
 
         function getGameCardSVGWithFallback(cardInfo) {
@@ -8301,25 +8214,12 @@
         }
 
         function buildNumbersPreview(container) {
-            // Build preview directly from localStorage
+            // Build preview directly from localStorage (variations are now regular cards)
             var numbersCards = [];
             try {
                 var raw = localStorage.getItem(getNumbersStorageKey());
                 if (raw) numbersCards = JSON.parse(raw);
             } catch(e) {}
-
-            // Index cards by label for variation lookup
-            var cardByLabel = {};
-            numbersCards.forEach(function(item) { cardByLabel[item.label] = item; });
-
-            // Load variations for numbers set
-            var variations = getVariationsForSet('numbers');
-            // Group variations by original label
-            var varByLabel = {};
-            variations.forEach(function(v) {
-                if (!varByLabel[v.originalLabel]) varByLabel[v.originalLabel] = [];
-                varByLabel[v.originalLabel].push(v);
-            });
 
             // Group by letter
             var rowMap = {};
@@ -8354,14 +8254,6 @@
                         }
                     }
                     previewRow.appendChild(thumb);
-                    // Append variations for this card
-                    var vars = varByLabel[item.label];
-                    if (vars) {
-                        vars.forEach(function(v) {
-                            var vThumb = createVariationThumb(item.svgContent, v, item.cardShape, item.cardShapeW, item.cardShapeH, item.cardCornerR);
-                            previewRow.appendChild(vThumb);
-                        });
-                    }
                 });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
@@ -8370,6 +8262,7 @@
         function buildAbcPreview(container) {
             // Use the snapshot saved by the Card Maker — this guarantees the Library
             // preview shows the exact same cards in the exact same order.
+            // Variations are now regular cards included in the snapshot.
             var letters = ['A', 'B', 'C', 'D', 'E'];
             var snapshot = null;
             try {
@@ -8377,39 +8270,18 @@
                 if (snapRaw) snapshot = JSON.parse(snapRaw);
             } catch(e) {}
 
-            // Load ABC variations
-            var abcVariations = getVariationsForSet('abc');
-            var abcVarByLetter = {};
-            abcVariations.forEach(function(v) {
-                var ch = v.originalLabel ? v.originalLabel.charAt(0).toUpperCase() : '';
-                if (!abcVarByLetter[ch]) abcVarByLetter[ch] = [];
-                abcVarByLetter[ch].push(v);
-            });
-            // Also index by exact label for fallback path
-            var abcVarByLabel = {};
-            abcVariations.forEach(function(v) {
-                if (!abcVarByLabel[v.originalLabel]) abcVarByLabel[v.originalLabel] = [];
-                abcVarByLabel[v.originalLabel].push(v);
-            });
-
             if (snapshot) {
-                // Include any extra letters beyond A-E (e.g. F, G, ...) from the snapshot
                 var allLetters = letters.slice();
                 Object.keys(snapshot).forEach(function(k) {
                     if (allLetters.indexOf(k) === -1) allLetters.push(k);
                 });
-                // Also include letters that only have variations
-                Object.keys(abcVarByLetter).forEach(function(k) {
-                    if (k && allLetters.indexOf(k) === -1) allLetters.push(k);
-                });
                 allLetters.sort();
                 allLetters.forEach(function(letter) {
                     var cards = snapshot[letter] || [];
-                    var letterVars = abcVarByLetter[letter] || [];
-                    if (cards.length === 0 && letterVars.length === 0) return;
+                    if (cards.length === 0) return;
                     var previewRow = document.createElement('div');
                     previewRow.className = 'card-preview-row';
-                    cards.forEach(function(svgContent, idx) {
+                    cards.forEach(function(svgContent) {
                         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                         svg.setAttribute('viewBox', '0 0 60 60');
                         if (svgContent) svg.innerHTML = svgContent;
@@ -8417,15 +8289,6 @@
                         thumb.className = 'card-preview-thumb';
                         thumb.appendChild(svg);
                         previewRow.appendChild(thumb);
-                        // Append variations for this specific card (label = letter + (idx+1))
-                        var cardLabel = letter + (idx + 1);
-                        var vars = abcVarByLabel[cardLabel];
-                        if (vars) {
-                            vars.forEach(function(v) {
-                                var vThumb = createVariationThumb(svgContent, v);
-                                previewRow.appendChild(vThumb);
-                            });
-                        }
                     });
                     container.appendChild(previewRow);
                 });
@@ -8504,14 +8367,6 @@
                         if (card.cardCornerR != null && card.cardCornerR >= 0) { thumb.style.borderRadius = card.cardCornerR + '%'; }
                     }
                     previewRow.appendChild(thumb);
-                    // Append variations for this card
-                    var vars = abcVarByLabel[label];
-                    if (vars) {
-                        vars.forEach(function(v) {
-                            var vThumb = createVariationThumb(card.svg, v, card.cardShape, card.cardShapeW, card.cardShapeH, card.cardCornerR);
-                            previewRow.appendChild(vThumb);
-                        });
-                    }
                 });
                 if (previewRow.children.length > 0) container.appendChild(previewRow);
             });
@@ -8556,16 +8411,6 @@
                     var cards = JSON.parse(raw);
                     if (cards.length > 0) {
                         hasCards = true;
-                        // Index cards by label for variation lookup
-                        var cardByLabel = {};
-                        cards.forEach(function(item) { cardByLabel[item.label] = item; });
-                        // Load variations for custom set
-                        var variations = getVariationsForSet('custom');
-                        var varByLabel = {};
-                        variations.forEach(function(v) {
-                            if (!varByLabel[v.originalLabel]) varByLabel[v.originalLabel] = [];
-                            varByLabel[v.originalLabel].push(v);
-                        });
                         // Group cards by row letter (first character of label)
                         var rowMap = {};
                         var rowOrder = [];
@@ -8601,14 +8446,6 @@
                                     if (item.cardCornerR != null && item.cardCornerR >= 0) { thumb.style.borderRadius = item.cardCornerR + '%'; }
                                 }
                                 previewRow.appendChild(thumb);
-                                // Append variations for this card
-                                var vars = varByLabel[item.label];
-                                if (vars) {
-                                    vars.forEach(function(v) {
-                                        var vThumb = createVariationThumb(item.svgContent, v, item.cardShape, item.cardShapeW, item.cardShapeH, item.cardCornerR);
-                                        previewRow.appendChild(vThumb);
-                                    });
-                                }
                             });
                             preview.appendChild(previewRow);
                         });
@@ -9513,10 +9350,8 @@
                     });
                 }
             } catch(e) {}
-            // Restore any variations that were deferred until custom cards were built
+            // Migrate any old-style deferred variations into regular cards
             loadDeferredVariations('custom');
-            // Also reload variations from localStorage (deferred queue may already be consumed)
-            reloadVariationsForSet('custom');
         }
 
         function selectCardSet(setName) {
@@ -9683,7 +9518,7 @@
                 var letter = row.dataset.rowLetter;
                 if (!letter) return;
                 var cards = [];
-                row.querySelectorAll('.library-card:not(.variation)').forEach(function(card) {
+                row.querySelectorAll('.library-card').forEach(function(card) {
                     var svg = card.querySelector('svg');
                     cards.push(svg ? svg.innerHTML : '');
                 });

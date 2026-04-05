@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:38 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:44 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:38 PM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:44 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:38 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:44 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6789,31 +6789,30 @@
             _addCardActiveSetName = (setId === 'numbers') ? 'Numbers and Dots' : (setId === 'abc') ? 'ABC' : setName;
             actions.style.display = 'none';
 
-            // Get current game's cards — match by label AND by SVG content
+            // Get current game's cards — match by SVG content (labels are unreliable after renumbering)
             var games = loadCustomGames();
             var game = games[currentGameViewIndex];
             if (!game) return;
-            var existingLabels = {};
             var existingSvgKeys = {};
+            var gameSvgCount = 0;
             game.cards.forEach(function(c) {
-                existingLabels[c.label] = true;
-                // Use full SVG content (whitespace-normalized) for visual matching
                 if (c.svgMarkup) {
                     existingSvgKeys[c.svgMarkup.replace(/\s+/g, '')] = true;
+                    gameSvgCount++;
                 }
             });
 
             // Load cards from the chosen set
             var cards = getCardsFromStorage(setId);
 
-            // Filter out cards already in game (by label OR by SVG content)
+            // Filter out cards already in game (by SVG content only)
             var available = cards.filter(function(c) {
-                if (existingLabels[c.label]) return false;
                 if (c.svgContent) {
                     if (existingSvgKeys[c.svgContent.replace(/\s+/g, '')]) return false;
                 }
                 return true;
             });
+            console.log('[AddCard] Game has', game.cards.length, 'cards (' + gameSvgCount + ' with SVG), storage has', cards.length, ', available:', available.length);
             console.log('[AddCard] Game labels:', Object.keys(existingLabels).sort().join(', '));
             console.log('[AddCard] Storage labels:', cards.map(function(c) { return c.label; }).sort().join(', '));
             console.log('[AddCard] Available (not in game):', available.length, 'of', cards.length);

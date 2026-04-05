@@ -55,7 +55,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 9:13 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -73,7 +73,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 9:13 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -306,7 +306,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 9:13 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -360,6 +360,7 @@
                 <button class="zoom-btn" id="game-view-mpp-btn" onclick="openMainPagePictures(currentGameViewIndex)" title="Main page domino pictures">MPP</button>
                 <button class="zoom-btn" id="game-view-add-card-btn" onclick="openAddCardToGame()" title="Add cards from card sets" style="font-size:20px;color:#7eff7e;">+</button>
                 <button class="zoom-btn" id="game-view-mcard-btn" onclick="toggleMCardMode()" title="Group cards as multi-face (M-card)" style="opacity:0.4;font-weight:bold;">M</button>
+                <button class="zoom-btn" id="game-view-collapse-btn" onclick="toggleCollapsedView()" title="Toggle: show all cards / one per M-group" style="opacity:0.4;font-size:12px;">1/M</button>
             </div>
             <div id="mcard-action-bar" style="display:none;background:#2a2a3a;padding:8px 16px;text-align:center;border-bottom:2px solid #7c4dff;">
                 <span style="color:#ccc;font-size:13px;" id="mcard-status">Select cards to group as M-card</span>
@@ -7130,6 +7131,12 @@
             currentCatchGameViewIndex = -1; // not a catch game
             currentGameViewIndex = gameIndex;
             gameViewReturnScreen = returnScreen || 'card-library-screen';
+            // Reset collapsed view button state (keep last toggle if re-entering)
+            var collapseBtn = document.getElementById('game-view-collapse-btn');
+            if (collapseBtn) {
+                collapseBtn.style.opacity = _collapsedView ? '1' : '0.4';
+                collapseBtn.style.background = _collapsedView ? '#7c4dff' : '';
+            }
             var _gvl = document.getElementById('a-game-view-label');
             if (_gvl) _gvl.textContent = 'A GC Find';
 
@@ -7317,6 +7324,9 @@
 
             // Apply M-card group badges
             applyMCardBadges();
+
+            // Apply collapsed view if active
+            if (_collapsedView) applyCollapsedView();
 
             // Attach M-card click handling to game view cards
             container.querySelectorAll('.library-card').forEach(function(cardEl) {
@@ -7949,6 +7959,52 @@
                         break;
                     }
                 }
+            });
+        }
+
+        // Collapsed view: show one card per M-group, hide the rest
+        var _collapsedView = false;
+
+        function toggleCollapsedView() {
+            _collapsedView = !_collapsedView;
+            var btn = document.getElementById('game-view-collapse-btn');
+            if (_collapsedView) {
+                btn.style.opacity = '1';
+                btn.style.background = '#7c4dff';
+            } else {
+                btn.style.opacity = '0.4';
+                btn.style.background = '';
+            }
+            applyCollapsedView();
+        }
+
+        function applyCollapsedView() {
+            var container = document.getElementById('game-view-cards');
+            if (!container) return;
+            var groups = getMCardGroups(currentGameViewIndex);
+            if (!groups || groups.length === 0) {
+                // No m-groups, nothing to collapse
+                container.querySelectorAll('.library-card').forEach(function(c) {
+                    c.style.display = '';
+                });
+                return;
+            }
+
+            // Build set of labels to hide (all group members except the first)
+            var hideLabels = {};
+            if (_collapsedView) {
+                groups.forEach(function(g) {
+                    for (var i = 1; i < g.length; i++) {
+                        hideLabels[g[i]] = true;
+                    }
+                });
+            }
+
+            container.querySelectorAll('.library-card').forEach(function(cardEl) {
+                var labelEl = cardEl.querySelector('.library-label');
+                if (!labelEl) return;
+                var label = labelEl.textContent;
+                cardEl.style.display = hideLabels[label] ? 'none' : '';
             });
         }
 

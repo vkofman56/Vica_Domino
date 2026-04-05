@@ -55,7 +55,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:46 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -73,7 +73,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 7:46 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -306,7 +306,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 7:46 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 8:09 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8046,6 +8046,54 @@
             el.className = 'game-view-domino';
             if (domino.isDouble) el.classList.add('double-domino');
 
+            // Look up m-groups for hover tooltips
+            var mGroups = [];
+            var gameCards = [];
+            if (currentGameViewIndex >= 0) {
+                var _games = loadCustomGames();
+                var _game = _games[currentGameViewIndex];
+                if (_game) {
+                    mGroups = _game.mGroups || [];
+                    gameCards = _game.cards || [];
+                }
+            }
+
+            function findGroupCards(cardLabel) {
+                for (var i = 0; i < mGroups.length; i++) {
+                    if (mGroups[i].indexOf(cardLabel) >= 0) {
+                        // Return all cards in this group
+                        var result = [];
+                        mGroups[i].forEach(function(lbl) {
+                            for (var k = 0; k < gameCards.length; k++) {
+                                if (gameCards[k].label === lbl) { result.push(gameCards[k]); break; }
+                            }
+                        });
+                        return result;
+                    }
+                }
+                return null;
+            }
+
+            function attachMGroupHover(halfEl, cardLabel) {
+                var groupCards = findGroupCards(cardLabel);
+                if (!groupCards || groupCards.length < 2) return;
+                halfEl.style.cursor = 'pointer';
+                halfEl.addEventListener('mouseenter', function(e) {
+                    showMGroupTooltip(halfEl, groupCards);
+                });
+                halfEl.addEventListener('mouseleave', function() {
+                    hideMGroupTooltip();
+                });
+                // Touch support
+                halfEl.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    showMGroupTooltip(halfEl, groupCards);
+                }, {passive: false});
+                halfEl.addEventListener('touchend', function() {
+                    setTimeout(hideMGroupTooltip, 1500);
+                });
+            }
+
             var leftHalf = document.createElement('div');
             leftHalf.className = 'game-view-domino-half';
             leftHalf.setAttribute('data-card-label', domino.leftCard.label);
@@ -8056,6 +8104,7 @@
             } else {
                 leftHalf.classList.add('empty-card-half');
             }
+            attachMGroupHover(leftHalf, domino.leftCard.label);
 
             var rightHalf = document.createElement('div');
             rightHalf.className = 'game-view-domino-half';
@@ -8067,10 +8116,61 @@
             } else {
                 rightHalf.classList.add('empty-card-half');
             }
+            attachMGroupHover(rightHalf, domino.rightCard.label);
 
             el.appendChild(leftHalf);
             el.appendChild(rightHalf);
             return el;
+        }
+
+        // M-group hover tooltip
+        var _mGroupTooltipEl = null;
+
+        function showMGroupTooltip(anchorEl, groupCards) {
+            hideMGroupTooltip();
+            var tip = document.createElement('div');
+            tip.id = 'mgroup-tooltip';
+            tip.style.cssText = 'position:fixed;z-index:9999;background:#1a1a2e;border:2px solid #7c4dff;border-radius:8px;padding:8px;display:flex;gap:6px;flex-wrap:wrap;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,0.5);';
+            groupCards.forEach(function(c) {
+                var item = document.createElement('div');
+                item.style.cssText = 'text-align:center;';
+                var svgWrap = document.createElement('div');
+                svgWrap.style.cssText = 'width:50px;height:50px;background:#f5e6c8;border:1px solid #c4a45a;border-radius:4px;overflow:hidden;';
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', '0 0 60 60');
+                svg.style.cssText = 'width:48px;height:48px;';
+                // Get SVG content
+                var svgContent = getGameCardSVGWithFallback(c);
+                if (svgContent) {
+                    svg.innerHTML = svgContent.innerHTML;
+                } else if (c.svgMarkup) {
+                    svg.innerHTML = c.svgMarkup;
+                }
+                svgWrap.appendChild(svg);
+                item.appendChild(svgWrap);
+                var lbl = document.createElement('div');
+                lbl.textContent = c.label;
+                lbl.style.cssText = 'font-size:9px;color:#ccc;margin-top:2px;';
+                item.appendChild(lbl);
+                tip.appendChild(item);
+            });
+            document.body.appendChild(tip);
+            _mGroupTooltipEl = tip;
+            // Position near the anchor
+            var rect = anchorEl.getBoundingClientRect();
+            tip.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - tip.offsetWidth - 4)) + 'px';
+            tip.style.top = (rect.bottom + 6) + 'px';
+            // If it goes below viewport, show above
+            if (rect.bottom + 6 + tip.offsetHeight > window.innerHeight) {
+                tip.style.top = Math.max(4, rect.top - tip.offsetHeight - 6) + 'px';
+            }
+        }
+
+        function hideMGroupTooltip() {
+            if (_mGroupTooltipEl) {
+                _mGroupTooltipEl.remove();
+                _mGroupTooltipEl = null;
+            }
         }
 
         // buildGameViewVariations removed — variations are now regular cards created in A-CM

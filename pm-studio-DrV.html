@@ -52,7 +52,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 6:12 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -70,7 +70,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
+            <h1>Pinky-Math Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 6:12 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -303,7 +303,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 5:11 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 6:12 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6905,16 +6905,12 @@
                 }
             });
 
-            // Show ALL cards — dim matched ones (still clickable to override)
+            // Show only cards NOT already in the game
             cards.forEach(function(cardData, idx) {
-                var inGame = !!matchedStorage[idx];
+                if (matchedStorage[idx]) return; // skip cards already in game
 
                 var wrapper = document.createElement('div');
-                if (inGame) {
-                    wrapper.style.cssText = 'width:60px;height:60px;background:#d0c8b8;border:2px solid #888;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;opacity:0.35;';
-                } else {
-                    wrapper.style.cssText = 'width:60px;height:60px;background:#f5e6c8;border:2px solid #c4a45a;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;';
-                }
+                wrapper.style.cssText = 'width:60px;height:60px;background:#f5e6c8;border:2px solid #c4a45a;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;';
                 var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svg.setAttribute('viewBox', '0 0 60 60');
                 svg.style.cssText = 'width:56px;height:56px;overflow:hidden;';
@@ -6926,7 +6922,7 @@
                 lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;background:rgba(0,0,0,0.5);color:white;padding:1px;';
                 wrapper.appendChild(lbl);
 
-                wrapper.addEventListener('click', (function(w, cd, wasInGame) {
+                wrapper.addEventListener('click', (function(w, cd) {
                     return function(e) {
                         e.stopPropagation();
                         var idx = _addCardSelectedCards.indexOf(cd);
@@ -6934,18 +6930,20 @@
                             _addCardSelectedCards.push(cd);
                             w.style.border = '3px solid #4CAF50';
                             w.style.boxShadow = '0 0 8px rgba(76,175,80,0.6)';
-                            w.style.opacity = '1';
                         } else {
                             _addCardSelectedCards.splice(idx, 1);
-                            w.style.border = '2px solid ' + (wasInGame ? '#888' : '#c4a45a');
+                            w.style.border = '2px solid #c4a45a';
                             w.style.boxShadow = '';
-                            w.style.opacity = wasInGame ? '0.35' : '1';
                         }
                         actions.style.display = _addCardSelectedCards.length > 0 ? 'block' : 'none';
                     };
-                })(wrapper, cardData, inGame));
+                })(wrapper, cardData));
                 grid.appendChild(wrapper);
             });
+
+            if (grid.children.length === 0) {
+                grid.innerHTML = '<p style="color:#999;font-size:13px;">All cards from this set are already in the game</p>';
+            }
         }
 
         function confirmAddCards() {

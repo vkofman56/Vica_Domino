@@ -137,12 +137,20 @@ function createDominoElement(card, isVertical = false, isOnBoard = false) {
 function _applyGameShapeToHalf(half) {
     var shape = window.customGameCardShape;
     var cornerR = window.customGameCardCornerR || 0;
+    var picScale = (window.customGameCardScale || 100) / 100;
     if (shape === 'circle') {
         half.style.borderRadius = '50%';
         half.style.overflow = 'hidden';
     } else if (cornerR > 0) {
         half.style.borderRadius = cornerR + '%';
         half.style.overflow = 'hidden';
+    }
+    if (picScale !== 1) {
+        var svg = half.querySelector('svg');
+        if (svg) {
+            svg.style.transform = 'scale(' + picScale + ')';
+            svg.style.transformOrigin = 'center center';
+        }
     }
 }
 

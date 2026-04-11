@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:48 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -47,7 +47,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:48 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1173,7 +1173,13 @@
                 active: true, roundActive: false,
                 fallingCards: [], animFrameId: null, lastUsedValues: [],
                 _coinAddedAt: 0, _coinAddedCount: 0,
-                _gemAddedAt: 0, _coinFallAt: 0, _exchangeTimeout: null
+                _gemAddedAt: 0, _coinFallAt: 0, _exchangeTimeout: null,
+                // Game-level shape override
+                gameCardShape: game.gameCardShape || null,
+                gameCardShapeW: game.gameCardShapeW || 60,
+                gameCardShapeH: game.gameCardShapeH || 60,
+                gameCardCornerR: game.gameCardCornerR || 0,
+                gameCardScale: game.gameCardScale || 100
             };
             _catchUpdateHUD();
             document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
@@ -1516,16 +1522,36 @@
 
         function _catchApplyShape(el, cardInfo) {
             if (!el || !cardInfo) return;
-            var shape = cardInfo.cardShape;
-            if (!shape || shape === 'square') return;
-            var w = cardInfo.cardShapeW || 60;
-            var h = cardInfo.cardShapeH || 60;
-            var isRound = (shape === 'circle' || shape === 'oval');
-            var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
-            var scaleRatio = baseSize / h;
-            var pixelW = Math.round(w * scaleRatio);
-            el.style.width = pixelW + 'px';
-            if (isRound) el.style.borderRadius = '50%';
+            // Use game-level shape override if available, else per-card shape
+            var g = _catchGame || {};
+            var shape = g.gameCardShape || cardInfo.cardShape;
+            var cornerR = (g.gameCardShape && g.gameCardCornerR != null) ? g.gameCardCornerR : (cardInfo.cardCornerR != null ? parseFloat(cardInfo.cardCornerR) : -1);
+            if (isNaN(cornerR)) cornerR = -1;
+            var picScale = (g.gameCardShape && g.gameCardScale) ? (g.gameCardScale / 100) : 1;
+
+            if (!shape || shape === 'square') {
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
+            } else if (shape === 'circle') {
+                el.style.borderRadius = '50%';
+                el.style.overflow = 'hidden';
+            } else {
+                var w = (g.gameCardShape ? g.gameCardShapeW : cardInfo.cardShapeW) || 60;
+                var h = (g.gameCardShape ? g.gameCardShapeH : cardInfo.cardShapeH) || 60;
+                var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
+                var scaleRatio = baseSize / h;
+                var pixelW = Math.round(w * scaleRatio);
+                el.style.width = pixelW + 'px';
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
+            }
+
+            // Apply picture scale
+            if (picScale !== 1) {
+                var svg = el.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = 'scale(' + picScale + ')';
+                    svg.style.transformOrigin = 'center center';
+                }
+            }
         }
 
         function _catchShuffle(arr) {

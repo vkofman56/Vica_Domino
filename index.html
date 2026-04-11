@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:12 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -47,7 +47,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:12 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -235,6 +235,26 @@
                     <!-- Smile -->
                     <path d="M43 22 Q50 28 57 22" stroke="#FF1493" stroke-width="2" fill="none" stroke-linecap="round"/>
                 </svg>
+
+                <!-- Catch game input mode selector (hidden by default) -->
+                <div id="catch-input-mode" style="display:none;text-align:center;margin:20px 0;">
+                    <div id="catch-no-touch-warning" style="display:none;background:rgba(255,152,0,0.2);border:1px solid #FF9800;border-radius:8px;padding:10px 16px;margin-bottom:16px;color:#FFD54F;font-size:14px;">
+                        &#9888; No touchscreen detected. Touch mode may not work on this device.
+                    </div>
+                    <h3 style="color:white;margin-bottom:12px;">Choose input mode:</h3>
+                    <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">
+                        <button class="btn catch-mode-btn" id="catch-mode-touch" onclick="selectCatchMode('touch')" style="padding:14px 28px;font-size:16px;min-width:140px;border:2px solid transparent;border-radius:10px;background:#3a3a5a;color:white;cursor:pointer;">
+                            <div style="font-size:28px;margin-bottom:4px;">&#9995;</div>
+                            <div style="font-weight:bold;">TOUCH</div>
+                            <div style="font-size:11px;color:#aaa;margin-top:4px;">Multiplayer</div>
+                        </button>
+                        <button class="btn catch-mode-btn" id="catch-mode-mouse" onclick="selectCatchMode('mouse')" style="padding:14px 28px;font-size:16px;min-width:140px;border:2px solid transparent;border-radius:10px;background:#3a3a5a;color:white;cursor:pointer;">
+                            <div style="font-size:28px;margin-bottom:4px;">&#128433;</div>
+                            <div style="font-weight:bold;">MOUSE</div>
+                            <div style="font-size:11px;color:#aaa;margin-top:4px;">Single player</div>
+                        </button>
+                    </div>
+                </div>
 
                 <div class="player-names" id="player-names" style="display: none;">
                     <h3>Enter player names:</h3>
@@ -706,6 +726,26 @@
         }
 
         var _pendingCatchGameIndex = -1; // >= 0 when setting up a catch game
+        var _hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        var _catchInputMode = 'touch'; // 'touch' or 'mouse'
+
+        function selectCatchMode(mode) {
+            _catchInputMode = mode;
+            var touchBtn = document.getElementById('catch-mode-touch');
+            var mouseBtn = document.getElementById('catch-mode-mouse');
+            if (touchBtn) touchBtn.style.border = mode === 'touch' ? '2px solid #00BCD4' : '2px solid transparent';
+            if (mouseBtn) mouseBtn.style.border = mode === 'mouse' ? '2px solid #00BCD4' : '2px solid transparent';
+            // Show player names / start button
+            var pn = document.getElementById('player-names');
+            if (pn) {
+                pn.style.display = 'block';
+                // For mouse mode, auto-set 1 player
+                var nameInputs = document.getElementById('name-inputs');
+                if (nameInputs) {
+                    nameInputs.innerHTML = '<input class="player-name-input" type="text" placeholder="Your name" value="Player 1" style="padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:#2a2a3a;color:white;font-size:14px;margin-bottom:8px;width:200px;">';
+                }
+            }
+        }
 
         function _resetSetupPanel() {
             var sc = document.querySelector('.setup-columns');
@@ -721,12 +761,15 @@
             var sp = document.querySelector('.setup-panel');
             if (sp) sp.querySelectorAll('h3').forEach(function(h3) { h3.style.display = 'block'; });
             document.querySelectorAll('.player-btn').forEach(function(b) { b.classList.remove('selected'); });
+            // Hide catch input mode selector
+            var cim = document.getElementById('catch-input-mode');
+            if (cim) cim.style.display = 'none';
         }
 
         function goToMainPage() {
             _resetSetupPanel();
             if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
-                // Show start screen for catch game (same setup as Find the Double)
+                // Show start screen for catch game with input mode selector
                 var idx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
                 var catchGames = loadCatchGames();
                 var catchGame = catchGames[idx];
@@ -737,6 +780,27 @@
                 document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
                 var _spl = document.getElementById('setup-page-label');
                 if (_spl) _spl.textContent = 'GP C Setup';
+                // Hide Find-the-double setup options
+                var sc = document.querySelector('.setup-columns');
+                if (sc) sc.style.display = 'none';
+                var ps = document.querySelector('.player-select');
+                if (ps) ps.style.display = 'none';
+                document.querySelectorAll('.setup-panel > h3').forEach(function(h3) { h3.style.display = 'none'; });
+                // Show input mode selector
+                var cim = document.getElementById('catch-input-mode');
+                if (cim) cim.style.display = 'block';
+                // Show no-touch warning if needed
+                var ntw = document.getElementById('catch-no-touch-warning');
+                if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
+                // Reset mode selection
+                _catchInputMode = 'touch';
+                var touchBtn = document.getElementById('catch-mode-touch');
+                var mouseBtn = document.getElementById('catch-mode-mouse');
+                if (touchBtn) touchBtn.style.border = '2px solid transparent';
+                if (mouseBtn) mouseBtn.style.border = '2px solid transparent';
+                // Hide player names until mode selected
+                var pn = document.getElementById('player-names');
+                if (pn) pn.style.display = 'none';
                 return;
             }
             _pendingCatchGameIndex = -1;
@@ -1165,6 +1229,7 @@
             document.body.appendChild(overlay);
             _catchGame = {
                 catchIndex: catchIndex,
+                inputMode: _catchInputMode || 'touch',
                 origCards: origCards,
                 valueGroups: valueGroups,
                 valueKeys: valueKeys,

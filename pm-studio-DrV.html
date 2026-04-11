@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:28 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:48 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:28 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:48 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 12:28 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 12:48 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -11968,7 +11968,13 @@
                 roundActive: false,
                 fallingCards: [],
                 animFrameId: null,
-                lastUsedValues: []
+                lastUsedValues: [],
+                // Game-level shape override
+                gameCardShape: game.gameCardShape || null,
+                gameCardShapeW: game.gameCardShapeW || 60,
+                gameCardShapeH: game.gameCardShapeH || 60,
+                gameCardCornerR: game.gameCardCornerR || 0,
+                gameCardScale: game.gameCardScale || 100
             };
 
             _catchUpdateHUD();
@@ -12323,25 +12329,35 @@
 
         function _catchApplyShape(el, cardInfo) {
             if (!el || !cardInfo) return;
-            var shape = cardInfo.cardShape;
-            var cornerR = cardInfo.cardCornerR != null ? parseFloat(cardInfo.cardCornerR) : -1;
+            // Use game-level shape override if available, else per-card shape
+            var g = _catchGame || {};
+            var shape = g.gameCardShape || cardInfo.cardShape;
+            var cornerR = (g.gameCardShape && g.gameCardCornerR != null) ? g.gameCardCornerR : (cardInfo.cardCornerR != null ? parseFloat(cardInfo.cardCornerR) : -1);
             if (isNaN(cornerR)) cornerR = -1;
+            var picScale = (g.gameCardShape && g.gameCardScale) ? (g.gameCardScale / 100) : 1;
+
             if (!shape || shape === 'square') {
-                if (cornerR >= 0) el.style.borderRadius = cornerR + '%';
-                return;
-            }
-            if (shape === 'circle') {
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
+            } else if (shape === 'circle') {
                 el.style.borderRadius = '50%';
-                return;
+                el.style.overflow = 'hidden';
+            } else {
+                var w = (g.gameCardShape ? g.gameCardShapeW : cardInfo.cardShapeW) || 60;
+                var h = (g.gameCardShape ? g.gameCardShapeH : cardInfo.cardShapeH) || 60;
+                var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
+                var scaleRatio = baseSize / h;
+                var pixelW = Math.round(w * scaleRatio);
+                el.style.width = pixelW + 'px';
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
             }
-            var w = cardInfo.cardShapeW || 60;
-            var h = cardInfo.cardShapeH || 60;
-            var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
-            var scaleRatio = baseSize / h;
-            var pixelW = Math.round(w * scaleRatio);
-            el.style.width = pixelW + 'px';
-            if (cornerR >= 0) {
-                el.style.borderRadius = cornerR + '%';
+
+            // Apply picture scale
+            if (picScale !== 1) {
+                var svg = el.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = 'scale(' + picScale + ')';
+                    svg.style.transformOrigin = 'center center';
+                }
             }
         }
 

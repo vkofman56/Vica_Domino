@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 2, 2026
+**Last Updated**: April 12, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -173,7 +173,7 @@
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
 - **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
 
-## Current State (April 2)
+## Current State (April 12)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development, also `claude/general-session-yVBQq`)
 - **Backup tags**: `backup-before-catch-game-20260331`, `backup-before-math-editor-20260402` (local only — remote tag push blocked by 403)
 - **Player page** (`index.html`): Working — Full navigation flow GP 0 → GP F Setup/C Setup → GP Fnm Start → GP Fnm Board
@@ -181,12 +181,16 @@
 - **Page name labels**: Temporary dev aid — editable, persistent via localStorage (`pageNameLabels_gp2` / `pageNameLabels_admin`)
 - **Navigation**: Back-arrow returns to previous page, home button goes to GP 0. Works for both Find and Catch games.
 - **Catch the Double gameplay**: Fully working — falling cards, scoring, coin/gem economy matching Find the Double
+- **Catch mouse mode**: Single-player setup (no "How many players?"), heading "The Level of Difficulty:", bubble icons instead of domino icons, labels "2/3/4 bubbles"
 - **Coin/gem system**: Both Find and Catch games have gold disk coins, gem conversion at 10 coins, glin-glin sound, fall animations
 - **Google Fonts**: Full font list loaded in both files for cross-device card rendering (page UI fonts unchanged)
 - **Card migration**: Working — 45 Numbers & Dots built-in cards + ABC cards now appear in Card Maker and sync to Firebase
 - **Sync status**: Working — migration runs after Firestore restore, `migration_builtins_converted = 'v2'`
 - **Card data protection**: 3 layers of safeguards against card data loss
 - **Auto card backup**: Every 20 minutes to Firebase `card_backups` subcollection (last 3 kept)
+- **MPP for Catch games**: Bubble-based MPP editor with circle-clipped card images; loads/saves from `savedCatchGames`
+- **Rotation auto-fix**: `_stripRotationWrapper()` removes top-level `<g rotate(...)>` wrappers from card SVGs during game loading
+- **Loupe rotate undoable**: `loupeTransformInPlace()` now adds to `drawHistory`; `drawUndo()` properly unwraps `<g>` wrappers
 - **Next planned feature**: Math equation editor for cards (WYSIWYG toolbar approach)
 
 ## March 28 Session Notes — Card Maker Scaling, Game Creator, SVG Import
@@ -304,3 +308,51 @@
 - **Childish UI for Catch the Double**: Background/fonts for young children (mentioned but not yet addressed)
 - **Remove trial timestamps**: Still present as temporary dev aids
 - **Remove page name labels**: Temporary dev aids, to be removed eventually
+- **Cleaning drag changes**: Fix stuck drag-over class, fix multiple cards appearing selected during drag
+- **Remove diagnostic console.logs**: `[addVariation]`, `[saveCustomCards]`, `[AddCard]` lines
+
+## April 12 Session Notes — Catch Mouse Mode, MPP Catch, Rotation Fix
+
+### Catch Game Fixes
+- **Square card flash fix**: Pre-apply circle/custom shape immediately in `openCatchPlayModal()` before the 600ms timeout, so the card never briefly shows as square
+- **Page label prefixes**: Catch game labels now use GPt (touch) / GPm (mouse) prefixes instead of generic GP
+- **Title**: "MathGrain Domino" → "MathGrain Games" on setup page
+- **Page name label position**: Moved next to home button (`top: 20px; left: 100px`)
+
+### Catch Mouse Mode (GP Cm Setup)
+- **Single-player setup**: In mouse mode, skips "How many players?" — shows single-player icon+name+Start directly
+- **No GPC21 intermediate page**: Start button goes directly to game
+- **Heading**: "The Level of Difficulty:" instead of "Choose your game"
+- **Bubble icons**: Level selector buttons show bubble SVGs instead of domino SVGs (2/3/4 bubbles)
+- **Labels**: "2 bubbles", "3 bubbles", "4 bubbles" instead of "dominos"
+- **Game options row preserved**: Only the "How many players?" h3 is hidden, not the entire options row
+- **`_resetSetupPanel()`**: Restores original labels ("dominos") and original domino SVGs when leaving mouse mode
+- **`_bubbleSVGs`**: Inline SVG objects with circle/triangle/star keys for each level
+
+### MPP for Catch Games
+- **`openMppForCurrentView()`**: Wrapper that detects Find vs Catch using `_getCurrentViewGame()`, sets `mppGameType`
+- **`mppGameType`**: Module-level variable — 'find' or 'catch'
+- **Bubble-based editor**: One large bubble + 2/3/4 smaller bubbles per level, with circle-clipped card images
+- **`_bubblePos`**: Module-level object with circle/triangle/star keys defining bubble positions and radii
+- **`applyMppConfigToClone()`**: Catch branch renders card images inside circles with white background, clip-path, and border
+- **Storage**: Catch MPP config loads/saves from `savedCatchGames[].mppConfig` instead of `savedCustomGames`
+- **Hint text**: "Click a bubble, then click a card" for catch mode
+
+### AGC Scroll Fix
+- **`#game-view-content`**: `display: flex; flex-direction: column; overflow: hidden;` — titles stay fixed
+- **`#game-view-cards`**: `flex: 1; overflow-y: auto; min-height: 0;` — only cards scroll
+- **CSS cache busting**: Version bumped to `style.css?v=agc-scroll-cards-1`
+
+### Rotation Bug Fix ("28" rotated 90°)
+- **Root cause**: Card SVG data can contain top-level `<g transform="rotate(...)">` wrappers from the variation toolbar or loupe rotate tool. These rotations get baked into `svgMarkup` and cannot be undone.
+- **Auto-strip**: Added `_stripRotationWrapper(svg)` helper to both files — detects single top-level `<g>` with pure rotation transform and unwraps it. Applied in `getGameCardSVG()` and `getGameCardSVGWithFallback()`. Only strips rotations, not reflections or other transforms.
+- **Undoable loupe rotate**: `loupeTransformInPlace()` now adds `<g>` wrapper to `drawHistory` with `data-loupeTransform` marker. `drawUndo()` detects these markers and unwraps children instead of just deleting.
+- **Removed stale variation loading**: Player page `startCustomGame()` no longer loads `cardMakerVariations` from localStorage (admin page migrated away from this system; stale data could add unwanted rotated versions to SVG pools).
+
+### Key Technical Details
+- **Dual-file architecture**: `index.html` (player) and `pm-studio-DrV.html` (admin) have SEPARATE copies of Catch game code; changes must be applied to BOTH
+- **`_getCurrentViewGame()`**: Returns `{game, games, type, index}` abstracting Find vs Catch game access
+- **`_catchGame` state**: Runtime game state including `inputMode`, `gameCardShape`, `gameCardCornerR`, `gameCardScale`
+- **`_catchInputMode`**: Global variable 'touch' or 'mouse'
+- **`_showSetupLabel()`** in game.js: Now checks `_pendingCatchGameIndex` and `_catchInputMode` to set correct GPt/GPm label
+- **`createVariationSVG()`**: Wraps SVG children in `<g transform="..." data-variation-transform="1">` — the `data-variation-transform` attribute marks variation-created wrappers

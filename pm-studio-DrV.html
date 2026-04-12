@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:02 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8572,6 +8572,7 @@
                 var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 fallbackSvg.setAttribute('viewBox', '0 0 60 60');
                 fallbackSvg.innerHTML = cardInfo.svgMarkup || '';
+                _stripRotationWrapper(fallbackSvg);
                 if (cardInfo.isVariation && cardInfo.transform) {
                     var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('transform', cardInfo.transform);
@@ -11059,12 +11060,28 @@
             });
         }
 
+        // Strip top-level <g> rotation wrappers from SVG (from accidental variation/loupe rotations)
+        function _stripRotationWrapper(svg) {
+            var children = svg.children;
+            if (children.length !== 1) return;
+            var g = children[0];
+            if (g.tagName !== 'g') return;
+            var t = (g.getAttribute('transform') || '').trim();
+            if (!/^rotate\(/.test(t)) return;
+            while (g.firstChild) svg.insertBefore(g.firstChild, g);
+            svg.removeChild(g);
+            _stripRotationWrapper(svg);
+        }
+
         function getGameCardSVG(cardInfo) {
             if (!cardInfo.isVariation) {
                 var card = findCardByLabel(cardInfo.label, cardInfo.cardSet);
                 if (!card) return null;
                 var svg = card.querySelector('svg');
-                return svg ? svg.cloneNode(true) : null;
+                if (!svg) return null;
+                var clone = svg.cloneNode(true);
+                _stripRotationWrapper(clone);
+                return clone;
             } else {
                 var original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
                 if (!original) return null;

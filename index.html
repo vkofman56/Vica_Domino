@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -55,7 +55,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -622,12 +622,26 @@
 
         // --- Player-only card SVG: build from stored svgMarkup (no Card Maker DOM) ---
 
+        // Strip top-level <g> rotation wrappers from SVG (from accidental variation/loupe rotations)
+        function _stripRotationWrapper(svg) {
+            var children = svg.children;
+            if (children.length !== 1) return;
+            var g = children[0];
+            if (g.tagName !== 'g') return;
+            var t = (g.getAttribute('transform') || '').trim();
+            if (!/^rotate\(/.test(t)) return;
+            while (g.firstChild) svg.insertBefore(g.firstChild, g);
+            svg.removeChild(g);
+            _stripRotationWrapper(svg);
+        }
+
         function getGameCardSVG(cardInfo) {
             var markup = cardInfo.svgMarkup;
             if (!markup) return null;
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
             svg.innerHTML = markup;
+            _stripRotationWrapper(svg);
             if (cardInfo.isVariation && cardInfo.transform) {
                 return createVariationSVG(svg, cardInfo.transform);
             }

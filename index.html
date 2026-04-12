@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:42 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -55,7 +55,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:42 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -772,7 +772,7 @@
         function goToMainPage() {
             _resetSetupPanel();
             if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
-                // Show start screen for catch game (same layout as Find the Double)
+                // Show start screen for catch game
                 var idx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
                 var catchGames = loadCatchGames();
                 var catchGame = catchGames[idx];
@@ -783,6 +783,86 @@
                 document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
                 var _spl = document.getElementById('setup-page-label');
                 if (_spl) _spl.textContent = _catchInputMode === 'mouse' ? 'GP Cm Setup' : 'GP Ct Setup';
+
+                // For MOUSE mode: show single-player icon+name setup directly (no "How many players?")
+                if (_catchInputMode === 'mouse') {
+                    // Hide "How many players?" heading and player buttons
+                    var setupPanel = document.querySelector('.setup-panel');
+                    var h3s = setupPanel.querySelectorAll('h3');
+                    h3s.forEach(function(h3) { h3.style.display = 'none'; });
+                    document.querySelector('.player-select').style.display = 'none';
+
+                    // Hide game selection columns (keep level selector visible via selected-options-row)
+                    document.querySelector('.setup-columns').style.display = 'none';
+                    document.querySelector('.game-level-select').style.display = 'none';
+
+                    // Create selected-options-row with level icon
+                    var selectedRow = document.getElementById('selected-options-row');
+                    if (!selectedRow) {
+                        selectedRow = document.createElement('div');
+                        selectedRow.id = 'selected-options-row';
+                        selectedRow.className = 'selected-options-row';
+                        setupPanel.insertBefore(selectedRow, document.getElementById('player-names'));
+                    }
+                    selectedRow.innerHTML = '';
+                    selectedRow.style.display = 'flex';
+                    var selLevelBtn = document.querySelector('.level-btn.selected');
+                    if (selLevelBtn) {
+                        var selLevelWrapper = selLevelBtn.parentElement.cloneNode(true);
+                        selLevelWrapper.style.display = 'flex';
+                        selectedRow.appendChild(selLevelWrapper);
+                    }
+
+                    // Show player-names section with single player setup
+                    var playerNamesDiv = document.getElementById('player-names');
+                    playerNamesDiv.style.display = 'block';
+                    var pnHeading = playerNamesDiv.querySelector('h3');
+                    if (pnHeading) pnHeading.style.display = 'none';
+
+                    // Reset game.js player state for single player
+                    if (window.game) {
+                        window.game.playerIcons = {};
+                        window.game.includeXeno = false;
+                    }
+
+                    var nameInputs = document.getElementById('name-inputs');
+                    nameInputs.innerHTML = '';
+
+                    // Create single player row: icon selector + name input
+                    var playerRow = document.createElement('div');
+                    playerRow.className = 'player-input-row';
+
+                    // Icon section
+                    var iconSection = document.createElement('div');
+                    iconSection.className = 'input-section';
+                    var iconLabel = document.createElement('div');
+                    iconLabel.className = 'input-label';
+                    iconLabel.textContent = 'Choose the icon';
+                    iconSection.appendChild(iconLabel);
+                    if (window.game) {
+                        var iconSelector = window.game.createIconSelector(0);
+                        iconSection.appendChild(iconSelector);
+                    }
+                    playerRow.appendChild(iconSection);
+
+                    // Name section
+                    var nameSection = document.createElement('div');
+                    nameSection.className = 'input-section name-section';
+                    var nameLabel = document.createElement('div');
+                    nameLabel.className = 'input-label';
+                    nameLabel.textContent = 'Type your name';
+                    nameSection.appendChild(nameLabel);
+                    var nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.placeholder = "Player's Name";
+                    nameInput.value = '';
+                    nameInput.dataset.playerIndex = '0';
+                    nameInput.dataset.prefix = '';
+                    nameSection.appendChild(nameInput);
+                    playerRow.appendChild(nameSection);
+
+                    nameInputs.appendChild(playerRow);
+                }
                 return;
             }
             _pendingCatchGameIndex = -1;
@@ -1142,16 +1222,23 @@
             backBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             backBtn.onclick = function() {
                 var savedIdx = _catchGame ? _catchGame.catchIndex : -1;
+                var savedMode = _catchGame ? _catchGame.inputMode : 'touch';
                 _catchCleanup();
                 // Restore catch game index so Start Game launches catch again
                 _pendingCatchGameIndex = savedIdx;
-                // Go back to GP Cnm Start (player names)
                 document.getElementById('game-screen').style.display = 'none';
                 document.getElementById('start-screen').style.display = 'flex';
                 var _spl = document.getElementById('setup-page-label');
                 var _s2l = document.getElementById('setup2-page-label');
-                if (_spl) _spl.style.display = 'none';
-                if (_s2l) _s2l.style.display = '';
+                if (savedMode === 'mouse') {
+                    // Mouse mode: go back to GP Cm Setup (single-player setup page)
+                    if (_spl) { _spl.style.display = ''; _spl.textContent = 'GP Cm Setup'; }
+                    if (_s2l) _s2l.style.display = 'none';
+                } else {
+                    // Touch mode: go back to GP Cnm player names page
+                    if (_spl) _spl.style.display = 'none';
+                    if (_s2l) _s2l.style.display = '';
+                }
             };
             overlay.appendChild(backBtn);
 

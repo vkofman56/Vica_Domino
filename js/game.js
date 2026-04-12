@@ -204,14 +204,32 @@ class VicaDominoGame {
         var _showSetupLabel = function() {
             var lbl1 = document.getElementById('setup-page-label');
             var lbl2 = document.getElementById('setup2-page-label');
-            if (lbl1) { lbl1.style.display = ''; _restoreLabel(lbl1); }
+            if (lbl1) {
+                lbl1.style.display = '';
+                // For catch games, set the correct label instead of restoring from localStorage
+                if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                    var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
+                    lbl1.textContent = _cim === 'mouse' ? 'GP Cm Setup' : 'GP Ct Setup';
+                } else {
+                    _restoreLabel(lbl1);
+                }
+            }
             if (lbl2) lbl2.style.display = 'none';
         };
 
         // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
             var pn = document.getElementById('player-names');
-            if (pn && pn.style.display !== 'none') {
+            // For mouse-mode catch: player-names is shown on setup page, so back goes to intro
+            var isCatchMouse = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0 &&
+                                typeof _catchInputMode !== 'undefined' && _catchInputMode === 'mouse');
+            if (isCatchMouse) {
+                _pendingCatchGameIndex = -1;
+                this.backToGameSetup();
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                resetIntroScreen();
+            } else if (pn && pn.style.display !== 'none') {
                 this.backToGameSetup();
                 _showSetupLabel();
             } else {

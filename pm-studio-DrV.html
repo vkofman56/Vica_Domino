@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games' Creator <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games' Creator <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:50 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:50 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:47 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:50 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4683,6 +4683,26 @@
             dropIndicator.style.display = 'none';
             document.body.appendChild(dropIndicator);
 
+            function cleanupDragState() {
+                // Remove drag-over from ALL rows (not just dragOverRow)
+                contentEl.querySelectorAll('.library-row.drag-over').forEach(function(r) {
+                    r.classList.remove('drag-over');
+                });
+                // Remove dragging from ALL cards (not just dragCard)
+                contentEl.querySelectorAll('.library-card.dragging').forEach(function(c) {
+                    c.classList.remove('dragging');
+                });
+                hideDropIndicator();
+                try { contentEl.releasePointerCapture(dragPointerId); } catch(ex) {}
+                dragCard = null;
+                dragSourceRow = null;
+                dragOverRow = null;
+                dragCardSet = null;
+                dragPointerId = null;
+                dragPending = false;
+                dragActive = false;
+            }
+
             function hideDropIndicator() {
                 dropIndicator.style.display = 'none';
                 dropRefCard = null;
@@ -4846,22 +4866,15 @@
                             if (typeof saveVariations === 'function') saveVariations();
                         }
                     }
-                    dragCard.classList.remove('dragging');
-                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
-                    hideDropIndicator();
-                    // Release pointer capture
-                    try { contentEl.releasePointerCapture(dragPointerId); } catch(ex) {}
                     // Prevent the click handler from firing
                     cardDragJustEnded = true;
                     setTimeout(function() { cardDragJustEnded = false; }, 50);
                 }
-                dragCard = null;
-                dragSourceRow = null;
-                dragOverRow = null;
-                dragCardSet = null;
-                dragPointerId = null;
-                dragPending = false;
-                dragActive = false;
+                cleanupDragState();
+            });
+
+            document.addEventListener('pointercancel', function() {
+                if (dragPending) cleanupDragState();
             });
         })();
 
@@ -7502,6 +7515,25 @@
                 dropAtEnd = false;
             }
 
+            function cleanupGvDragState() {
+                // Remove drag-over from ALL rows (not just dragOverRow)
+                containerEl.querySelectorAll('.library-row.drag-over').forEach(function(r) {
+                    r.classList.remove('drag-over');
+                });
+                // Remove dragging from ALL cards (not just dragCard)
+                containerEl.querySelectorAll('.library-card.dragging').forEach(function(c) {
+                    c.classList.remove('dragging');
+                });
+                hideIndicator();
+                try { containerEl.releasePointerCapture(dragPointerId); } catch(ex) {}
+                dragCard = null;
+                dragSourceRow = null;
+                dragOverRow = null;
+                dragPointerId = null;
+                dragPending = false;
+                dragActive = false;
+            }
+
             function findInsertPos(row, pointerX) {
                 var cards = Array.prototype.slice.call(
                     row.querySelectorAll('.library-card')
@@ -7571,6 +7603,7 @@
                 containerEl.removeEventListener('pointerdown', containerEl._gvPointerDown);
                 document.removeEventListener('pointermove', containerEl._gvPointerMove);
                 document.removeEventListener('pointerup', containerEl._gvPointerUp);
+                if (containerEl._gvPointerCancel) document.removeEventListener('pointercancel', containerEl._gvPointerCancel);
             }
 
             containerEl._gvPointerDown = function(e) {
@@ -7660,24 +7693,20 @@
                     if (dominoArea && dominoArea.style.display === 'block') {
                         rebuildGameViewDominos();
                     }
-                    dragCard.classList.remove('dragging');
-                    if (dragOverRow) dragOverRow.classList.remove('drag-over');
-                    hideIndicator();
-                    try { containerEl.releasePointerCapture(dragPointerId); } catch(ex) {}
                     _gvDragJustEnded = true;
                     setTimeout(function() { _gvDragJustEnded = false; }, 50);
                 }
-                dragCard = null;
-                dragSourceRow = null;
-                dragOverRow = null;
-                dragPointerId = null;
-                dragPending = false;
-                dragActive = false;
+                cleanupGvDragState();
+            };
+
+            containerEl._gvPointerCancel = function() {
+                if (dragPending) cleanupGvDragState();
             };
 
             containerEl.addEventListener('pointerdown', containerEl._gvPointerDown);
             document.addEventListener('pointermove', containerEl._gvPointerMove);
             document.addEventListener('pointerup', containerEl._gvPointerUp);
+            document.addEventListener('pointercancel', containerEl._gvPointerCancel);
         }
 
         // Build "effective cards" list: m-group members collapse into one representative card

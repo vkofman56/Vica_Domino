@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:40 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:40 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:32 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:40 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -11088,6 +11088,18 @@
         var mppSvgElements = {}; // label -> SVG element reference (for cloning)
         var mppActiveSelection = null; // { levelKey, dominoIdx, half } or null
         var mppCardClickHandler = null; // capture-phase click handler on game-view-cards
+        // Bubble positions for Catch MPP (shared between build and apply)
+        var _bubblePos = {
+            circle: [
+                {cx:35,cy:40,r:28},{cx:100,cy:24,r:18},{cx:108,cy:60,r:18}
+            ],
+            triangle: [
+                {cx:30,cy:40,r:26},{cx:90,cy:14,r:16},{cx:114,cy:40,r:16},{cx:90,cy:66,r:16}
+            ],
+            star: [
+                {cx:28,cy:40,r:24},{cx:80,cy:10,r:14},{cx:112,cy:24,r:14},{cx:112,cy:56,r:14},{cx:80,cy:70,r:14}
+            ]
+        };
 
         function openMppForCurrentView() {
             var info = _getCurrentViewGame();
@@ -11134,30 +11146,38 @@
 
             // Load saved config
             var saved = game.mainPageDominos || {};
-            mppConfig = {
-                circle: (saved.circle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
-                triangle: (saved.triangle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
-                star: (saved.star || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; })
-            };
-            // Pad to correct lengths
-            while (mppConfig.circle.length < 2) mppConfig.circle.push({ top: '', bottom: '' });
-            while (mppConfig.triangle.length < 3) mppConfig.triangle.push({ top: '', bottom: '' });
-            while (mppConfig.star.length < 4) mppConfig.star.push({ top: '', bottom: '' });
+            if (mppGameType === 'catch') {
+                // Bubble config: each entry = {top: 'label'} (one card per bubble)
+                // circle: 1 large + 2 small = 3, triangle: 1+3 = 4, star: 1+4 = 5
+                mppConfig = {
+                    circle: (saved.circle || []).map(function(d) { return { top: d.top || '' }; }),
+                    triangle: (saved.triangle || []).map(function(d) { return { top: d.top || '' }; }),
+                    star: (saved.star || []).map(function(d) { return { top: d.top || '' }; })
+                };
+                while (mppConfig.circle.length < 3) mppConfig.circle.push({ top: '' });
+                while (mppConfig.triangle.length < 4) mppConfig.triangle.push({ top: '' });
+                while (mppConfig.star.length < 5) mppConfig.star.push({ top: '' });
+            } else {
+                mppConfig = {
+                    circle: (saved.circle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
+                    triangle: (saved.triangle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
+                    star: (saved.star || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; })
+                };
+                // Pad to correct lengths
+                while (mppConfig.circle.length < 2) mppConfig.circle.push({ top: '', bottom: '' });
+                while (mppConfig.triangle.length < 3) mppConfig.triangle.push({ top: '', bottom: '' });
+                while (mppConfig.star.length < 4) mppConfig.star.push({ top: '', bottom: '' });
+            }
 
             // Clone the 3 level SVGs from the start screen
             var levelKeys = ['circle', 'triangle', 'star'];
-            var levelLabels = ['2 dominos', '3 dominos', '4 dominos'];
+            var levelLabels = (mppGameType === 'catch') ? ['2 bubbles', '3 bubbles', '4 bubbles'] : ['2 dominos', '3 dominos', '4 dominos'];
             var container = document.getElementById('mpp-levels');
             container.innerHTML = '';
 
             var ns = 'http://www.w3.org/2000/svg';
 
             levelKeys.forEach(function(key, idx) {
-                var origBtn = document.querySelector('.level-btn[data-level="' + key + '"]');
-                if (!origBtn) return;
-                var origSvg = origBtn.querySelector('.level-dominos-svg');
-                if (!origSvg) return;
-
                 var col = document.createElement('div');
                 col.className = 'mpp-level-col';
 
@@ -11169,74 +11189,152 @@
                 var wrap = document.createElement('div');
                 wrap.className = 'mpp-level-svg-wrap';
 
-                // Deep clone the SVG
-                var svgClone = origSvg.cloneNode(true);
-                svgClone.classList.add('mpp-level-svg');
-                svgClone.setAttribute('data-mpp-level', key);
+                var svgClone;
 
-                // Add clickable overlay rects on each domino half
-                var groups = svgClone.querySelectorAll('g');
-                var dominoIdx = 0;
-                for (var gi = 0; gi < groups.length; gi++) {
-                    var grp = groups[gi];
-                    var faces = grp.querySelectorAll('.level-domino-face');
-                    if (faces.length < 2) continue;
+                if (mppGameType === 'catch') {
+                    // Build bubble SVG from scratch
+                    svgClone = document.createElementNS(ns, 'svg');
+                    svgClone.setAttribute('viewBox', '0 0 140 80');
+                    svgClone.setAttribute('width', '120');
+                    svgClone.setAttribute('height', '70');
+                    svgClone.classList.add('mpp-level-svg');
+                    svgClone.setAttribute('data-mpp-level', key);
+                    svgClone.setAttribute('data-mpp-type', 'catch');
 
-                    // Each domino rect: x=-17 y=-36 width=34 height=72
-                    // Top half: -36 to 0, Bottom half: 0 to 36
-                    var topArea = document.createElementNS(ns, 'rect');
-                    topArea.setAttribute('class', 'mpp-click-area');
-                    topArea.setAttribute('x', '-17');
-                    topArea.setAttribute('y', '-36');
-                    topArea.setAttribute('width', '34');
-                    topArea.setAttribute('height', '36');
-                    topArea.setAttribute('data-level', key);
-                    topArea.setAttribute('data-domino', dominoIdx);
-                    topArea.setAttribute('data-half', 'top');
-                    grp.appendChild(topArea);
+                    var bpos = _bubblePos[key] || [];
+                    bpos.forEach(function(bp, bi) {
+                        var grp = document.createElementNS(ns, 'g');
+                        grp.setAttribute('class', 'mpp-bubble-group');
+                        grp.setAttribute('data-bubble-idx', bi);
 
-                    var botArea = document.createElementNS(ns, 'rect');
-                    botArea.setAttribute('class', 'mpp-click-area');
-                    botArea.setAttribute('x', '-17');
-                    botArea.setAttribute('y', '0');
-                    botArea.setAttribute('width', '34');
-                    botArea.setAttribute('height', '36');
-                    botArea.setAttribute('data-level', key);
-                    botArea.setAttribute('data-domino', dominoIdx);
-                    botArea.setAttribute('data-half', 'bottom');
-                    grp.appendChild(botArea);
+                        // Clip path for card image
+                        var clipId = 'mpp-clip-' + key + '-' + bi;
+                        var clipPath = document.createElementNS(ns, 'clipPath');
+                        clipPath.setAttribute('id', clipId);
+                        var clipCirc = document.createElementNS(ns, 'circle');
+                        clipCirc.setAttribute('cx', bp.cx);
+                        clipCirc.setAttribute('cy', bp.cy);
+                        clipCirc.setAttribute('r', bp.r - 1);
+                        clipPath.appendChild(clipCirc);
+                        svgClone.appendChild(clipPath);
 
-                    // Highlight rect (initially hidden)
-                    var hlTop = document.createElementNS(ns, 'rect');
-                    hlTop.setAttribute('class', 'mpp-highlight-rect');
-                    hlTop.setAttribute('id', 'mpp-hl-' + key + '-' + dominoIdx + '-top');
-                    hlTop.setAttribute('x', '-16');
-                    hlTop.setAttribute('y', '-35');
-                    hlTop.setAttribute('width', '32');
-                    hlTop.setAttribute('height', '34');
-                    hlTop.setAttribute('rx', '3');
-                    hlTop.setAttribute('fill', 'none');
-                    hlTop.setAttribute('stroke', '#FFD700');
-                    hlTop.setAttribute('stroke-width', '2');
-                    grp.appendChild(hlTop);
+                        // Visible bubble circle
+                        var isLarge = (bi === 0);
+                        var circ = document.createElementNS(ns, 'circle');
+                        circ.setAttribute('cx', bp.cx);
+                        circ.setAttribute('cy', bp.cy);
+                        circ.setAttribute('r', bp.r);
+                        circ.setAttribute('fill', isLarge ? '#4db8e0' : '#e0a840');
+                        circ.setAttribute('stroke', isLarge ? '#3a9cc0' : '#c09030');
+                        circ.setAttribute('stroke-width', '1.5');
+                        circ.setAttribute('class', 'mpp-bubble-fill');
+                        grp.appendChild(circ);
 
-                    var hlBot = document.createElementNS(ns, 'rect');
-                    hlBot.setAttribute('class', 'mpp-highlight-rect');
-                    hlBot.setAttribute('id', 'mpp-hl-' + key + '-' + dominoIdx + '-bottom');
-                    hlBot.setAttribute('x', '-16');
-                    hlBot.setAttribute('y', '1');
-                    hlBot.setAttribute('width', '32');
-                    hlBot.setAttribute('height', '34');
-                    hlBot.setAttribute('rx', '3');
-                    hlBot.setAttribute('fill', 'none');
-                    hlBot.setAttribute('stroke', '#FFD700');
-                    hlBot.setAttribute('stroke-width', '2');
-                    grp.appendChild(hlBot);
+                        // Shine highlight
+                        var shine = document.createElementNS(ns, 'circle');
+                        shine.setAttribute('cx', bp.cx - bp.r * 0.25);
+                        shine.setAttribute('cy', bp.cy - bp.r * 0.25);
+                        shine.setAttribute('r', bp.r * 0.22);
+                        shine.setAttribute('fill', 'rgba(255,255,255,0.45)');
+                        shine.setAttribute('class', 'mpp-bubble-shine');
+                        grp.appendChild(shine);
 
-                    dominoIdx++;
+                        // Clickable area (invisible circle on top)
+                        var clickArea = document.createElementNS(ns, 'circle');
+                        clickArea.setAttribute('cx', bp.cx);
+                        clickArea.setAttribute('cy', bp.cy);
+                        clickArea.setAttribute('r', bp.r);
+                        clickArea.setAttribute('class', 'mpp-click-area');
+                        clickArea.setAttribute('data-level', key);
+                        clickArea.setAttribute('data-domino', bi);
+                        clickArea.setAttribute('data-half', 'top');
+                        grp.appendChild(clickArea);
+
+                        // Highlight circle (initially hidden)
+                        var hlCirc = document.createElementNS(ns, 'circle');
+                        hlCirc.setAttribute('cx', bp.cx);
+                        hlCirc.setAttribute('cy', bp.cy);
+                        hlCirc.setAttribute('r', bp.r + 1);
+                        hlCirc.setAttribute('class', 'mpp-highlight-rect');
+                        hlCirc.setAttribute('id', 'mpp-hl-' + key + '-' + bi + '-top');
+                        hlCirc.setAttribute('fill', 'none');
+                        hlCirc.setAttribute('stroke', '#FFD700');
+                        hlCirc.setAttribute('stroke-width', '2.5');
+                        grp.appendChild(hlCirc);
+
+                        svgClone.appendChild(grp);
+                    });
+                } else {
+                    // Find game: clone domino SVGs
+                    var origBtn = document.querySelector('.level-btn[data-level="' + key + '"]');
+                    if (!origBtn) return;
+                    var origSvg = origBtn.querySelector('.level-dominos-svg');
+                    if (!origSvg) return;
+
+                    svgClone = origSvg.cloneNode(true);
+                    svgClone.classList.add('mpp-level-svg');
+                    svgClone.setAttribute('data-mpp-level', key);
+
+                    var groups = svgClone.querySelectorAll('g');
+                    var dominoIdx = 0;
+                    for (var gi = 0; gi < groups.length; gi++) {
+                        var grp = groups[gi];
+                        var faces = grp.querySelectorAll('.level-domino-face');
+                        if (faces.length < 2) continue;
+
+                        var topArea = document.createElementNS(ns, 'rect');
+                        topArea.setAttribute('class', 'mpp-click-area');
+                        topArea.setAttribute('x', '-17');
+                        topArea.setAttribute('y', '-36');
+                        topArea.setAttribute('width', '34');
+                        topArea.setAttribute('height', '36');
+                        topArea.setAttribute('data-level', key);
+                        topArea.setAttribute('data-domino', dominoIdx);
+                        topArea.setAttribute('data-half', 'top');
+                        grp.appendChild(topArea);
+
+                        var botArea = document.createElementNS(ns, 'rect');
+                        botArea.setAttribute('class', 'mpp-click-area');
+                        botArea.setAttribute('x', '-17');
+                        botArea.setAttribute('y', '0');
+                        botArea.setAttribute('width', '34');
+                        botArea.setAttribute('height', '36');
+                        botArea.setAttribute('data-level', key);
+                        botArea.setAttribute('data-domino', dominoIdx);
+                        botArea.setAttribute('data-half', 'bottom');
+                        grp.appendChild(botArea);
+
+                        var hlTop = document.createElementNS(ns, 'rect');
+                        hlTop.setAttribute('class', 'mpp-highlight-rect');
+                        hlTop.setAttribute('id', 'mpp-hl-' + key + '-' + dominoIdx + '-top');
+                        hlTop.setAttribute('x', '-16');
+                        hlTop.setAttribute('y', '-35');
+                        hlTop.setAttribute('width', '32');
+                        hlTop.setAttribute('height', '34');
+                        hlTop.setAttribute('rx', '3');
+                        hlTop.setAttribute('fill', 'none');
+                        hlTop.setAttribute('stroke', '#FFD700');
+                        hlTop.setAttribute('stroke-width', '2');
+                        grp.appendChild(hlTop);
+
+                        var hlBot = document.createElementNS(ns, 'rect');
+                        hlBot.setAttribute('class', 'mpp-highlight-rect');
+                        hlBot.setAttribute('id', 'mpp-hl-' + key + '-' + dominoIdx + '-bottom');
+                        hlBot.setAttribute('x', '-16');
+                        hlBot.setAttribute('y', '1');
+                        hlBot.setAttribute('width', '32');
+                        hlBot.setAttribute('height', '34');
+                        hlBot.setAttribute('rx', '3');
+                        hlBot.setAttribute('fill', 'none');
+                        hlBot.setAttribute('stroke', '#FFD700');
+                        hlBot.setAttribute('stroke-width', '2');
+                        grp.appendChild(hlBot);
+
+                        dominoIdx++;
+                    }
                 }
 
-                // Click handler for domino halves in this SVG
+                // Click handler for domino halves / bubbles in this SVG
                 svgClone.addEventListener('click', function(e) {
                     var area = e.target.closest('.mpp-click-area');
                     if (!area) return;
@@ -11351,8 +11449,80 @@
         function applyMppConfigToClone(svgClone, levelKey) {
             var ns = 'http://www.w3.org/2000/svg';
             var config = mppConfig[levelKey] || [];
+            var isCatch = svgClone.getAttribute('data-mpp-type') === 'catch';
 
-            // Find domino groups
+            if (isCatch) {
+                // Catch: apply card images into bubble circles
+                var bubbleGroups = svgClone.querySelectorAll('.mpp-bubble-group');
+                bubbleGroups.forEach(function(grp) {
+                    var bi = parseInt(grp.getAttribute('data-bubble-idx'));
+                    if (bi >= config.length) return;
+                    var cardLabel = config[bi].top;
+
+                    // Remove any previously inserted card image
+                    var existing = grp.querySelectorAll('.mpp-bubble-card-img');
+                    existing.forEach(function(e) { e.remove(); });
+
+                    if (!cardLabel || !mppMarkupMap[cardLabel]) {
+                        // No card assigned - show original bubble fill/shine
+                        grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = ''; });
+                        return;
+                    }
+
+                    // Hide bubble fill/shine, show card image
+                    grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
+
+                    var bp = _bubblePos[levelKey][bi];
+                    var sz = bp.r * 2;
+                    var clipId = 'mpp-clip-' + levelKey + '-' + bi;
+
+                    // Background circle (white)
+                    var bgCirc = document.createElementNS(ns, 'circle');
+                    bgCirc.setAttribute('cx', bp.cx);
+                    bgCirc.setAttribute('cy', bp.cy);
+                    bgCirc.setAttribute('r', bp.r);
+                    bgCirc.setAttribute('fill', 'white');
+                    bgCirc.setAttribute('class', 'mpp-bubble-card-img');
+                    // Insert before click area
+                    var clickArea = grp.querySelector('.mpp-click-area');
+                    grp.insertBefore(bgCirc, clickArea);
+
+                    // Card image clipped to circle
+                    var nested = document.createElementNS(ns, 'svg');
+                    nested.setAttribute('viewBox', '0 0 60 60');
+                    nested.setAttribute('x', (bp.cx - bp.r).toString());
+                    nested.setAttribute('y', (bp.cy - bp.r).toString());
+                    nested.setAttribute('width', sz.toString());
+                    nested.setAttribute('height', sz.toString());
+                    nested.setAttribute('class', 'mpp-bubble-card-img');
+                    nested.setAttribute('clip-path', 'url(#' + clipId + ')');
+                    nested.setAttribute('overflow', 'visible');
+
+                    var srcSvg = mppSvgElements[cardLabel];
+                    if (srcSvg) {
+                        var srcClone = srcSvg.cloneNode(true);
+                        while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
+                    } else if (mppMarkupMap[cardLabel]) {
+                        nested.innerHTML = mppMarkupMap[cardLabel];
+                    }
+
+                    grp.insertBefore(nested, clickArea);
+
+                    // Border circle
+                    var border = document.createElementNS(ns, 'circle');
+                    border.setAttribute('cx', bp.cx);
+                    border.setAttribute('cy', bp.cy);
+                    border.setAttribute('r', bp.r);
+                    border.setAttribute('fill', 'none');
+                    border.setAttribute('stroke', bi === 0 ? '#3a9cc0' : '#c09030');
+                    border.setAttribute('stroke-width', '1.5');
+                    border.setAttribute('class', 'mpp-bubble-card-img');
+                    grp.insertBefore(border, clickArea);
+                });
+                return;
+            }
+
+            // Find: apply card images into domino halves
             var groups = svgClone.querySelectorAll('g');
             var dominoIdx = 0;
             for (var gi = 0; gi < groups.length; gi++) {
@@ -11368,14 +11538,11 @@
                 ];
 
                 halves.forEach(function(h) {
-                    // Remove any previously inserted mpp-img for this face
                     var existing = grp.querySelectorAll('.mpp-card-img[data-mpp-face="' + h.dataFace + '"][data-mpp-domino="' + dominoIdx + '"]');
                     existing.forEach(function(e) { e.remove(); });
 
                     if (!h.label || !mppMarkupMap[h.label]) {
-                        // No card assigned - show original dots/face
                         h.face.style.display = '';
-                        // Show dots for this half
                         return;
                     }
 
@@ -11394,8 +11561,6 @@
                     nested.setAttribute('data-mpp-domino', dominoIdx.toString());
                     nested.setAttribute('overflow', 'visible');
 
-                    // Clone SVG children directly to preserve namespaces
-                    // (innerHTML can lose SVG namespace on <text> elements)
                     var srcSvg = mppSvgElements[h.label];
                     if (srcSvg) {
                         var srcClone = srcSvg.cloneNode(true);
@@ -11410,7 +11575,6 @@
                     h.face.style.display = 'none';
                 });
 
-                // Hide dots when at least one card is assigned for this domino
                 if ((cfg.top && mppMarkupMap[cfg.top]) || (cfg.bottom && mppMarkupMap[cfg.bottom])) {
                     var dots = grp.querySelectorAll('.level-domino-dot');
                     for (var d = 0; d < dots.length; d++) {
@@ -11429,7 +11593,7 @@
                 hint.textContent = 'Now click a card below to assign it';
                 hint.classList.add('mpp-hint-active');
             } else {
-                hint.textContent = 'Click a domino half, then click a card';
+                hint.textContent = (mppGameType === 'catch') ? 'Click a bubble, then click a card' : 'Click a domino half, then click a card';
                 hint.classList.remove('mpp-hint-active');
             }
         }

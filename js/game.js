@@ -209,7 +209,7 @@ class VicaDominoGame {
                 // For catch games, set the correct label instead of restoring from localStorage
                 if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
                     var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
-                    lbl1.textContent = _cim === 'mouse' ? 'GP Cm Setup' : 'GP Ct Setup';
+                    lbl1.textContent = _cim === 'mouse' ? 'GPm Cm Setup' : 'GPt Ct Setup';
                 } else {
                     _restoreLabel(lbl1);
                 }

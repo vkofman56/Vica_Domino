@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:44 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -55,7 +55,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1343,6 +1343,13 @@
             gameArea.appendChild(fallingArea);
             overlay.appendChild(gameArea);
             document.body.appendChild(overlay);
+            // Build freeze state map if freeze mode is enabled
+            var _freezeMap = {};
+            if (game.freezeEnabled) {
+                game.cards.forEach(function(c) {
+                    if (c._freezeState) _freezeMap[c.label] = c._freezeState;
+                });
+            }
             _catchGame = {
                 catchIndex: catchIndex,
                 inputMode: _catchInputMode || 'touch',
@@ -1360,7 +1367,10 @@
                 gameCardShapeW: game.gameCardShapeW || 60,
                 gameCardShapeH: game.gameCardShapeH || 60,
                 gameCardCornerR: game.gameCardCornerR || 0,
-                gameCardScale: game.gameCardScale || 100
+                gameCardScale: game.gameCardScale || 100,
+                // Freeze/float mode
+                freezeEnabled: !!game.freezeEnabled,
+                freezeMap: _freezeMap
             };
             _catchUpdateHUD();
             document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
@@ -1525,6 +1535,7 @@
             var areaWidth = areaRect.width;
             var cardSize = 90;
             _catchGame.fallingCards = [];
+            var areaHeight = fallingAreaEl.getBoundingClientRect().height;
             fallingCards.forEach(function(fc, idx) {
                 var el = document.createElement('div');
                 el.className = 'catch-falling-card';
@@ -1537,13 +1548,39 @@
                 var x = margin + Math.random() * Math.max(maxX, 0);
                 var tilt = (Math.random() * 20 - 10);
                 var drift = (Math.random() * 30 - 15);
-                el.style.left = x + 'px';
-                el.style.top = '-100px';
-                el.style.transform = 'rotate(' + tilt + 'deg)';
+                // Determine freeze/float state
+                var isFrozen = false;
+                if (_catchGame.freezeEnabled) {
+                    var fState = _catchGame.freezeMap[fc.card.label];
+                    if (fState === 'frozen') {
+                        isFrozen = true;
+                    } else if (fState === 'floating') {
+                        isFrozen = false;
+                    } else {
+                        // Unmarked: randomly assign
+                        isFrozen = Math.random() < 0.5;
+                    }
+                }
+                var startY;
+                if (isFrozen) {
+                    // Frozen cards: fixed position in the area, no movement
+                    startY = margin + Math.random() * Math.max(areaHeight - cardSize - margin * 2, 0);
+                    el.style.left = x + 'px';
+                    el.style.top = startY + 'px';
+                    el.style.transform = 'rotate(' + tilt + 'deg)';
+                    el.style.opacity = '0.85';
+                } else {
+                    startY = -100 - idx * 80;
+                    el.style.left = x + 'px';
+                    el.style.top = startY + 'px';
+                    el.style.transform = 'rotate(' + tilt + 'deg)';
+                }
                 var cardData = {
-                    el: el, isMatch: fc.isMatch, x: x, y: -100 - idx * 80,
+                    el: el, isMatch: fc.isMatch, x: x, y: startY,
                     tilt: tilt, tiltDir: (Math.random() > 0.5 ? 1 : -1),
-                    tiltSpeed: 2 + Math.random() * 3, drift: drift, clicked: false
+                    tiltSpeed: isFrozen ? 0 : (2 + Math.random() * 3),
+                    drift: isFrozen ? 0 : drift, clicked: false,
+                    frozen: isFrozen
                 };
                 _catchGame.fallingCards.push(cardData);
                 el.onclick = (function(cd) { return function(e) {
@@ -1570,6 +1607,8 @@
             var matchMissed = false;
             _catchGame.fallingCards.forEach(function(cd) {
                 if (cd.clicked) return;
+                // Frozen cards stay in place — skip movement
+                if (cd.frozen) return;
                 cd.y += speed * dt;
                 cd.x += cd.drift * dt;
                 cd.tilt += cd.tiltDir * cd.tiltSpeed * dt;
@@ -1599,7 +1638,9 @@
                 }
                 return;
             }
-            var allDone = _catchGame.fallingCards.every(function(cd) { return cd.clicked; });
+            // Round is done when all floating cards are clicked/fallen off
+            // (frozen cards stay in place — they don't block round end)
+            var allDone = _catchGame.fallingCards.every(function(cd) { return cd.clicked || (cd.frozen && !cd.isMatch); });
             if (!allDone) _catchGame.animFrameId = requestAnimationFrame(_catchAnimLoop);
         }
 

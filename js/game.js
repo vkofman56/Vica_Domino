@@ -3041,6 +3041,10 @@ class VicaDominoGame {
     }
 
     hideCardLibrary() {
+        // Reset Edit button when leaving Library
+        var _editBtn = document.getElementById('edit-card-set-btn');
+        if (_editBtn) _editBtn.style.display = 'none';
+        if (typeof previewedCardSet !== 'undefined') previewedCardSet = null;
         // Go back to intro screen directly
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'flex';
@@ -3048,6 +3052,10 @@ class VicaDominoGame {
     }
 
     showLibrarySet() {
+        // Reset Edit button when leaving Library
+        var _editBtn = document.getElementById('edit-card-set-btn');
+        if (_editBtn) _editBtn.style.display = 'none';
+        if (typeof previewedCardSet !== 'undefined') previewedCardSet = null;
         openLibrarySet();
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('library-set-screen').style.display = 'block';

@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:15 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:56 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:15 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -487,6 +487,7 @@
                 <div class="zoom-panel-row">
                     <button class="zoom-panel-btn" id="border-btn" onclick="toggleLibBorder()" title="Card borders: toggle the outline border around each card thumbnail.">▣</button>
                     <button class="zoom-panel-btn" id="toggle-desc-btn" onclick="toggleDescriptions()" title="Card labels: show or hide the text label below each card.">&gt;</button>
+                    <button class="zoom-panel-btn" id="center-text-btn" onclick="centerTextOnCards()" title="Center text: horizontally center all text in the selected card(s). Select one card by clicking it, or use Shape Mode to select several/all.">⫦</button>
                 </div>
             </div>
             <!-- Loupe overlay for enlarged card -->
@@ -4477,6 +4478,42 @@
                 el.style.width = svgSize + 'px';
                 el.style.height = svgSize + 'px';
             });
+        }
+
+        // Center text horizontally in card SVGs
+        function centerTextOnCards() {
+            var cards = [];
+            // If shape mode is active with selected cards, use those
+            if (shapeModeSelectedCards && shapeModeSelectedCards.length > 0) {
+                cards = shapeModeSelectedCards.slice();
+            } else {
+                // Otherwise, use the single clicked card
+                var clicked = document.querySelector('#domino-library-screen .library-card.card-clicked');
+                if (clicked) cards = [clicked];
+            }
+            if (cards.length === 0) {
+                alert('Select a card first (click one), or use Shape Mode to select several cards.');
+                return;
+            }
+            cards.forEach(function(cardEl) {
+                var svg = cardEl.querySelector('.domino-half-preview svg');
+                if (!svg) return;
+                // Get viewBox width to find center
+                var vb = svg.getAttribute('viewBox');
+                var centerX = 30; // default for 0 0 60 60
+                if (vb) {
+                    var parts = vb.split(/[\s,]+/);
+                    var vbX = parseFloat(parts[0]) || 0;
+                    var vbW = parseFloat(parts[2]) || 60;
+                    centerX = vbX + vbW / 2;
+                }
+                svg.querySelectorAll('text').forEach(function(t) {
+                    t.setAttribute('x', centerX);
+                    t.setAttribute('text-anchor', 'middle');
+                });
+            });
+            // Save changes
+            if (typeof saveVariations === 'function') saveVariations();
         }
 
         // Toggle card descriptions on Card Maker page

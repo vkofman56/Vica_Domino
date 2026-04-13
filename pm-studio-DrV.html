@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games' Creator <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Games' Creator <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:20 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:20 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:20 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7587,9 +7587,20 @@
             }
 
             function saveGameViewOrder() {
-                if (currentGameViewIndex < 0) return;
-                var games = loadCustomGames();
-                var game = games[currentGameViewIndex];
+                // Determine which game type we're viewing
+                var isCatch = currentCatchGameViewIndex >= 0;
+                var isFind = currentGameViewIndex >= 0;
+                if (!isCatch && !isFind) return;
+                var games, game, storageKey;
+                if (isCatch) {
+                    games = loadCatchGames();
+                    game = games[currentCatchGameViewIndex];
+                    storageKey = 'savedCatchGames';
+                } else {
+                    games = loadCustomGames();
+                    game = games[currentGameViewIndex];
+                    storageKey = 'savedCustomGames';
+                }
                 if (!game) return;
                 // Read current card order from DOM
                 var newCards = [];
@@ -7629,7 +7640,7 @@
                 game.cards.forEach(function(c) { newCards.push(c); });
                 game.cards = newCards;
                 try {
-                    localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                    localStorage.setItem(storageKey, JSON.stringify(games));
                 } catch(e) {
                     console.error('[GameView] Error saving reordered cards:', e);
                 }
@@ -8133,7 +8144,7 @@
             saveMCardGroups(currentGameViewIndex, groups);
             _mCardSelected = [];
             // Refresh game view to show badges
-            openGameView(currentGameViewIndex, gameViewReturnScreen);
+            _reopenCurrentView();
             // Re-enter M-card mode
             _mCardMode = false;
             toggleMCardMode();
@@ -8153,7 +8164,7 @@
             groups = groups.filter(function(g) { return g.length >= 2; });
             saveMCardGroups(currentGameViewIndex, groups);
             _mCardSelected = [];
-            openGameView(currentGameViewIndex, gameViewReturnScreen);
+            _reopenCurrentView();
             _mCardMode = false;
             toggleMCardMode();
         }

@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:28 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:28 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:40 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:28 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6940,7 +6940,7 @@
         }
 
         function openAddCardToGame() {
-            if (currentGameViewIndex < 0) return;
+            if (currentGameViewIndex < 0 && currentCatchGameViewIndex < 0) return;
             _addCardSelectedCards = [];
             var overlay = document.getElementById('add-card-overlay');
             var btnContainer = document.getElementById('add-card-set-buttons');
@@ -7019,68 +7019,90 @@
             // Normalize SVG for comparison (strip whitespace)
             function normSvg(s) { return s ? s.replace(/\s+/g, '') : ''; }
 
+            // Extract visible text content from SVG markup for content-based matching
+            function extractSvgText(svgMarkup) {
+                if (!svgMarkup) return '';
+                var tmp = document.createElement('div');
+                tmp.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg">' + svgMarkup + '</svg>';
+                var texts = tmp.querySelectorAll('text');
+                var result = [];
+                for (var ti = 0; ti < texts.length; ti++) {
+                    var t = texts[ti].textContent.trim();
+                    if (t) result.push(t);
+                }
+                return result.sort().join('|');
+            }
+
+            // Also gather visible text from the live game view DOM for cross-set matching
+            var gameViewTexts = {};
+            var gvContainer = document.getElementById('game-view-cards');
+            if (gvContainer) {
+                gvContainer.querySelectorAll('.library-card').forEach(function(cardEl) {
+                    var svgEl = cardEl.querySelector('svg');
+                    if (svgEl) {
+                        var texts = svgEl.querySelectorAll('text');
+                        var result = [];
+                        for (var ti = 0; ti < texts.length; ti++) {
+                            var t = texts[ti].textContent.trim();
+                            if (t) result.push(t);
+                        }
+                        var key = result.sort().join('|');
+                        if (key) gameViewTexts[key] = true;
+                    }
+                });
+            }
+
             // Track which storage cards are matched (by index)
             var matchedStorage = {};
 
             // Pass 0: UID match (highest confidence — stable unique identity)
-            var unmatchedGame0 = [];
             game.cards.forEach(function(gc) {
-                if (!gc.uid) { unmatchedGame0.push(gc); return; }
-                var found = false;
+                if (!gc.uid) return;
                 for (var i = 0; i < cards.length; i++) {
                     if (matchedStorage[i]) continue;
                     if (cards[i].uid && gc.uid === cards[i].uid) {
                         matchedStorage[i] = true;
-                        found = true;
                         break;
                     }
                 }
-                if (!found) unmatchedGame0.push(gc);
             });
 
-            // Pass 1: exact label + SVG match
-            var unmatchedGame = [];
-            unmatchedGame0.forEach(function(gc) {
-                var found = false;
+            // Pass 1: SVG-only match
+            game.cards.forEach(function(gc) {
                 var gcSvg = normSvg(gc.svgMarkup);
-                for (var i = 0; i < cards.length; i++) {
-                    if (matchedStorage[i]) continue;
-                    if (gc.label === cards[i].label && gcSvg && gcSvg === normSvg(cards[i].svgContent)) {
-                        matchedStorage[i] = true;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) unmatchedGame.push(gc);
-            });
-
-            // Pass 2: SVG-only match for remaining unmatched game cards
-            var stillUnmatched = [];
-            unmatchedGame.forEach(function(gc) {
-                var gcSvg = normSvg(gc.svgMarkup);
-                if (!gcSvg) { stillUnmatched.push(gc); return; }
-                var found = false;
+                if (!gcSvg) return;
                 for (var i = 0; i < cards.length; i++) {
                     if (matchedStorage[i]) continue;
                     if (gcSvg === normSvg(cards[i].svgContent)) {
                         matchedStorage[i] = true;
-                        found = true;
                         break;
                     }
                 }
-                if (!found) stillUnmatched.push(gc);
             });
 
-            // Pass 3: label-only match for remaining (game cards without svgMarkup)
-            stillUnmatched.forEach(function(gc) {
+            // Pass 2: text content match — catches same card from different card sets
+            // Compare extracted text from game cards' SVG vs storage cards' SVG
+            game.cards.forEach(function(gc) {
+                var gcText = extractSvgText(gc.svgMarkup);
+                if (!gcText) return;
                 for (var i = 0; i < cards.length; i++) {
                     if (matchedStorage[i]) continue;
-                    if (gc.label === cards[i].label) {
+                    if (gcText === extractSvgText(cards[i].svgContent)) {
                         matchedStorage[i] = true;
                         break;
                     }
                 }
             });
+
+            // Pass 3: match against live DOM text (handles cards whose stored svgMarkup
+            // is outdated or missing — uses the actually-rendered game view cards)
+            for (var si = 0; si < cards.length; si++) {
+                if (matchedStorage[si]) continue;
+                var storageText = extractSvgText(cards[si].svgContent);
+                if (storageText && gameViewTexts[storageText]) {
+                    matchedStorage[si] = true;
+                }
+            }
 
             // Show only cards NOT already in the game
             cards.forEach(function(cardData, idx) {

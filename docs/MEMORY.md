@@ -167,11 +167,13 @@
 - Key commits: `56d966d` (v2 migration with key detection), `d3888a7` (fix timing — run after sync)
 
 ## Development Workflow Rules
-- **ALWAYS update trial timestamps with every push**: Update `TRIAL HH:MM AM/PM PDT` in ALL locations across BOTH files (`index.html` and `pm-studio-DrV.html`) with every commit/push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'` to get the time.
+- **ALWAYS update trial timestamps with EVERY deploy/push**: This is the #1 rule. Update `TRIAL HH:MM AM/PM PDT` in ALL locations across BOTH files (`index.html` and `pm-studio-DrV.html`) with every single push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'` to get the time. The user verifies deployments by checking the timestamp — if it's stale, they can't tell if the new code loaded. **Never skip this step.**
+- **Push to 3 branches**: Every push must go to all 3 branches: `git push origin master && git push origin master:claude/general-session-yVBQq && git push origin master:claude/review-project-docs-JOOeh`
+- **Dual-file architecture**: `index.html` (player) and `pm-studio-DrV.html` (admin) have SEPARATE code. Timestamp changes must be applied to BOTH. Feature changes typically only go to `pm-studio-DrV.html` unless they affect gameplay.
 - **ALWAYS validate JS syntax before committing**: Run `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"` for JS files. For inline scripts in HTML, extract and validate each `<script>` block. Broken syntax (e.g., unescaped quotes in innerHTML strings) causes silent failures that are hard to debug.
 - **Test data flow end-to-end**: When saving data to localStorage, verify the key matches what the reading code expects. This project has multiple storage key patterns (`customDrawnCards` vs `customDrawnCards_<SetName>`) depending on whether a set is built-in or custom.
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
-- **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first.
+- **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first. When looking up card data, always fall back to localStorage if DOM is empty.
 
 ## Current State (April 12)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development, also `claude/general-session-yVBQq`)
@@ -356,3 +358,48 @@
 - **`_catchInputMode`**: Global variable 'touch' or 'mouse'
 - **`_showSetupLabel()`** in game.js: Now checks `_pendingCatchGameIndex` and `_catchInputMode` to set correct GPt/GPm label
 - **`createVariationSVG()`**: Wraps SVG children in `<g transform="..." data-variation-transform="1">` — the `data-variation-transform` attribute marks variation-created wrappers
+
+## April 15 Session Notes — Card Identity Architecture (stableId)
+
+### Card Data Architecture Redesign
+- **Goal**: Move from fragile label+uid system to stable IDs with bidirectional game references
+- **stableId format**: `timestamp_setName_label_randomSuffix` (e.g., `1776225831421_Multiplyby4_I8_zsw5`)
+- **Migration strategy**: Additive — new fields added alongside old ones, nothing removed, rollback possible at any time
+
+### Step 1: stableId Generation for New Cards (DONE)
+- `generateStableId(label, cardSet)` and `getCurrentCardSetName()` added (~line 2258)
+- Applied to all card creation paths: `addCopyCard()`, `addNewDrawnCard()`, `addVariation()`, `copyCardInRow()`
+- All 4 serialization blocks in `saveCustomCards()` include stableId/origin fields
+- `dataset.origin` tracks creation method: 'copy', 'draw', 'var'
+
+### Step 2: Migrate Existing Cards (DONE)
+- Migration code in `buildNumbersCardSet()`, `buildCustomCardSet()`, `buildAbcCardSet()`
+- Generates stableId on first load, saves migrated data back to localStorage
+- Only runs when Card Maker editor is opened (build functions trigger on "Edit" click)
+
+### Step 3: Link Game Cards to stableId Source (IN PROGRESS)
+- `buildGameViewCard()` copies stableId from Card Maker DOM or localStorage to game card data
+- `_findStableIdFromStorage()` searches localStorage directly — UID-first across ALL sets, then label match
+- `_migrateAllGameStableIds()` runs on page load for all Find and Catch games
+- Game Maker card selection and `confirmAddCards()` now include stableId
+- **Known issue**: Cards with wrong `cardSet` (old bug: custom set cards stored as "Numbers and Dots") + stale UIDs can only be matched by label, which may match the wrong set when labels collide (e.g., "A1" exists in both Numbers and Multiply by 4)
+
+### Firebase Backup Fix
+- Card backup was exceeding Firestore's 1MB document limit (all SVG data in one doc)
+- Fixed: `_pushCardBackup()` now splits JSON into ~800KB chunks (same as main sync)
+- `syncRestoreCardBackup()` handles both old single-doc and new chunked formats
+- Old backup cleanup properly deletes chunk subcollections
+
+### Remaining Steps (planned)
+- **Step 4**: Build reverse index (stableId → list of games) for delete dialog
+- **Step 5**: Implement delete-with-games-check dialog
+- **Step 6**: Implement Safe Haven card set (auto-created set for cards deleted from Card Maker but still needed by games)
+- **Step 7**: Switch `buildGameViewCard()` to use stableId as primary lookup
+- **Step 8** (Phase 2): Stop storing svgMarkup snapshots in games, rely on references
+
+### Key Functions Added
+- `generateStableId(label, cardSet)` — creates stable ID for new cards
+- `getCurrentCardSetName()` — returns proper set name for active card set
+- `_findStableIdFromStorage(label, uid, cardSet)` — looks up stableId from localStorage
+- `_getAllCardStorageKeys()` — collects all card storage keys
+- `_migrateAllGameStableIds()` — one-time migration for all game cards on page load

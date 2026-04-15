@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:08 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2250,6 +2250,23 @@
         // Generate a unique card ID (purely additive — does not affect labels or rows)
         function generateCardUID() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        // Generate a stable, human-readable card ID
+        // Format: timestamp_setName_label_suffix
+        // e.g. 1750123456789_MultiplyBy4_10×4_f7x2
+        function generateStableId(label, cardSet) {
+            var ts = Date.now();
+            var suffix = Math.random().toString(36).substr(2, 4);
+            var safeSet = (cardSet || 'unknown').replace(/\s+/g, '');
+            var safeLabel = (label || 'card').substring(0, 30);
+            return ts + '_' + safeSet + '_' + safeLabel + '_' + suffix;
+        }
+
+        function getCurrentCardSetName() {
+            if (activeCardSet === 'abc') return 'ABC';
+            if (activeCardSet === 'numbers') return 'Numbers and Dots';
+            return activeCardSet;
         }
 
         // Persist UIDs that were generated during DOM build back to localStorage
@@ -4338,6 +4355,9 @@
             var card = document.createElement('div');
             card.className = 'library-card';
             card.dataset.custom = 'true';
+            card.dataset.uid = generateCardUID();
+            card.dataset.stableId = generateStableId(copyLabel, getCurrentCardSetName());
+            card.dataset.origin = 'copy';
 
             var labelEl = document.createElement('div');
             labelEl.className = 'library-label';
@@ -4436,6 +4456,9 @@
             var card = document.createElement('div');
             card.className = 'library-card';
             card.dataset.custom = 'true';
+            card.dataset.uid = generateCardUID();
+            card.dataset.stableId = generateStableId(label, getCurrentCardSetName());
+            card.dataset.origin = 'draw';
             var labelEl = document.createElement('div');
             labelEl.className = 'library-label';
             labelEl.textContent = label;
@@ -5308,6 +5331,7 @@
             card.className = 'library-card';
             card.dataset.custom = 'true';
             card.dataset.uid = generateCardUID();
+            card.dataset.origin = 'var';
 
             // Copy card shape from original
             if (originalCard.dataset.cardShape && originalCard.dataset.cardShape !== 'square') {
@@ -5321,6 +5345,7 @@
             var letter = label.charAt(0).toUpperCase();
             var num = getNextNumber(letter);
             var newLabel = letter + num;
+            card.dataset.stableId = generateStableId(newLabel, getCurrentCardSetName());
 
             var cardLabel = document.createElement('div');
             cardLabel.className = 'library-label';
@@ -5478,6 +5503,8 @@
             card.className = 'library-card';
             card.dataset.custom = 'true';
             card.dataset.uid = generateCardUID();
+            card.dataset.stableId = generateStableId(copyLabel, getCurrentCardSetName());
+            card.dataset.origin = 'copy';
 
             var newLabel = document.createElement('div');
             newLabel.className = 'library-label';
@@ -5870,6 +5897,8 @@
                             desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
                             cardSet: 'Numbers and Dots'
                         };
+                        if (card.dataset.stableId) cardData.stableId = card.dataset.stableId;
+                        if (card.dataset.origin) cardData.origin = card.dataset.origin;
                         if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                             cardData.cardShape = card.dataset.cardShape;
                             cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -5896,6 +5925,8 @@
                                 desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
                                 cardSet: 'Numbers and Dots'
                             };
+                            if (card.dataset.stableId) cardData.stableId = card.dataset.stableId;
+                            if (card.dataset.origin) cardData.origin = card.dataset.origin;
                             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                                 cardData.cardShape = card.dataset.cardShape;
                                 cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -5923,6 +5954,8 @@
                                 uid: card.dataset.uid || '',
                                 desc: (card.querySelector('.library-desc') || {}).textContent || 'Card'
                             };
+                            if (card.dataset.stableId) abcCardData.stableId = card.dataset.stableId;
+                            if (card.dataset.origin) abcCardData.origin = card.dataset.origin;
                             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                                 abcCardData.cardShape = card.dataset.cardShape;
                                 abcCardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -5955,6 +5988,8 @@
                                     uid: card.dataset.uid || '',
                                     desc: (card.querySelector('.library-desc') || {}).textContent || 'Custom card'
                                 };
+                                if (card.dataset.stableId) custCardData.stableId = card.dataset.stableId;
+                                if (card.dataset.origin) custCardData.origin = card.dataset.origin;
                                 if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                                     custCardData.cardShape = card.dataset.cardShape;
                                     custCardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -6016,6 +6051,8 @@
                     card.className = 'library-card';
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
+                    if (item.stableId) card.dataset.stableId = item.stableId;
+                    if (item.origin) card.dataset.origin = item.origin;
                     if (item.cardShape && item.cardShape !== 'square') {
                         card.dataset.cardShape = item.cardShape;
                         card.dataset.cardShapeW = item.cardShapeW || 60;
@@ -10554,6 +10591,8 @@
                             card.className = 'library-card';
                             card.dataset.custom = 'true';
                             card.dataset.uid = item.uid || generateCardUID();
+                            if (item.stableId) card.dataset.stableId = item.stableId;
+                            if (item.origin) card.dataset.origin = item.origin;
                             if (item.cardShape && item.cardShape !== 'square') {
                                 card.dataset.cardShape = item.cardShape;
                                 card.dataset.cardShapeW = item.cardShapeW || 60;
@@ -10711,6 +10750,8 @@
                     card.className = 'library-card';
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
+                    if (item.stableId) card.dataset.stableId = item.stableId;
+                    if (item.origin) card.dataset.origin = item.origin;
                     if (item.cardShape && item.cardShape !== 'square') {
                         card.dataset.cardShape = item.cardShape;
                         card.dataset.cardShapeW = item.cardShapeW || 60;

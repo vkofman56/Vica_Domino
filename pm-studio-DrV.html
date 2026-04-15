@@ -8793,6 +8793,43 @@
 
         var _stableIdMigrated = 0; // counter for stableId migration during game view open
 
+        // Look up stableId from localStorage data (works even when Card Maker DOM isn't built)
+        function _findStableIdFromStorage(label, uid, cardSet) {
+            // Determine storage key from cardSet
+            var keys = [];
+            if (cardSet === 'ABC') keys.push('customDrawnCards_abc');
+            else if (cardSet === 'Numbers and Dots' || cardSet === 'numbers') keys.push(getNumbersStorageKey());
+            else if (cardSet) keys.push('customDrawnCards_' + cardSet);
+            // Also try all card sets as fallback (cardSet may be wrong for older cards)
+            if (keys.length === 0 || cardSet) {
+                keys.push(getNumbersStorageKey());
+                keys.push('customDrawnCards_abc');
+                try {
+                    var sets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                    sets.forEach(function(s) {
+                        var name = typeof s === 'string' ? s : s.name;
+                        var k = 'customDrawnCards_' + name;
+                        if (keys.indexOf(k) === -1) keys.push(k);
+                    });
+                } catch(e) {}
+            }
+            for (var ki = 0; ki < keys.length; ki++) {
+                try {
+                    var raw = localStorage.getItem(keys[ki]);
+                    if (!raw) continue;
+                    var cards = JSON.parse(raw);
+                    for (var ci = 0; ci < cards.length; ci++) {
+                        // Match by UID first (more reliable), then by label
+                        if (uid && cards[ci].uid === uid && cards[ci].stableId) return cards[ci].stableId;
+                    }
+                    for (var ci2 = 0; ci2 < cards.length; ci2++) {
+                        if (label && cards[ci2].label === label && cards[ci2].stableId) return cards[ci2].stableId;
+                    }
+                } catch(e) {}
+            }
+            return null;
+        }
+
         function buildGameViewCard(cardInfo) {
             // Try to find card in Card Maker DOM by label
             var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
@@ -8824,6 +8861,14 @@
                 if (del) del.remove();
                 rebindGameViewCardButtons(clone);
                 return clone;
+            }
+            // Migrate stableId from localStorage if DOM lookup failed
+            if (!cardInfo.stableId) {
+                var sid = _findStableIdFromStorage(cardInfo.label, cardInfo.uid, cardInfo.cardSet);
+                if (sid) {
+                    cardInfo.stableId = sid;
+                    _stableIdMigrated++;
+                }
             }
             // Fallback: build from stored svgMarkup
             return buildCardFromMarkup(cardInfo);

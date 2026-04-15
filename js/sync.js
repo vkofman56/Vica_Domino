@@ -530,29 +530,51 @@
         var backup = _getCardBackupData();
         if (Object.keys(backup).length === 0) return;
 
+        var jsonStr = JSON.stringify(backup);
+        var chunks = [];
+        for (var i = 0; i < jsonStr.length; i += MAX_CHUNK_BYTES) {
+            chunks.push(jsonStr.slice(i, i + MAX_CHUNK_BYTES));
+        }
+        if (chunks.length === 0) chunks.push('{}');
+
         var backupsRef = _db.collection('users').doc(_userId).collection('card_backups');
         var docId = new Date().toISOString().replace(/[:.]/g, '-');
+        var backupDoc = backupsRef.doc(docId);
 
-        backupsRef.doc(docId).set({
+        var batch = _db.batch();
+        batch.set(backupDoc, {
             timestamp: new Date().toISOString(),
-            data: JSON.stringify(backup)
-        })
+            chunkCount: chunks.length
+        });
+        for (var c = 0; c < chunks.length; c++) {
+            batch.set(backupDoc.collection('chunks').doc('chunk_' + c), { data: chunks[c] });
+        }
+
+        batch.commit()
         .then(function () {
-            console.log('[Sync] Card backup saved:', docId);
+            console.log('[Sync] Card backup saved:', docId, '(' + chunks.length + ' chunks, ' + jsonStr.length + ' bytes)');
             // Clean up old backups, keep only the last MAX_BACKUPS
             return backupsRef.orderBy('timestamp', 'desc').get();
         })
         .then(function (snapshot) {
             if (!snapshot || snapshot.size <= MAX_BACKUPS) return;
-            var batch = _db.batch();
+            var deletePromises = [];
             var count = 0;
             snapshot.forEach(function (doc) {
                 count++;
                 if (count > MAX_BACKUPS) {
-                    batch.delete(doc.ref);
+                    // Delete chunk subcollection first, then the parent doc
+                    deletePromises.push(
+                        doc.ref.collection('chunks').get().then(function (chunksSnap) {
+                            var delBatch = _db.batch();
+                            chunksSnap.forEach(function (chunkDoc) { delBatch.delete(chunkDoc.ref); });
+                            delBatch.delete(doc.ref);
+                            return delBatch.commit();
+                        })
+                    );
                 }
             });
-            return batch.commit();
+            if (deletePromises.length > 0) return Promise.all(deletePromises);
         })
         .catch(function (err) {
             console.error('[Sync] Card backup failed:', err);
@@ -591,11 +613,31 @@
      */
     window.syncRestoreCardBackup = function (backupId) {
         if (!_userId || !_firebaseReady || !_db) return Promise.reject('Not connected');
-        return _db.collection('users').doc(_userId).collection('card_backups')
-            .doc(backupId).get()
+        var backupDoc = _db.collection('users').doc(_userId).collection('card_backups').doc(backupId);
+        return backupDoc.get()
             .then(function (doc) {
                 if (!doc.exists) throw new Error('Backup not found');
-                var backup = JSON.parse(doc.data().data);
+                var meta = doc.data();
+
+                // Old format: single document with all data in "data" field
+                if (meta.data) {
+                    return JSON.parse(meta.data);
+                }
+
+                // New chunked format
+                var chunkCount = meta.chunkCount || 0;
+                if (chunkCount === 0) throw new Error('Empty backup');
+
+                return backupDoc.collection('chunks').get().then(function (snapshot) {
+                    var parts = [];
+                    snapshot.forEach(function (chunkDoc) {
+                        var idx = parseInt(chunkDoc.id.replace('chunk_', ''), 10);
+                        parts[idx] = chunkDoc.data().data || '';
+                    });
+                    return JSON.parse(parts.join(''));
+                });
+            })
+            .then(function (backup) {
                 var keys = Object.keys(backup);
                 keys.forEach(function (k) {
                     localStorage.setItem(k, backup[k]);

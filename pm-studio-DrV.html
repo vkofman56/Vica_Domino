@@ -4637,6 +4637,8 @@
                     var cardSvgEl = card.querySelector('svg');
                     card.classList.add('card-selected');
                     var info = { label: labelText, isVariation: false, uid: card.dataset.uid || '' };
+                    // Link to stable card identity
+                    if (card.dataset.stableId) info.stableId = card.dataset.stableId;
                     // Track which card set this card belongs to
                     if (activeCardSet === 'abc') info.cardSet = 'ABC';
                     else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
@@ -7209,6 +7211,7 @@
                 game.cards.push({
                     label: cardData.label,
                     uid: cardData.uid || '',
+                    stableId: cardData.stableId || '',
                     isVariation: false,
                     cardSet: cardSetLabel,
                     svgMarkup: markup,
@@ -7302,6 +7305,7 @@
             });
             if (currentRowCards.length > 0) rowGroups.push(currentRowCards);
 
+            _stableIdMigrated = 0; // reset migration counter
             var renderedCatchCards = [];
             rowGroups.forEach(function(rowCards) {
                 var section = document.createElement('div');
@@ -7338,8 +7342,14 @@
             }
 
             // Self-healing: remove ghost cards from Catch game data
+            var _catchNeedsSave = false;
             if (renderedCatchCards.length < game.cards.length) {
                 game.cards = renderedCatchCards;
+                _catchNeedsSave = true;
+            }
+            // stableId migration: link game cards to Card Maker source
+            if (_stableIdMigrated > 0) _catchNeedsSave = true;
+            if (_catchNeedsSave) {
                 try { saveCatchGames(catchGames); } catch(e) {}
             }
 
@@ -7471,6 +7481,7 @@
 
             // Assign _gameValue based on row's first card, then render
             var needsSave = false;
+            _stableIdMigrated = 0; // reset migration counter
             var renderedCards = []; // track cards that actually rendered
             rowGroups.forEach(function(rowCards) {
                 var rowValue = rowCards[0].label.charAt(0);
@@ -7517,7 +7528,11 @@
                 game.cards = renderedCards;
                 needsSave = true;
             }
-            // Save if data was updated (ghost cleanup or _gameValue migration)
+            // stableId migration: link game cards to Card Maker source
+            if (_stableIdMigrated > 0) {
+                needsSave = true;
+            }
+            // Save if data was updated (ghost cleanup, _gameValue, or stableId migration)
             if (needsSave) {
                 try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
             }
@@ -8776,6 +8791,8 @@
             addCopyButton(card);
         }
 
+        var _stableIdMigrated = 0; // counter for stableId migration during game view open
+
         function buildGameViewCard(cardInfo) {
             // Try to find card in Card Maker DOM by label
             var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
@@ -8796,6 +8813,11 @@
                 }
             }
             if (original) {
+                // Migrate stableId from Card Maker DOM to game card data (one-time)
+                if (!cardInfo.stableId && original.dataset.stableId) {
+                    cardInfo.stableId = original.dataset.stableId;
+                    _stableIdMigrated++;
+                }
                 var clone = original.cloneNode(true);
                 clone.classList.remove('card-selected');
                 var del = clone.querySelector('.variation-delete-btn');

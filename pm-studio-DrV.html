@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5608,8 +5608,134 @@
         function confirmDeleteCard(card) {
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : 'this card';
-            if (!confirm('Delete card "' + labelText + '"? This cannot be undone.')) return;
-            deleteCard(card);
+            var stableId = card.dataset.stableId || '';
+            var svgEl = card.querySelector('svg');
+            var svgMarkup = svgEl ? svgEl.innerHTML : '';
+
+            // Check if any games reference this card
+            var gamesUsing = findGamesUsingCard(stableId, labelText, svgMarkup);
+
+            if (gamesUsing.length === 0) {
+                // No games use this card — simple confirm
+                if (!confirm('Delete card "' + labelText + '"? This cannot be undone.')) return;
+                deleteCard(card);
+                return;
+            }
+
+            // Card is used in games — show detailed dialog
+            _showDeleteCardDialog(card, labelText, stableId, gamesUsing);
+        }
+
+        function _showDeleteCardDialog(card, labelText, stableId, gamesUsing) {
+            // Build game list text
+            var gameNames = gamesUsing.map(function(g) {
+                var prefix = g.type === 'catch' ? 'Catch: ' : 'Find: ';
+                return prefix + g.name;
+            });
+
+            // Create overlay
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:400px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:12px;color:#FFD700;';
+            title.textContent = 'Card "' + labelText + '" is used in ' + gamesUsing.length + ' game' + (gamesUsing.length > 1 ? 's' : '');
+            dialog.appendChild(title);
+
+            var list = document.createElement('div');
+            list.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:rgba(255,255,255,0.08);border-radius:6px;font-size:13px;';
+            gameNames.forEach(function(name) {
+                var item = document.createElement('div');
+                item.style.cssText = 'padding:3px 0;';
+                item.textContent = '• ' + name;
+                list.appendChild(item);
+            });
+            dialog.appendChild(list);
+
+            var hint = document.createElement('div');
+            hint.style.cssText = 'font-size:12px;color:#aaa;margin-bottom:16px;';
+            hint.textContent = 'Games keep a snapshot of the card, so they will still work after deletion from Card Maker.';
+            dialog.appendChild(hint);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+            // Button: Delete from Card Maker only
+            var btnCMOnly = document.createElement('button');
+            btnCMOnly.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#e65100;color:white;';
+            btnCMOnly.textContent = 'Delete from Card Maker only';
+            btnCMOnly.onclick = function() {
+                overlay.remove();
+                deleteCard(card);
+            };
+            btnRow.appendChild(btnCMOnly);
+
+            // Button: Delete from Card Maker AND all games
+            var btnAll = document.createElement('button');
+            btnAll.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+            btnAll.textContent = 'Delete from Card Maker and all games';
+            btnAll.onclick = function() {
+                overlay.remove();
+                // Remove from all games by stableId
+                if (stableId) _removeCardFromAllGames(stableId);
+                deleteCard(card);
+            };
+            btnRow.appendChild(btnAll);
+
+            // Button: Cancel
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+
+            // Click outside to cancel
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            document.body.appendChild(overlay);
+        }
+
+        // Remove a card from ALL games (Find and Catch) by stableId
+        function _removeCardFromAllGames(stableId) {
+            if (!stableId) return;
+            // Remove from Find games
+            try {
+                var raw = localStorage.getItem('savedCustomGames');
+                if (raw) {
+                    var games = JSON.parse(raw);
+                    var changed = false;
+                    games.forEach(function(game) {
+                        if (!game.cards) return;
+                        var before = game.cards.length;
+                        game.cards = game.cards.filter(function(c) { return c.stableId !== stableId; });
+                        if (game.cards.length < before) changed = true;
+                    });
+                    if (changed) localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                }
+            } catch(e) {}
+            // Remove from Catch games
+            try {
+                var raw2 = localStorage.getItem('savedCatchGames');
+                if (raw2) {
+                    var catchGames = JSON.parse(raw2);
+                    var changed2 = false;
+                    catchGames.forEach(function(game) {
+                        if (!game.cards) return;
+                        var before = game.cards.length;
+                        game.cards = game.cards.filter(function(c) { return c.stableId !== stableId; });
+                        if (game.cards.length < before) changed2 = true;
+                    });
+                    if (changed2) localStorage.setItem('savedCatchGames', JSON.stringify(catchGames));
+                }
+            } catch(e) {}
         }
 
         // --- Row letter labels & empty-row management ---

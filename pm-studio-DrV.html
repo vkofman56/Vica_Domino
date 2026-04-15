@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:56 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:56 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:56 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6023,11 +6023,20 @@
 
             // Load ALL Numbers cards from the correct storage key
             var numbersCards = [];
+            var _numbersStorageKey = getNumbersStorageKey();
             try {
-                var raw = localStorage.getItem(getNumbersStorageKey());
+                var raw = localStorage.getItem(_numbersStorageKey);
                 if (raw) numbersCards = JSON.parse(raw);
             } catch(e) {}
 
+            // Migrate: assign stableId to cards that don't have one
+            var _migrated = false;
+            numbersCards.forEach(function(item) {
+                if (!item.stableId) {
+                    item.stableId = generateStableId(item.label, 'NumbersAndDots');
+                    _migrated = true;
+                }
+            });
             // Group cards by first letter
             var rowMap = {};
             numbersCards.forEach(function(item) {
@@ -6093,7 +6102,11 @@
             applyCardArrangement('card-set-numbers');
             saveCardArrangement('card-set-numbers');
             // Persist UIDs for any cards that got new ones
-            _persistNewUIDs(getNumbersStorageKey(), container);
+            _persistNewUIDs(_numbersStorageKey, container);
+            // Save migrated stableIds back to localStorage
+            if (_migrated) {
+                try { localStorage.setItem(_numbersStorageKey, JSON.stringify(numbersCards)); } catch(e) {}
+            }
         }
 
         // --- Migration: convert old-style variations to regular cards in localStorage ---
@@ -10564,10 +10577,21 @@
             _cardMakerBuilt = true;
             // Load saved cards for this custom set
             var key = 'customDrawnCards_' + setName;
+            var _customMigrated = false;
+            var _customCards = null;
             try {
                 var raw = localStorage.getItem(key);
                 if (raw) {
                     var cards = JSON.parse(raw);
+                    _customCards = cards;
+                    // Migrate: assign stableId to cards that don't have one
+                    var safeSetName = setName.replace(/\s+/g, '');
+                    cards.forEach(function(item) {
+                        if (!item.stableId) {
+                            item.stableId = generateStableId(item.label, safeSetName);
+                            _customMigrated = true;
+                        }
+                    });
                     var rowMap = {};
                     var rowOrder = [];
                     cards.forEach(function(item) {
@@ -10628,6 +10652,10 @@
             } catch(e) {}
             // Persist UIDs: if any cards got new UIDs, save back to storage
             _persistNewUIDs('customDrawnCards_' + setName, container);
+            // Save migrated stableIds back to localStorage
+            if (_customMigrated && _customCards) {
+                try { localStorage.setItem(key, JSON.stringify(_customCards)); } catch(e) {}
+            }
             // Migrate any old-style deferred variations into regular cards
             loadDeferredVariations('custom');
         }
@@ -10722,10 +10750,19 @@
 
             // Load ALL ABC cards from customDrawnCards_abc (all cards are custom now)
             var abcCards = [];
+            var _abcMigrated = false;
             try {
                 var abcCustomRaw = localStorage.getItem('customDrawnCards_abc');
                 if (abcCustomRaw) abcCards = JSON.parse(abcCustomRaw);
             } catch(e) {}
+
+            // Migrate: assign stableId to cards that don't have one
+            abcCards.forEach(function(item) {
+                if (!item.stableId) {
+                    item.stableId = generateStableId(item.label, 'ABC');
+                    _abcMigrated = true;
+                }
+            });
 
             // Group cards by first letter
             var rowMap = {};
@@ -10795,6 +10832,10 @@
             saveAbcSnapshot();
             // Persist UIDs for any cards that got new ones
             _persistNewUIDs('customDrawnCards_abc', container);
+            // Save migrated stableIds back to localStorage
+            if (_abcMigrated) {
+                try { localStorage.setItem('customDrawnCards_abc', JSON.stringify(abcCards)); } catch(e) {}
+            }
             // Restore any variations that were deferred until ABC cards were built
             loadDeferredVariations('abc');
         }

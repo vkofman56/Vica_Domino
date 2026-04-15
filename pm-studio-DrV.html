@@ -8793,42 +8793,105 @@
 
         var _stableIdMigrated = 0; // counter for stableId migration during game view open
 
+        // Collect all card storage keys
+        function _getAllCardStorageKeys() {
+            var keys = [];
+            keys.push(getNumbersStorageKey());
+            keys.push('customDrawnCards_abc');
+            try {
+                var sets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                sets.forEach(function(s) {
+                    var name = typeof s === 'string' ? s : s.name;
+                    var k = 'customDrawnCards_' + name;
+                    if (keys.indexOf(k) === -1) keys.push(k);
+                });
+            } catch(e) {}
+            return keys;
+        }
+
         // Look up stableId from localStorage data (works even when Card Maker DOM isn't built)
         function _findStableIdFromStorage(label, uid, cardSet) {
-            // Determine storage key from cardSet
-            var keys = [];
-            if (cardSet === 'ABC') keys.push('customDrawnCards_abc');
-            else if (cardSet === 'Numbers and Dots' || cardSet === 'numbers') keys.push(getNumbersStorageKey());
-            else if (cardSet) keys.push('customDrawnCards_' + cardSet);
-            // Also try all card sets as fallback (cardSet may be wrong for older cards)
-            if (keys.length === 0 || cardSet) {
-                keys.push(getNumbersStorageKey());
-                keys.push('customDrawnCards_abc');
+            var keys = _getAllCardStorageKeys();
+
+            // PASS 1: UID match across ALL sets (most reliable — ignores wrong cardSet)
+            if (uid) {
+                for (var ki = 0; ki < keys.length; ki++) {
+                    try {
+                        var raw = localStorage.getItem(keys[ki]);
+                        if (!raw) continue;
+                        var cards = JSON.parse(raw);
+                        for (var ci = 0; ci < cards.length; ci++) {
+                            if (cards[ci].uid === uid && cards[ci].stableId) return cards[ci].stableId;
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            // PASS 2: Label match — prefer the cardSet-specific key, then others
+            // Build ordered key list: cardSet key first, then the rest
+            var orderedKeys = [];
+            var primaryKey = null;
+            if (cardSet === 'ABC') primaryKey = 'customDrawnCards_abc';
+            else if (cardSet === 'Numbers and Dots' || cardSet === 'numbers') primaryKey = getNumbersStorageKey();
+            else if (cardSet) primaryKey = 'customDrawnCards_' + cardSet;
+            if (primaryKey) orderedKeys.push(primaryKey);
+            for (var oi = 0; oi < keys.length; oi++) {
+                if (orderedKeys.indexOf(keys[oi]) === -1) orderedKeys.push(keys[oi]);
+            }
+
+            for (var ki2 = 0; ki2 < orderedKeys.length; ki2++) {
                 try {
-                    var sets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
-                    sets.forEach(function(s) {
-                        var name = typeof s === 'string' ? s : s.name;
-                        var k = 'customDrawnCards_' + name;
-                        if (keys.indexOf(k) === -1) keys.push(k);
-                    });
+                    var raw2 = localStorage.getItem(orderedKeys[ki2]);
+                    if (!raw2) continue;
+                    var cards2 = JSON.parse(raw2);
+                    for (var ci2 = 0; ci2 < cards2.length; ci2++) {
+                        if (label && cards2[ci2].label === label && cards2[ci2].stableId) return cards2[ci2].stableId;
+                    }
                 } catch(e) {}
             }
-            for (var ki = 0; ki < keys.length; ki++) {
-                try {
-                    var raw = localStorage.getItem(keys[ki]);
-                    if (!raw) continue;
-                    var cards = JSON.parse(raw);
-                    for (var ci = 0; ci < cards.length; ci++) {
-                        // Match by UID first (more reliable), then by label
-                        if (uid && cards[ci].uid === uid && cards[ci].stableId) return cards[ci].stableId;
-                    }
-                    for (var ci2 = 0; ci2 < cards.length; ci2++) {
-                        if (label && cards[ci2].label === label && cards[ci2].stableId) return cards[ci2].stableId;
-                    }
-                } catch(e) {}
-            }
+
             return null;
         }
+
+        // One-time migration: assign stableIds to ALL game cards on page load
+        function _migrateAllGameStableIds() {
+            // Migrate Find games
+            var findChanged = false;
+            try {
+                var raw = localStorage.getItem('savedCustomGames');
+                if (raw) {
+                    var games = JSON.parse(raw);
+                    games.forEach(function(game) {
+                        if (!game.cards) return;
+                        game.cards.forEach(function(c) {
+                            if (c.stableId) return;
+                            var sid = _findStableIdFromStorage(c.label, c.uid, c.cardSet);
+                            if (sid) { c.stableId = sid; findChanged = true; }
+                        });
+                    });
+                    if (findChanged) localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                }
+            } catch(e) {}
+            // Migrate Catch games
+            var catchChanged = false;
+            try {
+                var raw2 = localStorage.getItem('savedCatchGames');
+                if (raw2) {
+                    var catchGames = JSON.parse(raw2);
+                    catchGames.forEach(function(game) {
+                        if (!game.cards) return;
+                        game.cards.forEach(function(c) {
+                            if (c.stableId) return;
+                            var sid = _findStableIdFromStorage(c.label, c.uid, c.cardSet);
+                            if (sid) { c.stableId = sid; catchChanged = true; }
+                        });
+                    });
+                    if (catchChanged) localStorage.setItem('savedCatchGames', JSON.stringify(catchGames));
+                }
+            } catch(e) {}
+        }
+        // Run migration on page load
+        _migrateAllGameStableIds();
 
         function buildGameViewCard(cardInfo) {
             // Try to find card in Card Maker DOM by label

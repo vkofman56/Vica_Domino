@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:21 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:21 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:21 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9261,6 +9261,23 @@
             return keys;
         }
 
+        // Look up full card data from localStorage by stableId (searches ALL card sets including Safe Haven)
+        function _findCardDataByStableId(stableId) {
+            if (!stableId) return null;
+            var keys = _getAllCardStorageKeys();
+            for (var i = 0; i < keys.length; i++) {
+                try {
+                    var raw = localStorage.getItem(keys[i]);
+                    if (!raw) continue;
+                    var cards = JSON.parse(raw);
+                    for (var j = 0; j < cards.length; j++) {
+                        if (cards[j].stableId === stableId) return cards[j];
+                    }
+                } catch(e) {}
+            }
+            return null;
+        }
+
         // Look up stableId from localStorage data (works even when Card Maker DOM isn't built)
         // svgMarkup is optional — used for SVG content matching when UID/label are ambiguous
         function _findStableIdFromStorage(label, uid, cardSet, svgMarkup) {
@@ -9413,53 +9430,118 @@
         _migrateAllGameStableIds();
 
         function buildGameViewCard(cardInfo) {
-            // Try to find card in Card Maker DOM by label
-            var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
-            // Fallback: find by UID if label lookup failed (labels may have been renumbered)
-            if (!original && cardInfo.uid) {
-                var root = document.querySelector('#domino-library-screen .domino-library-content');
-                if (root) {
-                    var allCards = root.querySelectorAll('.library-card');
-                    for (var fi = 0; fi < allCards.length; fi++) {
-                        if (allCards[fi].dataset.uid === cardInfo.uid) {
-                            original = allCards[fi];
-                            // Update the game data label to match current DOM label
-                            var updLbl = original.querySelector('.library-label');
-                            if (updLbl) cardInfo.label = updLbl.textContent;
-                            break;
+            // PRIMARY: Look up by stableId in card set storage (always up-to-date)
+            if (cardInfo.stableId) {
+                var storedCard = _findCardDataByStableId(cardInfo.stableId);
+                if (storedCard && storedCard.svgContent) {
+                    // Build card from latest stored data — use svgContent as svgMarkup
+                    var freshInfo = {
+                        label: cardInfo.label,
+                        svgMarkup: storedCard.svgContent,
+                        uid: storedCard.uid || cardInfo.uid,
+                        desc: storedCard.desc || cardInfo.desc || '',
+                        cardShape: storedCard.cardShape,
+                        cardShapeW: storedCard.cardShapeW,
+                        cardShapeH: storedCard.cardShapeH,
+                        cardCornerR: storedCard.cardCornerR,
+                        isVariation: cardInfo.isVariation,
+                        transform: cardInfo.transform,
+                        originalLabel: cardInfo.originalLabel
+                    };
+                    return buildCardFromMarkup(freshInfo);
+                }
+            }
+
+            // MIGRATION: If no stableId yet, try to find one
+            if (!cardInfo.stableId) {
+                // Try DOM first (Card Maker might be open)
+                var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
+                if (!original && cardInfo.uid) {
+                    var root = document.querySelector('#domino-library-screen .domino-library-content');
+                    if (root) {
+                        var allCards = root.querySelectorAll('.library-card');
+                        for (var fi = 0; fi < allCards.length; fi++) {
+                            if (allCards[fi].dataset.uid === cardInfo.uid) {
+                                original = allCards[fi];
+                                var updLbl = original.querySelector('.library-label');
+                                if (updLbl) cardInfo.label = updLbl.textContent;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            if (original) {
-                // Migrate stableId from Card Maker DOM to game card data (one-time)
-                if (!cardInfo.stableId && original.dataset.stableId) {
+                if (original && original.dataset.stableId) {
                     cardInfo.stableId = original.dataset.stableId;
                     _stableIdMigrated++;
+                    // Now try stableId lookup again with the newly found ID
+                    var storedCard2 = _findCardDataByStableId(cardInfo.stableId);
+                    if (storedCard2 && storedCard2.svgContent) {
+                        var freshInfo2 = {
+                            label: cardInfo.label,
+                            svgMarkup: storedCard2.svgContent,
+                            uid: storedCard2.uid || cardInfo.uid,
+                            desc: storedCard2.desc || cardInfo.desc || '',
+                            cardShape: storedCard2.cardShape,
+                            cardShapeW: storedCard2.cardShapeW,
+                            cardShapeH: storedCard2.cardShapeH,
+                            cardCornerR: storedCard2.cardCornerR,
+                            isVariation: cardInfo.isVariation,
+                            transform: cardInfo.transform,
+                            originalLabel: cardInfo.originalLabel
+                        };
+                        return buildCardFromMarkup(freshInfo2);
+                    }
                 }
-                var clone = original.cloneNode(true);
-                clone.classList.remove('card-selected');
-                var del = clone.querySelector('.variation-delete-btn');
-                if (del) del.remove();
-                rebindGameViewCardButtons(clone);
-                return clone;
-            }
-            // Migrate stableId from localStorage if DOM lookup failed
-            if (!cardInfo.stableId) {
+                // Try localStorage migration
                 var sid = _findStableIdFromStorage(cardInfo.label, cardInfo.uid, cardInfo.cardSet, cardInfo.svgMarkup);
                 if (sid) {
                     cardInfo.stableId = sid;
                     _stableIdMigrated++;
+                    var storedCard3 = _findCardDataByStableId(sid);
+                    if (storedCard3 && storedCard3.svgContent) {
+                        var freshInfo3 = {
+                            label: cardInfo.label,
+                            svgMarkup: storedCard3.svgContent,
+                            uid: storedCard3.uid || cardInfo.uid,
+                            desc: storedCard3.desc || cardInfo.desc || '',
+                            cardShape: storedCard3.cardShape,
+                            cardShapeW: storedCard3.cardShapeW,
+                            cardShapeH: storedCard3.cardShapeH,
+                            cardCornerR: storedCard3.cardCornerR,
+                            isVariation: cardInfo.isVariation,
+                            transform: cardInfo.transform,
+                            originalLabel: cardInfo.originalLabel
+                        };
+                        return buildCardFromMarkup(freshInfo3);
+                    }
                 }
             }
-            // Fallback: build from stored svgMarkup
+
+            // LAST RESORT: build from stored svgMarkup snapshot
             return buildCardFromMarkup(cardInfo);
         }
 
         function getGameCardSVGWithFallback(cardInfo) {
+            // PRIMARY: Look up by stableId in card set storage
+            if (cardInfo.stableId) {
+                var storedCard = _findCardDataByStableId(cardInfo.stableId);
+                if (storedCard && storedCard.svgContent) {
+                    var stSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    stSvg.setAttribute('viewBox', '0 0 60 60');
+                    stSvg.innerHTML = storedCard.svgContent;
+                    if (cardInfo.isVariation && cardInfo.transform) {
+                        var g1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        g1.setAttribute('transform', cardInfo.transform);
+                        while (stSvg.firstChild) g1.appendChild(stSvg.firstChild);
+                        stSvg.appendChild(g1);
+                    }
+                    return stSvg;
+                }
+            }
+            // FALLBACK: Try DOM lookup
             var svg = getGameCardSVG(cardInfo);
             if (svg) return svg;
-            // Fallback: build from stored svgMarkup
+            // LAST RESORT: build from stored svgMarkup snapshot
             if (cardInfo.svgMarkup !== undefined) {
                 var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 fallbackSvg.setAttribute('viewBox', '0 0 60 60');

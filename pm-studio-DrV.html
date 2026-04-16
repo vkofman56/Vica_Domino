@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5817,6 +5817,153 @@
             saveVariations();
         }
 
+        function addRestoreButton(card) {
+            if (card.querySelector('.card-restore-btn')) return;
+            var btn = document.createElement('button');
+            btn.className = 'card-restore-btn';
+            btn.textContent = '\u21A9';
+            btn.title = 'Restore to card set';
+            btn.style.cssText = 'position:absolute;top:2px;left:2px;background:#2e7d32;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;z-index:5;line-height:22px;text-align:center;padding:0;';
+            btn.onclick = function(e) {
+                e.stopPropagation();
+                _showRestoreCardDialog(card);
+            };
+            card.style.position = 'relative';
+            card.appendChild(btn);
+        }
+
+        function _showRestoreCardDialog(card) {
+            var lbl = card.querySelector('.library-label');
+            var labelText = lbl ? lbl.textContent : 'this card';
+            var movedFrom = card.dataset.movedFrom || '';
+
+            // Get available card sets to restore to
+            var sets = loadCardSets();
+            var targetSets = [];
+            // Built-in sets (if not deleted)
+            try {
+                var deleted = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deleted.indexOf('numbers') === -1) targetSets.push('Numbers and Dots');
+                if (deleted.indexOf('abc') === -1) targetSets.push('ABC');
+            } catch(e) {
+                targetSets.push('Numbers and Dots');
+                targetSets.push('ABC');
+            }
+            // Custom sets (exclude Safe Haven)
+            sets.forEach(function(s) {
+                if (s.name !== 'Safe Haven') targetSets.push(s.name);
+            });
+
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #2e7d32;border-radius:12px;padding:24px;max-width:360px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:12px;color:#66bb6a;';
+            title.textContent = 'Restore card "' + labelText + '"';
+            dialog.appendChild(title);
+
+            if (movedFrom) {
+                var hint = document.createElement('div');
+                hint.style.cssText = 'font-size:12px;color:#aaa;margin-bottom:12px;';
+                hint.textContent = 'Originally from: ' + movedFrom;
+                dialog.appendChild(hint);
+            }
+
+            var subtitle = document.createElement('div');
+            subtitle.style.cssText = 'font-size:13px;margin-bottom:8px;color:#ccc;';
+            subtitle.textContent = 'Restore to:';
+            dialog.appendChild(subtitle);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;margin-bottom:12px;';
+
+            targetSets.forEach(function(setName) {
+                var btn = document.createElement('button');
+                var isOriginal = (setName === movedFrom);
+                btn.style.cssText = 'padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;text-align:left;' +
+                    (isOriginal ? 'background:#2e7d32;color:white;font-weight:bold;' : 'background:rgba(255,255,255,0.1);color:#ddd;');
+                btn.textContent = setName + (isOriginal ? ' (original)' : '');
+                btn.onclick = function() {
+                    overlay.remove();
+                    _restoreCardToSet(card, setName);
+                };
+                btnRow.appendChild(btn);
+            });
+            dialog.appendChild(btnRow);
+
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;width:100%;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            dialog.appendChild(btnCancel);
+
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+
+        function _restoreCardToSet(card, targetSetName) {
+            var lbl = card.querySelector('.library-label');
+            var svg = card.querySelector('svg');
+            if (!lbl || !svg) return;
+
+            // Serialize card data
+            var cardData = {
+                label: lbl.textContent,
+                svgContent: svg.innerHTML,
+                uid: card.dataset.uid || '',
+                desc: (card.querySelector('.library-desc') || {}).textContent || 'Card'
+            };
+            if (card.dataset.stableId) cardData.stableId = card.dataset.stableId;
+            if (card.dataset.origin) cardData.origin = card.dataset.origin;
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                cardData.cardShape = card.dataset.cardShape;
+                cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
+                cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+            }
+
+            // Determine target storage key
+            var targetKey;
+            if (targetSetName === 'Numbers and Dots') {
+                targetKey = getNumbersStorageKey();
+            } else if (targetSetName === 'ABC') {
+                targetKey = 'customDrawnCards_abc';
+            } else {
+                targetKey = 'customDrawnCards_' + targetSetName;
+                // Ensure set exists in savedCardSets
+                var sets = loadCardSets();
+                var found = false;
+                for (var i = 0; i < sets.length; i++) {
+                    if (sets[i].name === targetSetName) { found = true; break; }
+                }
+                if (!found) {
+                    sets.push({ name: targetSetName, folder: null, lastOpened: 0 });
+                    saveCardSets(sets);
+                    rebuildCardSetsList();
+                }
+            }
+
+            // Add card to target set storage
+            var existing = [];
+            try { var raw = localStorage.getItem(targetKey); if (raw) existing = JSON.parse(raw); } catch(e) {}
+            existing.push(cardData);
+            localStorage.setItem(targetKey, JSON.stringify(existing));
+
+            // Remove card from Safe Haven DOM
+            var row = card.closest('.library-row');
+            card.remove();
+            if (row) {
+                updateRowEmptyState(row);
+                renumberRow(row);
+            }
+            // Save Safe Haven without this card
+            saveVariations();
+        }
+
         // Remove a card from ALL games (Find and Catch) by stableId
         function _removeCardFromAllGames(stableId) {
             if (!stableId) return;
@@ -11073,6 +11220,7 @@
                             card.dataset.uid = item.uid || generateCardUID();
                             if (item.stableId) card.dataset.stableId = item.stableId;
                             if (item.origin) card.dataset.origin = item.origin;
+                            if (item.movedFrom) card.dataset.movedFrom = item.movedFrom;
                             if (item.cardShape && item.cardShape !== 'square') {
                                 card.dataset.cardShape = item.cardShape;
                                 card.dataset.cardShapeW = item.cardShapeW || 60;
@@ -11101,6 +11249,7 @@
                             addCardDeleteButton(card);
                             addVarButton(card);
                             addCopyButton(card);
+                            if (setName === 'Safe Haven') addRestoreButton(card);
                         });
                         container.appendChild(row);
                     });

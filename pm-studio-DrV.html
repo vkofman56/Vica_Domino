@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:20 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:20 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:20 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5616,14 +5616,68 @@
             var gamesUsing = findGamesUsingCard(stableId, labelText, svgMarkup);
 
             if (gamesUsing.length === 0) {
-                // No games use this card — simple confirm
-                if (!confirm('Delete card "' + labelText + '"? This cannot be undone.')) return;
-                deleteCard(card);
+                if (_isInSafeHaven()) {
+                    // In Safe Haven, no games use it — simple permanent delete
+                    if (!confirm('Permanently delete card "' + labelText + '" from Safe Haven?')) return;
+                    deleteCard(card);
+                } else {
+                    // Not in Safe Haven, no games — offer Move to Safe Haven or Delete
+                    _showSimpleDeleteDialog(card, labelText);
+                }
                 return;
             }
 
             // Card is used in games — show detailed dialog
             _showDeleteCardDialog(card, labelText, stableId, gamesUsing);
+        }
+
+        // Simple delete dialog (card NOT in games, NOT in Safe Haven)
+        function _showSimpleDeleteDialog(card, labelText) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:360px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:16px;color:#FFD700;';
+            title.textContent = 'Delete card "' + labelText + '"?';
+            dialog.appendChild(title);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+            // Button: Move to Safe Haven
+            var btnSafe = document.createElement('button');
+            btnSafe.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#2e7d32;color:white;';
+            btnSafe.textContent = '\u{1F6E1}\uFE0F Move to Safe Haven';
+            btnSafe.onclick = function() {
+                overlay.remove();
+                _moveCardToSafeHaven(card);
+            };
+            btnRow.appendChild(btnSafe);
+
+            // Button: Delete permanently
+            var btnDel = document.createElement('button');
+            btnDel.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+            btnDel.textContent = 'Delete permanently';
+            btnDel.onclick = function() {
+                overlay.remove();
+                deleteCard(card);
+            };
+            btnRow.appendChild(btnDel);
+
+            // Button: Cancel
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
         }
 
         function _showDeleteCardDialog(card, labelText, stableId, gamesUsing) {
@@ -5634,6 +5688,8 @@
             });
 
             // Create overlay
+            var inSafeHaven = _isInSafeHaven();
+
             var overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
 
@@ -5650,36 +5706,47 @@
             gameNames.forEach(function(name) {
                 var item = document.createElement('div');
                 item.style.cssText = 'padding:3px 0;';
-                item.textContent = '• ' + name;
+                item.textContent = '\u2022 ' + name;
                 list.appendChild(item);
             });
             dialog.appendChild(list);
 
             var hint = document.createElement('div');
             hint.style.cssText = 'font-size:12px;color:#aaa;margin-bottom:16px;';
-            hint.textContent = 'Games keep a snapshot of the card, so they will still work after deletion from Card Maker.';
+            hint.textContent = 'Games keep a snapshot of the card, so they will still work after deletion.';
             dialog.appendChild(hint);
 
             var btnRow = document.createElement('div');
             btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
 
-            // Button: Delete from Card Maker only
-            var btnCMOnly = document.createElement('button');
-            btnCMOnly.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#e65100;color:white;';
-            btnCMOnly.textContent = 'Delete from Card Maker only';
-            btnCMOnly.onclick = function() {
-                overlay.remove();
-                deleteCard(card);
-            };
-            btnRow.appendChild(btnCMOnly);
+            if (!inSafeHaven) {
+                // Button: Move to Safe Haven (green — safest option first)
+                var btnSafe = document.createElement('button');
+                btnSafe.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#2e7d32;color:white;';
+                btnSafe.textContent = '\u{1F6E1}\uFE0F Move to Safe Haven';
+                btnSafe.onclick = function() {
+                    overlay.remove();
+                    _moveCardToSafeHaven(card);
+                };
+                btnRow.appendChild(btnSafe);
 
-            // Button: Delete from Card Maker AND all games
+                // Button: Delete from Card Maker only (orange)
+                var btnCMOnly = document.createElement('button');
+                btnCMOnly.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#e65100;color:white;';
+                btnCMOnly.textContent = 'Delete from Card Maker only';
+                btnCMOnly.onclick = function() {
+                    overlay.remove();
+                    deleteCard(card);
+                };
+                btnRow.appendChild(btnCMOnly);
+            }
+
+            // Button: Delete from everywhere (red — most destructive)
             var btnAll = document.createElement('button');
             btnAll.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
-            btnAll.textContent = 'Delete from Card Maker and all games';
+            btnAll.textContent = inSafeHaven ? 'Delete from Safe Haven and all games' : 'Delete from Card Maker and all games';
             btnAll.onclick = function() {
                 overlay.remove();
-                // Remove from all games by stableId
                 if (stableId) _removeCardFromAllGames(stableId);
                 deleteCard(card);
             };
@@ -5694,13 +5761,54 @@
 
             dialog.appendChild(btnRow);
             overlay.appendChild(dialog);
-
-            // Click outside to cancel
-            overlay.addEventListener('click', function(e) {
-                if (e.target === overlay) overlay.remove();
-            });
-
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
             document.body.appendChild(overlay);
+        }
+
+        // --- Safe Haven card set helpers ---
+        function _ensureSafeHavenExists() {
+            var sets = loadCardSets();
+            for (var i = 0; i < sets.length; i++) {
+                if (sets[i].name === 'Safe Haven') return;
+            }
+            sets.push({ name: 'Safe Haven', folder: null, lastOpened: 0, isSafeHaven: true });
+            saveCardSets(sets);
+            rebuildCardSetsList();
+        }
+
+        function _isInSafeHaven() {
+            return activeCardSet === 'Safe Haven';
+        }
+
+        function _moveCardToSafeHaven(card) {
+            _ensureSafeHavenExists();
+            // Serialize card data from DOM
+            var lbl = card.querySelector('.library-label');
+            var svg = card.querySelector('svg');
+            if (!lbl || !svg) return;
+            var cardData = {
+                label: lbl.textContent,
+                svgContent: svg.innerHTML,
+                uid: card.dataset.uid || '',
+                desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
+                movedFrom: activeCardSet
+            };
+            if (card.dataset.stableId) cardData.stableId = card.dataset.stableId;
+            if (card.dataset.origin) cardData.origin = card.dataset.origin;
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                cardData.cardShape = card.dataset.cardShape;
+                cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
+                cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+            }
+            // Add to Safe Haven storage
+            var key = 'customDrawnCards_Safe Haven';
+            var existing = [];
+            try { var raw = localStorage.getItem(key); if (raw) existing = JSON.parse(raw); } catch(e) {}
+            existing.push(cardData);
+            localStorage.setItem(key, JSON.stringify(existing));
+            // Remove from current set (handles DOM removal + save)
+            deleteCard(card);
         }
 
         // Remove a card from ALL games (Find and Catch) by stableId
@@ -10073,6 +10181,7 @@
         }
 
         function renameCardSet(btn, oldName, isBuiltin) {
+            if (oldName === 'Safe Haven') return; // Safe Haven cannot be renamed
             // Replace button with input for inline editing
             var input = document.createElement('input');
             input.type = 'text';
@@ -10155,6 +10264,7 @@
         }
 
         function deleteCardSet(setName, wrapper) {
+            if (setName === 'Safe Haven') return; // Safe Haven cannot be deleted from Library
             if (!confirm('Delete card set "' + setName + '"? This will also erase all cards in the set.')) return;
             // Remove from saved sets list
             var sets = loadCardSets();
@@ -10207,21 +10317,30 @@
         }
 
         function createCustomSetElement(setName, isRecent) {
+            var isSafeHaven = (setName === 'Safe Haven');
             var wrapper = document.createElement('div');
             wrapper.className = 'library-set-item-custom';
+            if (isSafeHaven) wrapper.classList.add('safe-haven-set');
             var btn = document.createElement('button');
             btn.className = 'library-set-btn';
-            btn.textContent = setName;
+            if (isSafeHaven) {
+                btn.textContent = '\u{1F6E1}\uFE0F Safe Haven';
+                btn.style.cssText = 'color:#66bb6a;font-weight:bold;';
+            } else {
+                btn.textContent = setName;
+            }
             btn.addEventListener('click', function() {
                 selectCustomSet(btn, setName);
             });
-            btn.addEventListener('dblclick', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                renameCardSet(btn, setName, false);
-            });
+            if (!isSafeHaven) {
+                btn.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    renameCardSet(btn, setName, false);
+                });
+            }
             wrapper.appendChild(btn);
-            if (!isRecent) {
+            if (!isRecent && !isSafeHaven) {
                 // "Move to" button
                 var moveBtn = document.createElement('button');
                 moveBtn.className = 'library-set-move-btn';
@@ -10848,9 +10967,15 @@
             var target = foldersContainer || col;
             renderFolderTree(null, target);
 
-            // Render unfiled sets
+            // Render unfiled sets — Safe Haven always first
             var unfiled = sets.filter(function(s) { return !s.folder; });
-            unfiled.forEach(function(setObj) {
+            var safeHavenSets = unfiled.filter(function(s) { return s.name === 'Safe Haven'; });
+            var regularUnfiled = unfiled.filter(function(s) { return s.name !== 'Safe Haven'; });
+            safeHavenSets.forEach(function(setObj) {
+                var el = createCustomSetElement(setObj.name);
+                target.appendChild(el.wrapper);
+            });
+            regularUnfiled.forEach(function(setObj) {
                 var el = createCustomSetElement(setObj.name);
                 target.appendChild(el.wrapper);
             });
@@ -10996,7 +11121,13 @@
             if (abcBtn) abcBtn.classList.toggle('selected', setName === 'abc');
             // Update Card Maker title
             var titleSpan = document.getElementById('card-maker-set-title');
-            if (titleSpan) titleSpan.textContent = isCustomCardSet(setName) ? setName : (setName === 'abc' ? 'ABC' : 'Numbers and Dots');
+            if (titleSpan) {
+                if (setName === 'Safe Haven') {
+                    titleSpan.textContent = '\u{1F6E1}\uFE0F Safe Haven';
+                } else {
+                    titleSpan.textContent = isCustomCardSet(setName) ? setName : (setName === 'abc' ? 'ABC' : 'Numbers and Dots');
+                }
+            }
             // Show/hide card set content — hide ALL content, then show only the active set
             var contentArea = document.querySelector('#domino-library-screen .domino-library-content');
             var numbersDiv = document.getElementById('card-set-numbers');

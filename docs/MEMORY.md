@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 12, 2026
+**Last Updated**: April 16, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -377,12 +377,11 @@
 - Generates stableId on first load, saves migrated data back to localStorage
 - Only runs when Card Maker editor is opened (build functions trigger on "Edit" click)
 
-### Step 3: Link Game Cards to stableId Source (IN PROGRESS)
+### Step 3: Link Game Cards to stableId Source (DONE)
 - `buildGameViewCard()` copies stableId from Card Maker DOM or localStorage to game card data
-- `_findStableIdFromStorage()` searches localStorage directly — UID-first across ALL sets, then label match
-- `_migrateAllGameStableIds()` runs on page load for all Find and Catch games
+- `_findStableIdFromStorage()` 3-pass matching: (1) UID across ALL sets, (2) SVG content match, (3) label match with cardSet preference
+- `_migrateAllGameStableIds()` runs after each build function via debounced `_scheduleGameStableIdMigration()`
 - Game Maker card selection and `confirmAddCards()` now include stableId
-- **Known issue**: Cards with wrong `cardSet` (old bug: custom set cards stored as "Numbers and Dots") + stale UIDs can only be matched by label, which may match the wrong set when labels collide (e.g., "A1" exists in both Numbers and Multiply by 4)
 
 ### Firebase Backup Fix
 - Card backup was exceeding Firestore's 1MB document limit (all SVG data in one doc)
@@ -390,16 +389,44 @@
 - `syncRestoreCardBackup()` handles both old single-doc and new chunked formats
 - Old backup cleanup properly deletes chunk subcollections
 
+### Step 4: Reverse Lookup — stableId to Games (DONE)
+- `findGamesUsingCard(stableId, label, svgMarkup)` — scans Find and Catch games
+- Returns `[{name, type, index}]` with matching priority: stableId > SVG content > label
+
+### Step 5: Delete-with-Games-Check Dialog (DONE)
+- `confirmDeleteCard()` checks `findGamesUsingCard()` before deleting
+- `_showDeleteCardDialog()` shows overlay with game list and action buttons
+- `_removeCardFromAllGames(stableId)` filters out cards from all Find and Catch games
+
+### Step 6: Safe Haven Card Set (DONE)
+- `_ensureSafeHavenExists()` — auto-creates "Safe Haven" set in savedCardSets if missing
+- `_moveCardToSafeHaven(card)` — serializes card DOM data, adds to `customDrawnCards_Safe Haven`, removes from current set
+- `_isInSafeHaven()` — checks if active card set is Safe Haven
+- Delete dialog changes:
+  - Card NOT in games, NOT in Safe Haven → "Move to Safe Haven" (green) / "Delete permanently" (red) / "Cancel"
+  - Card IN games, NOT in Safe Haven → "Move to Safe Haven" (green) / "Delete from Card Maker only" (orange) / "Delete from Card Maker and all games" (red) / "Cancel"
+  - Card IN games, IN Safe Haven → "Delete from Safe Haven and all games" (red) / "Cancel"
+  - Card NOT in games, IN Safe Haven → simple confirm to permanently delete
+- Safe Haven in Library: shield icon, green text, no delete/move/rename buttons, rendered first in unfiled list
+- `deleteCardSet()` and `renameCardSet()` block Safe Haven from being deleted or renamed
+- Cards keep their stableId when moved to Safe Haven, so game references remain valid
+- `movedFrom` field tracks original card set name
+
 ### Remaining Steps (planned)
-- **Step 4**: Build reverse index (stableId → list of games) for delete dialog
-- **Step 5**: Implement delete-with-games-check dialog
-- **Step 6**: Implement Safe Haven card set (auto-created set for cards deleted from Card Maker but still needed by games)
 - **Step 7**: Switch `buildGameViewCard()` to use stableId as primary lookup
 - **Step 8** (Phase 2): Stop storing svgMarkup snapshots in games, rely on references
 
 ### Key Functions Added
 - `generateStableId(label, cardSet)` — creates stable ID for new cards
 - `getCurrentCardSetName()` — returns proper set name for active card set
-- `_findStableIdFromStorage(label, uid, cardSet)` — looks up stableId from localStorage
+- `_findStableIdFromStorage(label, uid, cardSet, svgMarkup)` — 3-pass lookup from localStorage
 - `_getAllCardStorageKeys()` — collects all card storage keys
-- `_migrateAllGameStableIds()` — one-time migration for all game cards on page load
+- `_migrateAllGameStableIds()` — migration for all game cards (called after build functions)
+- `_scheduleGameStableIdMigration()` — debounced 3s wrapper to avoid Firebase rate limiting
+- `findGamesUsingCard(stableId, label, svgMarkup)` — reverse lookup: card → games
+- `_removeCardFromAllGames(stableId)` — remove card from all games by stableId
+- `_ensureSafeHavenExists()` — auto-create Safe Haven card set
+- `_moveCardToSafeHaven(card)` — move card from current set to Safe Haven
+- `_isInSafeHaven()` — check if current set is Safe Haven
+- `_showSimpleDeleteDialog(card, labelText)` — delete dialog for cards not in games
+- `_showDeleteCardDialog(card, labelText, stableId, gamesUsing)` — delete dialog for cards in games

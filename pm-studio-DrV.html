@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:40 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4643,8 +4643,8 @@
                     if (activeCardSet === 'abc') info.cardSet = 'ABC';
                     else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
                     else info.cardSet = activeCardSet;
-                    // Store SVG markup for self-contained game data
-                    if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
+                    // Store SVG markup only if no stableId (stableId lookup provides live data)
+                    if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
                     // Store card shape
                     if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                         info.cardShape = card.dataset.cardShape;
@@ -7015,6 +7015,8 @@
                         }
                         if (found && !matched[ecKey]) {
                             var info = { label: lbl.textContent, isVariation: ec.isVariation, uid: cardEl.dataset.uid || '' };
+                            if (cardEl.dataset.stableId) info.stableId = cardEl.dataset.stableId;
+                            else if (ec.stableId) info.stableId = ec.stableId;
                             if (ec.isVariation) {
                                 info.originalLabel = ec.originalLabel;
                                 info.transform = ec.transform;
@@ -7024,9 +7026,9 @@
                             else if (activeCardSet === 'abc') info.cardSet = 'ABC';
                             else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
                             else info.cardSet = activeCardSet;
-                            // Store SVG markup for self-contained game data
+                            // Store SVG markup only if no stableId (stableId lookup provides live data)
                             var cardSvgEl = cardEl.querySelector('svg');
-                            if (cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
+                            if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
                             cardEl.classList.add('card-selected');
                             gameMakerSelected.push(info);
                             matched[ecKey] = true;
@@ -7654,21 +7656,23 @@
 
             var skippedCards = [];
             _addCardSelectedCards.forEach(function(cardData) {
-                var markup = cardData.svgContent || cardData.svgMarkup || '';
+                var hasStableId = !!(cardData.stableId);
+                var markup = hasStableId ? '' : (cardData.svgContent || cardData.svgMarkup || '');
                 // Warn if SVG is very large (>500KB) — may exceed localStorage quota
-                if (markup.length > 500000) {
+                if (!hasStableId && markup.length > 500000) {
                     skippedCards.push(cardData.label + ' (' + Math.round(markup.length/1024) + 'KB)');
                     return;
                 }
-                game.cards.push({
+                var cardEntry = {
                     label: cardData.label,
                     uid: cardData.uid || '',
                     stableId: cardData.stableId || '',
                     isVariation: false,
                     cardSet: cardSetLabel,
-                    svgMarkup: markup,
                     _addedToGame: true
-                });
+                };
+                if (!hasStableId) cardEntry.svgMarkup = markup;
+                game.cards.push(cardEntry);
             });
 
             if (skippedCards.length > 0) {
@@ -11650,6 +11654,7 @@
             var existingLabels = {};
             games[abcIdx].cards.forEach(function(c) {
                 existingLabels[c.label] = true;
+                if (c.stableId) return; // stableId cards use live lookup, no svgMarkup needed
                 if (markupMap[c.label] && markupMap[c.label] !== c.svgMarkup) {
                     c.svgMarkup = markupMap[c.label];
                     changed = true;
@@ -11711,6 +11716,7 @@
             games.forEach(function(game) {
                 if (!game.cards) return;
                 game.cards.forEach(function(c) {
+                    if (c.stableId) return; // stableId cards use live lookup, no svgMarkup needed
                     // Try direct label match first, then ABC padded match
                     var fresh = markupMap[c.label] || abcMarkup[c.label];
                     if (fresh && fresh !== c.svgMarkup) {
@@ -11729,6 +11735,7 @@
             catchGames.forEach(function(game) {
                 if (!game.cards) return;
                 game.cards.forEach(function(c) {
+                    if (c.stableId) return; // stableId cards use live lookup, no svgMarkup needed
                     var fresh = markupMap[c.label] || abcMarkup[c.label];
                     if (fresh && fresh !== c.svgMarkup) {
                         c.svgMarkup = fresh;
@@ -11992,16 +11999,10 @@
             effective.forEach(function(ec) {
                 var pool = [];
                 ec.cards.forEach(function(c) {
-                    var svg = getGameCardSVG(c);
+                    var svg = getGameCardSVGWithFallback(c);
                     if (svg) {
                         pool.push(svg);
                         if (!svgMarkupPools[ec.label]) svgMarkupPools[ec.label] = svg.innerHTML;
-                    } else if (c.svgMarkup) {
-                        if (!svgMarkupPools[ec.label]) svgMarkupPools[ec.label] = c.svgMarkup;
-                        var fallbackSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                        fallbackSvg.setAttribute('viewBox', '0 0 60 60');
-                        fallbackSvg.innerHTML = c.svgMarkup;
-                        pool.push(fallbackSvg);
                     }
                 });
                 svgPools[ec.label] = pool;
@@ -13129,12 +13130,21 @@
         })();
 
         // Migrate: ensure all game cards have svgMarkup AND refresh stale svgMarkup from DOM
+        // For cards with stableId: remove svgMarkup (they use live lookup via stableId)
         (function migrateAllGameSvgMarkup() {
             var games = loadCustomGames();
             var changed = false;
             games.forEach(function(game) {
                 if (!game.cards) return;
                 game.cards.forEach(function(c) {
+                    if (c.stableId) {
+                        // Clean up: remove svgMarkup from stableId cards (they use live lookup)
+                        if (c.svgMarkup) {
+                            delete c.svgMarkup;
+                            changed = true;
+                        }
+                        return;
+                    }
                     var domCard = findCardByLabel(c.label, c.cardSet);
                     if (domCard) {
                         var svg = domCard.querySelector('svg');
@@ -13150,6 +13160,23 @@
             });
             if (changed) {
                 localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
+            // Also clean up catch games
+            var catchGames = loadCatchGames();
+            var catchChanged = false;
+            catchGames.forEach(function(game) {
+                if (!game.cards) return;
+                game.cards.forEach(function(c) {
+                    if (c.stableId) {
+                        if (c.svgMarkup) {
+                            delete c.svgMarkup;
+                            catchChanged = true;
+                        }
+                    }
+                });
+            });
+            if (catchChanged) {
+                saveCatchGames(catchGames);
             }
         })();
 
@@ -13693,20 +13720,36 @@
         }
 
         function _catchBuildCardSVG(cardInfo) {
-            // Try to build SVG from stored markup
-            if (cardInfo.svgMarkup !== undefined) {
-                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('viewBox', '0 0 60 60');
-                svg.innerHTML = cardInfo.svgMarkup || '';
-                if (cardInfo.isVariation && cardInfo.transform) {
-                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                    g.setAttribute('transform', cardInfo.transform);
-                    while (svg.firstChild) g.appendChild(svg.firstChild);
-                    svg.appendChild(g);
+            // PRIMARY: Look up by stableId in card set storage
+            if (cardInfo.stableId) {
+                var storedCard = _findCardDataByStableId(cardInfo.stableId);
+                if (storedCard && storedCard.svgContent) {
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    svg.innerHTML = storedCard.svgContent;
+                    if (cardInfo.isVariation && cardInfo.transform) {
+                        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        g.setAttribute('transform', cardInfo.transform);
+                        while (svg.firstChild) g.appendChild(svg.firstChild);
+                        svg.appendChild(g);
+                    }
+                    return svg;
                 }
-                return svg;
             }
-            // Fallback: try DOM lookup
+            // FALLBACK: Try svgMarkup snapshot
+            if (cardInfo.svgMarkup !== undefined) {
+                var svg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg2.setAttribute('viewBox', '0 0 60 60');
+                svg2.innerHTML = cardInfo.svgMarkup || '';
+                if (cardInfo.isVariation && cardInfo.transform) {
+                    var g2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g2.setAttribute('transform', cardInfo.transform);
+                    while (svg2.firstChild) g2.appendChild(svg2.firstChild);
+                    svg2.appendChild(g2);
+                }
+                return svg2;
+            }
+            // LAST RESORT: try DOM lookup
             var domCard = findCardByLabel(cardInfo.label, cardInfo.cardSet);
             if (domCard) {
                 var domSvg = domCard.querySelector('svg');

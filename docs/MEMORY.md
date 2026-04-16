@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 16, 2026
+**Last Updated**: April 16, 2026 (Steps 7-8 complete)
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -175,7 +175,7 @@
 - **Never save empty arrays over non-empty card data**: Use `safeSaveCards()` wrapper which blocks saving `[]` when existing data has cards. This prevents accidental wipe from DOM-based saves when Card Maker isn't open.
 - **Card Maker DOM is lazy**: The card set containers (`#card-set-numbers`, `#card-set-abc`, `#card-set-custom`) are only populated when the user opens them in Card Maker. Any save function that reads from DOM must check `_cardMakerBuilt` flag first. When looking up card data, always fall back to localStorage if DOM is empty.
 
-## Current State (April 12)
+## Current State (April 16)
 - **Branch**: `claude/review-project-docs-JOOeh` (active development, also `claude/general-session-yVBQq`)
 - **Backup tags**: `backup-before-catch-game-20260331`, `backup-before-math-editor-20260402` (local only — remote tag push blocked by 403)
 - **Player page** (`index.html`): Working — Full navigation flow GP 0 → GP F Setup/C Setup → GP Fnm Start → GP Fnm Board
@@ -404,17 +404,40 @@
 - `_isInSafeHaven()` — checks if active card set is Safe Haven
 - Delete dialog changes:
   - Card NOT in games, NOT in Safe Haven → "Move to Safe Haven" (green) / "Delete permanently" (red) / "Cancel"
-  - Card IN games, NOT in Safe Haven → "Move to Safe Haven" (green) / "Delete from Card Maker only" (orange) / "Delete from Card Maker and all games" (red) / "Cancel"
+  - Card IN games, NOT in Safe Haven → "Move to Safe Haven" (green) / "Delete from Card Maker and all games" (red) / "Cancel"
   - Card IN games, IN Safe Haven → "Delete from Safe Haven and all games" (red) / "Cancel"
   - Card NOT in games, IN Safe Haven → simple confirm to permanently delete
 - Safe Haven in Library: shield icon, green text, no delete/move/rename buttons, rendered first in unfiled list
 - `deleteCardSet()` and `renameCardSet()` block Safe Haven from being deleted or renamed
 - Cards keep their stableId when moved to Safe Haven, so game references remain valid
 - `movedFrom` field tracks original card set name
+- **Move button** (green ↷, bottom-right): Replaces "Restore" button — lets user move card from Safe Haven to any card set
+- `_showRestoreCardDialog(card)` — dialog lists all card sets; original set highlighted in green with "(original)" label
+- `_restoreCardToSet(card, targetSetName)` — direct localStorage writes (bypasses DOM save chain to prevent data overwrites)
+- `_nextBottomRowLabel(storageKey)` — assigns unused bottom-row label to avoid collisions when moving cards
+- **Bugfix**: `_moveCardToSafeHaven` no longer calls `deleteCard()` (which removed card from games); uses direct DOM removal instead
+- **Bugfix**: `_restoreCardToSet` bypasses `saveVariations()` → `saveCustomCards()` chain which was overwriting the target set's localStorage
 
-### Remaining Steps (planned)
-- **Step 7**: Switch `buildGameViewCard()` to use stableId as primary lookup
-- **Step 8** (Phase 2): Stop storing svgMarkup snapshots in games, rely on references
+### Step 7: stableId-First Lookup (DONE)
+- `_findCardDataByStableId(stableId)` — searches ALL card storage keys for matching stableId
+- `buildGameViewCard()` rewritten with 3-tier pipeline:
+  1. PRIMARY: `_findCardDataByStableId(cardInfo.stableId)` → build from `storedCard.svgContent`
+  2. MIGRATION: DOM lookup by label/uid → get stableId → retry; or `_findStableIdFromStorage()` → retry
+  3. LAST RESORT: `buildCardFromMarkup(cardInfo)` using stored svgMarkup snapshot
+- `getGameCardSVGWithFallback()` updated similarly: stableId lookup → DOM → svgMarkup
+
+### Step 8: Stop Storing svgMarkup Snapshots (DONE)
+- **WRITE side** — 3 locations conditionally skip svgMarkup when stableId present:
+  - Game Maker card selection (~line 4647): `if (!info.stableId && cardSvgEl) info.svgMarkup = ...`
+  - Game Maker re-selection (~line 7031): same conditional
+  - `confirmAddCards()` (~line 7674): `if (!hasStableId) cardEntry.svgMarkup = markup`
+- **READ side** — all rendering paths updated for stableId-first:
+  - SVG pools builder: uses `getGameCardSVGWithFallback()` (stableId → DOM → svgMarkup)
+  - `_catchBuildCardSVG()`: stableId lookup added before svgMarkup/DOM fallback
+  - `syncAllCardsToGames()`: skips svgMarkup writes for stableId cards (regular + catch games)
+  - `syncABCCardsToGame()`: skips svgMarkup writes for stableId cards
+  - `migrateAllGameSvgMarkup()`: proactively deletes old svgMarkup from stableId cards on page load (regular + catch)
+- **Result**: Game data is significantly smaller in localStorage; games always show latest card artwork via live stableId lookup
 
 ### Key Functions Added
 - `generateStableId(label, cardSet)` — creates stable ID for new cards
@@ -430,3 +453,7 @@
 - `_isInSafeHaven()` — check if current set is Safe Haven
 - `_showSimpleDeleteDialog(card, labelText)` — delete dialog for cards not in games
 - `_showDeleteCardDialog(card, labelText, stableId, gamesUsing)` — delete dialog for cards in games
+- `_findCardDataByStableId(stableId)` — searches ALL card storage keys for matching stableId (Step 7)
+- `_showRestoreCardDialog(card)` — dialog to move card from Safe Haven to any card set
+- `_restoreCardToSet(card, targetSetName)` — move card between sets via direct localStorage writes
+- `_nextBottomRowLabel(storageKey)` — find unused bottom-row label for moved cards

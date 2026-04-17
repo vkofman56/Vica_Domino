@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:30 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:30 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:30 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -474,6 +474,8 @@
                 <button class="zoom-btn" id="new-card-btn" onclick="toggleNewCardMode()" title="New card mode: click to create a new blank card. To edit an existing card, double-click it." style="font-size:22px; color:#7eff7e;">+</button>
                 <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker: open the list of games to add cards to or create new games.">GM</button>
                 <button class="zoom-btn" id="shape-mode-btn" onclick="enterShapeMode()" title="Shape mode: change the frame shape (square, circle, rectangle) of selected cards. Affects cards in Card Maker only."><svg viewBox="0 0 24 24" width="20" height="20"><rect x="-0.3" y="-0.3" width="10.8" height="10.8" rx="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="18.5" r="6" fill="currentColor" stroke="none"/></svg></button>
+                <button class="zoom-btn" id="import-word-btn" onclick="document.getElementById('docx-file-input').click()" title="Import from Word: upload a .docx file with a table to auto-create cards." style="font-size:11px;color:#64B5F6;">W</button>
+                <input type="file" id="docx-file-input" accept=".docx" style="display:none;" onchange="_handleDocxImport(this)">
             </div>
             <!-- GM game list popup -->
             <div class="gm-popup" id="gm-popup" style="display:none;"></div>
@@ -953,6 +955,9 @@
     <!-- Firebase SDK (compat mode for simplicity) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <!-- JSZip for .docx import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <!-- Firebase config (project credentials + superuser list) -->
     <script src="js/firebase-config.js?v=1"></script>
@@ -11990,6 +11995,198 @@
         function hideCardMakerSavePrompt() {
             var overlay = document.getElementById('card-maker-save-overlay');
             if (overlay) overlay.style.display = 'none';
+        }
+
+        // === Import from Word (.docx) ===
+        function _handleDocxImport(input) {
+            var file = input.files && input.files[0];
+            input.value = '';
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                alert('Please select a .docx file (Word document).');
+                return;
+            }
+            if (typeof JSZip === 'undefined') {
+                alert('JSZip library not loaded. Please check your internet connection and reload.');
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                JSZip.loadAsync(e.target.result).then(function(zip) {
+                    var docXml = zip.file('word/document.xml');
+                    if (!docXml) {
+                        alert('Could not find document.xml in .docx file.');
+                        return;
+                    }
+                    docXml.async('string').then(function(xmlStr) {
+                        var tableData = _parseDocxTableXml(xmlStr);
+                        if (!tableData || tableData.length === 0) {
+                            alert('No table found in the document, or the table is empty.');
+                            return;
+                        }
+                        _showImportPreview(tableData);
+                    });
+                }).catch(function(err) {
+                    alert('Error reading .docx file: ' + err.message);
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function _parseDocxTableXml(xmlStr) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(xmlStr, 'application/xml');
+            var ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+            var tables = doc.getElementsByTagName('w:tbl');
+            if (tables.length === 0) return null;
+            var tbl = tables[0];
+            var rows = tbl.getElementsByTagName('w:tr');
+            var result = [];
+            for (var ri = 0; ri < rows.length; ri++) {
+                var cells = rows[ri].getElementsByTagName('w:tc');
+                var rowData = [];
+                for (var ci = 0; ci < cells.length; ci++) {
+                    var cellText = _extractCellText(cells[ci]);
+                    rowData.push(cellText);
+                }
+                if (rowData.length > 0) result.push(rowData);
+            }
+            return result;
+        }
+
+        function _extractCellText(cell) {
+            var parts = [];
+            var runs = cell.getElementsByTagName('w:r');
+            for (var i = 0; i < runs.length; i++) {
+                var texts = runs[i].getElementsByTagName('w:t');
+                for (var j = 0; j < texts.length; j++) {
+                    var t = texts[j].textContent;
+                    if (t) parts.push(t);
+                }
+            }
+            return parts.join('').trim();
+        }
+
+        function _showImportPreview(tableData) {
+            var existing = document.getElementById('import-preview-overlay');
+            if (existing) existing.remove();
+
+            var totalCards = 0;
+            var rowSummaries = [];
+            tableData.forEach(function(row) {
+                if (row.length < 2) return;
+                var letter = row[0].trim().toUpperCase();
+                if (!letter || letter.length !== 1 || letter < 'A' || letter > 'Z') return;
+                var cards = [];
+                for (var i = 1; i < row.length; i++) {
+                    var text = row[i].trim();
+                    if (text) cards.push(text);
+                }
+                if (cards.length > 0) {
+                    rowSummaries.push({ letter: letter, cards: cards });
+                    totalCards += cards.length;
+                }
+            });
+
+            if (totalCards === 0) {
+                alert('No cards to import. Make sure the first column has row letters (A, B, C...) and other columns have card text.');
+                return;
+            }
+
+            var overlay = document.createElement('div');
+            overlay.id = 'import-preview-overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#1a1a2e;border:2px solid #64B5F6;border-radius:12px;padding:24px;max-width:600px;max-height:80vh;overflow-y:auto;color:white;min-width:320px;';
+
+            var title = document.createElement('h3');
+            title.textContent = 'Import from Word';
+            title.style.cssText = 'margin:0 0 16px 0;color:#64B5F6;';
+            dialog.appendChild(title);
+
+            var summary = document.createElement('p');
+            summary.textContent = 'Found ' + totalCards + ' cards in ' + rowSummaries.length + ' rows:';
+            summary.style.cssText = 'margin:0 0 12px 0;color:#ccc;';
+            dialog.appendChild(summary);
+
+            var table = document.createElement('table');
+            table.style.cssText = 'width:100%;border-collapse:collapse;margin-bottom:16px;';
+            rowSummaries.forEach(function(rs) {
+                var tr = document.createElement('tr');
+                var tdLetter = document.createElement('td');
+                tdLetter.textContent = rs.letter;
+                tdLetter.style.cssText = 'padding:6px 12px 6px 0;font-weight:bold;color:#FFD700;vertical-align:top;width:30px;';
+                tr.appendChild(tdLetter);
+                var tdCards = document.createElement('td');
+                tdCards.textContent = rs.cards.join(', ');
+                tdCards.style.cssText = 'padding:6px 0;color:#ddd;font-size:13px;';
+                tr.appendChild(tdCards);
+                table.appendChild(tr);
+            });
+            dialog.appendChild(table);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:12px;justify-content:center;';
+
+            var importBtn = document.createElement('button');
+            importBtn.textContent = 'Import ' + totalCards + ' cards';
+            importBtn.style.cssText = 'padding:10px 24px;background:#2e7d32;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;';
+            importBtn.onclick = function() {
+                overlay.remove();
+                _createCardsFromImport(rowSummaries);
+            };
+            btnRow.appendChild(importBtn);
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.cssText = 'padding:10px 24px;background:#555;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;';
+            cancelBtn.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(cancelBtn);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+            document.body.appendChild(overlay);
+        }
+
+        function _buildImportCardSVG(text) {
+            var ns = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('viewBox', '0 0 60 60');
+            var len = text.length;
+            var fontSize;
+            if (len <= 2) fontSize = 28;
+            else if (len <= 3) fontSize = 22;
+            else if (len <= 5) fontSize = 16;
+            else if (len <= 8) fontSize = 12;
+            else fontSize = 9;
+            var textEl = document.createElementNS(ns, 'text');
+            textEl.setAttribute('x', '30');
+            textEl.setAttribute('y', String(30 + fontSize * 0.35));
+            textEl.setAttribute('text-anchor', 'middle');
+            textEl.setAttribute('font-size', String(fontSize));
+            textEl.setAttribute('font-weight', '500');
+            textEl.setAttribute('fill', '#333');
+            textEl.textContent = text;
+            svg.appendChild(textEl);
+            return svg;
+        }
+
+        function _createCardsFromImport(rowSummaries) {
+            var count = 0;
+            rowSummaries.forEach(function(rs) {
+                rs.cards.forEach(function(text) {
+                    var num = getNextNumber(rs.letter);
+                    var label = rs.letter + num;
+                    var svg = _buildImportCardSVG(text);
+                    addNewDrawnCard(svg, label);
+                    count++;
+                });
+            });
+            if (typeof saveVariations === 'function') saveVariations();
+            if (typeof applyLibZoom === 'function') applyLibZoom();
+            alert('Imported ' + count + ' cards successfully.');
         }
 
         // === Introductory Page ===

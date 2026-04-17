@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:58 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6125,6 +6125,137 @@
             }
         }
 
+        // --- Text-marker auto-relabeling ---
+        // Extract readable text from a card's SVG <text> elements
+        function _extractTextMarker(card) {
+            var svg = card.querySelector('svg');
+            if (!svg) return '';
+            var texts = svg.querySelectorAll('text');
+            if (texts.length === 0) return '';
+            var parts = [];
+            texts.forEach(function(t) {
+                var txt = t.textContent.trim();
+                if (txt) parts.push(txt);
+            });
+            var combined = parts.join('');
+            // Replace special math characters with readable equivalents
+            combined = combined.replace(/\u00F7/g, '/');  // ÷
+            combined = combined.replace(/\u00D7/g, 'x');  // ×
+            combined = combined.replace(/\u2715/g, 'x');   // ✕
+            combined = combined.replace(/\u2716/g, 'x');   // ✖
+            combined = combined.replace(/\u221A/g, 'sqrt'); // √
+            combined = combined.replace(/\u2212/g, '-');    // −  (minus sign)
+            // Remove characters unsafe for labels
+            combined = combined.replace(/[_\s]+/g, '');
+            // Truncate
+            if (combined.length > 20) combined = combined.substring(0, 20);
+            return combined;
+        }
+
+        // Check if a label was auto-generated (matches pattern: letter + digits, optionally + underscore + text)
+        function _isAutoLabel(label) {
+            return /^[A-Z]\d+(_.*)?$/.test(label);
+        }
+
+        // Relabel all cards in the active card set based on current DOM positions
+        function _relabelAllCards() {
+            if (!_cardMakerBuilt) return;
+            var container;
+            if (isCustomCardSet(activeCardSet)) {
+                container = document.getElementById('card-set-custom');
+            } else if (activeCardSet === 'abc') {
+                container = document.getElementById('card-set-abc');
+            } else {
+                container = document.getElementById('card-set-numbers');
+            }
+            if (!container) return;
+
+            var rows = container.querySelectorAll('.library-row[data-row-letter]');
+            if (rows.length === 0) return;
+
+            // First pass: collect user-named cards that would be relabeled
+            var userNamedCards = [];
+            var relabelPlan = [];
+            rows.forEach(function(row) {
+                var letter = row.dataset.rowLetter;
+                var cards = row.querySelectorAll('.library-card');
+                var pos = 0;
+                cards.forEach(function(card) {
+                    pos++;
+                    var lbl = card.querySelector('.library-label');
+                    if (!lbl) return;
+                    var oldLabel = lbl.textContent;
+                    var marker = _extractTextMarker(card);
+                    var newLabel = letter + pos;
+                    if (marker) newLabel = newLabel + '_' + marker;
+                    if (oldLabel === newLabel) return; // already correct
+                    relabelPlan.push({ card: card, lbl: lbl, oldLabel: oldLabel, newLabel: newLabel, stableId: card.dataset.stableId || '' });
+                    if (!_isAutoLabel(oldLabel)) {
+                        userNamedCards.push(oldLabel);
+                    }
+                });
+            });
+
+            if (relabelPlan.length === 0) return;
+
+            // If there are user-named cards, prompt before overriding
+            if (userNamedCards.length > 0) {
+                var msg = 'The following cards were manually named:\n' +
+                    userNamedCards.join(', ') +
+                    '\n\nRename them to match their current position?';
+                if (!confirm(msg)) {
+                    // Only relabel auto-named cards
+                    relabelPlan = relabelPlan.filter(function(item) {
+                        return _isAutoLabel(item.oldLabel);
+                    });
+                    if (relabelPlan.length === 0) return;
+                }
+            }
+
+            // Apply new labels to DOM
+            relabelPlan.forEach(function(item) {
+                item.lbl.textContent = item.newLabel;
+            });
+
+            // Update game card labels where stableId matches
+            _updateGameLabelsAfterRelabel(relabelPlan);
+        }
+
+        // Update labels in game data for relabeled cards (matched by stableId)
+        function _updateGameLabelsAfterRelabel(relabelPlan) {
+            var stableIdMap = {};
+            relabelPlan.forEach(function(item) {
+                if (item.stableId) stableIdMap[item.stableId] = item.newLabel;
+            });
+            if (Object.keys(stableIdMap).length === 0) return;
+
+            var changed = false;
+            var games = loadCustomGames();
+            games.forEach(function(game) {
+                if (!game.cards) return;
+                game.cards.forEach(function(c) {
+                    if (c.stableId && stableIdMap[c.stableId] && c.label !== stableIdMap[c.stableId]) {
+                        c.label = stableIdMap[c.stableId];
+                        changed = true;
+                    }
+                });
+            });
+            if (changed) localStorage.setItem('savedCustomGames', JSON.stringify(games));
+
+            var catchChanged = false;
+            var catchGames = loadCatchGames();
+            catchGames.forEach(function(game) {
+                if (!game.cards) return;
+                game.cards.forEach(function(c) {
+                    if (c.stableId && stableIdMap[c.stableId] && c.label !== stableIdMap[c.stableId]) {
+                        c.label = stableIdMap[c.stableId];
+                        catchChanged = true;
+                    }
+                });
+            });
+            if (catchChanged) saveCatchGames(catchGames);
+        }
+
         // --- Unified card arrangement persistence (row + order) ---
         function saveCardArrangement(setId) {
             var id = setId || 'card-set-numbers';
@@ -11815,6 +11946,8 @@
         }
 
         function leaveCardMaker() {
+            // Relabel cards based on current positions before saving
+            _relabelAllCards();
             // Final save to ensure all changes are persisted before leaving
             if (typeof saveVariations === 'function') saveVariations();
             syncAllCardsToGames();
@@ -11823,7 +11956,10 @@
         }
 
         function saveAndLeaveCardMaker() {
+            // Relabel cards based on current positions before saving
+            _relabelAllCards();
             // edits are already saved to customDrawnCards/etc by drawSave
+            if (typeof saveVariations === 'function') saveVariations();
             syncAllCardsToGames();
             cardMakerDirty = false;
             hideCardMakerSavePrompt();

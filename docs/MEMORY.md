@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 16, 2026 (Steps 7-8 complete)
+**Last Updated**: April 17, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -457,3 +457,37 @@
 - `_showRestoreCardDialog(card)` — dialog to move card from Safe Haven to any card set
 - `_restoreCardToSet(card, targetSetName)` — move card between sets via direct localStorage writes
 - `_nextBottomRowLabel(storageKey)` — find unused bottom-row label for moved cards
+
+## April 17 Session Notes — Text-Marker Labels, Word Import, Row Letters
+
+### Text-Marker Auto-Relabeling (DONE)
+- Cards auto-relabeled on Card Maker exit based on actual DOM position + text content
+- Format: `A2_5+3` (row letter + position number + underscore + text from SVG `<text>` elements)
+- `_extractTextMarker(card)` — extracts text from SVG, replaces ÷→/, ×→x, √→sqrt, truncates at 20 chars
+- `_relabelAllCards()` — batch relabels all cards, runs in `leaveCardMaker()` and `saveAndLeaveCardMaker()`
+- `_isAutoLabel(label)` — detects auto-generated labels (pattern `^[A-Z]\d+(_.*)?$`) vs user-named
+- `_updateGameLabelsAfterRelabel(relabelPlan)` — updates game card labels via stableId match (Find + Catch games)
+- User-named cards prompt before auto-renaming
+- Row naming plan: A-Z, then a-z (52 rows max; more than enough)
+
+### Import from Word (.docx) — Stage 1 (DONE)
+- Blue "W" button in Card Maker toolbar opens file picker for .docx upload
+- Uses JSZip CDN to unzip .docx, parses `word/document.xml` for table data
+- `_handleDocxImport(input)` — reads .docx, extracts XML, triggers preview
+- `_parseDocxTableXml(xmlStr)` — parses Word XML, extracts table rows/cells as plain text
+- `_extractCellText(cell)` — extracts text from `<w:r>` / `<w:t>` elements
+- `_showImportPreview(tableData)` — preview dialog: shows rows found, card count, card texts
+- `_buildImportCardSVG(text)` — creates SVG with auto-sized centered text (font size adjusts by text length)
+- `_createCardsFromImport(rowSummaries)` — batch-creates cards via `addNewDrawnCard()`
+- **Table format**: First column = row letter (A, B, C...), other columns = card text. Empty cells skipped.
+- Cards append to end of existing rows; new rows created as needed
+
+### Import from Word — Remaining Stages (planned)
+- **Stage 2**: Parse Word equation editor (OMML) for fractions — render as SVG with numerator, bar, denominator
+- **Stage 3**: Extended math — square roots (`<m:rad>`), parentheses (`<m:d>`), superscripts/subscripts (`<m:sup>`, `<m:sub>`)
+
+### Persistent Row Letter Labels (DONE)
+- Row letters (A, B, C...) now always visible in Card Maker as small gold text at left edge of each row
+- CSS `::before` pseudo-element on `[data-row-letter]`, no JS needed
+- Empty rows retain larger letter styling
+- Visible in both normal and compact view

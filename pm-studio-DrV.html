@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:13 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:13 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:13 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:24 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3233,6 +3233,14 @@
             if (!selectedElement) return;
             var sz = getEffectiveSize();
             var all = getAllSelectedElements();
+            // Undo: capture size-relevant attrs once per slider session
+            if (_loupeStartCoalesce('size')) {
+                _pushLoupeAttrHistory(all, [
+                    'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2',
+                    'font-size', 'stroke-width', 'transform',
+                    'data-draw-size', 'data-over-scale', 'data-over-scale-max'
+                ]);
+            }
             for (var i = 0; i < all.length; i++) {
                 applySizeToElement(all[i], sz);
             }
@@ -3240,7 +3248,10 @@
         }
         function onDrawFontFamilyChange(val) {
             drawFontFamily = val;
+            _loupeEndCoalesce();
             var all = getAllSelectedElements();
+            // Capture font-family snapshot on all affected elements (incl. fraction children)
+            _pushLoupeAttrHistory(all, ['font-family']);
             for (var i = 0; i < all.length; i++) {
                 var el = all[i];
                 var tag = el.tagName.toLowerCase();
@@ -3452,6 +3463,9 @@
         function drawDeleteSelected() {
             if (!selectedElement) return;
             var all = getAllSelectedElements();
+            // Undo: record parent + nextSibling before removing from DOM
+            _loupeEndCoalesce();
+            _pushLoupeRemoveHistory(all);
             for (var i = 0; i < all.length; i++) {
                 var idx = drawHistory.indexOf(all[i]);
                 if (idx !== -1) drawHistory.splice(idx, 1);
@@ -3524,6 +3538,7 @@
                 var pos = getElementPos(target);
                 elemStartX = pos.x;
                 elemStartY = pos.y;
+                _loupeEndCoalesce(); // first mousemove will push pre-drag snapshot
                 e.preventDefault();
             };
             container.addEventListener('mousedown', drawMouseDownHandler);
@@ -3782,6 +3797,8 @@
                 function confirm() {
                     var newText = autoSpaceMinus(input.value);
                     if (newText !== textEl.textContent) {
+                        _loupeEndCoalesce();
+                        _pushLoupeTextHistory(textEl);
                         textEl.textContent = newText;
                         hasEditedExisting = true;
                         updateSelectionRing();
@@ -3862,10 +3879,17 @@
                     var newNum = numInput.value;
                     var newDen = denInput.value;
                     if (newNum !== numEl.textContent || newDen !== denEl.textContent) {
+                        _loupeEndCoalesce();
+                        // Batch the 3 pushes so a single undo reverts the whole fraction edit
+                        var _fracAnchor = drawHistory.length;
+                        _pushLoupeTextHistory(numEl);
+                        _pushLoupeTextHistory(denEl);
+                        var barEl = fracGroup.querySelector('[data-frac-role="bar"]');
+                        if (barEl) _pushLoupeAttrHistory([barEl], ['x1', 'x2']);
+                        _coalesceLoupeHistory(_fracAnchor);
                         numEl.textContent = newNum;
                         denEl.textContent = newDen;
                         // Adjust bar width to fit longer text
-                        var barEl = fracGroup.querySelector('[data-frac-role="bar"]');
                         if (barEl) {
                             var fontSize = parseFloat(numEl.getAttribute('font-size')) || 10;
                             var maxLen = Math.max(newNum.length, newDen.length, 1);
@@ -3901,6 +3925,10 @@
             drawMouseMoveHandler = function(e) {
 
                 if (!isDragging || !selectedElement) return;
+                // Undo: on first mousemove of a drag, capture pre-drag position state
+                if (_loupeStartCoalesce('drag')) {
+                    _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform']);
+                }
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
                 var rawY = ((e.clientY - rect.top) / rect.height) * 60;
@@ -3939,6 +3967,7 @@
             drawMouseUpHandler = function(e) {
                 if (isDragging) {
                     isDragging = false;
+                    _loupeEndCoalesce();
                 }
             };
             document.addEventListener('mouseup', drawMouseUpHandler);
@@ -3976,6 +4005,12 @@
                     var ksm = kt.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     var kStampSz = ksm ? +ksm[1] * 100 : 60;
                     kMin = -kStampSz; kMax = 60 + kStampSz;
+                }
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    // Undo: capture pre-nudge position state once per rapid arrow-key session
+                    if (_loupeStartCoalesce('arrow')) {
+                        _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform']);
+                    }
                 }
                 if (e.key === 'ArrowLeft') {
                     setElementPos(selectedElement, Math.max(kMin, pos.x + dxL), Math.max(kMin, Math.min(kMax, pos.y + dyL)));
@@ -4027,11 +4062,175 @@
             container.style.cursor = '';
         }
 
+        // === Loupe per-change undo: polymorphic drawHistory entries ===
+        // Entries may be:
+        //   - Raw Element (legacy): element was added to the card → undo removes it
+        //     (special-case: if dataset.loupeTransform, unwrap children back to parent)
+        //   - {type:'attr', targets:[{el, attrs:{name:oldValue|null}}]}: attribute snapshot
+        //   - {type:'text', el, oldText, attrs?}: text content (+ optional attrs) snapshot
+        //   - {type:'remove', el, parent, nextSibling}: element was removed → undo re-inserts
+        //
+        // Coalescing: rapid mutations (drag, slider, arrow keys) keyed by an opId so the
+        // first event in a session captures prev state; subsequent events reuse the session.
+        var _loupeCoalesceKey = null;
+        var _loupeCoalesceTimer = null;
+        var _LOUPE_COALESCE_MS = 500;
+
+        function _loupeStartCoalesce(opId) {
+            // returns true for the FIRST event of a session, false for follow-ups
+            if (_loupeCoalesceKey === opId) {
+                clearTimeout(_loupeCoalesceTimer);
+                _loupeCoalesceTimer = setTimeout(function() { _loupeCoalesceKey = null; }, _LOUPE_COALESCE_MS);
+                return false;
+            }
+            _loupeCoalesceKey = opId;
+            clearTimeout(_loupeCoalesceTimer);
+            _loupeCoalesceTimer = setTimeout(function() { _loupeCoalesceKey = null; }, _LOUPE_COALESCE_MS);
+            return true;
+        }
+
+        function _loupeEndCoalesce() {
+            clearTimeout(_loupeCoalesceTimer);
+            _loupeCoalesceKey = null;
+        }
+
+        function _pushLoupeAttrHistory(elements, attrNames) {
+            if (!elements) return;
+            var arr = Array.isArray(elements) ? elements : [elements];
+            var names = Array.isArray(attrNames) ? attrNames : [attrNames];
+            var targets = [];
+            for (var i = 0; i < arr.length; i++) {
+                var el = arr[i];
+                if (!el || !el.getAttribute) continue;
+                var attrs = {};
+                for (var j = 0; j < names.length; j++) {
+                    attrs[names[j]] = el.getAttribute(names[j]); // null if missing
+                }
+                // Also capture children's attrs if it's a group (color/font may recurse)
+                var childStates = null;
+                if (el.tagName && el.tagName.toLowerCase() === 'g') {
+                    var kids = el.querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline, text');
+                    if (kids.length > 0) {
+                        childStates = [];
+                        for (var k = 0; k < kids.length; k++) {
+                            var kAttrs = {};
+                            for (var kj = 0; kj < names.length; kj++) {
+                                kAttrs[names[kj]] = kids[k].getAttribute(names[kj]);
+                            }
+                            childStates.push({ el: kids[k], attrs: kAttrs });
+                        }
+                    }
+                }
+                targets.push({ el: el, attrs: attrs, children: childStates });
+            }
+            if (targets.length > 0) drawHistory.push({ type: 'attr', targets: targets });
+        }
+
+        function _pushLoupeTextHistory(el, extraAttrs) {
+            if (!el) return;
+            var entry = { type: 'text', el: el, oldText: el.textContent };
+            if (extraAttrs && extraAttrs.length) {
+                var attrs = {};
+                for (var i = 0; i < extraAttrs.length; i++) {
+                    attrs[extraAttrs[i]] = el.getAttribute(extraAttrs[i]);
+                }
+                entry.attrs = attrs;
+            }
+            drawHistory.push(entry);
+        }
+
+        function _pushLoupeRemoveHistory(elements) {
+            if (!elements) return;
+            var arr = Array.isArray(elements) ? elements : [elements];
+            var removed = [];
+            for (var i = 0; i < arr.length; i++) {
+                var el = arr[i];
+                if (!el || !el.parentNode) continue;
+                removed.push({ el: el, parent: el.parentNode, nextSibling: el.nextSibling });
+            }
+            if (removed.length > 0) drawHistory.push({ type: 'remove', items: removed });
+        }
+
+        // Batch: coalesce multiple pushes since `anchor` into a single undo entry.
+        // Usage: var anchor = drawHistory.length; ...pushes...; _coalesceLoupeHistory(anchor);
+        function _coalesceLoupeHistory(anchor) {
+            if (drawHistory.length <= anchor + 1) return; // 0 or 1 push — nothing to batch
+            var entries = drawHistory.splice(anchor, drawHistory.length - anchor);
+            drawHistory.push({ type: 'batch', entries: entries });
+        }
+
+        function _applyUndoEntry(last) {
+            if (!last) return;
+            // Batch: apply contained entries in reverse
+            if (last.type === 'batch') {
+                for (var b = last.entries.length - 1; b >= 0; b--) {
+                    _applyUndoEntry(last.entries[b]);
+                }
+                return;
+            }
+            _applyUndoEntryImpl(last);
+        }
+
         function drawUndo() {
             if (drawHistory.length === 0) return;
             var last = drawHistory.pop();
-            if (!last || !last.parentNode) return;
-            // If it's a transform wrapper <g>, unwrap children back to parent
+            _applyUndoEntry(last);
+        }
+
+        function _applyUndoEntryImpl(last) {
+            if (!last) return;
+            // Attribute snapshot entry
+            if (last.type === 'attr') {
+                for (var i = 0; i < last.targets.length; i++) {
+                    var t = last.targets[i];
+                    if (!t.el) continue;
+                    Object.keys(t.attrs).forEach(function(k) {
+                        if (t.attrs[k] === null) t.el.removeAttribute(k);
+                        else t.el.setAttribute(k, t.attrs[k]);
+                    });
+                    if (t.children) {
+                        for (var c = 0; c < t.children.length; c++) {
+                            var ct = t.children[c];
+                            if (!ct.el) continue;
+                            Object.keys(ct.attrs).forEach(function(k) {
+                                if (ct.attrs[k] === null) ct.el.removeAttribute(k);
+                                else ct.el.setAttribute(k, ct.attrs[k]);
+                            });
+                        }
+                    }
+                }
+                if (typeof updateSelectionRing === 'function') { try { updateSelectionRing(); } catch(e) {} }
+                return;
+            }
+            // Text content entry
+            if (last.type === 'text') {
+                if (last.el) {
+                    last.el.textContent = last.oldText;
+                    if (last.attrs) {
+                        Object.keys(last.attrs).forEach(function(k) {
+                            if (last.attrs[k] === null) last.el.removeAttribute(k);
+                            else last.el.setAttribute(k, last.attrs[k]);
+                        });
+                    }
+                }
+                if (typeof updateSelectionRing === 'function') { try { updateSelectionRing(); } catch(e) {} }
+                return;
+            }
+            // Remove-element entry → re-insert
+            if (last.type === 'remove') {
+                for (var r = 0; r < last.items.length; r++) {
+                    var it = last.items[r];
+                    if (!it.parent) continue;
+                    if (it.nextSibling && it.nextSibling.parentNode === it.parent) {
+                        it.parent.insertBefore(it.el, it.nextSibling);
+                    } else {
+                        it.parent.appendChild(it.el);
+                    }
+                }
+                return;
+            }
+            // Legacy: raw element = added element → remove (or unwrap transform <g>)
+            if (!last.parentNode) return;
             if (last.dataset && last.dataset.loupeTransform) {
                 var parent = last.parentNode;
                 while (last.firstChild) {
@@ -4239,9 +4438,11 @@
         });
 
         function applyColorInLoupe(color) {
+            _loupeEndCoalesce();
             // If element(s) selected, color all of them
             if (selectedElement) {
                 var allSel = getAllSelectedElements();
+                _pushLoupeAttrHistory(allSel, ['fill', 'stroke']);
                 for (var ci = 0; ci < allSel.length; ci++) {
                     colorOneElement(allSel[ci], color);
                 }
@@ -4253,16 +4454,21 @@
             var svg = container.querySelector('svg:not(.loupe-grid)');
             if (!svg) return;
             var all = svg.querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline, text');
+            var allTargets = [];
             for (var i = 0; i < all.length; i++) {
                 if (all[i].closest('.draw-sel-ring')) continue;
-                colorOneElement(all[i], color);
+                allTargets.push(all[i]);
             }
             var stampGroups = svg.querySelectorAll('g.draw-placed');
             for (var g = 0; g < stampGroups.length; g++) {
                 var innerEls = stampGroups[g].querySelectorAll('circle, ellipse, rect, polygon, path, line, polyline, text');
                 for (var j = 0; j < innerEls.length; j++) {
-                    colorOneElement(innerEls[j], color);
+                    allTargets.push(innerEls[j]);
                 }
+            }
+            _pushLoupeAttrHistory(allTargets, ['fill', 'stroke']);
+            for (var ti = 0; ti < allTargets.length; ti++) {
+                colorOneElement(allTargets[ti], color);
             }
             hasEditedExisting = true;
         }
@@ -6517,8 +6723,13 @@
 
         function globalUndo() {
             if (_undoSuspended) return false;
-            // If loupe is open, close without saving (discard loupe edits)
+            // If loupe is open, prefer per-change undo via drawHistory
             if (_isLoupeOpen()) {
+                if (typeof drawHistory !== 'undefined' && drawHistory.length > 0) {
+                    drawUndo();
+                    return true;
+                }
+                // No tracked changes — close loupe without saving
                 if (typeof closeLoupe === 'function') closeLoupe();
                 return true;
             }

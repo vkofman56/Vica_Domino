@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:49 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:49 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:14 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:49 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4195,20 +4195,6 @@
                         renderCustomColors();
                     }
                 };
-                // Long-press for touch devices
-                var pressTimer;
-                swatch.addEventListener('touchstart', function(e) {
-                    pressTimer = setTimeout(function() {
-                        e.preventDefault();
-                        if (confirm('Remove custom color ' + c + '?')) {
-                            var cols = loadCustomColors().filter(function(x) { return x !== c; });
-                            saveCustomColors(cols);
-                            renderCustomColors();
-                        }
-                    }, 600);
-                });
-                swatch.addEventListener('touchend', function() { clearTimeout(pressTimer); });
-                swatch.addEventListener('touchmove', function() { clearTimeout(pressTimer); });
                 row.appendChild(swatch);
             });
         }
@@ -6442,9 +6428,123 @@
         // --- Persistence: save/load variations to localStorage ---
         var _cardMakerBuilt = false; // true once Card Maker DOM has been populated
 
+        // === Phase 1 / U1: Snapshot-based global undo/redo framework ===
+        // Captures all card-related localStorage keys before each save, so any
+        // mutation flowing through saveVariations() / saveCustomCards() is undoable.
+        // Stack lives in memory only — page refresh wipes history. Not yet wired
+        // to UI/keyboard (that arrives in Phase 2 K3).
+        var _undoStack = [];
+        var _redoStack = [];
+        var _UNDO_MAX_DEPTH = 30;
+        var _undoSuspended = false; // true during apply, prevents recursive capture
+        var _undoStaticKeys = [
+            'cardArrangement',
+            'cardArrangement_abc',
+            'savedCardSets',
+            'deletedCards_abc',
+            'deletedBuiltinSets',
+            'cardMakerVariations',
+            'savedCustomGames',
+            'savedCatchGames',
+            'abcCardSnapshot'
+        ];
+
+        function _undoCollectKeys() {
+            var keys = _undoStaticKeys.slice();
+            keys.push(getNumbersStorageKey());
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (!k) continue;
+                if (k.indexOf('customDrawnCards') === 0 && keys.indexOf(k) === -1) {
+                    keys.push(k);
+                }
+            }
+            return keys;
+        }
+
+        function _undoCaptureSnapshot() {
+            var snap = { _activeCardSet: activeCardSet, _ts: Date.now(), data: {} };
+            var keys = _undoCollectKeys();
+            for (var i = 0; i < keys.length; i++) {
+                snap.data[keys[i]] = localStorage.getItem(keys[i]);
+            }
+            return snap;
+        }
+
+        function _undoApplySnapshot(snap) {
+            if (!snap || !snap.data) return false;
+            _undoSuspended = true;
+            try {
+                // Remove any current keys that aren't in the snapshot (handles deleted sets)
+                var currentKeys = _undoCollectKeys();
+                currentKeys.forEach(function(k) {
+                    if (!(k in snap.data)) localStorage.removeItem(k);
+                });
+                // Write snapshot values back
+                Object.keys(snap.data).forEach(function(k) {
+                    var v = snap.data[k];
+                    if (v === null) localStorage.removeItem(k);
+                    else localStorage.setItem(k, v);
+                });
+                // Rebuild Card Maker DOM for the active set at snapshot time
+                var setToShow = snap._activeCardSet || activeCardSet;
+                if (setToShow === 'abc') {
+                    if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
+                } else if (typeof isCustomCardSet === 'function' && isCustomCardSet(setToShow)) {
+                    if (typeof buildCustomCardSet === 'function') buildCustomCardSet(setToShow);
+                } else {
+                    if (typeof buildNumbersCardSet === 'function') buildNumbersCardSet();
+                }
+                cardMakerDirty = true;
+            } finally {
+                _undoSuspended = false;
+            }
+            return true;
+        }
+
+        function _undoPushSnapshot() {
+            if (_undoSuspended) return;
+            if (!_cardMakerBuilt) return;
+            _undoStack.push(_undoCaptureSnapshot());
+            if (_undoStack.length > _UNDO_MAX_DEPTH) _undoStack.shift();
+            _redoStack = []; // new action invalidates redo
+        }
+
+        function globalUndo() {
+            if (_undoSuspended) return false;
+            if (_undoStack.length === 0) return false;
+            var current = _undoCaptureSnapshot();
+            var prev = _undoStack.pop();
+            _redoStack.push(current);
+            if (_redoStack.length > _UNDO_MAX_DEPTH) _redoStack.shift();
+            return _undoApplySnapshot(prev);
+        }
+
+        function globalRedo() {
+            if (_undoSuspended) return false;
+            if (_redoStack.length === 0) return false;
+            var current = _undoCaptureSnapshot();
+            var next = _redoStack.pop();
+            _undoStack.push(current);
+            if (_undoStack.length > _UNDO_MAX_DEPTH) _undoStack.shift();
+            return _undoApplySnapshot(next);
+        }
+
+        function _undoClearHistory() {
+            _undoStack = [];
+            _redoStack = [];
+        }
+
+        // Expose for Phase 2 K3 (keyboard) and dev console
+        window.globalUndo = globalUndo;
+        window.globalRedo = globalRedo;
+        window._undoStack = _undoStack;
+        window._redoStack = _redoStack;
+
         function saveVariations() {
             // Variations are now regular cards — just save all cards
             if (!_cardMakerBuilt) return;
+            _undoPushSnapshot(); // capture pre-save state for undo
             saveCustomCards();
             var containerId = activeCardSet === 'abc' ? 'card-set-abc' : (isCustomCardSet(activeCardSet) ? 'card-set-custom' : 'card-set-numbers');
             saveCardArrangement(containerId);
@@ -10081,14 +10181,6 @@
                 halfEl.addEventListener('mouseleave', function() {
                     hideMGroupTooltip();
                 });
-                // Touch support
-                halfEl.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    showMGroupTooltip(halfEl, groupCards);
-                }, {passive: false});
-                halfEl.addEventListener('touchend', function() {
-                    setTimeout(hideMGroupTooltip, 1500);
-                });
             }
 
             var leftHalf = document.createElement('div');
@@ -12244,6 +12336,8 @@
                 _cmSnapshot[customKey] = localStorage.getItem(customKey);
             }
             cardMakerDirty = false;
+            // Phase 1 / U1: fresh undo history per editing session
+            if (typeof _undoClearHistory === 'function') _undoClearHistory();
         }
 
         // Restore localStorage from snapshot (discard session changes)
@@ -13582,32 +13676,6 @@
             // Use document-level listeners for move/up
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
-
-            // Touch support
-            handle.addEventListener('touchstart', function(e) {
-                if (e.target.closest('.mpp-close-btn')) return;
-                var touch = e.touches[0];
-                var rect = panel.getBoundingClientRect();
-                startX = touch.clientX;
-                startY = touch.clientY;
-                startLeft = rect.left;
-                startTop = rect.top;
-                panel.style.right = 'auto';
-                panel.style.left = startLeft + 'px';
-                panel.style.top = startTop + 'px';
-                isDragging = true;
-            }, { passive: true });
-            document.addEventListener('touchmove', function(e) {
-                if (!isDragging) return;
-                var touch = e.touches[0];
-                var dx = touch.clientX - startX;
-                var dy = touch.clientY - startY;
-                panel.style.left = (startLeft + dx) + 'px';
-                panel.style.top = (startTop + dy) + 'px';
-            }, { passive: true });
-            document.addEventListener('touchend', function() {
-                isDragging = false;
-            });
         }
 
         // === Combined Games Functions ===

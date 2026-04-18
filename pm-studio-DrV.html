@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:33 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:33 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:33 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -12150,17 +12150,10 @@
             document.body.appendChild(overlay);
         }
 
-        function _buildImportCardSVG(text) {
+        function _buildImportCardSVG(text, fontSize) {
             var ns = 'http://www.w3.org/2000/svg';
             var svg = document.createElementNS(ns, 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
-            var len = text.length;
-            var fontSize;
-            if (len <= 2) fontSize = 28;
-            else if (len <= 3) fontSize = 22;
-            else if (len <= 5) fontSize = 16;
-            else if (len <= 8) fontSize = 12;
-            else fontSize = 9;
             var textEl = document.createElementNS(ns, 'text');
             textEl.setAttribute('x', '30');
             textEl.setAttribute('y', String(30 + fontSize * 0.35));
@@ -12173,13 +12166,32 @@
             return svg;
         }
 
+        function _computeUniformFontSize(texts) {
+            var maxLen = 0;
+            texts.forEach(function(t) {
+                if (t.length > maxLen) maxLen = t.length;
+            });
+            if (maxLen <= 2) return 28;
+            if (maxLen <= 3) return 22;
+            if (maxLen <= 5) return 16;
+            if (maxLen <= 8) return 12;
+            return 9;
+        }
+
         function _createCardsFromImport(rowSummaries) {
+            // Collect all texts first to compute a uniform font size
+            var allTexts = [];
+            rowSummaries.forEach(function(rs) {
+                rs.cards.forEach(function(text) { allTexts.push(text); });
+            });
+            var uniformFontSize = _computeUniformFontSize(allTexts);
+
             var count = 0;
             rowSummaries.forEach(function(rs) {
                 rs.cards.forEach(function(text) {
                     var num = getNextNumber(rs.letter);
                     var label = rs.letter + num;
-                    var svg = _buildImportCardSVG(text);
+                    var svg = _buildImportCardSVG(text, uniformFontSize);
                     addNewDrawnCard(svg, label);
                     count++;
                 });

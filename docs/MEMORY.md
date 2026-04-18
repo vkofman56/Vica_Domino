@@ -513,41 +513,43 @@
 - **Reference card interaction**: Right-click (desktop) or double-tap (mobile) sets reference card
 - Button label: "Gr" (changed from "GE")
 
-### Desktop-First Studio Proposals (APPROVED for implementation — NOT YET STARTED)
+### Desktop-First Studio Proposals (APPROVED — implementation status below)
 User selected these items from the organized checklist. All items below are approved.
-- **S1**: Shift+click multi-select in Card Maker (extend to Group Edit and general use)
-- **S2**: Right-click context menus + keep hover buttons (both coexist; hover buttons unchanged, right-click adds full menu)
+
+**COMPLETED:**
+- **U1**: Global undo/redo system — snapshot-based, captures all card-related localStorage keys before each save. Ctrl+Z / Ctrl+Shift+Z wired globally. Loupe draw redo via `drawRedoStack`. Swap-in-place entries work for both undo and redo.
+- **K1**: Esc exits mode — priority: context menu → overlay → loupe → Group Edit → Shape Mode → passive selection.
+- **K2**: Delete/Backspace deletes selected cards — works with both Group Edit and passive (shift-click) selection. Game-usage protection preserved.
+- **K3**: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo — global + loupe draw level. Redo stacks cleared on new mutations.
+- **K4**: Cmd/Ctrl+C/V copy/paste — in-memory `_cardClipboard` array. Paste is batch-undoable (single Ctrl+Z undoes entire paste).
+- **K5**: Cmd/Ctrl+A select all — enters Group Edit if not active, then selects all visible cards.
+- **S1**: Shift+click multi-select — passive selection outside Group Edit. Reuses `groupEditSelected[]` and `.ge-selected` CSS class. K2/K4/K5 work on passive selection.
+- **S2**: Right-click context menu — Normal mode: Edit in Loupe, Copy, Delete, Move to… (row submenu), Set as Reference, Properties dialog. Group Edit mode: Set as Reference, Select All, Copy/Delete Selected, Exit Group Edit. Esc/click-away/scroll closes.
+
+**IN PROGRESS:**
 - **S3**: Drag-and-drop files from OS (images/SVGs dropped onto Card Maker)
-- **K1**: Esc exits current mode (Group Edit, Shape Mode, loupe, overlays)
-- **K2**: Delete/Backspace key deletes selected card(s)
-- **K3**: Cmd/Ctrl+Z undo + Cmd/Ctrl+Shift+Z redo (global, not just loupe draw)
-- **K4**: Cmd/Ctrl+C/V copy/paste cards (in-memory clipboard, new stableIds on paste)
-- **K5**: Cmd/Ctrl+A select all cards
-- **K6**: Arrow key nudging of elements in loupe (1px move, Shift+arrow = 10px, only when SVG element selected, not text input)
+
+**NOT YET STARTED:**
+- **K6**: Arrow key nudging of elements in loupe (1px move, Shift+arrow = 10px)
 - **L1**: Denser toolbars for desktop (smaller padding, more tools visible)
 - **L2**: Multi-column card display in Card Maker (toggle between row view and grid view)
 - **L3**: Dockable/collapsible panels (loupe, tools — floating panels with drag handles)
-- **L4 (Option B)**: Resizable loupe — current loupe stays as default, edges become draggable. Double-click resize handle snaps back to default size. No mode switch — same loupe with optional capability.
-- **U1**: Global undo/redo system (command pattern across all Card Maker operations)
+- **L4 (Option B)**: Resizable loupe — edges become draggable, double-click snaps back to default
 - **C1**: Remove mobile-only touch handlers from Studio page
 
 ### Implementation Phases (final plan)
-**Phase 1 — Foundation (build first; other features depend on it)**
-- **U1**: Global undo/redo system. Command pattern: each mutating action pushes a command object onto undo stack with `execute()`/`undo()`. Implement incrementally — start with card deletion, expand to moves, edits, group actions, etc.
-- **C1**: Remove mobile-only touch handlers from Studio (cleanup before adding desktop interactions). Audit `pm-studio-DrV.html` for hammer.js bindings, touchstart/touchmove/touchend used for mobile-only gestures.
+**Phase 1 — Foundation ✅ DONE**
+- **U1**: ✅ Global undo/redo system — snapshot-based with swap-in-place entries.
+- **C1**: Not yet started (lower priority cleanup).
 
-**Phase 2 — Keyboard Shortcuts (depend on U1; otherwise independent)**
-- **K1**: Esc exits mode. Single document-level keydown listener. Priority: overlay → loupe → mode → nothing.
-- **K2**: Delete/Backspace deletes selected cards (uses Group Edit / S1 selection mechanism + game-usage protection).
-- **K3**: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo. Hooks into U1 stacks.
-- **K4**: Cmd/Ctrl+C / Cmd/Ctrl+V copy/paste. In-memory clipboard variable holding serialized card(s); paste creates new cards with new stableIds.
-- **K5**: Cmd/Ctrl+A select all cards in Card Maker (extends Group Edit selection mechanism to general use).
-- **K6**: Arrow key nudging in loupe. Only active when loupe open AND SVG element selected. Arrow = 1px, Shift+arrow = 10px. Modifies x/y (or cx/cy / transform translate). Each nudge = one undo step (or batched after 500ms pause). Doesn't fire when text input has focus.
+**Phase 2 — Keyboard Shortcuts ✅ DONE (except K6)**
+- **K1–K5**: ✅ All implemented. Batch undo for Group Edit delete + paste.
+- **K6**: Not yet started (arrow nudging in loupe).
 
-**Phase 3 — Selection & Input (S1 ties into K5 selection mechanism)**
-- **S1**: Shift+click multi-select. Adds shift+click to card click handler; toggles into/out of selection (reuses Group Edit's blue highlight). Creates "passive selection" outside Group Edit mode.
-- **S2**: Right-click context menus. Hover buttons remain unchanged. Right-click opens custom positioned `<div>` with full menu (Edit in Loupe, Copy, Delete, Move to..., Set as Reference, Properties). Esc/click-away closes. In Group Edit mode, shows mode-specific menu.
-- **S3**: Drag-and-drop files from OS. `dragover/dragleave/drop` listeners on Card Maker area. SVGs use existing `compressSVG()` + auto-rasterization pipeline. Raster images converted to data URL with `<image>` element. Drop zone overlay during dragover.
+**Phase 3 — Selection & Input (S1+S2 done, S3 in progress)**
+- **S1**: ✅ Shift+click multi-select (passive selection outside Group Edit).
+- **S2**: ✅ Right-click context menus with Properties dialog.
+- **S3**: IN PROGRESS — Drag-and-drop files from OS.
 
 **Phase 4 — Layout (independent; can be done in any order)**
 - **L1**: Denser toolbars (CSS-only). Reduce `.zoom-btn` padding, toolbar gaps, font sizes. Quick win.

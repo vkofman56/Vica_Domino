@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:31 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:31 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:31 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5206,6 +5206,123 @@
             e.preventDefault();
             _ctxShow(card, e.clientX, e.clientY);
         });
+
+        // S3: Drag-and-drop files from OS onto Card Maker
+        (function() {
+            var contentEl = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!contentEl) return;
+            var _dropOverlay = null;
+            var _dragCounter = 0;
+
+            function _showDropOverlay() {
+                if (_dropOverlay) return;
+                _dropOverlay = document.createElement('div');
+                _dropOverlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(124,77,255,0.15);border:3px dashed #7c4dff;border-radius:12px;z-index:15000;display:flex;align-items:center;justify-content:center;pointer-events:none;';
+                _dropOverlay.innerHTML = '<div style="background:rgba(42,42,74,0.9);padding:18px 32px;border-radius:10px;color:#b39ddb;font-size:16px;font-family:Segoe UI,sans-serif;text-align:center;"><div style="font-size:32px;margin-bottom:8px;">\uD83D\uDCC1</div>Drop SVG or image files here</div>';
+                contentEl.style.position = 'relative';
+                contentEl.appendChild(_dropOverlay);
+            }
+            function _hideDropOverlay() {
+                if (_dropOverlay) { _dropOverlay.remove(); _dropOverlay = null; }
+            }
+
+            function _processDroppedFile(file, done) {
+                var isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+                var isImage = file.type.startsWith('image/') && !isSvg;
+                if (!isSvg && !isImage) { done(); return; }
+
+                var reader = new FileReader();
+                if (isSvg) {
+                    reader.onload = function(ev) {
+                        var raw = ev.target.result;
+                        var compressed = compressSVG(raw);
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(compressed, 'image/svg+xml');
+                        var svgEl = doc.querySelector('svg');
+                        if (!svgEl || doc.querySelector('parsererror')) { done(); return; }
+                        var imported = document.importNode(svgEl, true);
+                        imported.setAttribute('viewBox', '0 0 60 60');
+                        imported.removeAttribute('width');
+                        imported.removeAttribute('height');
+                        _addDroppedCard(imported);
+                        done();
+                    };
+                    reader.readAsText(file);
+                } else {
+                    reader.onload = function(ev) {
+                        var dataUrl = ev.target.result;
+                        var svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svgEl.setAttribute('viewBox', '0 0 60 60');
+                        var imgEl = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                        imgEl.setAttribute('href', dataUrl);
+                        imgEl.setAttribute('x', '0');
+                        imgEl.setAttribute('y', '0');
+                        imgEl.setAttribute('width', '60');
+                        imgEl.setAttribute('height', '60');
+                        imgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                        svgEl.appendChild(imgEl);
+                        _addDroppedCard(svgEl);
+                        done();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            function _addDroppedCard(svgEl) {
+                var container = _ctxGetActiveContainer();
+                if (!container) return;
+                var rows = container.querySelectorAll('.library-row');
+                var usedLetters = [];
+                rows.forEach(function(r) {
+                    var letter = r.dataset.rowLetter || getRowLetter(r);
+                    if (letter) usedLetters.push(letter.toUpperCase());
+                });
+                var targetLetter;
+                if (usedLetters.length > 0) {
+                    targetLetter = usedLetters[usedLetters.length - 1];
+                } else {
+                    targetLetter = 'A';
+                }
+                var num = getNextNumber(targetLetter);
+                var cardName = targetLetter + num;
+                addNewDrawnCard(svgEl, cardName);
+            }
+
+            contentEl.addEventListener('dragenter', function(e) {
+                if (!e.dataTransfer || !e.dataTransfer.types || e.dataTransfer.types.indexOf('Files') === -1) return;
+                if (_isLoupeOpen() || gameMakerActive) return;
+                e.preventDefault();
+                _dragCounter++;
+                _showDropOverlay();
+            });
+            contentEl.addEventListener('dragover', function(e) {
+                if (!e.dataTransfer || !e.dataTransfer.types || e.dataTransfer.types.indexOf('Files') === -1) return;
+                if (_isLoupeOpen() || gameMakerActive) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            contentEl.addEventListener('dragleave', function(e) {
+                _dragCounter--;
+                if (_dragCounter <= 0) { _dragCounter = 0; _hideDropOverlay(); }
+            });
+            contentEl.addEventListener('drop', function(e) {
+                _dragCounter = 0;
+                _hideDropOverlay();
+                if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+                if (_isLoupeOpen() || gameMakerActive) return;
+                e.preventDefault();
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                _undoSuspended = true;
+                var pending = e.dataTransfer.files.length;
+                function _onFileProcessed() {
+                    pending--;
+                    if (pending <= 0) { _undoSuspended = false; saveVariations(); }
+                }
+                for (var i = 0; i < e.dataTransfer.files.length; i++) {
+                    _processDroppedFile(e.dataTransfer.files[i], _onFileProcessed);
+                }
+            });
+        })();
 
         // Double-click on a card: open in loupe with draw mode
         document.querySelector('#domino-library-screen .domino-library-content').addEventListener('dblclick', function(e) {

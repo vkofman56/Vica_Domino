@@ -90,7 +90,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:41 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +108,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:41 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +342,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:41 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -476,7 +476,7 @@
                 <button class="zoom-btn" id="shape-mode-btn" onclick="enterShapeMode()" title="Shape mode: change the frame shape (square, circle, rectangle) of selected cards. Affects cards in Card Maker only."><svg viewBox="0 0 24 24" width="20" height="20"><rect x="-0.3" y="-0.3" width="10.8" height="10.8" rx="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="18.5" r="6" fill="currentColor" stroke="none"/></svg></button>
                 <button class="zoom-btn" id="import-word-btn" onclick="document.getElementById('docx-file-input').click()" title="Import from Word: upload a .docx file with a table to auto-create cards." style="font-size:11px;color:#64B5F6;">W</button>
                 <input type="file" id="docx-file-input" accept=".docx" style="display:none;" onchange="_handleDocxImport(this)">
-                <button class="zoom-btn" id="group-edit-btn" onclick="toggleGroupEditMode()" title="Group Edit: select cards, pick a reference card, then match size/font/color/baseline across the group." style="font-size:11px;color:#CE93D8;">GE</button>
+                <button class="zoom-btn" id="group-edit-btn" onclick="toggleGroupEditMode()" title="Group Edit: select cards, pick a reference card, then match size/font/color/baseline across the group." style="font-size:11px;color:#CE93D8;">Gr</button>
             </div>
             <!-- GM game list popup -->
             <div class="gm-popup" id="gm-popup" style="display:none;"></div>
@@ -793,6 +793,7 @@
                     <button class="ge-action-btn ge-needs-ref" id="ge-bottom-btn" onclick="geActionBottom()" title="Align text baseline to reference" disabled>&#x2582; Bottom</button>
                     <button class="ge-action-btn ge-needs-ref" id="ge-font-btn" onclick="geActionFont()" title="Match font family and weight to reference" disabled>F Font</button>
                     <button class="ge-action-btn ge-needs-ref" id="ge-color-btn" onclick="geActionColor()" title="Match text color to reference" disabled>&#x25CF; Color</button>
+                    <button class="ge-action-btn ge-erase-btn" id="ge-erase-btn" onclick="geActionErase()" title="Erase selected cards (cards used in games are skipped)">&#x1F5D1; Erase</button>
                 </div>
                 <div style="display:flex; gap:8px; justify-content:center; margin-top:10px;">
                     <button class="ge-action-btn" onclick="geSelectRow()" title="Select all cards in a row" style="font-size:10px;">Select Row...</button>
@@ -7662,6 +7663,89 @@
             _geFlash('Color matched to ' + refFill);
         }
 
+        function _geFindCardUsage(card) {
+            // Returns array of game names using this card, or empty array
+            var stableId = card.dataset.stableId || '';
+            var lbl = card.querySelector('.library-label');
+            var labelText = lbl ? lbl.textContent : '';
+            var usedIn = [];
+            var addMatch = function(gameName) {
+                if (gameName && usedIn.indexOf(gameName) === -1) usedIn.push(gameName);
+            };
+            try {
+                var customGames = loadCustomGames();
+                customGames.forEach(function(game) {
+                    if (!game.cards) return;
+                    var match = game.cards.some(function(c) {
+                        if (stableId && c.stableId === stableId) return true;
+                        if (!stableId && c.label === labelText) return true;
+                        return false;
+                    });
+                    if (match) addMatch(game.name || '(unnamed)');
+                });
+            } catch(e) {}
+            try {
+                var catchGames = loadCatchGames();
+                catchGames.forEach(function(game) {
+                    if (!game.cards) return;
+                    var match = game.cards.some(function(c) {
+                        if (stableId && c.stableId === stableId) return true;
+                        if (!stableId && c.label === labelText) return true;
+                        return false;
+                    });
+                    if (match) addMatch(game.name || '(unnamed)');
+                });
+            } catch(e) {}
+            return usedIn;
+        }
+
+        function geActionErase() {
+            if (groupEditSelected.length === 0) return;
+            var safe = [];
+            var blocked = [];
+            groupEditSelected.forEach(function(card) {
+                var usedIn = _geFindCardUsage(card);
+                var lbl = card.querySelector('.library-label');
+                var labelText = lbl ? lbl.textContent : '?';
+                if (usedIn.length > 0) {
+                    blocked.push({ card: card, label: labelText, games: usedIn });
+                } else {
+                    safe.push({ card: card, label: labelText });
+                }
+            });
+            var msg;
+            if (blocked.length === 0) {
+                msg = 'Erase ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + '?\n\n' +
+                    safe.map(function(s) { return s.label; }).join(', ');
+                if (!confirm(msg)) return;
+            } else if (safe.length === 0) {
+                var blockedList = blocked.map(function(b) {
+                    return b.label + ' (in: ' + b.games.join(', ') + ')';
+                }).join('\n');
+                alert('Cannot erase: all selected cards are used in games.\n\n' + blockedList);
+                return;
+            } else {
+                var safeList = safe.map(function(s) { return s.label; }).join(', ');
+                var blockedList2 = blocked.map(function(b) {
+                    return b.label + ' (in: ' + b.games.join(', ') + ')';
+                }).join('\n');
+                msg = 'Can erase ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + ' but NOT these ' +
+                    blocked.length + ' (used in games):\n\n' + blockedList2 +
+                    '\n\nErase the other ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + '? (' + safeList + ')';
+                if (!confirm(msg)) return;
+            }
+            // Perform deletion on safe cards
+            safe.forEach(function(s) {
+                deleteCard(s.card);
+            });
+            // Rebuild selection list: keep only blocked cards
+            groupEditSelected = blocked.map(function(b) { return b.card; });
+            if (groupEditReference && groupEditSelected.indexOf(groupEditReference) === -1) {
+                groupEditReference = null;
+            }
+            _geFlash('Erased ' + safe.length + ' card' + (safe.length !== 1 ? 's' : ''));
+        }
+
         function _geFlash(msg) {
             var statusEl = document.getElementById('group-edit-status');
             var original = statusEl.textContent;
@@ -9601,7 +9685,7 @@
                     { btn: 'GM', desc: 'Game Maker — opens the list of games. Add cards to an existing game or create a new game from here.' },
                     { btn: '⬡', desc: 'Shape mode — change the frame shape (square, circle, rectangle) of selected cards. This affects the card in Card Maker only (games have their own shape settings).' },
                     { btn: 'W', desc: 'Import from Word — upload a .docx file with a table to auto-create cards. First column = row letter, other columns = card text.' },
-                    { btn: 'GE', desc: 'Group Edit — select cards (click), pick a reference card (right-click/long-press), then match properties: center text, match size, align baseline, match font, or match color.' },
+                    { btn: 'Gr', desc: 'Group Edit — select cards (click), pick a reference card (right-click/long-press), then match properties: center text, match size, align baseline, match font, match color, or erase the group. Cards used in games cannot be erased.' },
                     { btn: 'Double-click', desc: 'Double-click any card to open it in the full-size Card Editor.' }
                 ]
             },

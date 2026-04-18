@@ -491,3 +491,21 @@
 - CSS `::before` pseudo-element on `[data-row-letter]`, no JS needed
 - Empty rows retain larger letter styling
 - Visible in both normal and compact view
+
+## April 18 Session Notes — Group Edit Mode
+
+### Group Edit Mode (DONE)
+- Purple "GE" button in Card Maker toolbar enters Group Edit mode
+- Click cards to select (blue highlight), right-click (desktop) or long-press (mobile) to set reference card (gold highlight + star)
+- Floating toolbar at bottom with 5 independent actions:
+  1. **Center** — centers text horizontally (`x=30`, `text-anchor=middle`), no reference needed
+  2. **Aa Size** — copies `font-size` from reference card's text to all selected
+  3. **Bottom** — aligns text baseline (`y` attribute) to match reference card
+  4. **F Font** — copies `font-family`, `font-weight`, `font-size`, `font-style` from reference
+  5. **Color** — copies `fill` attribute from reference card's text to all selected
+- Select Row and Select All convenience buttons
+- Actions are independent: apply any combination in any order
+- Green flash toast confirms each action
+- Mode blocks other modes (Game Maker, Shape Mode) and vice versa
+- Auto-exits when leaving Card Maker
+- Help popup updated with GE description

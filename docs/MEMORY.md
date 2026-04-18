@@ -523,14 +523,12 @@ User selected these items from the organized checklist. All items below are appr
 - **K3**: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z redo — global + loupe draw level. Redo stacks cleared on new mutations.
 - **K4**: Cmd/Ctrl+C/V copy/paste — in-memory `_cardClipboard` array. Paste is batch-undoable (single Ctrl+Z undoes entire paste).
 - **K5**: Cmd/Ctrl+A select all — enters Group Edit if not active, then selects all visible cards.
+- **K6**: Arrow key nudging in loupe — 1 grid cell per press, Shift+arrow = 10 grid cells. Coalesced undo (500ms pause = new undo step). Guarded against text-input focus and open inline text editor.
 - **S1**: Shift+click multi-select — passive selection outside Group Edit. Reuses `groupEditSelected[]` and `.ge-selected` CSS class. K2/K4/K5 work on passive selection.
 - **S2**: Right-click context menu — Normal mode: Edit in Loupe, Copy, Delete, Move to… (row submenu), Set as Reference, Properties dialog. Group Edit mode: Set as Reference, Select All, Copy/Delete Selected, Exit Group Edit. Esc/click-away/scroll closes.
-
-**IN PROGRESS:**
-- **S3**: Drag-and-drop files from OS (images/SVGs dropped onto Card Maker)
+- **S3**: Drag-and-drop files from OS — drop SVG or raster image files onto Card Maker. SVGs compressed + parsed; rasters embedded as data-URL `<image>` in 60x60 SVG wrapper. Drop zone overlay during dragover. Multi-file batch-undoable.
 
 **NOT YET STARTED:**
-- **K6**: Arrow key nudging of elements in loupe (1px move, Shift+arrow = 10px)
 - **L1**: Denser toolbars for desktop (smaller padding, more tools visible)
 - **L2**: Multi-column card display in Card Maker (toggle between row view and grid view)
 - **L3**: Dockable/collapsible panels (loupe, tools — floating panels with drag handles)
@@ -542,14 +540,14 @@ User selected these items from the organized checklist. All items below are appr
 - **U1**: ✅ Global undo/redo system — snapshot-based with swap-in-place entries.
 - **C1**: Not yet started (lower priority cleanup).
 
-**Phase 2 — Keyboard Shortcuts ✅ DONE (except K6)**
+**Phase 2 — Keyboard Shortcuts ✅ DONE**
 - **K1–K5**: ✅ All implemented. Batch undo for Group Edit delete + paste.
-- **K6**: Not yet started (arrow nudging in loupe).
+- **K6**: ✅ Arrow key nudging in loupe — 1 grid cell / Shift = 10 grid cells. Coalesced undo. Guarded against text-input focus.
 
-**Phase 3 — Selection & Input (S1+S2 done, S3 in progress)**
+**Phase 3 — Selection & Input ✅ DONE**
 - **S1**: ✅ Shift+click multi-select (passive selection outside Group Edit).
 - **S2**: ✅ Right-click context menus with Properties dialog.
-- **S3**: IN PROGRESS — Drag-and-drop files from OS.
+- **S3**: ✅ Drag-and-drop files from OS (SVGs + rasters).
 
 **Phase 4 — Layout (independent; can be done in any order)**
 - **L1**: Denser toolbars (CSS-only). Reduce `.zoom-btn` padding, toolbar gaps, font sizes. Quick win.

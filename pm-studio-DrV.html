@@ -1539,6 +1539,7 @@
         function getEffectiveSize() { return Math.min(drawSizeCoarse + drawSizeFine, 100); }
         var drawFontFamily = 'Arial, sans-serif';
         var drawHistory = []; // SVG elements added, for undo
+        var drawRedoStack = [];
         var drawOverScale = 1; // Over-scale multiplier (default 1)
         var drawOverScaleMax = 1; // Current max for the overscale slider
         var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -2130,7 +2131,7 @@
             } else {
                 // Already in draw mode, open fresh blank card
                 openBlankCardLoupe();
-                drawHistory = [];
+                drawHistory = []; drawRedoStack = [];
             }
         }
 
@@ -2344,7 +2345,7 @@
                 toggleDrawMode();
             } else {
                 openBlankCardLoupe();
-                drawHistory = [];
+                drawHistory = []; drawRedoStack = [];
             }
         }
 
@@ -2356,7 +2357,7 @@
                 toggleDrawMode();
             } else {
                 openBlankCardLoupe();
-                drawHistory = [];
+                drawHistory = []; drawRedoStack = [];
             }
         }
 
@@ -2370,7 +2371,7 @@
                     openBlankCardLoupe();
                 }
                 panel.style.display = 'flex';
-                drawHistory = [];
+                drawHistory = []; drawRedoStack = [];
                 hasEditedExisting = false;
                 attachDrawClickHandler();
                 selectDrawTool(drawTool);
@@ -3689,7 +3690,7 @@
                     // Append inside variation <g> if present, otherwise on SVG root
                     var appendTarget = cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
                     appendTarget.appendChild(el);
-                    drawHistory.push(el);
+                    drawRedoStack.length = 0; drawHistory.push(el);
                     // Auto-select imported stamps after placement so overscale slider stays visible
                     if (isImportedStamp) {
                         selectedElement = el;
@@ -4123,7 +4124,7 @@
                 }
                 targets.push({ el: el, attrs: attrs, children: childStates });
             }
-            if (targets.length > 0) drawHistory.push({ type: 'attr', targets: targets });
+            if (targets.length > 0) { drawRedoStack.length = 0; drawHistory.push({ type: 'attr', targets: targets }); }
         }
 
         function _pushLoupeTextHistory(el, extraAttrs) {
@@ -4136,7 +4137,7 @@
                 }
                 entry.attrs = attrs;
             }
-            drawHistory.push(entry);
+            drawRedoStack.length = 0; drawHistory.push(entry);
         }
 
         function _pushLoupeRemoveHistory(elements) {
@@ -4148,7 +4149,7 @@
                 if (!el || !el.parentNode) continue;
                 removed.push({ el: el, parent: el.parentNode, nextSibling: el.nextSibling });
             }
-            if (removed.length > 0) drawHistory.push({ type: 'remove', items: removed });
+            if (removed.length > 0) { drawRedoStack.length = 0; drawHistory.push({ type: 'remove', items: removed }); }
         }
 
         // Batch: coalesce multiple pushes since `anchor` into a single undo entry.
@@ -4175,26 +4176,39 @@
             if (drawHistory.length === 0) return;
             var last = drawHistory.pop();
             _applyUndoEntry(last);
+            drawRedoStack.push(last);
+        }
+
+        function drawRedo() {
+            if (drawRedoStack.length === 0) return false;
+            var entry = drawRedoStack.pop();
+            _applyUndoEntry(entry);
+            drawHistory.push(entry);
+            return true;
         }
 
         function _applyUndoEntryImpl(last) {
             if (!last) return;
-            // Attribute snapshot entry
+            // Attribute snapshot entry — swap in-place for redo
             if (last.type === 'attr') {
                 for (var i = 0; i < last.targets.length; i++) {
                     var t = last.targets[i];
                     if (!t.el) continue;
                     Object.keys(t.attrs).forEach(function(k) {
+                        var cur = t.el.getAttribute(k);
                         if (t.attrs[k] === null) t.el.removeAttribute(k);
                         else t.el.setAttribute(k, t.attrs[k]);
+                        t.attrs[k] = cur;
                     });
                     if (t.children) {
                         for (var c = 0; c < t.children.length; c++) {
                             var ct = t.children[c];
                             if (!ct.el) continue;
                             Object.keys(ct.attrs).forEach(function(k) {
+                                var cur = ct.el.getAttribute(k);
                                 if (ct.attrs[k] === null) ct.el.removeAttribute(k);
                                 else ct.el.setAttribute(k, ct.attrs[k]);
+                                ct.attrs[k] = cur;
                             });
                         }
                     }
@@ -4202,44 +4216,82 @@
                 if (typeof updateSelectionRing === 'function') { try { updateSelectionRing(); } catch(e) {} }
                 return;
             }
-            // Text content entry
+            // Text content entry — swap in-place for redo
             if (last.type === 'text') {
                 if (last.el) {
+                    var curText = last.el.textContent;
                     last.el.textContent = last.oldText;
+                    last.oldText = curText;
                     if (last.attrs) {
                         Object.keys(last.attrs).forEach(function(k) {
+                            var cur = last.el.getAttribute(k);
                             if (last.attrs[k] === null) last.el.removeAttribute(k);
                             else last.el.setAttribute(k, last.attrs[k]);
+                            last.attrs[k] = cur;
                         });
                     }
                 }
                 if (typeof updateSelectionRing === 'function') { try { updateSelectionRing(); } catch(e) {} }
                 return;
             }
-            // Remove-element entry → re-insert
+            // Remove-element entry — toggles between remove and re-insert
             if (last.type === 'remove') {
-                for (var r = 0; r < last.items.length; r++) {
-                    var it = last.items[r];
-                    if (!it.parent) continue;
-                    if (it.nextSibling && it.nextSibling.parentNode === it.parent) {
-                        it.parent.insertBefore(it.el, it.nextSibling);
-                    } else {
-                        it.parent.appendChild(it.el);
+                if (last._removed === false) {
+                    for (var r = 0; r < last.items.length; r++) {
+                        var it = last.items[r];
+                        if (it.el && it.el.parentNode) {
+                            it.parent = it.el.parentNode;
+                            it.nextSibling = it.el.nextSibling;
+                            it.el.parentNode.removeChild(it.el);
+                        }
                     }
+                    last._removed = true;
+                } else {
+                    for (var r2 = 0; r2 < last.items.length; r2++) {
+                        var it2 = last.items[r2];
+                        if (!it2.parent) continue;
+                        if (it2.nextSibling && it2.nextSibling.parentNode === it2.parent) {
+                            it2.parent.insertBefore(it2.el, it2.nextSibling);
+                        } else {
+                            it2.parent.appendChild(it2.el);
+                        }
+                    }
+                    last._removed = false;
                 }
                 return;
             }
-            // Legacy: raw element = added element → remove (or unwrap transform <g>)
-            if (!last.parentNode) return;
-            if (last.dataset && last.dataset.loupeTransform) {
-                var parent = last.parentNode;
-                while (last.firstChild) {
-                    parent.insertBefore(last.firstChild, last);
+            // Legacy: raw element — toggle between remove and re-insert
+            if (last._legacyRemoved) {
+                if (last.dataset && last.dataset.loupeTransform) {
+                    if (last._savedParent) {
+                        while (last._savedParent.firstChild) {
+                            last.appendChild(last._savedParent.firstChild);
+                        }
+                        last._savedParent.appendChild(last);
+                    }
+                } else if (last._savedParent) {
+                    if (last._savedNext && last._savedNext.parentNode === last._savedParent) {
+                        last._savedParent.insertBefore(last, last._savedNext);
+                    } else {
+                        last._savedParent.appendChild(last);
+                    }
                 }
-                parent.removeChild(last);
+                last._legacyRemoved = false;
+                return;
+            }
+            if (!last.parentNode) return;
+            last._savedParent = last.parentNode;
+            last._savedNext = last.nextSibling;
+            if (last.dataset && last.dataset.loupeTransform) {
+                var lgParent = last.parentNode;
+                while (last.firstChild) {
+                    lgParent.insertBefore(last.firstChild, last);
+                }
+                lgParent.removeChild(last);
             } else {
                 last.parentNode.removeChild(last);
             }
+            last._legacyRemoved = true;
         }
 
         function drawSave() {
@@ -4312,7 +4364,7 @@
             } catch(e) {
                 console.error('[drawSave] Error saving card:', e);
             }
-            drawHistory = [];
+            drawHistory = []; drawRedoStack = [];
             hasEditedExisting = false;
             closeLoupe();
             // Re-apply library zoom so the saved card matches the current zoom level
@@ -4524,7 +4576,7 @@
                 g.appendChild(svg.firstChild);
             }
             svg.appendChild(g);
-            drawHistory.push(g);
+            drawRedoStack.length = 0; drawHistory.push(g);
             hasEditedExisting = true;
         }
         function loupeCopyWithTransform(transform, desc) {
@@ -6743,7 +6795,9 @@
 
         function globalRedo() {
             if (_undoSuspended) return false;
-            if (_isLoupeOpen()) return false;
+            if (_isLoupeOpen()) {
+                return (typeof drawRedo === 'function') ? drawRedo() : false;
+            }
             if (_redoStack.length === 0) return false;
             var current = _undoCaptureSnapshot();
             var next = _redoStack.pop();
@@ -6757,11 +6811,25 @@
             _redoStack = [];
         }
 
-        // Expose for Phase 2 K3 (keyboard) and dev console
+        // Expose for dev console
         window.globalUndo = globalUndo;
         window.globalRedo = globalRedo;
         window._undoStack = _undoStack;
         window._redoStack = _redoStack;
+
+        // K3: Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'z' && e.key !== 'Z') return;
+            if (!e.ctrlKey && !e.metaKey) return;
+            var tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+            e.preventDefault();
+            if (e.shiftKey) {
+                globalRedo();
+            } else {
+                globalUndo();
+            }
+        });
 
         function saveVariations() {
             // Variations are now regular cards — just save all cards

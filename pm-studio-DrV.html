@@ -45,6 +45,29 @@
             margin-right: 6px; min-width: 28px; text-align: center;
         }
         #help-popup .help-desc { font-size: 13px; color: #bbb; margin-top: 3px; line-height: 1.4; }
+        /* S2: Right-click context menu */
+        .ctx-menu {
+            position: fixed; z-index: 25000; min-width: 180px;
+            background: #2a2a4a; border: 1.5px solid #7c4dff; border-radius: 8px;
+            padding: 4px 0; font-family: 'Segoe UI', sans-serif; font-size: 13px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.5); color: #ddd;
+        }
+        .ctx-menu-item {
+            padding: 7px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            white-space: nowrap;
+        }
+        .ctx-menu-item:hover { background: rgba(124,77,255,0.25); }
+        .ctx-menu-item.danger { color: #ef5350; }
+        .ctx-menu-item.danger:hover { background: rgba(239,83,80,0.18); }
+        .ctx-menu-item.disabled { color: #666; pointer-events: none; }
+        .ctx-menu-sep { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0; }
+        .ctx-menu-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 14px; }
+        .ctx-menu-sub { position: fixed; z-index: 25001; min-width: 140px;
+            background: #2a2a4a; border: 1.5px solid #7c4dff; border-radius: 8px;
+            padding: 4px 0; font-family: 'Segoe UI', sans-serif; font-size: 13px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.5); color: #ddd;
+        }
+        .ctx-menu-item.has-sub::after { content: '\25B6'; margin-left: auto; font-size: 9px; color: #999; }
     </style>
 </head>
 <body>
@@ -90,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:28 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -108,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:28 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -342,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:28 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:47 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4984,22 +5007,204 @@
             card.classList.add('card-clicked');
         });
 
-        // Right-click on a card in Group Edit mode: set as reference
+        // S2: Right-click context menu system
+        var _ctxMenu = null;
+        var _ctxSub = null;
+        function _ctxClose() {
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+        }
+        function _ctxItem(icon, label, onClick, cls) {
+            var el = document.createElement('div');
+            el.className = 'ctx-menu-item' + (cls ? ' ' + cls : '');
+            el.innerHTML = '<span class="ctx-menu-icon">' + icon + '</span>' + label;
+            if (onClick) el.addEventListener('click', function(ev) { ev.stopPropagation(); _ctxClose(); onClick(); });
+            return el;
+        }
+        function _ctxSep() { var s = document.createElement('div'); s.className = 'ctx-menu-sep'; return s; }
+        function _ctxPosition(menu, x, y) {
+            menu.style.left = x + 'px'; menu.style.top = y + 'px';
+            document.body.appendChild(menu);
+            var r = menu.getBoundingClientRect();
+            if (r.right > window.innerWidth) menu.style.left = Math.max(0, x - r.width) + 'px';
+            if (r.bottom > window.innerHeight) menu.style.top = Math.max(0, y - r.height) + 'px';
+        }
+        function _ctxGetActiveContainer() {
+            if (isCustomCardSet(activeCardSet)) return document.getElementById('card-set-custom');
+            if (activeCardSet === 'abc') return document.getElementById('card-set-abc');
+            return document.getElementById('card-set-numbers');
+        }
+        function _ctxMoveCardToRow(card, targetRow) {
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var srcRow = card.closest('.library-row');
+            var lbl = card.querySelector('.library-label');
+            var labelText = lbl ? lbl.textContent : '';
+            if (srcRow) {
+                srcRow.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) { v.remove(); });
+            }
+            targetRow.appendChild(card);
+            if (srcRow) { updateRowEmptyState(srcRow); renumberRow(srcRow); }
+            updateRowEmptyState(targetRow);
+            renumberRow(targetRow);
+            saveVariations();
+        }
+        function _ctxShowMoveSubmenu(card, parentItem) {
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            var container = _ctxGetActiveContainer();
+            if (!container) return;
+            var srcRow = card.closest('.library-row');
+            var rows = container.querySelectorAll('.library-row');
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+            var hasItems = false;
+            rows.forEach(function(row) {
+                if (row === srcRow) return;
+                var letter = row.dataset.rowLetter || getRowLetter(row) || '?';
+                var item = _ctxItem('', 'Row ' + letter, function() { _ctxMoveCardToRow(card, row); });
+                sub.appendChild(item);
+                hasItems = true;
+            });
+            if (!hasItems) {
+                var empty = document.createElement('div');
+                empty.className = 'ctx-menu-item disabled';
+                empty.textContent = 'No other rows';
+                sub.appendChild(empty);
+            }
+            var pr = parentItem.getBoundingClientRect();
+            _ctxSub = sub;
+            _ctxPosition(sub, pr.right + 2, pr.top);
+        }
+        function _ctxShowPropertiesDialog(card) {
+            var lbl = card.querySelector('.library-label');
+            var desc = card.querySelector('.library-desc');
+            var svg = card.querySelector('svg');
+            var row = card.closest('.library-row');
+            var rowLetter = row ? (row.dataset.rowLetter || getRowLetter(row) || '?') : '?';
+            var shape = card.dataset.cardShape || 'square';
+            var w = card.dataset.cardShapeW || '60';
+            var h = card.dataset.cardShapeH || '60';
+            var stableId = card.dataset.stableId || '—';
+            var origin = card.dataset.origin || 'drawn';
+            var isVar = card.classList.contains('variation');
+            var elCount = svg ? svg.querySelectorAll('*').length : 0;
+
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:26000;display:flex;align-items:center;justify-content:center;';
+            var dlg = document.createElement('div');
+            dlg.style.cssText = 'background:#2a2a4a;border:2px solid #7c4dff;border-radius:12px;padding:20px 24px;max-width:340px;width:90%;color:#ddd;font-family:Segoe UI,sans-serif;font-size:13px;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:15px;font-weight:bold;margin-bottom:14px;color:#b39ddb;';
+            title.textContent = 'Card Properties';
+            dlg.appendChild(title);
+            var info = [
+                ['Label', lbl ? lbl.textContent : '—'],
+                ['Row', rowLetter],
+                ['Description', desc ? desc.textContent : '—'],
+                ['Shape', shape + (shape !== 'square' ? ' (' + w + '\u00D7' + h + ')' : '')],
+                ['Origin', origin],
+                ['Stable ID', stableId],
+                ['Type', isVar ? 'Variation' : 'Original'],
+                ['SVG elements', '' + elCount],
+                ['Card Set', activeCardSet === 'abc' ? 'ABC' : activeCardSet === 'numbers' ? 'Numbers and Dots' : activeCardSet]
+            ];
+            info.forEach(function(pair) {
+                var row = document.createElement('div');
+                row.style.cssText = 'display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
+                var k = document.createElement('span'); k.style.color = '#999'; k.textContent = pair[0];
+                var v = document.createElement('span'); v.style.cssText = 'color:#eee;text-align:right;max-width:180px;overflow:hidden;text-overflow:ellipsis;';
+                v.textContent = pair[1];
+                v.title = pair[1];
+                row.appendChild(k); row.appendChild(v);
+                dlg.appendChild(row);
+            });
+            var closeBtn = document.createElement('button');
+            closeBtn.style.cssText = 'margin-top:14px;padding:7px 20px;border-radius:6px;border:none;cursor:pointer;background:#7c4dff;color:white;font-size:13px;display:block;margin-left:auto;';
+            closeBtn.textContent = 'Close';
+            closeBtn.onclick = function() { overlay.remove(); };
+            dlg.appendChild(closeBtn);
+            overlay.appendChild(dlg);
+            overlay.addEventListener('click', function(ev) { if (ev.target === overlay) overlay.remove(); });
+            document.addEventListener('keydown', function handler(ev) {
+                if (ev.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+            });
+            document.body.appendChild(overlay);
+        }
+        function _ctxShow(card, x, y) {
+            _ctxClose();
+            var menu = document.createElement('div');
+            menu.className = 'ctx-menu';
+
+            if (groupEditActive) {
+                // Group Edit mode menu
+                menu.appendChild(_ctxItem('\u2B50', 'Set as Reference', function() {
+                    if (!card.classList.contains('ge-selected')) {
+                        card.classList.add('ge-selected');
+                        groupEditSelected.push(card);
+                    }
+                    if (groupEditReference) groupEditReference.classList.remove('ge-reference');
+                    groupEditReference = card;
+                    card.classList.add('ge-reference');
+                    _updateGroupEditStatus();
+                }));
+                menu.appendChild(_ctxItem('\u2610', 'Select All', function() { geSelectAll(); }));
+                menu.appendChild(_ctxSep());
+                var selCount = groupEditSelected.length;
+                menu.appendChild(_ctxItem('\u29C9', 'Copy Selected (' + selCount + ')', function() {
+                    _cardClipboard = groupEditSelected.slice();
+                    if (typeof _geFlash === 'function') _geFlash('Copied ' + _cardClipboard.length);
+                }, selCount === 0 ? 'disabled' : ''));
+                menu.appendChild(_ctxItem('\u2717', 'Delete Selected (' + selCount + ')', function() {
+                    geActionErase();
+                }, selCount === 0 ? 'disabled danger' : 'danger'));
+                menu.appendChild(_ctxSep());
+                menu.appendChild(_ctxItem('\u2716', 'Exit Group Edit', function() { exitGroupEditMode(); }));
+            } else {
+                // Normal / passive selection menu
+                menu.appendChild(_ctxItem('\u270E', 'Edit in Loupe', function() {
+                    hideVariations(); clearCardClicked();
+                    if (newCardModeActive) exitNewCardMode();
+                    openLoupe(card);
+                    if (!drawModeActive) toggleDrawMode();
+                }));
+                menu.appendChild(_ctxItem('\u29C9', 'Copy', function() { copyCardInRow(card); }));
+                menu.appendChild(_ctxItem('\u2717', 'Delete', function() { confirmDeleteCard(card); }, 'danger'));
+                menu.appendChild(_ctxSep());
+                var moveItem = _ctxItem('\u21C5', 'Move to\u2026', null, 'has-sub');
+                moveItem.addEventListener('mouseenter', function() { _ctxShowMoveSubmenu(card, moveItem); });
+                moveItem.addEventListener('mouseleave', function(ev) {
+                    setTimeout(function() {
+                        if (_ctxSub && !_ctxSub.matches(':hover')) { _ctxSub.remove(); _ctxSub = null; }
+                    }, 200);
+                });
+                menu.appendChild(moveItem);
+                if (groupEditSelected.length > 0 || !card.classList.contains('ge-selected')) {
+                    menu.appendChild(_ctxItem('\u2B50', 'Set as Reference', function() {
+                        if (!card.classList.contains('ge-selected')) {
+                            card.classList.add('ge-selected');
+                            groupEditSelected.push(card);
+                        }
+                        if (groupEditReference) groupEditReference.classList.remove('ge-reference');
+                        groupEditReference = card;
+                        card.classList.add('ge-reference');
+                        if (groupEditActive) _updateGroupEditStatus();
+                    }));
+                }
+                menu.appendChild(_ctxSep());
+                menu.appendChild(_ctxItem('\u2699', 'Properties', function() { _ctxShowPropertiesDialog(card); }));
+            }
+
+            _ctxMenu = menu;
+            _ctxPosition(menu, x, y);
+        }
+        document.addEventListener('click', function() { _ctxClose(); });
+        document.addEventListener('scroll', function() { _ctxClose(); }, true);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') _ctxClose(); });
         document.querySelector('#domino-library-screen .domino-library-content').addEventListener('contextmenu', function(e) {
-            if (!groupEditActive) return;
             var card = e.target.closest('.library-card');
             if (!card) return;
+            if (gameMakerActive || shapeModeActive) return;
             e.preventDefault();
-            if (!card.classList.contains('ge-selected')) {
-                card.classList.add('ge-selected');
-                groupEditSelected.push(card);
-            }
-            if (groupEditReference) {
-                groupEditReference.classList.remove('ge-reference');
-            }
-            groupEditReference = card;
-            card.classList.add('ge-reference');
-            _updateGroupEditStatus();
+            _ctxShow(card, e.clientX, e.clientY);
         });
 
         // Double-click on a card: open in loupe with draw mode
@@ -6882,6 +7087,7 @@
 
             // K1: Esc exits mode (overlays/loupe handled by their own listeners)
             if (e.key === 'Escape') {
+                if (_ctxMenu) { _ctxClose(); e.preventDefault(); return; }
                 if (_isLoupeOpen()) return; // existing loupe handler closes it
                 if (groupEditActive) { exitGroupEditMode(); e.preventDefault(); return; }
                 if (typeof shapeModeActive !== 'undefined' && shapeModeActive) {

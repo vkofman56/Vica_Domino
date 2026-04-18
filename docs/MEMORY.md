@@ -509,3 +509,47 @@
 - Mode blocks other modes (Game Maker, Shape Mode) and vice versa
 - Auto-exits when leaving Card Maker
 - Help popup updated with GE description
+- **Erase Group**: Deletes selected cards; cards used in games are protected with warning listing game names
+- **Reference card interaction**: Right-click (desktop) or double-tap (mobile) sets reference card
+- Button label: "Gr" (changed from "GE")
+
+### Desktop-First Studio Proposals (selected for implementation — NOT YET STARTED)
+User selected these items from the organized checklist. Implementation order TBD.
+- **S1**: Shift+click multi-select in Card Maker (extend to Group Edit and general use)
+- **S3**: Drag-and-drop files from OS (images/SVGs dropped onto Card Maker)
+- **K1**: Esc exits current mode (Group Edit, Shape Mode, loupe, overlays)
+- **K2**: Delete/Backspace key deletes selected card(s)
+- **K3**: Cmd/Ctrl+Z undo (global, not just loupe draw)
+- **K4**: Cmd/Ctrl+C/V copy/paste cards
+- **K5**: Cmd/Ctrl+A select all cards
+- **K6**: Arrow key nudging of elements in loupe (needs explanation — user requested details)
+- **L1**: Denser toolbars for desktop (smaller padding, more tools visible)
+- **L2**: Multi-column card display in Card Maker
+- **L3**: Dockable/collapsible panels (loupe, tools)
+- **L4**: Resizable loupe (needs explanation — user requested details)
+- **U1**: Global undo/redo system (command pattern across all Card Maker operations)
+- **C1**: Remove mobile-only touch handlers from Studio page
+- **S2**: Right-click context menus + keep hover buttons (needs explanation — user wants both)
+
+### Mobile Player Proposals (DEFERRED — discuss later)
+- **T1**: Touch-optimized card selection (larger tap targets, swipe gestures)
+- **T2**: Pinch-to-zoom on game board
+- **T3**: Haptic feedback on card selection (if device supports)
+- **T4**: Swipe navigation between screens
+- **M1**: Bottom navigation bar for mobile player
+- **M2**: Full-screen game mode (hide browser chrome)
+- **M3**: Landscape/portrait responsive layouts for gameplay
+- **M4**: Card size auto-scaling based on screen dimensions
+- **P1**: PWA manifest for home screen install
+- **P2**: Offline play capability (service worker caching)
+- **P3**: Push notifications for multiplayer turns
+- **P4**: App-like splash screen
+- **F1**: Visual feedback on all touch interactions (ripple effects)
+- **F2**: Loading skeletons instead of blank screens
+- **F3**: Animated transitions between screens
+- **R1**: Reduce initial load time (lazy load card sets)
+- **R2**: Optimize SVG rendering for mobile GPUs
+- **R3**: Minimize localStorage reads during gameplay
+- **X1**: Shared component library between Studio and Player
+- **X2**: Feature flag system for gradual rollout
+- **X3**: Analytics/telemetry for usage patterns

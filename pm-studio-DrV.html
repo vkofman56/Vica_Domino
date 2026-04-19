@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:30 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:27 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:30 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:27 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:30 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:27 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1673,7 +1673,9 @@
                     var dx = ev.clientX - startX;
                     var dy = ev.clientY - startY;
                     if (axis === 'e' && !eShapeChanged && Math.abs(dx) > 2) {
-                        if (currentCardShape !== 'rect') currentCardShape = 'rect';
+                        // Square → rect on horizontal drag; Circle stays circle
+                        // (border-radius:50% renders as ellipse when width != height).
+                        if (currentCardShape === 'square') currentCardShape = 'rect';
                         eShapeChanged = true;
                     }
                     if (axis === 's' || axis === 'se') {
@@ -1977,8 +1979,12 @@
             if (currentCardShape === 'circle') borderR = '50%';
 
             var w = currentCardWidth;
+            // Square/circle at default width 60 → pure square/circle path.
+            // Circle with width != 60 renders as ellipse via the rect-like path
+            // below (same sizing math) while keeping border-radius:50%.
+            var isSquareAspect = (currentCardShape === 'square' || currentCardShape === 'circle') && w === 60;
 
-            if (currentCardShape === 'square' || currentCardShape === 'circle') {
+            if (isSquareAspect) {
                 cardSvg.setAttribute('viewBox', '0 0 60 60');
                 cardSvg.removeAttribute('preserveAspectRatio');
                 _buildGrid(container, 0, 0, 60, 60);
@@ -1989,31 +1995,29 @@
                 return;
             }
 
-            if (currentCardShape === 'rect') {
-                var extraW = w - 60;
-                var offsetX = extraW / 2;
-                cardSvg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
-                cardSvg.setAttribute('preserveAspectRatio', 'none');
+            // Non-square aspect: rect shape, or circle/square with width != 60 (ellipse).
+            var extraW = w - 60;
+            var offsetX = extraW / 2;
+            cardSvg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
+            cardSvg.setAttribute('preserveAspectRatio', 'none');
 
-                var border = 6;
-                var squareSize = Math.min(availW, screenH) * 0.85;
-                var cH = squareSize;
-                var innerH = cH - border;
-                var pixelsPerUnit = innerH / 60;
-                var cW = w * pixelsPerUnit + border;
-                if (cW > availW - 100) {
-                    cW = availW - 100;
-                    var innerW = cW - border;
-                    pixelsPerUnit = innerW / w;
-                    cH = 60 * pixelsPerUnit + border;
-                }
-                container.style.width = cW + 'px';
-                container.style.height = cH + 'px';
-                container.style.borderRadius = borderR;
-
-                _buildGrid(container, -offsetX, 0, w, 60);
-                return;
+            var border = 6;
+            var squareSize = Math.min(availW, screenH) * 0.85;
+            var cH = squareSize;
+            var innerH = cH - border;
+            var pixelsPerUnit = innerH / 60;
+            var cW = w * pixelsPerUnit + border;
+            if (cW > availW - 100) {
+                cW = availW - 100;
+                var innerW = cW - border;
+                pixelsPerUnit = innerW / w;
+                cH = 60 * pixelsPerUnit + border;
             }
+            container.style.width = cW + 'px';
+            container.style.height = cH + 'px';
+            container.style.borderRadius = borderR;
+
+            _buildGrid(container, -offsetX, 0, w, 60);
         }
 
         function _updateShapeBoundary(container, w, h, viewW, viewH, offsetX, offsetY, isRound) {
@@ -2105,8 +2109,8 @@
             if (shape === 'oval') shape = 'square'; // migrate old oval cards
             var w = parseFloat(cardEl.dataset.cardShapeW) || 60;
             var h = parseFloat(cardEl.dataset.cardShapeH) || 60;
-            // Circle is always 60x60 (same as square)
-            if (shape === 'circle') { w = 60; h = 60; }
+            // Circle with w=h renders as circle; circle with w!=h renders as ellipse.
+            // (Height is always the unit — we don't force 60x60 anymore.)
             var cornerRaw = cardEl.dataset.cardCornerR;
             var cornerR = (cornerRaw !== undefined && cornerRaw !== '') ? parseFloat(cornerRaw) : -1;
             if (isNaN(cornerR)) cornerR = -1;
@@ -2159,8 +2163,6 @@
             var cornerRaw = cardEl.dataset.cardCornerR;
             var cornerR = (cornerRaw !== undefined && cornerRaw !== '') ? parseFloat(cornerRaw) : -1;
             if (isNaN(cornerR)) cornerR = -1;
-            // Circle is always 60x60 (same as square)
-            if (shape === 'circle') { w = 60; h = 60; }
             var preview = cardEl.querySelector('.domino-half-preview');
             if (!preview) return;
             // Scale to preview size: base is 70px for 60 units
@@ -2169,7 +2171,7 @@
             var previewH = Math.round(h * scale);
             preview.style.width = previewW + 'px';
             preview.style.height = previewH + 'px';
-            // Border radius: -1/missing = default, 0+ = active percentage
+            // Border radius: circle → 50% (ellipse when w != h); corner override; else default
             if (shape === 'circle') {
                 preview.style.borderRadius = '50%';
             } else if (cornerR >= 0) {
@@ -2181,7 +2183,8 @@
             if (svg) {
                 svg.style.width = (previewW - 10) + 'px';
                 svg.style.height = (previewH - 10) + 'px';
-                if (shape === 'rect') {
+                if (w !== 60) {
+                    // Non-default width: use offsetX-centered viewBox (rect OR ellipse).
                     var offsetX = (w - 60) / 2;
                     svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
                 } else {
@@ -5011,13 +5014,13 @@
         function applyLibZoom() {
             const cardSize = Math.round(70 * libZoom);
             const svgSize = Math.round(60 * libZoom);
+            // Respect per-card shape: any card with W != 60 (rect OR ellipse-circle)
+            // needs a non-square preview to preserve its aspect ratio.
             document.querySelectorAll('.domino-half-preview').forEach(el => {
-                // Respect per-card shape: rect cards use cardShapeW:cardShapeH ratio.
                 const card = el.closest('.library-card');
-                const shape = card && card.dataset.cardShape;
-                if (card && shape === 'rect') {
-                    const w = parseFloat(card.dataset.cardShapeW) || 60;
-                    const h = parseFloat(card.dataset.cardShapeH) || 60;
+                const w = card ? (parseFloat(card.dataset.cardShapeW) || 60) : 60;
+                const h = card ? (parseFloat(card.dataset.cardShapeH) || 60) : 60;
+                if (w !== 60 || h !== 60) {
                     el.style.width = Math.round(cardSize * w / 60) + 'px';
                     el.style.height = Math.round(cardSize * h / 60) + 'px';
                 } else {
@@ -5027,10 +5030,9 @@
             });
             document.querySelectorAll('.domino-half-preview svg').forEach(el => {
                 const card = el.closest('.library-card');
-                const shape = card && card.dataset.cardShape;
-                if (card && shape === 'rect') {
-                    const w = parseFloat(card.dataset.cardShapeW) || 60;
-                    const h = parseFloat(card.dataset.cardShapeH) || 60;
+                const w = card ? (parseFloat(card.dataset.cardShapeW) || 60) : 60;
+                const h = card ? (parseFloat(card.dataset.cardShapeH) || 60) : 60;
+                if (w !== 60 || h !== 60) {
                     el.style.width = Math.round(svgSize * w / 60) + 'px';
                     el.style.height = Math.round(svgSize * h / 60) + 'px';
                 } else {

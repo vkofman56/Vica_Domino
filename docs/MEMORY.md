@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 17, 2026
+**Last Updated**: April 19, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -528,11 +528,11 @@ User selected these items from the organized checklist. All items below are appr
 - **S2**: Right-click context menu — Normal mode: Edit in Loupe, Copy, Delete, Move to… (row submenu), Set as Reference, Properties dialog. Group Edit mode: Set as Reference, Select All, Copy/Delete Selected, Exit Group Edit. Esc/click-away/scroll closes.
 - **S3**: Drag-and-drop files from OS — drop SVG or raster image files onto Card Maker. SVGs compressed + parsed; rasters embedded as data-URL `<image>` in 60x60 SVG wrapper. Drop zone overlay during dragover. Multi-file batch-undoable.
 - **L1**: Denser toolbars for desktop — `@media (min-width:1025px)` block in `css/style.css` reduces padding/gap/button-size for `.zoom-btn`, `.draw-tool-btn`, `.var-tool-btn`, `.zoom-panel`, `.variation-toolbar`, etc. Mobile/tablet untouched.
+- **L4 (Option B)**: Resizable loupe — right edge / bottom edge / SE-corner drag handles resize `#loupe-card-container`. Min 200px, max fills viewport (minus 60px toolbar). Double-click any handle snaps back to default size via `_loupeResetSize()` (rect-shape aware). Drawing coords already use `getBoundingClientRect()`, so no `loupeCoords()` update needed. Handles are hidden on coarse-pointer devices via `@media (hover:none) and (pointer:coarse)`. Key helpers: `_ensureLoupeResizeHandles()`, `_attachLoupeResizeHandles()`, `_computeLoupeDefaultSize()`, `_loupeResetSize()`, `_wireLoupeResizeHandle()`. Called from all 3 openLoupe paths (`openLoupe` ~1489, variation opener ~2546) so handles survive `innerHTML=''` clears.
 
 **NOT YET STARTED:**
 - **L2**: Multi-column card display in Card Maker (toggle between row view and grid view)
 - **L3**: Dockable/collapsible panels (loupe, tools — floating panels with drag handles)
-- **L4 (Option B)**: Resizable loupe — edges become draggable, double-click snaps back to default
 - **C1**: Remove mobile-only touch handlers from Studio page
 
 ### Implementation Phases (final plan)
@@ -549,20 +549,19 @@ User selected these items from the organized checklist. All items below are appr
 - **S2**: ✅ Right-click context menus with Properties dialog.
 - **S3**: ✅ Drag-and-drop files from OS (SVGs + rasters).
 
-**Phase 4 — Layout (L1 done; L2/L3/L4 not started)**
+**Phase 4 — Layout (L1 + L4 done; L2/L3 not started)**
 - **L1**: ✅ Desktop-denser toolbars via `@media (min-width:1025px)` in `css/style.css`.
+- **L4**: ✅ Resizable loupe (right edge, bottom edge, SE corner). Double-click a handle resets to default size.
 - **L2**: Multi-column card display. Switch from horizontal scroll to grid/flex wrap per row. Toggle between "row view" (current) and "grid view". Affects drag-and-drop position calculations.
 - **L3**: Dockable/collapsible panels. Loupe, tool palette, properties panel become `position: absolute` divs with drag handle. Double-click title bar to dock/undock. Positions saved to localStorage. Start with loupe as proof of concept.
-- **L4 (Option B)**: Resizable loupe. Loupe stays at current default size/position. Bottom and right edges become draggable to resize. Double-click resize handle = snap back to default size. SVG `loupeCoords()` reads dynamic panel dimensions instead of hardcoded values. Current workflow unchanged unless user drags an edge.
 
 **Also remaining:** C1 (remove mobile-only touch handlers from Studio page — lower priority cleanup).
 
 ### Recommended next steps
-User's preferred order was L1 → K6 → L4 → L2 → L3. With L1 and K6 now done:
-1. **L4** (resizable loupe) — medium scope, high value
-2. **L2** (multi-column grid view) — bigger scope, affects drag-and-drop math
-3. **L3** (dockable panels) — biggest scope, localStorage persistence, drag handles
-4. **C1** (cleanup) — can be done anytime
+User's preferred order was L1 → K6 → L4 → L2 → L3. With L1, K6, and L4 now done:
+1. **L2** (multi-column grid view) — bigger scope, affects drag-and-drop math
+2. **L3** (dockable panels) — biggest scope, localStorage persistence, drag handles
+3. **C1** (cleanup) — can be done anytime
 
 ### Key technical details for continuity
 - **Trial timestamps**: Must update ALL 5 locations (2 in index.html lines ~32/58, 3 in pm-studio-DrV.html lines ~116/134/368) with every push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'`.

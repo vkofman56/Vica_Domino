@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -508,7 +508,7 @@
                 <div class="zoom-panel-row">
                     <button class="zoom-panel-btn" onclick="libraryZoomOut()" title="Zoom out: make card thumbnails smaller.">−</button>
                     <button class="zoom-panel-btn" onclick="libraryZoomIn()" title="Zoom in: make card thumbnails larger.">+</button>
-                    <button class="zoom-panel-btn" id="loupe-mode-btn" onclick="toggleLoupeMode()" title="Loupe mode: click any card to open it full-size in the card editor.">++</button>
+                    <button class="zoom-panel-btn" id="placeholder-btn-1" disabled title="Reserved for future use" style="opacity:0.3;cursor:default;">&nbsp;</button>
                 </div>
                 <div class="zoom-panel-row">
                     <button class="zoom-panel-btn" id="border-btn" onclick="toggleLibBorder()" title="Card borders: toggle the outline border around each card thumbnail.">▣</button>
@@ -1393,27 +1393,19 @@
             if (panel.style.display !== 'none') {
                 panel.style.display = 'none';
                 btn.style.boxShadow = '';
-                // Exit loupe mode if active
-                if (loupeMode) toggleLoupeMode();
             } else {
                 panel.style.display = 'flex';
                 btn.style.boxShadow = '0 0 0 2px #FFD700';
             }
         }
 
-        // --- Loupe (++) mode ---
+        // --- Loupe mode removed: double-click a card opens the loupe with draw mode ---
+        // Kept as inert shims so any stale references (e.g. in toggleZoomPanel before
+        // this cleanup, or in _helpContent generation) don't throw.
         var loupeMode = false;
         function toggleLoupeMode() {
-            loupeMode = !loupeMode;
-            var btn = document.getElementById('loupe-mode-btn');
             var content = document.querySelector('#domino-library-screen .domino-library-content');
-            if (loupeMode) {
-                btn.classList.add('active');
-                content.classList.add('loupe-cursor');
-            } else {
-                btn.classList.remove('active');
-                content.classList.remove('loupe-cursor');
-            }
+            if (content) content.classList.remove('loupe-cursor');
         }
 
         var loupeSourceCard = null; // reference to the original card element in loupe
@@ -1511,6 +1503,9 @@
             loupeOrigShapeH = currentCardHeight;
             loupeOrigCornerR = currentCardCornerRadius;
             _applyCardShapeToLoupe();
+            // L4: restore user's last resized dimensions (if any) on top of defaults
+            _applyPersistedLoupeScale();
+            _positionLoupeResizeHandles();
         }
 
         function closeLoupe() {
@@ -1555,8 +1550,42 @@
         // the container's overflow:hidden + border-radius (circle-shape cards).
         // Position is tracked via ResizeObserver so handles follow the container
         // whenever its size changes (resize drag, shape change, window resize).
+        // User-dragged size persists per-session via localStorage as a scale factor.
         var _loupeHandles = null;
         var _loupeResizeObserver = null;
+        var _LOUPE_SCALE_KEY = 'loupeSizeScale_v1';
+        function _loadLoupeScale() {
+            try {
+                var raw = localStorage.getItem(_LOUPE_SCALE_KEY);
+                if (!raw) return null;
+                var obj = JSON.parse(raw);
+                if (obj && typeof obj.sx === 'number' && typeof obj.sy === 'number' &&
+                    obj.sx > 0 && obj.sy > 0) return obj;
+            } catch(e) {}
+            return null;
+        }
+        function _saveLoupeScale(sx, sy) {
+            try { localStorage.setItem(_LOUPE_SCALE_KEY, JSON.stringify({ sx: sx, sy: sy })); } catch(e) {}
+        }
+        function _clearLoupeScale() {
+            try { localStorage.removeItem(_LOUPE_SCALE_KEY); } catch(e) {}
+        }
+        function _applyPersistedLoupeScale() {
+            var container = document.getElementById('loupe-card-container');
+            if (!container) return;
+            var scale = _loadLoupeScale();
+            if (!scale) return;
+            var toolbarWidth = 60;
+            var maxW = window.innerWidth - toolbarWidth - 20;
+            var maxH = window.innerHeight - 20;
+            var minDim = 200;
+            var curW = parseFloat(container.style.width) || container.offsetWidth;
+            var curH = parseFloat(container.style.height) || container.offsetHeight;
+            var nw = Math.max(minDim, Math.min(maxW, curW * scale.sx));
+            var nh = Math.max(minDim, Math.min(maxH, curH * scale.sy));
+            container.style.width = nw + 'px';
+            container.style.height = nh + 'px';
+        }
         function _computeLoupeDefaultSize() {
             var toolbarWidth = 60;
             var availW = window.innerWidth - toolbarWidth;
@@ -1581,6 +1610,7 @@
         function _loupeResetSize() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
+            _clearLoupeScale();
             var d = _computeLoupeDefaultSize();
             container.style.width = d.width + 'px';
             container.style.height = d.height + 'px';
@@ -1647,6 +1677,12 @@
                     document.body.classList.remove('loupe-resizing');
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);
+                    // Persist scale factor relative to current default
+                    var defaults = _computeLoupeDefaultSize();
+                    var finalRect = container.getBoundingClientRect();
+                    var sx = finalRect.width / defaults.width;
+                    var sy = finalRect.height / defaults.height;
+                    _saveLoupeScale(sx, sy);
                 }
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
@@ -2588,9 +2624,11 @@
             container.appendChild(svgClone);
             // Grid
             _buildGrid(container, 0, 0, 60, 60);
-            // L4: attach resize handles
+            // L4: attach resize handles + restore persisted scale
             _attachLoupeResizeHandles();
             overlay.style.display = 'flex';
+            _applyPersistedLoupeScale();
+            _positionLoupeResizeHandles();
         }
 
         var selectedTextChar = '';  // The character selected from T submenu
@@ -5022,14 +5060,8 @@
 
             const card = e.target.closest('.library-card');
 
-            // Loupe mode: enlarge clicked card
-            if (loupeMode && card) {
-                openLoupe(card);
-                return;
-            }
-
             // S1: Shift+click multi-select (passive selection — reuses groupEditSelected)
-            if (e.shiftKey && card && !gameMakerActive && !shapeModeActive && !loupeMode) {
+            if (e.shiftKey && card && !gameMakerActive && !shapeModeActive) {
                 e.stopPropagation();
                 if (card.classList.contains('ge-selected')) {
                     card.classList.remove('ge-selected');
@@ -10616,7 +10648,7 @@
             cardmaker: {
                 title: 'Card Maker — Help',
                 items: [
-                    { btn: '🔍', desc: 'Zoom & display tools — opens a panel with: zoom in/out, loupe (full-size editor), card borders toggle, and label visibility toggle.' },
+                    { btn: '🔍', desc: 'Zoom & display tools — opens a panel with zoom in/out, card borders toggle, and label visibility toggle. To open the full-size Card Editor, double-click any card.' },
                     { btn: '▭', desc: 'Ruler — shows a draggable rectangle overlay to help measure and align card elements. Press Esc to hide.' },
                     { btn: 'V', desc: 'Variation tools — opens the toolbar for creating card variations: reflections (vertical, horizontal, diagonal) and rotations (90°, 180°, 270°). Select a tool, then click a card to create its variation.' },
                     { btn: 'V+', desc: 'Show/hide variations — toggles visibility of all variation cards. When hidden, only original cards are shown, keeping the view clean.' },

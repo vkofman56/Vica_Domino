@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:08 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1551,8 +1551,12 @@
         });
 
         // === L4: Resizable loupe (Option B) ===
-        // Bottom + right edges and SE corner draggable. Double-click a handle snaps back.
+        // Handles live in #loupe-overlay (not container) so they aren't clipped by
+        // the container's overflow:hidden + border-radius (circle-shape cards).
+        // Position is tracked via ResizeObserver so handles follow the container
+        // whenever its size changes (resize drag, shape change, window resize).
         var _loupeHandles = null;
+        var _loupeResizeObserver = null;
         function _computeLoupeDefaultSize() {
             var toolbarWidth = 60;
             var availW = window.innerWidth - toolbarWidth;
@@ -1580,6 +1584,34 @@
             var d = _computeLoupeDefaultSize();
             container.style.width = d.width + 'px';
             container.style.height = d.height + 'px';
+            _positionLoupeResizeHandles();
+        }
+        function _positionLoupeResizeHandles() {
+            var container = document.getElementById('loupe-card-container');
+            var overlay = document.getElementById('loupe-overlay');
+            if (!container || !overlay || !_loupeHandles) return;
+            if (overlay.style.display === 'none') return;
+            var cRect = container.getBoundingClientRect();
+            var oRect = overlay.getBoundingClientRect();
+            var top = cRect.top - oRect.top;
+            var left = cRect.left - oRect.left;
+            var w = cRect.width, h = cRect.height;
+            var eH = _loupeHandles[0], sH = _loupeHandles[1], seH = _loupeHandles[2];
+            // East edge: 12px wide strip straddling the right edge
+            eH.style.top = top + 'px';
+            eH.style.left = (left + w - 6) + 'px';
+            eH.style.width = '12px';
+            eH.style.height = Math.max(20, h - 18) + 'px';
+            // South edge: 12px tall strip straddling the bottom edge
+            sH.style.top = (top + h - 6) + 'px';
+            sH.style.left = left + 'px';
+            sH.style.width = Math.max(20, w - 18) + 'px';
+            sH.style.height = '12px';
+            // SE corner: 20x20 marker (more visible)
+            seH.style.top = (top + h - 14) + 'px';
+            seH.style.left = (left + w - 14) + 'px';
+            seH.style.width = '20px';
+            seH.style.height = '20px';
         }
         function _wireLoupeResizeHandle(handle, axis) {
             handle.addEventListener('mousedown', function(e) {
@@ -1608,6 +1640,7 @@
                         var nh = Math.max(minDim, Math.min(maxH, startH + dy));
                         container.style.height = nh + 'px';
                     }
+                    _positionLoupeResizeHandles();
                 }
                 function onUp() {
                     handle.classList.remove('loupe-resizing');
@@ -1637,12 +1670,23 @@
             return _loupeHandles;
         }
         function _attachLoupeResizeHandles() {
+            var overlay = document.getElementById('loupe-overlay');
             var container = document.getElementById('loupe-card-container');
-            if (!container) return;
+            if (!overlay || !container) return;
             var handles = _ensureLoupeResizeHandles();
             handles.forEach(function(h) {
-                if (h.parentNode !== container) container.appendChild(h);
+                if (h.parentNode !== overlay) overlay.appendChild(h);
             });
+            if (!_loupeResizeObserver && typeof ResizeObserver === 'function') {
+                _loupeResizeObserver = new ResizeObserver(function() {
+                    _positionLoupeResizeHandles();
+                });
+                _loupeResizeObserver.observe(container);
+                window.addEventListener('resize', _positionLoupeResizeHandles);
+            }
+            _positionLoupeResizeHandles();
+            // Position again after layout settles (flex centering may not be computed yet)
+            setTimeout(_positionLoupeResizeHandles, 0);
         }
 
         // === Draw mode: place circles and text on cards ===

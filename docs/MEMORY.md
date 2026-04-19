@@ -554,19 +554,18 @@ User selected these items from the organized checklist. All items below are appr
 - **S2**: ✅ Right-click context menus with Properties dialog.
 - **S3**: ✅ Drag-and-drop files from OS (SVGs + rasters).
 
-**Phase 4 — Layout (L1 + L4 done; L2/L3 not started)**
+**Phase 4 — Layout (L1 + L4 done; L3 in progress; L2 deferred)**
 - **L1**: ✅ Desktop-denser toolbars via `@media (min-width:1025px)` in `css/style.css`.
 - **L4**: ✅ Resizable loupe (right edge, bottom edge, SE corner). Double-click a handle resets to default size.
-- **L2**: Multi-column card display. Switch from horizontal scroll to grid/flex wrap per row. Toggle between "row view" (current) and "grid view". Affects drag-and-drop position calculations.
-- **L3**: Dockable/collapsible panels. Loupe, tool palette, properties panel become `position: absolute` divs with drag handle. Double-click title bar to dock/undock. Positions saved to localStorage. Start with loupe as proof of concept.
+- **L2**: Deferred — toggle was implemented then reverted (commit `395f7ed`) because with typical per-letter card counts (3-5 cards) row view and grid view looked identical. Revisit if card sets grow large enough to need wrapping.
+- **L3**: **Proof of concept done** — draw-tools panel now has a drag handle (3-dot grip at top) that makes it free-floating. Position persists via `localStorage.drawToolsPanelPos_v1`. Double-click the handle = reset to default right-anchored position. `_syncLoupeOverlayPadding` updated to only reserve right-side padding if the panel is still docked in the right 40% of the viewport — so dragging the panel left gives the loupe card more width. Key funcs: `_applyDrawPanelPos()`, `_wireDrawPanelDrag()`, `_load/_save/_clearPanelPos()`. Variation toolbar + properties panel still pending.
 
 **Also remaining:** C1 (remove mobile-only touch handlers from Studio page — lower priority cleanup).
 
 ### Recommended next steps
-User's preferred order was L1 → K6 → L4 → L2 → L3. With L1, K6, and L4 now done:
-1. **L2** (multi-column grid view) — bigger scope, affects drag-and-drop math
-2. **L3** (dockable panels) — biggest scope, localStorage persistence, drag handles
-3. **C1** (cleanup) — can be done anytime
+With L1, K6, L4 done and L3 draw-tools proof of concept shipped:
+1. **L3 expansion** — apply same draggable pattern to variation toolbar (and any other floating panel worth repositioning).
+2. **C1** (cleanup) — can be done anytime.
 
 ### Key technical details for continuity
 - **Trial timestamps**: Must update ALL 5 locations (2 in index.html lines ~32/58, 3 in pm-studio-DrV.html lines ~116/134/368) with every push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'`.

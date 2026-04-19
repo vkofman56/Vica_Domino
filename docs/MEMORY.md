@@ -554,18 +554,18 @@ User selected these items from the organized checklist. All items below are appr
 - **S2**: ✅ Right-click context menus with Properties dialog.
 - **S3**: ✅ Drag-and-drop files from OS (SVGs + rasters).
 
-**Phase 4 — Layout (L1 + L4 done; L3 in progress; L2 deferred)**
+**Phase 4 — Layout (L1 + L3 + L4 done; L2 deferred)**
 - **L1**: ✅ Desktop-denser toolbars via `@media (min-width:1025px)` in `css/style.css`.
 - **L4**: ✅ Resizable loupe (right edge, bottom edge, SE corner). Double-click a handle resets to default size.
 - **L2**: Deferred — toggle was implemented then reverted (commit `395f7ed`) because with typical per-letter card counts (3-5 cards) row view and grid view looked identical. Revisit if card sets grow large enough to need wrapping.
-- **L3**: **Proof of concept done** — draw-tools panel now has a drag handle (3-dot grip at top) that makes it free-floating. Position persists via `localStorage.drawToolsPanelPos_v1`. Double-click the handle = reset to default right-anchored position. `_syncLoupeOverlayPadding` updated to only reserve right-side padding if the panel is still docked in the right 40% of the viewport — so dragging the panel left gives the loupe card more width. Key funcs: `_applyDrawPanelPos()`, `_wireDrawPanelDrag()`, `_load/_save/_clearPanelPos()`. Variation toolbar + properties panel still pending.
+- **L3**: ✅ Draggable floating panels (draw-tools panel + variation toolbar). 3-dot grip handles at the top of each panel; click-drag to move; double-click to reset to CSS default. Positions persist in `localStorage.drawToolsPanelPos_v1` and `localStorage.variationToolbarPos_v1`. `_syncLoupeOverlayPadding` only reserves right-side padding when the draw-tools panel is docked in the right 40% of the viewport, so dragging it left expands the loupe card. Generic helper `_wirePanelDrag(panel, handle, key)` shared by both panels. Light-theme CSS variant `.panel-drag-handle-light` for the cream-colored variation toolbar.
 
 **Also remaining:** C1 (remove mobile-only touch handlers from Studio page — lower priority cleanup).
 
 ### Recommended next steps
-With L1, K6, L4 done and L3 draw-tools proof of concept shipped:
-1. **L3 expansion** — apply same draggable pattern to variation toolbar (and any other floating panel worth repositioning).
-2. **C1** (cleanup) — can be done anytime.
+With L1, K6, L3, L4 all done:
+1. **C1** (cleanup) — remove mobile-only touch handlers. Last remaining Phase 4 item.
+2. L2 can be revisited if card sets grow enough to benefit from grid wrapping.
 
 ### Key technical details for continuity
 - **Trial timestamps**: Must update ALL 5 locations (2 in index.html lines ~32/58, 3 in pm-studio-DrV.html lines ~116/134/368) with every push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'`.

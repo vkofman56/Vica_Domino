@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:24 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:31 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:24 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:31 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:24 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:31 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -525,6 +525,9 @@
             </div>
             <!-- Variation creation toolbar -->
             <div class="variation-toolbar" id="variation-toolbar" style="display:none;">
+                <div class="panel-drag-handle panel-drag-handle-light" id="variation-toolbar-drag-handle" title="Drag to move · double-click to reset position">
+                    <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
+                </div>
                 <div class="var-tool-row">
                     <button class="var-tool-btn" onclick="selectVariationTool(0, this)" title="Flip left/right: mirror the card along the vertical axis. Click a card to create this variation.">
                         <svg viewBox="0 0 24 24" width="20" height="20"><line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/><polygon points="6,6 6,18 2,12" fill="currentColor" opacity="0.5"/><polygon points="18,6 18,18 22,12" fill="currentColor"/></svg>
@@ -5111,10 +5114,11 @@
             btn.textContent = content.classList.contains('compact-view') ? '>' : '<';
         }
 
-        // L3: Draggable floating panels (proof of concept: draw-tools panel).
-        // Drag handle moves the panel; double-click resets to CSS default (right-anchored).
-        // Positions persist per-panel in localStorage.
+        // L3: Draggable floating panels. Generic wiring — each panel provides its
+        // own element, handle, and localStorage key. Positions persist; double-click
+        // the handle resets to CSS default.
         var _DRAW_PANEL_POS_KEY = 'drawToolsPanelPos_v1';
+        var _VAR_TOOLBAR_POS_KEY = 'variationToolbarPos_v1';
         function _loadPanelPos(key) {
             try {
                 var raw = localStorage.getItem(key);
@@ -5130,10 +5134,9 @@
         function _clearPanelPos(key) {
             try { localStorage.removeItem(key); } catch(e) {}
         }
-        function _applyDrawPanelPos() {
-            var panel = document.getElementById('draw-tools-panel');
+        function _applyPanelPos(panel, key) {
             if (!panel) return;
-            var pos = _loadPanelPos(_DRAW_PANEL_POS_KEY);
+            var pos = _loadPanelPos(key);
             if (pos) {
                 // Clamp to current viewport so a panel dragged off-screen at a
                 // smaller viewport size doesn't stay hidden.
@@ -5150,9 +5153,13 @@
                 panel.style.bottom = '';
             }
         }
-        function _wireDrawPanelDrag() {
-            var panel = document.getElementById('draw-tools-panel');
-            var handle = document.getElementById('draw-tools-drag-handle');
+        // After moving a floating panel, let the loupe re-layout around it.
+        function _panelSyncLoupeLayout() {
+            if (typeof _syncLoupeOverlayPadding === 'function') _syncLoupeOverlayPadding();
+            if (typeof _applyLoupeZoom === 'function') _applyLoupeZoom();
+            if (typeof _positionLoupeResizeHandles === 'function') _positionLoupeResizeHandles();
+        }
+        function _wirePanelDrag(panel, handle, key) {
             if (!panel || !handle) return;
             handle.addEventListener('mousedown', function(e) {
                 if (e.button !== 0) return;
@@ -5166,19 +5173,14 @@
                 function onMove(ev) {
                     var nx = ev.clientX - offX;
                     var ny = ev.clientY - offY;
-                    // Keep a bit of the panel on-screen so it can't be lost
                     var pw = panel.offsetWidth;
-                    var ph = panel.offsetHeight;
                     nx = Math.max(-pw + 40, Math.min(window.innerWidth - 40, nx));
                     ny = Math.max(0, Math.min(window.innerHeight - 40, ny));
                     panel.style.left = nx + 'px';
                     panel.style.top = ny + 'px';
                     panel.style.right = 'auto';
                     panel.style.bottom = 'auto';
-                    // Keep loupe layout in sync while dragging
-                    if (typeof _syncLoupeOverlayPadding === 'function') _syncLoupeOverlayPadding();
-                    if (typeof _applyLoupeZoom === 'function') _applyLoupeZoom();
-                    if (typeof _positionLoupeResizeHandles === 'function') _positionLoupeResizeHandles();
+                    _panelSyncLoupeLayout();
                 }
                 function onUp() {
                     handle.classList.remove('dragging');
@@ -5186,7 +5188,7 @@
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);
                     var r = panel.getBoundingClientRect();
-                    _savePanelPos(_DRAW_PANEL_POS_KEY, r.left, r.top);
+                    _savePanelPos(key, r.left, r.top);
                 }
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
@@ -5194,21 +5196,26 @@
             handle.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _clearPanelPos(_DRAW_PANEL_POS_KEY);
-                _applyDrawPanelPos();
-                if (typeof _syncLoupeOverlayPadding === 'function') _syncLoupeOverlayPadding();
-                if (typeof _applyLoupeZoom === 'function') _applyLoupeZoom();
-                if (typeof _positionLoupeResizeHandles === 'function') _positionLoupeResizeHandles();
+                _clearPanelPos(key);
+                _applyPanelPos(panel, key);
+                _panelSyncLoupeLayout();
             });
         }
+        function _initDraggablePanels() {
+            var drawPanel = document.getElementById('draw-tools-panel');
+            var drawHandle = document.getElementById('draw-tools-drag-handle');
+            _applyPanelPos(drawPanel, _DRAW_PANEL_POS_KEY);
+            _wirePanelDrag(drawPanel, drawHandle, _DRAW_PANEL_POS_KEY);
+
+            var varToolbar = document.getElementById('variation-toolbar');
+            var varHandle = document.getElementById('variation-toolbar-drag-handle');
+            _applyPanelPos(varToolbar, _VAR_TOOLBAR_POS_KEY);
+            _wirePanelDrag(varToolbar, varHandle, _VAR_TOOLBAR_POS_KEY);
+        }
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                _applyDrawPanelPos();
-                _wireDrawPanelDrag();
-            });
+            document.addEventListener('DOMContentLoaded', _initDraggablePanels);
         } else {
-            _applyDrawPanelPos();
-            _wireDrawPanelDrag();
+            _initDraggablePanels();
         }
 
         // Populate library set view with cards (no descriptions)

@@ -527,9 +527,9 @@ User selected these items from the organized checklist. All items below are appr
 - **S1**: Shift+click multi-select — passive selection outside Group Edit. Reuses `groupEditSelected[]` and `.ge-selected` CSS class. K2/K4/K5 work on passive selection.
 - **S2**: Right-click context menu — Normal mode: Edit in Loupe, Copy, Delete, Move to… (row submenu), Set as Reference, Properties dialog. Group Edit mode: Set as Reference, Select All, Copy/Delete Selected, Exit Group Edit. Esc/click-away/scroll closes.
 - **S3**: Drag-and-drop files from OS — drop SVG or raster image files onto Card Maker. SVGs compressed + parsed; rasters embedded as data-URL `<image>` in 60x60 SVG wrapper. Drop zone overlay during dragover. Multi-file batch-undoable.
+- **L1**: Denser toolbars for desktop — `@media (min-width:1025px)` block in `css/style.css` reduces padding/gap/button-size for `.zoom-btn`, `.draw-tool-btn`, `.var-tool-btn`, `.zoom-panel`, `.variation-toolbar`, etc. Mobile/tablet untouched.
 
 **NOT YET STARTED:**
-- **L1**: Denser toolbars for desktop (smaller padding, more tools visible)
 - **L2**: Multi-column card display in Card Maker (toggle between row view and grid view)
 - **L3**: Dockable/collapsible panels (loupe, tools — floating panels with drag handles)
 - **L4 (Option B)**: Resizable loupe — edges become draggable, double-click snaps back to default
@@ -548,6 +548,10 @@ User selected these items from the organized checklist. All items below are appr
 - **S1**: ✅ Shift+click multi-select (passive selection outside Group Edit).
 - **S2**: ✅ Right-click context menus with Properties dialog.
 - **S3**: ✅ Drag-and-drop files from OS (SVGs + rasters).
+
+**Phase 4 — Layout (L1 done; L2/L3/L4 not started)**
+- **L1**: ✅ Desktop-denser toolbars via `@media (min-width:1025px)` in `css/style.css`.
+- **L2/L3/L4**: Not started.
 
 **Phase 4 — Layout (independent; can be done in any order)**
 - **L1**: Denser toolbars (CSS-only). Reduce `.zoom-btn` padding, toolbar gaps, font sizes. Quick win.

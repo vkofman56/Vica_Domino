@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:37 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:37 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:04 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:37 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1503,8 +1503,9 @@
             loupeOrigShapeH = currentCardHeight;
             loupeOrigCornerR = currentCardCornerRadius;
             _applyCardShapeToLoupe();
-            // L4: restore user's last resized dimensions (if any) on top of defaults
-            _applyPersistedLoupeScale();
+            // L4: apply persisted zoom on top of shape-computed defaults
+            _loupeZoom = _loadLoupeZoom();
+            _applyLoupeZoom();
             _positionLoupeResizeHandles();
         }
 
@@ -1550,39 +1551,43 @@
         // the container's overflow:hidden + border-radius (circle-shape cards).
         // Position is tracked via ResizeObserver so handles follow the container
         // whenever its size changes (resize drag, shape change, window resize).
-        // User-dragged size persists per-session via localStorage as a scale factor.
+        //
+        // Semantics per user spec (H=1 unit always):
+        //   - Bottom edge  = proportional ZOOM (height+width scale together).
+        //   - SE corner    = proportional ZOOM.
+        //   - Right edge   = SHAPE CHANGE: updates currentCardWidth live.
+        //                    Converts shape to 'rect' if it wasn't already.
+        //                    Commits via drawSave() like any other shape edit.
+        // Zoom persists across loupe opens via localStorage 'loupeZoom_v1'.
         var _loupeHandles = null;
         var _loupeResizeObserver = null;
-        var _LOUPE_SCALE_KEY = 'loupeSizeScale_v1';
-        function _loadLoupeScale() {
+        var _LOUPE_ZOOM_KEY = 'loupeZoom_v1';
+        var _loupeZoom = 1;
+        function _loadLoupeZoom() {
             try {
-                var raw = localStorage.getItem(_LOUPE_SCALE_KEY);
-                if (!raw) return null;
-                var obj = JSON.parse(raw);
-                if (obj && typeof obj.sx === 'number' && typeof obj.sy === 'number' &&
-                    obj.sx > 0 && obj.sy > 0) return obj;
+                var raw = localStorage.getItem(_LOUPE_ZOOM_KEY);
+                if (!raw) return 1;
+                var n = parseFloat(raw);
+                if (isFinite(n) && n > 0.1 && n < 10) return n;
             } catch(e) {}
-            return null;
+            return 1;
         }
-        function _saveLoupeScale(sx, sy) {
-            try { localStorage.setItem(_LOUPE_SCALE_KEY, JSON.stringify({ sx: sx, sy: sy })); } catch(e) {}
+        function _saveLoupeZoom(z) {
+            try { localStorage.setItem(_LOUPE_ZOOM_KEY, String(z)); } catch(e) {}
         }
-        function _clearLoupeScale() {
-            try { localStorage.removeItem(_LOUPE_SCALE_KEY); } catch(e) {}
+        function _clearLoupeZoom() {
+            try { localStorage.removeItem(_LOUPE_ZOOM_KEY); } catch(e) {}
         }
-        function _applyPersistedLoupeScale() {
+        function _applyLoupeZoom() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
-            var scale = _loadLoupeScale();
-            if (!scale) return;
             var toolbarWidth = 60;
             var maxW = window.innerWidth - toolbarWidth - 20;
             var maxH = window.innerHeight - 20;
             var minDim = 200;
-            var curW = parseFloat(container.style.width) || container.offsetWidth;
-            var curH = parseFloat(container.style.height) || container.offsetHeight;
-            var nw = Math.max(minDim, Math.min(maxW, curW * scale.sx));
-            var nh = Math.max(minDim, Math.min(maxH, curH * scale.sy));
+            var defaults = _computeLoupeDefaultSize();
+            var nw = Math.max(minDim, Math.min(maxW, defaults.width * _loupeZoom));
+            var nh = Math.max(minDim, Math.min(maxH, defaults.height * _loupeZoom));
             container.style.width = nw + 'px';
             container.style.height = nh + 'px';
         }
@@ -1610,7 +1615,8 @@
         function _loupeResetSize() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
-            _clearLoupeScale();
+            _loupeZoom = 1;
+            _clearLoupeZoom();
             var d = _computeLoupeDefaultSize();
             container.style.width = d.width + 'px';
             container.style.height = d.height + 'px';
@@ -1659,16 +1665,41 @@
                 var maxW = window.innerWidth - toolbarWidth - 20;
                 var maxH = window.innerHeight - 20;
                 var minDim = 200;
+                // For 'e' (shape change) drag, lock in starting defaults + shape state
+                var dragStartCardShape = currentCardShape;
+                var dragStartCardWidth = currentCardWidth;
+                // Convert square/circle → rect on first right-edge drag so the rect
+                // render path kicks in. Circle stays circle (ellipse via border-radius)
+                // only if we leave the shape 'rect' — we do, for consistency with H=1.
+                if (axis === 'e' && currentCardShape !== 'rect') {
+                    currentCardShape = 'rect';
+                }
                 function onMove(ev) {
                     var dx = ev.clientX - startX;
                     var dy = ev.clientY - startY;
-                    if (axis === 'e' || axis === 'se') {
-                        var nw = Math.max(minDim, Math.min(maxW, startW + dx));
-                        container.style.width = nw + 'px';
-                    }
                     if (axis === 's' || axis === 'se') {
-                        var nh = Math.max(minDim, Math.min(maxH, startH + dy));
-                        container.style.height = nh + 'px';
+                        // Proportional zoom: derive scale from vertical drag, apply to both dims
+                        var newH = Math.max(minDim, Math.min(maxH, startH + dy));
+                        var defaults = _computeLoupeDefaultSize();
+                        _loupeZoom = newH / defaults.height;
+                        _applyLoupeZoom();
+                    } else if (axis === 'e') {
+                        // Shape change: update currentCardWidth live, keep container
+                        // height = defaults.height × zoom, recompute container width.
+                        var newContainerW = Math.max(minDim, Math.min(maxW, startW + dx));
+                        var defaults = _computeLoupeDefaultSize();
+                        var targetH = defaults.height * _loupeZoom;
+                        var border = 6;
+                        var innerH = Math.max(1, targetH - border);
+                        var innerW = Math.max(1, newContainerW - border);
+                        var pixelsPerUnit = innerH / 60;
+                        var newCardW = innerW / pixelsPerUnit;
+                        newCardW = Math.max(20, Math.min(240, newCardW));
+                        currentCardWidth = newCardW;
+                        // Re-apply shape (updates SVG viewBox, rebuilds grid, sets
+                        // container dims to the new rect defaults) then apply zoom.
+                        _applyCardShapeToLoupe();
+                        _applyLoupeZoom();
                     }
                     _positionLoupeResizeHandles();
                 }
@@ -1677,12 +1708,12 @@
                     document.body.classList.remove('loupe-resizing');
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);
-                    // Persist scale factor relative to current default
-                    var defaults = _computeLoupeDefaultSize();
-                    var finalRect = container.getBoundingClientRect();
-                    var sx = finalRect.width / defaults.width;
-                    var sy = finalRect.height / defaults.height;
-                    _saveLoupeScale(sx, sy);
+                    if (axis === 's' || axis === 'se') {
+                        _saveLoupeZoom(_loupeZoom);
+                    }
+                    // 'e' drags leave currentCardShape/currentCardWidth modified;
+                    // drawSave() persists them as a shape change. Closing without
+                    // saving discards via _loadCardShapeFromCard on next loupe open.
                 }
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
@@ -2624,10 +2655,11 @@
             container.appendChild(svgClone);
             // Grid
             _buildGrid(container, 0, 0, 60, 60);
-            // L4: attach resize handles + restore persisted scale
+            // L4: attach resize handles + apply persisted zoom
             _attachLoupeResizeHandles();
             overlay.style.display = 'flex';
-            _applyPersistedLoupeScale();
+            _loupeZoom = _loadLoupeZoom();
+            _applyLoupeZoom();
             _positionLoupeResizeHandles();
         }
 

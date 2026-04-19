@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:06 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1581,6 +1581,7 @@
         function _applyLoupeZoom() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
+            _syncLoupeOverlayPadding();
             var toolbarWidth = 60;
             var maxW = _loupeMaxContainerWidth();
             var maxH = window.innerHeight - 20;
@@ -1591,19 +1592,28 @@
             container.style.width = nw + 'px';
             container.style.height = nh + 'px';
         }
+        // Reserve right-side space on the overlay for the draw-tools panel so the
+        // card is flex-centered between the left toolbar and the right panel.
+        function _syncLoupeOverlayPadding() {
+            var overlay = document.getElementById('loupe-overlay');
+            if (!overlay) return;
+            var panel = document.getElementById('draw-tools-panel');
+            var reserve = 0;
+            if (panel && panel.offsetParent && window.getComputedStyle(panel).display !== 'none') {
+                // panel offsetWidth + its own right:20px margin
+                reserve = panel.offsetWidth + 20;
+            }
+            overlay.style.paddingRight = reserve + 'px';
+        }
         // Largest container width that keeps the card's right edge clear of the
-        // draw-tools panel (and any other visible right-side UI). Container is
-        // flex-centered inside #loupe-overlay with paddingLeft = toolbarWidth.
+        // draw-tools panel. Uses the overlay's padding (synced to panel width) so
+        // the card is fully centered between the left toolbar and right panel.
         function _loupeMaxContainerWidth() {
             var toolbarWidth = 60;
-            var rightBound = window.innerWidth - 20;
-            var panel = document.getElementById('draw-tools-panel');
-            if (panel && panel.offsetParent && window.getComputedStyle(panel).display !== 'none') {
-                rightBound = Math.min(rightBound, panel.getBoundingClientRect().left - 20);
-            }
-            var centerX = (window.innerWidth + toolbarWidth) / 2;
-            var halfMax = rightBound - centerX;
-            return Math.max(200, halfMax * 2);
+            var overlay = document.getElementById('loupe-overlay');
+            var rightPad = overlay ? (parseFloat(overlay.style.paddingRight) || 0) : 0;
+            var usable = window.innerWidth - toolbarWidth - rightPad - 20;
+            return Math.max(200, usable);
         }
         function _computeLoupeDefaultSize() {
             var toolbarWidth = 60;
@@ -2654,6 +2664,10 @@
                 panel.style.display = 'none';
                 detachDrawClickHandler();
             }
+            // L4: panel visibility changed — re-center the card
+            if (typeof _syncLoupeOverlayPadding === 'function') _syncLoupeOverlayPadding();
+            if (typeof _applyLoupeZoom === 'function') _applyLoupeZoom();
+            if (typeof _positionLoupeResizeHandles === 'function') _positionLoupeResizeHandles();
         }
 
         function openBlankCardLoupe() {

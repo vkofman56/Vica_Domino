@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:11 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:11 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:06 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:11 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 01:06 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -661,18 +661,18 @@
                     </div>
                 </div>
                 <div class="draw-size-row">
-                    <label style="font-size:11px;">Aa</label>
+                    <label style="font-size:11px;">Size</label>
                     <input type="range" id="draw-coarse-slider" min="0" max="90" value="30" step="10" oninput="onDrawCoarseChange(+this.value)">
                     <span id="draw-coarse-val" class="draw-val">30</span>
                 </div>
                 <div class="draw-size-row">
-                    <label style="margin-left:-2px;">r</label>
+                    <label style="margin-left:-2px;">fine</label>
                     <input type="range" id="draw-fine-slider" min="0" max="10" value="0" step="1" oninput="onDrawFineChange(+this.value)">
                     <span id="draw-fine-val" class="draw-val">0</span>
                     <span style="margin-left:2px;color:#FFD700;font-size:10px;">=<span id="draw-total-val">30</span></span>
                 </div>
                 <div class="draw-size-row" id="draw-overscale-row" style="position:relative;left:-4px;">
-                    <label>&times;</label>
+                    <label>Scale</label>
                     <input type="range" id="draw-overscale-slider" min="0.4" max="1" value="1" step="0.02" oninput="onOverScaleChange(+this.value)">
                     <span id="draw-overscale-max" class="draw-val" style="cursor:pointer;text-decoration:underline;margin-left:1px;" onclick="toggleOverscaleMaxPopup()" title="Click to change max scale">&times;1</span>
                     <div id="draw-overscale-max-popup" style="display:none;position:absolute;bottom:100%;right:0;background:rgba(0,0,0,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:6px;padding:4px;z-index:100;"></div>
@@ -2675,6 +2675,8 @@
                 attachDrawClickHandler();
                 selectDrawTool(drawTool);
                 initDrawColorSwatches();
+                // L3.5: draw panel just opened with no selection — deactivate sliders
+                if (typeof _updateDrawSizeActivation === 'function') _updateDrawSizeActivation();
             } else {
                 panel.style.display = 'none';
                 detachDrawClickHandler();
@@ -3299,6 +3301,7 @@
                         if (delBtn) delBtn.style.display = 'none';
                         resetOverscaleSlider();
                     }
+                    _updateDrawSizeActivation();
                     return;
                 }
                 // If clicking an extra element, remove it from selection
@@ -3325,6 +3328,7 @@
             if (delBtn) delBtn.style.display = '';
             // Populate property controls with element's current values
             populatePropsFromElement(el);
+            _updateDrawSizeActivation();
         }
 
         function updateSelectionRing() {
@@ -3342,6 +3346,17 @@
             var arr = [];
             if (selectedElement) arr.push(selectedElement);
             return arr.concat(extraSelectedElements);
+        }
+
+        // Dim + disable the Size/fine/Scale slider rows when nothing on the card
+        // is selected. Re-enable when at least one element is selected.
+        function _updateDrawSizeActivation() {
+            var hasSel = !!selectedElement ||
+                (typeof extraSelectedElements !== 'undefined' && extraSelectedElements.length > 0);
+            var rows = document.querySelectorAll('#draw-tools-panel .draw-size-row');
+            rows.forEach(function(row) {
+                row.classList.toggle('deactivated', !hasSel);
+            });
         }
 
         function deselectElement() {
@@ -3362,6 +3377,7 @@
             if (delBtn) delBtn.style.display = 'none';
             // Reset overscale slider to default
             resetOverscaleSlider();
+            _updateDrawSizeActivation();
         }
 
         function populatePropsFromElement(el) {
@@ -3792,6 +3808,7 @@
             extraSelectionRings = [];
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
+            _updateDrawSizeActivation();
         }
 
         var drawMouseDownHandler = null;
@@ -4006,6 +4023,7 @@
                         populatePropsFromElement(el);
                         var delBtn = document.getElementById('draw-delete-btn');
                         if (delBtn) delBtn.style.display = 'inline-flex';
+                        _updateDrawSizeActivation();
                     }
                 }
             };

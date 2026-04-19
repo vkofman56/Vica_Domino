@@ -113,7 +113,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -131,7 +131,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:47 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -365,7 +365,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:47 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:56 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1582,7 +1582,7 @@
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
             var toolbarWidth = 60;
-            var maxW = window.innerWidth - toolbarWidth - 20;
+            var maxW = _loupeMaxContainerWidth();
             var maxH = window.innerHeight - 20;
             var minDim = 200;
             var defaults = _computeLoupeDefaultSize();
@@ -1591,11 +1591,25 @@
             container.style.width = nw + 'px';
             container.style.height = nh + 'px';
         }
+        // Largest container width that keeps the card's right edge clear of the
+        // draw-tools panel (and any other visible right-side UI). Container is
+        // flex-centered inside #loupe-overlay with paddingLeft = toolbarWidth.
+        function _loupeMaxContainerWidth() {
+            var toolbarWidth = 60;
+            var rightBound = window.innerWidth - 20;
+            var panel = document.getElementById('draw-tools-panel');
+            if (panel && panel.offsetParent && window.getComputedStyle(panel).display !== 'none') {
+                rightBound = Math.min(rightBound, panel.getBoundingClientRect().left - 20);
+            }
+            var centerX = (window.innerWidth + toolbarWidth) / 2;
+            var halfMax = rightBound - centerX;
+            return Math.max(200, halfMax * 2);
+        }
         function _computeLoupeDefaultSize() {
             var toolbarWidth = 60;
-            var availW = window.innerWidth - toolbarWidth;
             var availH = window.innerHeight;
-            var square = Math.min(availW, availH) * 0.85;
+            var square = Math.min(window.innerWidth - toolbarWidth, availH) * 0.85;
+            var maxW = _loupeMaxContainerWidth();
             var w = (typeof currentCardWidth === 'number' ? currentCardWidth : 60);
             // Any non-default width uses rect-like aspect math (applies to rect AND
             // to circles stretched into ellipses). Height is always the unit.
@@ -1604,8 +1618,8 @@
                 var innerH = square - border;
                 var pixelsPerUnit = innerH / 60;
                 var cW = w * pixelsPerUnit + border;
-                if (cW > availW - 100) {
-                    cW = availW - 100;
+                if (cW > maxW) {
+                    cW = maxW;
                     var innerW = cW - border;
                     pixelsPerUnit = innerW / w;
                     square = 60 * pixelsPerUnit + border;
@@ -1684,7 +1698,7 @@
                 var rect = container.getBoundingClientRect();
                 var startW = rect.width, startH = rect.height;
                 var toolbarWidth = 60;
-                var maxW = window.innerWidth - toolbarWidth - 20;
+                var maxW = _loupeMaxContainerWidth();
                 var maxH = window.innerHeight - 20;
                 var minDim = 200;
                 // For 'e' (shape change) drag, lock in starting defaults + shape state

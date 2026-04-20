@@ -1562,7 +1562,16 @@ svg .draw-sel-ring {
     margin: 10px 0;
 }
 .library-row[data-row-letter]::before {
-    content: attr(data-row-letter);
+    /* Legacy rule kept in case a row renders before _addRowLetterSpan runs.
+       When the real .library-row-letter span is present, it visually replaces
+       this pseudo-element because the span sits at the same layout position
+       and has the same styling. */
+    content: '';
+    display: none;
+}
+/* Row letter — real DOM element so it can receive clicks (for row-select
+   in Game Maker and Group Edit modes). */
+.library-row-letter {
     font-size: 14px;
     font-weight: bold;
     color: #FFD700;
@@ -1572,6 +1581,26 @@ svg .draw-sel-ring {
     flex-shrink: 0;
     min-width: 14px;
     text-align: center;
+    user-select: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s, opacity 0.15s;
+}
+.library-row.empty-row .library-row-letter {
+    font-size: 22px;
+    opacity: 0.6;
+    letter-spacing: 1px;
+}
+/* Clickable when in Game Maker or Group Edit mode */
+body.game-maker-active .library-row-letter,
+body.group-edit-active .library-row-letter {
+    cursor: pointer;
+}
+body.game-maker-active .library-row-letter:hover,
+body.group-edit-active .library-row-letter:hover {
+    background: rgba(255, 215, 0, 0.22);
+    opacity: 1;
+    color: #FFF176;
 }
 .library-row.empty-row {
     min-height: 38px;
@@ -1580,9 +1609,8 @@ svg .draw-sel-ring {
     opacity: 0.5;
 }
 .library-row.empty-row::before {
-    font-size: 22px;
-    opacity: 0.6;
-    letter-spacing: 1px;
+    content: '';
+    display: none;
 }
 
 /* New card mode: letter labels on rows */

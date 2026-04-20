@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:44 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -773,6 +773,8 @@
             <!-- Game Maker selection bar -->
             <div id="game-maker-bar" style="display:none;">
                 <span id="game-maker-bar-text">Select cards for game</span>
+                <button onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
+                <button onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
                 <button onclick="completeGame()">Complete the game</button>
                 <button onclick="cancelGameMaker()">Cancel</button>
             </div>
@@ -834,7 +836,6 @@
                     <button class="ge-action-btn ge-erase-btn" id="ge-erase-btn" onclick="geActionErase()" title="Erase selected cards (cards used in games are skipped)">&#x1F5D1; Erase</button>
                 </div>
                 <div class="ge-nav-row">
-                    <button class="ge-nav-btn" onclick="geSelectRow()" title="Select all cards in a row">Row…</button>
                     <button class="ge-nav-btn" onclick="geSelectAll()" title="Select all cards">All</button>
                     <button class="ge-nav-btn ge-exit-btn" onclick="exitGroupEditMode()" title="Exit Group Edit">Exit</button>
                 </div>
@@ -2580,6 +2581,120 @@
         function generateCardUID() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         }
+
+        // Prepend a clickable <span class="library-row-letter"> to a row, so the
+        // row letter can receive mouse events (for row-select in Game Maker and
+        // Group Edit modes). Idempotent: updates text if the span already exists.
+        function _addRowLetterSpan(row) {
+            if (!row) return;
+            var letter = row.dataset.rowLetter;
+            if (!letter) return;
+            var existing = row.querySelector(':scope > .library-row-letter');
+            if (existing) { existing.textContent = letter; return; }
+            var span = document.createElement('span');
+            span.className = 'library-row-letter';
+            span.textContent = letter;
+            span.setAttribute('title', 'Row ' + letter + ' — click to select/deselect all in this row (in Game Maker or Group Edit mode)');
+            row.insertBefore(span, row.firstChild);
+        }
+
+        // Body-class sync so CSS can style row letters as clickable in these modes.
+        function _syncModeBodyClasses() {
+            document.body.classList.toggle('game-maker-active',
+                typeof gameMakerActive !== 'undefined' && gameMakerActive);
+            document.body.classList.toggle('group-edit-active',
+                typeof groupEditActive !== 'undefined' && groupEditActive);
+        }
+
+        // --- Shared GM / GE selection helpers (used by row-letter click and
+        // Select All / Clear buttons). ---
+        function _gmBuildCardInfo(card) {
+            var label = card.querySelector('.library-label');
+            if (!label) return null;
+            var info = { label: label.textContent, isVariation: false, uid: card.dataset.uid || '' };
+            if (card.dataset.stableId) info.stableId = card.dataset.stableId;
+            if (activeCardSet === 'abc') info.cardSet = 'ABC';
+            else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
+            else info.cardSet = activeCardSet;
+            var svgEl = card.querySelector('svg');
+            if (!info.stableId && svgEl) info.svgMarkup = svgEl.innerHTML;
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                info.cardShape = card.dataset.cardShape;
+                info.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
+                info.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                info.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+            }
+            return info;
+        }
+        function _gmAddCard(card) {
+            if (!card || card.classList.contains('card-selected')) return;
+            var info = _gmBuildCardInfo(card);
+            if (!info) return;
+            card.classList.add('card-selected');
+            gameMakerSelected.push(info);
+        }
+        function _gmRemoveCard(card) {
+            if (!card || !card.classList.contains('card-selected')) return;
+            var label = card.querySelector('.library-label');
+            var txt = label ? label.textContent : null;
+            card.classList.remove('card-selected');
+            if (txt != null) {
+                gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== txt; });
+            }
+        }
+        function _gmSelectAllVisible() {
+            if (!gameMakerActive) return;
+            document.querySelectorAll('#domino-library-screen .library-card').forEach(function(card) {
+                var container = card.closest('.card-set-content');
+                if (container && container.style.display === 'none') return;
+                _gmAddCard(card);
+            });
+        }
+        function _gmClearAllVisible() {
+            if (!gameMakerActive) return;
+            document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(_gmRemoveCard);
+        }
+        function _geAddCard(card) {
+            if (!card || card.classList.contains('ge-selected')) return;
+            card.classList.add('ge-selected');
+            if (typeof groupEditSelected !== 'undefined') groupEditSelected.push(card);
+        }
+        function _geRemoveCard(card) {
+            if (!card || !card.classList.contains('ge-selected')) return;
+            card.classList.remove('ge-selected');
+            if (typeof groupEditSelected !== 'undefined') {
+                groupEditSelected = groupEditSelected.filter(function(c) { return c !== card; });
+            }
+            if (typeof groupEditReference !== 'undefined' && card === groupEditReference) {
+                card.classList.remove('ge-reference');
+                groupEditReference = null;
+            }
+        }
+
+        // Row-letter click: toggle selection of every card in that row
+        // (in GM or GE mode only). If any card is unselected → select all;
+        // if all are selected → deselect all.
+        document.addEventListener('click', function(e) {
+            var letterEl = e.target.closest('.library-row-letter');
+            if (!letterEl) return;
+            var row = letterEl.closest('.library-row');
+            if (!row) return;
+            var cards = Array.prototype.slice.call(row.querySelectorAll('.library-card'));
+            if (cards.length === 0) return;
+            if (typeof gameMakerActive !== 'undefined' && gameMakerActive) {
+                e.stopPropagation(); e.preventDefault();
+                var allSel = cards.every(function(c) { return c.classList.contains('card-selected'); });
+                cards.forEach(function(c) { allSel ? _gmRemoveCard(c) : _gmAddCard(c); });
+                return;
+            }
+            if (typeof groupEditActive !== 'undefined' && groupEditActive) {
+                e.stopPropagation(); e.preventDefault();
+                var allGe = cards.every(function(c) { return c.classList.contains('ge-selected'); });
+                cards.forEach(function(c) { allGe ? _geRemoveCard(c) : _geAddCard(c); });
+                if (typeof _updateGroupEditStatus === 'function') _updateGroupEditStatus();
+                return;
+            }
+        }, true); // capture phase so we beat the card-click handler
 
         // Generate a stable, human-readable card ID
         // Format: timestamp_setName_label_suffix
@@ -7382,6 +7497,7 @@
                     targetRow = document.createElement('div');
                     targetRow.className = 'library-row';
                     targetRow.dataset.rowLetter = letter;
+                    _addRowLetterSpan(targetRow);
                     insertRowAlphabetically(container, section, targetRow, letter);
                     rowMap[letter] = targetRow;
                 }
@@ -7957,6 +8073,7 @@
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
+                _addRowLetterSpan(row);
 
                 rowMap[letter].forEach(function(item) {
                     var card = document.createElement('div');
@@ -8433,6 +8550,7 @@
             // Save all card edits before entering game maker mode
             if (typeof saveVariations === 'function') saveVariations();
             gameMakerActive = true;
+            _syncModeBodyClasses();
             gameMakerSelected = [];
             // Close any open variation box
             hideVariations();
@@ -8515,6 +8633,7 @@
 
         function cancelGameMaker() {
             gameMakerActive = false;
+            _syncModeBodyClasses();
             gameMakerSelected = [];
             document.getElementById('game-maker-bar').style.display = 'none';
             document.querySelectorAll('#domino-library-screen .library-card.card-selected').forEach(function(c) {
@@ -8685,6 +8804,7 @@
             if (groupEditActive) { exitGroupEditMode(); return; }
             if (gameMakerActive || shapeModeActive) return;
             groupEditActive = true;
+            _syncModeBodyClasses();
             groupEditSelected = [];
             groupEditReference = null;
             hideVariations();
@@ -8703,6 +8823,7 @@
 
         function exitGroupEditMode() {
             groupEditActive = false;
+            _syncModeBodyClasses();
             groupEditSelected = [];
             groupEditReference = null;
             document.querySelectorAll('#domino-library-screen .library-card.ge-selected').forEach(function(c) {
@@ -13149,6 +13270,7 @@
                         var row = document.createElement('div');
                         row.className = 'library-row';
                         row.dataset.rowLetter = letter;
+                        _addRowLetterSpan(row);
                         rowMap[letter].forEach(function(item) {
                             var card = document.createElement('div');
                             card.className = 'library-card';
@@ -13332,6 +13454,7 @@
                 var row = document.createElement('div');
                 row.className = 'library-row';
                 row.dataset.rowLetter = letter;
+                _addRowLetterSpan(row);
 
                 rowMap[letter].forEach(function(item) {
                     var card = document.createElement('div');

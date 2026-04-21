@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:22 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8388,10 +8388,12 @@
                 _showGameTypeChoice(function(type) {
                     var name = prompt('Game name:');
                     if (!name || !name.trim()) return;
+                    var unique = _resolveGameNameCollision(name, type, -1);
+                    if (!unique) return;
                     gameMakerEditIndex = -1;
                     gameMakerEditCatch = false;
                     gameMakerType = type;
-                    gameMakerName = name.trim();
+                    gameMakerName = unique;
                     gameMakerDesc = '';
                     enterSelectionMode();
                 });
@@ -9104,6 +9106,50 @@
 
         function saveCatchGames(games) {
             localStorage.setItem('savedCatchGames', JSON.stringify(games));
+        }
+
+        // --- Duplicate-name handling (Option 3: confirm-with-default) ---
+        // If the user typed a name that collides with another game in the SAME
+        // list (Find-the-Double or Catch-the-Double), re-prompt with an
+        // auto-suffixed suggestion pre-filled. They can hit OK to accept, edit
+        // the suggestion, or Cancel to abort. Comparison is trimmed and
+        // case-insensitive. Excludes currentIndex so renaming a game to its
+        // own current name is a no-op.
+        function _autoSuffixGameName(baseName, games, currentIndex) {
+            var m = baseName.match(/^(.*)\s\((\d+)\)$/);
+            var root = m ? m[1] : baseName;
+            var existing = {};
+            for (var i = 0; i < games.length; i++) {
+                if (i === currentIndex) continue;
+                existing[((games[i].name || '').trim().toLowerCase())] = true;
+            }
+            for (var n = 2; n < 1000; n++) {
+                var candidate = root + ' (' + n + ')';
+                if (!existing[candidate.toLowerCase()]) return candidate;
+            }
+            return root + ' (' + Date.now() + ')';
+        }
+        function _resolveGameNameCollision(desiredName, gameType, currentIndex) {
+            desiredName = (desiredName || '').trim();
+            if (!desiredName) return null;
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var lower = desiredName.toLowerCase();
+            var clash = -1;
+            for (var i = 0; i < games.length; i++) {
+                if (i === currentIndex) continue;
+                if ((games[i].name || '').trim().toLowerCase() === lower) { clash = i; break; }
+            }
+            if (clash === -1) return desiredName;
+            var suggestion = _autoSuffixGameName(desiredName, games, currentIndex);
+            var response = prompt(
+                'A game named "' + desiredName + '" already exists.\nSave as:',
+                suggestion
+            );
+            if (response === null) return null; // user cancelled
+            response = (response || '').trim();
+            if (!response) return null;
+            // Re-check in case user typed another colliding name
+            return _resolveGameNameCollision(response, gameType, currentIndex);
         }
 
         function cloneGameToCatch(sourceGameIndex) {
@@ -11481,10 +11527,11 @@
                 if (!cg) return;
                 var newCatchName = prompt('Game name:', cg.name);
                 if (!newCatchName || !newCatchName.trim()) return;
-                newCatchName = newCatchName.trim();
-                catchGames[currentCatchGameViewIndex].name = newCatchName;
+                var uniqueCatch = _resolveGameNameCollision(newCatchName, 'catch', currentCatchGameViewIndex);
+                if (!uniqueCatch) return;
+                catchGames[currentCatchGameViewIndex].name = uniqueCatch;
                 saveCatchGames(catchGames);
-                document.getElementById('game-view-title').textContent = 'Catch the double: ' + newCatchName;
+                document.getElementById('game-view-title').textContent = 'Catch the double: ' + uniqueCatch;
                 populateLibraryGames();
                 return;
             }
@@ -11494,10 +11541,11 @@
             if (!game) return;
             var newName = prompt('Game name:', game.name);
             if (!newName || !newName.trim()) return;
-            newName = newName.trim();
-            games[currentGameViewIndex].name = newName;
+            var uniqueFind = _resolveGameNameCollision(newName, 'find', currentGameViewIndex);
+            if (!uniqueFind) return;
+            games[currentGameViewIndex].name = uniqueFind;
             localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            document.getElementById('game-view-title').textContent = 'Find the doubles: ' + newName;
+            document.getElementById('game-view-title').textContent = 'Find the doubles: ' + uniqueFind;
             populateLibraryGames();
             populateStartScreenGames();
             populateCardMakerGames();

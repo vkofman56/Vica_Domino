@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 19, 2026
+**Last Updated**: April 20, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -80,6 +80,10 @@
 | `__sync_userId` | Firebase sync user ID |
 | `__sync_userRole` | Firebase sync role (superuser/player) |
 | `migration_builtins_converted` | Migration flag (`'v2'`) |
+| `loupeZoom_v1` | Loupe zoom factor (L4) — syncs across devices via Firebase |
+| `drawToolsPanelPos_v1` | Draw-tools panel drag position (L3) |
+| `variationToolbarPos_v1` | Variation toolbar drag position (L3) |
+| `groupEditToolbarPos_v1` | Group Edit toolbar drag position (L3 extension) |
 
 **CRITICAL**: `getNumbersStorageKey()` returns `customDrawnCards` normally, but returns `customDrawnCards_Numbers and Dots` if `deletedBuiltinSets` contains `"numbers"` and `savedCardSets` contains a matching name. Always use this function to get the correct key.
 
@@ -562,11 +566,115 @@ User selected these items from the organized checklist. All items below are appr
 
 **C1 (cleanup): ✅ done.** Audit showed no `touchstart/touchmove/touchend` handlers exist in the Studio page — all input is handled via Pointer Events. The actual scope turned out to be desktop-ifying mobile-oriented UX language: 4 UI strings ("tap" → "click", "double-tap" → "right-click") in the Group Edit tooltip, title bar, selection counter, and help popup, plus one code comment. Double-click-to-set-reference handler in Group Edit kept intentionally as a redundant fallback (S2 right-click context menu is the primary gesture). `touch-action: none`, `@media (hover:none) and (pointer:coarse)`, and responsive `@media (max-width: …)` CSS blocks all kept for graceful degradation on touch-capable screens.
 
+## April 19–20 Session — Post-Phase-4 UX Polish
+
+Phase 4 shipped; this session focused on Group Edit refinements, removing
+the now-redundant Shape Mode, clickable row letters, duplicate-name
+handling for games, and assorted visual cleanup. Current HEAD: `1fbb84c`.
+
+### Group Edit: new 'Shape' action (commit `7f8d59c`)
+New 7th button `▢ Shape` between Color and Erase. Copies the reference
+card's `cardShape` + `cardShapeW` + `cardShapeH` + `cardCornerR` to every
+other selected card. Uses existing `_applyShapeToPreview` +
+`saveVariations` pipeline, so thumbnails, Library preview, and game
+renders all update through the normal flow. Undo supplied by
+`saveVariations()`'s snapshot. Key func: `geActionShape()`.
+
+### Group Edit toolbar redesign (commits `2d96288`, `e8da3d9`, `3cf6000`)
+- Reshaped from ~450-px wide bottom-centered bar → 144-px wide, left-docked
+  floating box. Default position is computed to sit directly **below the
+  Gr button** in the left tool strip (via `_positionGEToolbarBelowGrButton`)
+  but respects a user-saved drag position if one exists.
+- Action buttons are **icon-only** (`↔ Aa ▂ F ● ▢`) with native tooltip
+  labels on hover. CSS grid 2×3 layout; Erase gets its own full-width row;
+  nav row (All, Exit) at the bottom.
+- Draggable via shared L3 helper: 3-dot grip at the top, position stored
+  in `localStorage.groupEditToolbarPos_v1`. Double-click the grip resets
+  to the default (under-Gr-button) position.
+- Visual polish: action buttons + nav buttons switched to **white**
+  borders and text; Erase kept red; Gr button text in the left strip
+  changed from purple to white for consistency.
+
+### Clickable row letters + GM Select All/Clear (commit `83a3318`)
+- Row letters (A, B, C…) were CSS `::before` pseudo-elements, which can't
+  receive mouse events. Replaced with real `<span class="library-row-letter">`
+  elements via new helper `_addRowLetterSpan(row)`, called at all four
+  `row.dataset.rowLetter = letter` sites (Numbers, ABC, custom, drag-
+  and-drop row creation). Legacy `::before` neutralised to
+  `content: ''; display: none` so stale rows don't double-render.
+- Body classes `.game-maker-active` / `.group-edit-active` toggled via
+  new `_syncModeBodyClasses()` helper on every GM/GE transition. CSS
+  shows hover affordance (gold tint + pointer cursor) for row letters
+  only when one of these modes is active.
+- Click a row letter: toggles selection of every card in that row. If any
+  card unselected → select all; if all selected → deselect all.
+- New shared selection helpers: `_gmAddCard`, `_gmRemoveCard`,
+  `_gmSelectAllVisible`, `_gmClearAllVisible`, `_geAddCard`,
+  `_geRemoveCard`.
+- Game Maker bar gains two buttons: **Select All** (every visible card
+  in the active set) and **Clear**.
+- Group Edit toolbar's `Row…` prompt button removed — row-letter click is
+  the faster replacement.
+
+### Shape Mode removed (commit `62115c5`)
+The ⬡ Shape Mode button (left A-CM tool strip) and its `#shape-mode-popup`
+are gone — Group Edit's Shape action covers the workflow. Inert stubs
+(`enterShapeMode`, `cancelShapeMode`, `shapeModeSelectAll`,
+`applyBatchShape`, `applyBatchRectWidth`, `applyBatchCornerRadius`) remain
+so existing guards like `if (shapeModeActive) return;` and escape-key
+handlers keep compiling. `shapeModeActive` stays `false` forever. Help
+popup entry removed.
+
+### Duplicate game-name handling — Option 3 (commit `c121de4`)
+When creating a new game or renaming one, if the name collides with
+another game in the **same list** (Find and Catch are independent
+namespaces), a re-prompt appears with an auto-suffixed suggestion
+pre-filled:
+
+> "A game named "Match 0-4" already exists.  
+> Save as: `Match 0-4 (2)`"
+
+User can hit OK (accept), edit the name and OK (re-validated), or Cancel.
+- Comparison is **case-insensitive** and whitespace-trimmed.
+- Suffix starts at `(2)` because the original is implicitly `(1)`.
+- Names already ending `" (N)"` have the root extracted so
+  `Match (2) (2)` doesn't happen.
+- Renaming a game to its own current name is a no-op (self excluded via
+  `currentIndex`).
+- Wired at three sites: `+ New Game` prompt, Find rename, Catch rename.
+- Helpers: `_resolveGameNameCollision`, `_autoSuffixGameName`.
+
+### Misc visual tweaks
+- Slider labels in Card Editor: **Aa → Size, r → fine, × → Scale**.
+  Also made the three `.draw-size-row` sliders dim to ~28 % opacity and
+  non-interactive whenever no element on the card is selected, via new
+  `_updateDrawSizeActivation()` helper called at every selection change
+  (commit in earlier session, re-noted here for continuity).
+- Help "?" button moved to `right: 94px` and switched to `position: fixed`
+  so it lines up horizontally with the "Saved" pill and "Vica" user badge
+  (earlier commits `1aff11e`, `2e6cbbf`).
+- Corner-radius button icon swapped from an ellipse to an L-shaped
+  bracket (earlier commit `175a3fb`).
+- **W** (Word import) button recoloured from blue (`#64B5F6`) to green
+  (`#7eff7e`) so it visually groups with the `+` New Card button (commit
+  `1fbb84c`).
+
+### New localStorage keys this session
+| Key | Purpose |
+|-----|---------|
+| `groupEditToolbarPos_v1` | Saved drag position for the Group Edit toolbar |
+
+(`drawToolsPanelPos_v1`, `variationToolbarPos_v1`, `loupeZoom_v1` were
+already documented in Phase 4.)
+
 ### Recommended next steps
-Phase 4 is effectively complete (L1 ✅ K6 ✅ L3 ✅ L4 ✅ C1 ✅; L2 deferred). Candidates for next phase:
-- **L2** revisit if card sets grow enough to benefit from grid wrapping.
-- Math equation editor (mentioned in April 2 pending list).
-- Any new features the user wants to scope.
+With Phase 4 done and this polish round complete, candidates to scope next:
+- **L2 revisit** if card sets grow enough to benefit from grid wrapping.
+- **Math equation editor** — mentioned in April 2 pending list; biggest
+  remaining feature idea.
+- **Retire Shape Mode stubs** — safe to delete once we've verified nothing
+  calls them for a while.
+- Any new UX tweaks the user surfaces.
 
 ### Key technical details for continuity
 - **Trial timestamps**: Must update ALL 5 locations (2 in index.html lines ~32/58, 3 in pm-studio-DrV.html lines ~116/134/368) with every push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'`.

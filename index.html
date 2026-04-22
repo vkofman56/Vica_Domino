@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:34 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -54,10 +54,9 @@
             <!-- Catch game input mode popup -->
             <div id="catch-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
                 <div id="catch-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button onclick="chooseCatchMode('touch', 1)" style="padding:8px 14px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#9995; TOUCH — 1P</button>
-                    <button onclick="chooseCatchMode('touch', 2)" style="padding:8px 14px;border-radius:6px;border:none;background:#2a7070;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#9995;&#9995; TOUCH — 2P</button>
-                    <button onclick="chooseCatchMode('mouse', 1)" style="padding:8px 14px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#128433; MOUSE</button>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="chooseCatchMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
+                    <button onclick="chooseCatchMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
                 </div>
             </div>
         </div>
@@ -68,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:34 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -815,9 +814,12 @@
             if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
         }
 
-        function chooseCatchMode(mode, numPlayers) {
+        function chooseCatchMode(mode) {
             _catchInputMode = mode;
-            _catchNumPlayers = (numPlayers === 2 && mode === 'touch') ? 2 : 1;
+            // Default to 1 player here; for touch mode the player count is read
+            // from the setup page's .player-btn selection when Start Game is
+            // pressed (see the 'start-game-btn' click handler below).
+            _catchNumPlayers = 1;
             selectedIntroGame = _catchModePopupGameId;
             // Hide popup
             var popup = document.getElementById('catch-mode-popup');
@@ -1980,7 +1982,7 @@
             var dt = (timestamp - _catchGame._lastTime) / 1000;
             _catchGame._lastTime = timestamp;
             var cardSize = 90;
-            var anyMatchMissed = -1; // playerIdx that missed a match, or -1
+            var missedThisFrame = []; // playerIdx values that missed a match
             for (var pi = 0; pi < 2; pi++) {
                 var zone = document.getElementById('catch-2p-zone-' + pi);
                 if (!zone) continue;
@@ -2004,18 +2006,21 @@
                     if (cd.y >= areaH + cardSize) {
                         cd.clicked = true;
                         cd.el.style.display = 'none';
-                        if (cd.isMatch) anyMatchMissed = pi;
+                        if (cd.isMatch && missedThisFrame.indexOf(pi) < 0) missedThisFrame.push(pi);
                     }
                 }
             }
-            if (anyMatchMissed >= 0) {
-                // Player who missed loses a life. Round ends for both so we can
-                // restart synchronously.
+            if (missedThisFrame.length > 0) {
+                // Every player whose match fell off this frame loses a life.
+                // Round ends for both so we can restart synchronously.
                 _catchGame.roundActive = false;
-                _catchGame.players[anyMatchMissed].lives = Math.max(0, _catchGame.players[anyMatchMissed].lives - 1);
+                missedThisFrame.forEach(function(mpi) {
+                    _catchGame.players[mpi].lives = Math.max(0, _catchGame.players[mpi].lives - 1);
+                });
                 _catch2pUpdateHUD();
                 if (typeof _catchPlayWrongSound === 'function') _catchPlayWrongSound();
-                if (_catchGame.players[anyMatchMissed].lives <= 0) {
+                var anyZero = missedThisFrame.some(function(mpi) { return _catchGame.players[mpi].lives <= 0; });
+                if (anyZero) {
                     setTimeout(function() { _catch2pGameOver(); }, 800);
                 } else {
                     setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 1200);
@@ -2246,6 +2251,17 @@
             origStartBtn.addEventListener('click', function(e) {
                 if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
                     e.stopImmediatePropagation();
+                    // Respect the setup page's player-count selection for touch
+                    // Catch games (the "2 Players" button in GPt Ct Setup maps
+                    // to the new 2-player Catch mode). Mouse mode stays 1P.
+                    _catchNumPlayers = 1;
+                    if ((_catchInputMode || 'touch') === 'touch') {
+                        var selPlayer = document.querySelector('.player-btn.selected');
+                        if (selPlayer) {
+                            var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
+                            if (pp === 2) _catchNumPlayers = 2;
+                        }
+                    }
                     document.getElementById('start-screen').style.display = 'none';
                     openCatchPlayModal(_pendingCatchGameIndex);
                     _pendingCatchGameIndex = -1;

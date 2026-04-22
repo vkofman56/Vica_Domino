@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -54,9 +54,10 @@
             <!-- Catch game input mode popup -->
             <div id="catch-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
                 <div id="catch-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
-                <div style="display:flex;gap:10px;">
-                    <button onclick="chooseCatchMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
-                    <button onclick="chooseCatchMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button onclick="chooseCatchMode('touch', 1)" style="padding:8px 14px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#9995; TOUCH — 1P</button>
+                    <button onclick="chooseCatchMode('touch', 2)" style="padding:8px 14px;border-radius:6px;border:none;background:#2a7070;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#9995;&#9995; TOUCH — 2P</button>
+                    <button onclick="chooseCatchMode('mouse', 1)" style="padding:8px 14px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:13px;">&#128433; MOUSE</button>
                 </div>
             </div>
         </div>
@@ -67,7 +68,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -793,6 +794,7 @@
         var _pendingCatchGameIndex = -1; // >= 0 when setting up a catch game
         var _hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         var _catchInputMode = 'touch'; // 'touch' or 'mouse'
+        var _catchNumPlayers = 1;      // 1 or 2 (2P only supported in touch mode)
         var _catchModePopupGameId = null;
 
         function showCatchModePopup(gameId, btnEl, e) {
@@ -813,8 +815,9 @@
             if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
         }
 
-        function chooseCatchMode(mode) {
+        function chooseCatchMode(mode, numPlayers) {
             _catchInputMode = mode;
+            _catchNumPlayers = (numPlayers === 2 && mode === 'touch') ? 2 : 1;
             selectedIntroGame = _catchModePopupGameId;
             // Hide popup
             var popup = document.getElementById('catch-mode-popup');
@@ -1421,9 +1424,11 @@
                     if (c._freezeState) _freezeMap[c.label] = c._freezeState;
                 });
             }
+            var _np = (_catchNumPlayers === 2 && (_catchInputMode || 'touch') === 'touch') ? 2 : 1;
             _catchGame = {
                 catchIndex: catchIndex,
                 inputMode: _catchInputMode || 'touch',
+                numPlayers: _np,
                 origCards: origCards,
                 valueGroups: valueGroups,
                 valueKeys: valueKeys,
@@ -1439,10 +1444,17 @@
                 gameCardShapeH: game.gameCardShapeH || 60,
                 gameCardCornerR: game.gameCardCornerR || 0,
                 gameCardScale: game.gameCardScale || 100,
-                // Freeze/float mode
-                freezeEnabled: !!game.freezeEnabled,
-                freezeMap: _freezeMap
+                // Freeze/float mode (disabled in 2-player mode for now)
+                freezeEnabled: (_np === 2) ? false : !!game.freezeEnabled,
+                freezeMap: (_np === 2) ? {} : _freezeMap,
+                // Per-player state (only meaningful when numPlayers === 2)
+                players: (_np === 2) ? [
+                    { lives: 3, coins: 0, fallingCards: [] },
+                    { lives: 3, coins: 0, fallingCards: [] }
+                ] : null
             };
+            // Upgrade layout to 2-player mode if selected
+            if (_np === 2) { _catch2pBuildLayout(); }
             _catchUpdateHUD();
             document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
             // Pre-apply shape to static card so it doesn't flash as square
@@ -1462,7 +1474,10 @@
             } else if (_preStatic && _catchGame.gameCardCornerR > 0) {
                 _preStatic.style.borderRadius = _catchGame.gameCardCornerR + '%';
             }
-            setTimeout(function() { _catchStartRound(); }, 600);
+            setTimeout(function() {
+                if (_catchGame && _catchGame.numPlayers === 2) _catch2pStartRound();
+                else _catchStartRound();
+            }, 600);
         }
 
         function _catchUpdateHUD() {
@@ -1798,6 +1813,291 @@
             _catchGame = null;
             var overlay = document.getElementById('catch-game-overlay');
             if (overlay) overlay.remove();
+        }
+
+        // =====================================================================
+        // 2-player touch Catch mode (shared target card in the middle, two
+        // independent play zones, per-player lives + coins, winner decided
+        // when first player reaches 0 lives). Runs in parallel to the 1P path
+        // above; _catchGame.numPlayers === 2 controls which code runs.
+        // =====================================================================
+        function _catch2pBuildLayout() {
+            // Replace single .catch-game-area contents with 3-column layout:
+            //   [zone P1] [middle: target] [zone P2]
+            var overlay = document.getElementById('catch-game-overlay');
+            var ga = overlay && overlay.querySelector('.catch-game-area');
+            if (!ga) return;
+            ga.innerHTML = '';
+            ga.classList.add('catch-2p');
+            // Hide the single-player top HUD; we use per-player HUDs instead
+            var topHud = overlay.querySelector('.catch-hud');
+            if (topHud) {
+                // keep the close button, hide round/lives/coin (unused in 2P)
+                var r = topHud.querySelector('#catch-round'); if (r) r.style.display = 'none';
+                var l = topHud.querySelector('#catch-lives'); if (l) l.style.display = 'none';
+                var cc = topHud.querySelector('#catch-coin-display'); if (cc) cc.style.display = 'none';
+            }
+            function makeZone(idx) {
+                var col = document.createElement('div');
+                col.className = 'catch-2p-col';
+                col.dataset.player = String(idx + 1);
+                var label = document.createElement('div');
+                label.className = 'catch-2p-label';
+                label.textContent = 'Player ' + (idx + 1);
+                col.appendChild(label);
+                var hud = document.createElement('div');
+                hud.className = 'catch-2p-hud';
+                hud.innerHTML = '<span class="catch-2p-lives" id="catch-2p-lives-' + idx + '"></span>' +
+                                '<span class="catch-2p-coins" id="catch-2p-coins-' + idx + '"></span>';
+                col.appendChild(hud);
+                var zone = document.createElement('div');
+                zone.className = 'catch-2p-zone';
+                zone.id = 'catch-2p-zone-' + idx;
+                col.appendChild(zone);
+                return col;
+            }
+            var p1 = makeZone(0);
+            var middle = document.createElement('div');
+            middle.className = 'catch-2p-middle';
+            middle.innerHTML = '<div class="catch-2p-target-label">Find this card</div>' +
+                               '<div class="catch-2p-target-card" id="catch-2p-target"></div>' +
+                               '<div class="catch-2p-round" id="catch-2p-round">Round 1</div>';
+            var p2 = makeZone(1);
+            ga.appendChild(p1);
+            ga.appendChild(middle);
+            ga.appendChild(p2);
+            _catch2pUpdateHUD();
+        }
+
+        function _catch2pUpdateHUD() {
+            if (!_catchGame || _catchGame.numPlayers !== 2) return;
+            for (var i = 0; i < 2; i++) {
+                var lEl = document.getElementById('catch-2p-lives-' + i);
+                var cEl = document.getElementById('catch-2p-coins-' + i);
+                if (lEl) {
+                    var h = '', p = _catchGame.players[i];
+                    for (var k = 0; k < p.lives; k++) h += '❤';
+                    for (var k2 = p.lives; k2 < 3; k2++) h += '♡';
+                    lEl.textContent = h;
+                }
+                if (cEl) cEl.textContent = '🟡 ' + _catchGame.players[i].coins;
+            }
+            var rEl = document.getElementById('catch-2p-round');
+            if (rEl) rEl.textContent = 'Round ' + _catchGame.round;
+        }
+
+        // Pick a target card, then for each player pick a match card. When the
+        // row has 3+ cards the two players get DIFFERENT "other" cards; when
+        // the row has only 2 cards they both get the same match (the warning
+        // pill in the Game Creator flags this scenario).
+        function _catch2pStartRound() {
+            if (!_catchGame || !_catchGame.active) return;
+            _catchGame.roundActive = true;
+            var vGroups = _catchGame.valueGroups;
+            var vKeys = _catchGame.valueKeys;
+            var available = vKeys.filter(function(v) { return _catchGame.lastUsedValues.indexOf(v) < 0; });
+            if (available.length === 0) available = vKeys.slice();
+            var targetValue = available[Math.floor(Math.random() * available.length)];
+            _catchGame.lastUsedValues.push(targetValue);
+            if (_catchGame.lastUsedValues.length > 2) _catchGame.lastUsedValues.shift();
+            var targetCards = vGroups[targetValue];
+            var staticCard = targetCards[Math.floor(Math.random() * targetCards.length)];
+            var staticEl = document.getElementById('catch-2p-target');
+            if (staticEl) {
+                staticEl.innerHTML = '';
+                var svg = _catchBuildCardSVG(staticCard);
+                if (svg) staticEl.appendChild(svg);
+                _catchApplyShape(staticEl, staticCard);
+            }
+            // Matches for each player: shuffle non-target cards in the row
+            var matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
+            _catchShuffle(matchCandidates);
+            var match1 = matchCandidates[0] || staticCard;
+            var match2 = (matchCandidates.length > 1) ? matchCandidates[1] : match1;
+            // Distractor pool (same for both but independently shuffled)
+            var distractorPool = [];
+            vKeys.forEach(function(v) {
+                if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
+            });
+            var numDistractors = Math.max(1, _catchGame.numFalling - 1);
+            // Spawn into each player's zone independently
+            for (var pi = 0; pi < 2; pi++) {
+                var zone = document.getElementById('catch-2p-zone-' + pi);
+                if (!zone) continue;
+                _catchGame.players[pi].fallingCards = [];
+                var pool = distractorPool.slice();
+                _catchShuffle(pool);
+                var cards = [{ card: (pi === 0) ? match1 : match2, isMatch: true }];
+                for (var d = 0; d < numDistractors && d < pool.length; d++) {
+                    cards.push({ card: pool[d], isMatch: false });
+                }
+                _catchShuffle(cards);
+                _catch2pSpawnInto(zone, cards, pi);
+            }
+            _catchGame._lastTime = null;
+            _catchGame.animFrameId = requestAnimationFrame(_catch2pAnimLoop);
+        }
+
+        function _catch2pSpawnInto(zone, cards, playerIdx) {
+            var rect = zone.getBoundingClientRect();
+            var areaWidth = rect.width;
+            var cardSize = 90;
+            cards.forEach(function(fc, idx) {
+                var el = document.createElement('div');
+                el.className = 'catch-falling-card';
+                var svg = _catchBuildCardSVG(fc.card);
+                if (svg) el.appendChild(svg);
+                _catchApplyShape(el, fc.card);
+                var margin = 14;
+                var elW = parseFloat(el.style.width) || cardSize;
+                var maxX = Math.max(0, areaWidth - elW - margin * 2);
+                var x = margin + Math.random() * maxX;
+                var startY = -100 - idx * 80;
+                var tilt = (Math.random() * 20 - 10);
+                var drift = (Math.random() * 30 - 15);
+                el.style.left = x + 'px';
+                el.style.top = startY + 'px';
+                el.style.transform = 'rotate(' + tilt + 'deg)';
+                var cd = {
+                    el: el, isMatch: fc.isMatch, x: x, y: startY,
+                    tilt: tilt, tiltDir: (Math.random() > 0.5 ? 1 : -1),
+                    tiltSpeed: 2 + Math.random() * 3,
+                    drift: drift, clicked: false, frozen: false,
+                    player: playerIdx
+                };
+                _catchGame.players[playerIdx].fallingCards.push(cd);
+                el.onclick = (function(cdata) { return function(e) {
+                    e.stopPropagation();
+                    _catch2pCardClicked(cdata);
+                }; })(cd);
+                zone.appendChild(el);
+            });
+        }
+
+        function _catch2pAnimLoop(timestamp) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive) return;
+            if (!_catchGame._lastTime) _catchGame._lastTime = timestamp;
+            var dt = (timestamp - _catchGame._lastTime) / 1000;
+            _catchGame._lastTime = timestamp;
+            var cardSize = 90;
+            var anyMatchMissed = -1; // playerIdx that missed a match, or -1
+            for (var pi = 0; pi < 2; pi++) {
+                var zone = document.getElementById('catch-2p-zone-' + pi);
+                if (!zone) continue;
+                var areaH = zone.getBoundingClientRect().height;
+                var areaW = zone.getBoundingClientRect().width;
+                var speed = areaH / _catchGame.fallDuration;
+                var list = _catchGame.players[pi].fallingCards;
+                for (var ci = 0; ci < list.length; ci++) {
+                    var cd = list[ci];
+                    if (cd.clicked) continue;
+                    cd.y += speed * dt;
+                    cd.x += cd.drift * dt;
+                    cd.tilt += cd.tiltDir * cd.tiltSpeed * dt;
+                    if (cd.x < 5) { cd.x = 5; cd.drift = Math.abs(cd.drift); }
+                    if (cd.x > areaW - cardSize - 5) { cd.x = areaW - cardSize - 5; cd.drift = -Math.abs(cd.drift); }
+                    if (cd.tilt > 10) cd.tiltDir = -1;
+                    if (cd.tilt < -10) cd.tiltDir = 1;
+                    cd.el.style.left = cd.x + 'px';
+                    cd.el.style.top = cd.y + 'px';
+                    cd.el.style.transform = 'rotate(' + cd.tilt.toFixed(1) + 'deg)';
+                    if (cd.y >= areaH + cardSize) {
+                        cd.clicked = true;
+                        cd.el.style.display = 'none';
+                        if (cd.isMatch) anyMatchMissed = pi;
+                    }
+                }
+            }
+            if (anyMatchMissed >= 0) {
+                // Player who missed loses a life. Round ends for both so we can
+                // restart synchronously.
+                _catchGame.roundActive = false;
+                _catchGame.players[anyMatchMissed].lives = Math.max(0, _catchGame.players[anyMatchMissed].lives - 1);
+                _catch2pUpdateHUD();
+                if (typeof _catchPlayWrongSound === 'function') _catchPlayWrongSound();
+                if (_catchGame.players[anyMatchMissed].lives <= 0) {
+                    setTimeout(function() { _catch2pGameOver(); }, 800);
+                } else {
+                    setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 1200);
+                }
+                return;
+            }
+            // Round ends once BOTH players have clicked their match card
+            // (misses are caught above via anyMatchMissed).
+            var matchesResolved = [0, 1].every(function(pi) {
+                return _catchGame.players[pi].fallingCards.some(function(cd) { return cd.isMatch && cd.clicked; });
+            });
+            if (matchesResolved) {
+                _catchGame.roundActive = false;
+                _catchGame.round++;
+                if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
+                if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 700);
+                return;
+            }
+            _catchGame.animFrameId = requestAnimationFrame(_catch2pAnimLoop);
+        }
+
+        function _catch2pCardClicked(cd) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive || cd.clicked) return;
+            cd.clicked = true;
+            var pi = cd.player;
+            if (cd.isMatch) {
+                cd.el.classList.add('catch-correct');
+                _catchGame.players[pi].coins++;
+                _catch2pUpdateHUD();
+                if (typeof _catchPlayCorrectSound === 'function') _catchPlayCorrectSound();
+            } else {
+                cd.el.classList.add('catch-wrong');
+                if (typeof _catchPlayWrongSound === 'function') _catchPlayWrongSound();
+                if (_catchGame.players[pi].coins > 0) {
+                    _catchGame.players[pi].coins--;
+                    _catch2pUpdateHUD();
+                }
+                setTimeout(function() {
+                    cd.el.classList.remove('catch-wrong');
+                    cd.clicked = false;
+                }, 500);
+            }
+        }
+
+        function _catch2pClearFalling() {
+            for (var i = 0; i < 2; i++) {
+                var z = document.getElementById('catch-2p-zone-' + i);
+                if (z) z.querySelectorAll('.catch-falling-card').forEach(function(e) { e.remove(); });
+                if (_catchGame && _catchGame.players) _catchGame.players[i].fallingCards = [];
+            }
+        }
+
+        function _catch2pGameOver() {
+            if (!_catchGame) return;
+            _catchGame.active = false;
+            if (_catchGame.animFrameId) cancelAnimationFrame(_catchGame.animFrameId);
+            if (typeof _catchPlayLossSound === 'function') _catchPlayLossSound();
+            var overlay = document.getElementById('catch-game-overlay');
+            if (!overlay) return;
+            var ga = overlay.querySelector('.catch-game-area');
+            var p0 = _catchGame.players[0].coins;
+            var p1 = _catchGame.players[1].coins;
+            var msg;
+            if (p0 > p1) msg = 'Player 1 wins! (' + p0 + ' vs ' + p1 + ')';
+            else if (p1 > p0) msg = 'Player 2 wins! (' + p1 + ' vs ' + p0 + ')';
+            else msg = 'Tie! Both players scored ' + p0;
+            var go = document.createElement('div');
+            go.className = 'catch-gameover';
+            go.innerHTML = '<h2>Game Over</h2>' +
+                           '<div class="catch-gameover-msg">' + msg + '</div>' +
+                           '<button id="catch-2p-play-again">Play Again</button>' +
+                           '<button id="catch-2p-close">Close</button>';
+            ga.innerHTML = '';
+            ga.appendChild(go);
+            document.getElementById('catch-2p-play-again').onclick = function() {
+                var idx = _catchGame.catchIndex;
+                _catchCleanup();
+                _catchNumPlayers = 2;
+                openCatchPlayModal(idx);
+            };
+            document.getElementById('catch-2p-close').onclick = function() { _catchCleanup(); };
         }
 
         function _catchBuildCardSVG(cardInfo) {

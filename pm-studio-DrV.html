@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:28 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:28 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:28 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9375,30 +9375,56 @@
         var _gsWorking = null;     // working copy of setup; flushed to game on Save
         var _gsGameType = null;    // 'find' | 'catch'
         function openGameSettingsModal() {
-            var t = _currentGameViewType();
-            if (!t) return;
-            _gsGameType = t;
-            var game = _currentGameViewGame();
-            // Deep-clone so Cancel can discard cleanly
-            _gsWorking = JSON.parse(JSON.stringify(_getGameSetup(game, t)));
-            var titleEl = document.getElementById('gs-title');
-            if (titleEl) titleEl.textContent = 'Game Settings — ' + (game && game.name ? game.name : '');
-            // Rename timer label per game type
-            var tlabel = document.getElementById('gs-timer-label');
-            var thint  = document.getElementById('gs-timer-hint');
-            if (t === 'catch') {
-                if (tlabel) tlabel.textContent = 'Bubble fall time (s):';
-                if (thint)  thint.textContent  = 'How long bubbles take to reach the floor at game start.';
-            } else {
-                if (tlabel) tlabel.textContent = 'Timer (s):';
-                if (thint)  thint.textContent  = 'Countdown / Xeno timer base value (use 0 for no timer).';
+            try {
+                console.log('[GameSettings] open clicked. catchIdx=' + currentCatchGameViewIndex + ' gameIdx=' + currentGameViewIndex);
+                var t = _currentGameViewType();
+                if (!t) {
+                    console.warn('[GameSettings] No game view active (open a game first)');
+                    alert('Open a game in Game View first, then click the ⚙ cog.');
+                    return;
+                }
+                _gsGameType = t;
+                var game = _currentGameViewGame();
+                console.log('[GameSettings] loaded game:', game && game.name, 'type:', t);
+                // Deep-clone so Cancel can discard cleanly
+                _gsWorking = JSON.parse(JSON.stringify(_getGameSetup(game, t)));
+                var titleEl = document.getElementById('gs-title');
+                if (titleEl) titleEl.textContent = 'Game Settings — ' + (game && game.name ? game.name : '');
+                // Rename timer label per game type
+                var tlabel = document.getElementById('gs-timer-label');
+                var thint  = document.getElementById('gs-timer-hint');
+                if (t === 'catch') {
+                    if (tlabel) tlabel.textContent = 'Bubble fall time (s):';
+                    if (thint)  thint.textContent  = 'How long bubbles take to reach the floor at game start.';
+                } else {
+                    if (tlabel) tlabel.textContent = 'Timer (s):';
+                    if (thint)  thint.textContent  = 'Countdown / Xeno timer base value (use 0 for no timer).';
+                }
+                // Hide the Levels section for Catch (cards grow at runtime, not picked).
+                var lvlSec = document.getElementById('gs-section-levels');
+                if (lvlSec) lvlSec.classList.toggle('hidden', t === 'catch');
+                // Show overlay BEFORE rendering form, so querySelectorAll sees visible elements.
+                var ov = document.getElementById('game-settings-overlay');
+                if (!ov) { console.error('[GameSettings] #game-settings-overlay missing from DOM!'); return; }
+                ov.style.display = 'flex';
+                _gsCurrentTab = 'touch';
+                document.querySelectorAll('.gs-tab').forEach(function(el) {
+                    el.classList.toggle('active', el.dataset.tab === 'touch');
+                });
+                _gsRenderForm();
+            } catch (err) {
+                console.error('[GameSettings] openGameSettingsModal error:', err);
+                alert('Game Settings failed to open: ' + err.message);
             }
-            // Hide the Levels section for Catch (cards grow at runtime, not picked).
-            var lvlSec = document.getElementById('gs-section-levels');
-            if (lvlSec) lvlSec.classList.toggle('hidden', t === 'catch');
-            _gsSwitchTab('touch');
-            document.getElementById('game-settings-overlay').style.display = 'flex';
         }
+        // Belt-and-suspenders: ensure the onclick="openGameSettingsModal()" in
+        // the cogwheel button can find the function even under edge-case scope rules.
+        try { window.openGameSettingsModal = openGameSettingsModal; } catch(e) {}
+        try { window.closeGameSettingsModal = closeGameSettingsModal; } catch(e) {}
+        try { window.saveGameSettings = saveGameSettings; } catch(e) {}
+        try { window._gsSwitchTab = _gsSwitchTab; } catch(e) {}
+        try { window._gsCopyTouchToMouse = _gsCopyTouchToMouse; } catch(e) {}
+        try { window._gsOpenCopyFromGame = _gsOpenCopyFromGame; } catch(e) {}
         function closeGameSettingsModal() {
             document.getElementById('game-settings-overlay').style.display = 'none';
             _gsWorking = null;

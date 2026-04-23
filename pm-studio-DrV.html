@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:57 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:57 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:57 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6602,6 +6602,13 @@
         }
 
         // --- Delete any card (built-in or custom) with confirmation ---
+        // The \u00d7 button routes to different handlers depending on context:
+        //   \u2022 In Game View (#game-view-cards) \u2192 _removeCardFromThisGame: only
+        //     removes this card from the current game; leaves Card Maker and
+        //     every other game untouched. No Safe Haven prompt.
+        //   \u2022 Anywhere else (Card Maker) \u2192 confirmDeleteCard: the full Safe
+        //     Haven / Delete / Cancel flow, because that DOES touch library
+        //     existence.
         function addCardDeleteButton(card) {
             // Don't double-add; variations already have their own delete button
             if (card.querySelector('.card-delete-btn') || (card.classList.contains('variation') && card.querySelector('.variation-delete-btn'))) return;
@@ -6610,7 +6617,11 @@
             btn.textContent = '\u2715';
             btn.onclick = function(e) {
                 e.stopPropagation();
-                confirmDeleteCard(card);
+                if (card.closest && card.closest('#game-view-cards')) {
+                    _removeCardFromThisGame(card);
+                } else {
+                    confirmDeleteCard(card);
+                }
             };
             card.appendChild(btn);
         }
@@ -6758,6 +6769,79 @@
                 addVarButton(card);
                 addCopyButton(card);
             });
+        }
+
+        // Remove a card from the currently-viewed game ONLY. Does NOT touch
+        // the card in Card Maker, in Safe Haven, or in any other game — this
+        // is the Game View × button's correct behaviour. Finds the card in
+        // the active game's cards array by stableId (preferred) or by label,
+        // removes it, persists, and re-renders the Game View.
+        function _removeCardFromThisGame(cardEl) {
+            if (!cardEl) return;
+            var lbl = cardEl.querySelector('.library-label');
+            var labelText = lbl ? lbl.textContent : '';
+            var stableId = cardEl.dataset.stableId || '';
+            if (!labelText && !stableId) return;
+            _showRemoveFromGameDialog(labelText, function() {
+                var inCatch = (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
+                var inFind = !inCatch && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
+                var filterFn = function(c) {
+                    if (!c) return false;
+                    if (stableId && c.stableId === stableId) return false;
+                    if (!stableId && c.label === labelText) return false;
+                    return true;
+                };
+                if (inCatch) {
+                    var games = loadCatchGames();
+                    var g = games[currentCatchGameViewIndex];
+                    if (!g || !Array.isArray(g.cards)) return;
+                    g.cards = g.cards.filter(filterFn);
+                    saveCatchGames(games);
+                    openCatchGameView(currentCatchGameViewIndex, gameViewReturnScreen);
+                } else if (inFind) {
+                    var fgs = loadCustomGames();
+                    var fg = fgs[currentGameViewIndex];
+                    if (!fg || !Array.isArray(fg.cards)) return;
+                    fg.cards = fg.cards.filter(filterFn);
+                    localStorage.setItem('savedCustomGames', JSON.stringify(fgs));
+                    openCustomGameView(currentGameViewIndex, gameViewReturnScreen);
+                }
+            });
+        }
+
+        // Small 2-button confirm dialog used by the Game View × button.
+        // Stylistically matches _showSimpleDeleteDialog but offers only
+        // 'Remove' and 'Cancel' — no Safe Haven option, because we aren't
+        // touching the card's library existence.
+        function _showRemoveFromGameDialog(labelText, onConfirm) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:360px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:8px;color:#FFD700;';
+            title.textContent = 'Remove "' + labelText + '" from this game?';
+            dialog.appendChild(title);
+            var note = document.createElement('div');
+            note.style.cssText = 'font-size:12px;color:#bbb;margin-bottom:16px;line-height:1.4;';
+            note.textContent = 'The card will stay in Card Maker and in any other games that use it.';
+            dialog.appendChild(note);
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+            var btnRemove = document.createElement('button');
+            btnRemove.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+            btnRemove.textContent = 'Remove from game';
+            btnRemove.onclick = function() { overlay.remove(); if (typeof onConfirm === 'function') onConfirm(); };
+            btnRow.appendChild(btnRemove);
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
         }
 
         function confirmDeleteCard(card) {

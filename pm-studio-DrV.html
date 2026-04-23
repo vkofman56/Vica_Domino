@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:27 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:50 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -466,7 +466,8 @@
                 <h1 class="library-title" style="margin-bottom: 2px;">Game Creator</h1>
                 <div class="game-view-title-row">
                     <h1 class="library-title game-view-editable" id="game-view-title" onclick="editGameTitle()" title="Click to edit name"></h1>
-                    <span class="catch-2p-warning" id="catch-2p-warning" style="display:none;">&#9888; Two players will see<br>identical &quot;doubles&quot;<br>for the rows with 2 cards</span>
+                    <span class="catch-2p-warning" id="catch-2p-warning" style="display:none;">&#9888; Two-Players game has<br>same &quot;doubles&quot; for both<br>players when the rows<br>have 2 cards only</span>
+                    <span class="lines-need-cards-warning" id="lines-need-cards-warning" style="display:none;"></span>
                 </div>
                 <p class="game-view-desc game-view-editable" id="game-view-desc" onclick="editGameDesc()" title="Click to edit description"></p>
                 <div id="game-view-cards"></div>
@@ -9547,33 +9548,59 @@
             _addCardSelectedCards = [];
         }
 
-        // Catch 2-player advisory: show a warning pill next to the Game name
-        // whenever the current catch game has any row with exactly 2 cards.
-        // In 2-player mode those rows force both players to see the same "other"
-        // card — the warning flags that to the game creator. Safe no-op when
-        // we're not viewing a catch game (currentCatchGameViewIndex < 0).
-        function _updateCatch2PlayerWarning() {
-            var pill = document.getElementById('catch-2p-warning');
-            if (!pill) return;
-            if (typeof currentCatchGameViewIndex === 'undefined' || currentCatchGameViewIndex < 0) {
-                pill.style.display = 'none';
+        // Game View advisories (both AGC-Catch and AGC-Doubles):
+        //   • catch-2p-warning — Catch only, rows with exactly 2 cards
+        //   • lines-need-cards-warning — either view, rows with exactly 1 card
+        // Both are driven by the current game's row counts (grouped by _gameRow
+        // or first label char). Safe no-op when we're not in any Game View.
+        function _updateGameViewWarnings() {
+            var pill2 = document.getElementById('catch-2p-warning');
+            var pill1 = document.getElementById('lines-need-cards-warning');
+            var inCatch = (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
+            var inFind = !inCatch && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
+            if (!inCatch && !inFind) {
+                if (pill2) pill2.style.display = 'none';
+                if (pill1) pill1.style.display = 'none';
                 return;
             }
-            var games = (typeof loadCatchGames === 'function') ? loadCatchGames() : [];
-            var game = games[currentCatchGameViewIndex];
-            if (!game || !Array.isArray(game.cards)) { pill.style.display = 'none'; return; }
+            var game = null;
+            if (inCatch && typeof loadCatchGames === 'function') game = loadCatchGames()[currentCatchGameViewIndex];
+            else if (inFind && typeof loadCustomGames === 'function') game = loadCustomGames()[currentGameViewIndex];
+            if (!game || !Array.isArray(game.cards)) {
+                if (pill2) pill2.style.display = 'none';
+                if (pill1) pill1.style.display = 'none';
+                return;
+            }
             // Group by row: prefer explicit _gameRow, fall back to first label char.
             var rowCounts = {};
             game.cards.forEach(function(c) {
-                if (!c || c._addedToGame) return; // skip the "added" row
+                if (!c || c._addedToGame) return;
                 var key = (c._gameRow !== undefined) ? c._gameRow
                         : (c.label || '').charAt(0).toUpperCase();
                 if (!key) return;
                 rowCounts[key] = (rowCounts[key] || 0) + 1;
             });
-            var hasTwoCardRow = Object.keys(rowCounts).some(function(k) { return rowCounts[k] === 2; });
-            pill.style.display = hasTwoCardRow ? 'inline-block' : 'none';
+            // Catch-only 2-player advisory
+            if (pill2) {
+                var hasTwo = inCatch && Object.keys(rowCounts).some(function(k) { return rowCounts[k] === 2; });
+                pill2.style.display = hasTwo ? 'inline-block' : 'none';
+            }
+            // "Line X needs more cards" — shows for either view if any row has 1 card
+            if (pill1) {
+                var oneRows = Object.keys(rowCounts).filter(function(k) { return rowCounts[k] === 1; }).sort();
+                if (oneRows.length === 0) {
+                    pill1.style.display = 'none';
+                } else if (oneRows.length === 1) {
+                    pill1.textContent = '⚠ Line ' + oneRows[0] + ' needs more cards.';
+                    pill1.style.display = 'inline-block';
+                } else {
+                    pill1.textContent = '⚠ Lines ' + oneRows.join(', ') + ' need more cards.';
+                    pill1.style.display = 'inline-block';
+                }
+            }
         }
+        // Back-compat alias so any older references keep working
+        function _updateCatch2PlayerWarning() { _updateGameViewWarnings(); }
 
         // Run the warning check whenever the game-view-cards container changes
         // (captures every card add/remove/edit without hunting down every call
@@ -9757,8 +9784,9 @@
             if (!game) return;
 
             currentCatchGameViewIndex = -1; // not a catch game
-            if (typeof _updateCatch2PlayerWarning === 'function') _updateCatch2PlayerWarning();
             currentGameViewIndex = gameIndex;
+            // Refresh both warning pills now that we've switched to a Find view
+            if (typeof _updateGameViewWarnings === 'function') _updateGameViewWarnings();
             gameViewReturnScreen = returnScreen || 'card-library-screen';
             // Reset collapsed view button state (keep last toggle if re-entering)
             var collapseBtn = document.getElementById('game-view-collapse-btn');

@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9248,14 +9248,14 @@
         // legacy games continue to work identically.
         // ===========================================================
         function _defaultGameSetup(gameType) {
-            // Default labels mirror today's hardcoded UI strings as closely
-            // as possible. Catch levels are present but default-off (the
-            // axis is uniform across game types; Catch level UI is "under
-            // construction" until wired).
+            // Stored labels are SUFFIX-ONLY for prefix-bearing axes (levels, types).
+            // The "Level N" / "Type N" prefix is rendered live from the row index
+            // — never stored. So if admin renames Level 1's suffix to "Easy", the
+            // stored label is just "Easy".
             var isCatch = (gameType === 'catch');
             var levelLabels = isCatch
-                ? ['Easy', 'Medium', 'Hard']
-                : ['Level 1 — 2 dominos', 'Level 2 — 3 dominos', 'Level 3 — 4 dominos'];
+                ? ['', '', '']
+                : ['2 dominos', '3 dominos', '4 dominos'];
             function mkAxis(labels, axisName, defaultOn) {
                 if (defaultOn === undefined) defaultOn = true;
                 return {
@@ -9279,6 +9279,15 @@
                 }
             };
         }
+        // Migration regex: strips "Level N — " or "Type N — " prefix iff there's
+        // a separator + content after. "Type 1" → no match, stays as "Type 1".
+        // "Level 1 — 2 dominos" → "2 dominos". Run on labels in levels + types axes.
+        var _GS_PREFIX_RE = /^(Level|Type)\s+\d+\s*[—–-]\s*(.+)$/i;
+        function _gsStripStoredPrefix(label) {
+            if (typeof label !== 'string') return label;
+            var m = label.match(_GS_PREFIX_RE);
+            return m ? m[2].trim() : label;
+        }
         function _getGameSetup(game, gameType) {
             if (!game) return _defaultGameSetup(gameType);
             if (!game.setup || typeof game.setup !== 'object') return _defaultGameSetup(gameType);
@@ -9288,10 +9297,18 @@
                 if (!game.setup[mode]) game.setup[mode] = def[mode];
                 ['players', 'levels', 'types'].forEach(function(ax) {
                     if (def[mode][ax] && !game.setup[mode][ax]) game.setup[mode][ax] = def[mode][ax];
-                    // Strip legacy lockedOff flags from saves made before admin-decides rule
                     var axisData = game.setup[mode][ax];
                     if (axisData && Array.isArray(axisData.options)) {
-                        axisData.options.forEach(function(opt) { if (opt) delete opt.lockedOff; });
+                        axisData.options.forEach(function(opt) {
+                            if (!opt) return;
+                            // Strip legacy lockedOff flags from saves made before admin-decides rule.
+                            delete opt.lockedOff;
+                            // Strip "Level N — " / "Type N — " prefix from stored labels (one-time
+                            // migration to suffix-only storage). Only applies to levels + types axes.
+                            if ((ax === 'levels' || ax === 'types') && typeof opt.label === 'string') {
+                                opt.label = _gsStripStoredPrefix(opt.label);
+                            }
+                        });
                     }
                 });
             });
@@ -9398,6 +9415,15 @@
             });
             _gsRenderForm();
         }
+        // Returns the non-editable prefix shown to the LEFT of an option's
+        // editable suffix box. Computed from the row index so it auto-renumbers
+        // when rows are added / removed. Empty string = no prefix (free-form
+        // axis like Player Options).
+        function _gsOptionPrefix(axis, idx) {
+            if (axis === 'levels') return 'Level ' + (idx + 1);
+            if (axis === 'types')  return 'Type '  + (idx + 1);
+            return '';
+        }
         // Returns true if a given axis is "under construction" — i.e. admin
         // can edit it but no player-side / runtime code consumes it yet.
         function _gsIsAxisUC(gameType, axis) {
@@ -9411,7 +9437,13 @@
             var conf = _gsWorking[_gsCurrentTab];
             if (!conf || !conf[axis]) return;
             var n = conf[axis].options.length + 1;
-            conf[axis].options.push({ id: 'opt' + n, label: 'Option ' + n, on: false });
+            // Per-axis suffix default for newly-added rows.
+            // Levels: empty (admin fills in). Types: "Type N" matching prefix.
+            // Players: "Option N" (legacy free-form behavior).
+            var label = '';
+            if (axis === 'players') label = 'Option ' + n;
+            else if (axis === 'types') label = 'Type ' + n;
+            conf[axis].options.push({ id: 'opt' + n, label: label, on: false });
             _gsRenderForm();
         }
         function _gsRemoveOption(axis, idx) {
@@ -9463,10 +9495,21 @@
                     cb.type = 'checkbox';
                     cb.checked = !!opt.on;
                     cb.dataset.optionIndex = idx;
+                    row.appendChild(cb);
+                    // Non-editable "Level N" / "Type N" prefix label (free-form
+                    // axes like Player Options return '' and skip this).
+                    var prefixText = _gsOptionPrefix(axis, idx);
+                    if (prefixText) {
+                        var prefix = document.createElement('span');
+                        prefix.className = 'gs-option-prefix';
+                        prefix.textContent = prefixText;
+                        row.appendChild(prefix);
+                    }
                     var txt = document.createElement('input');
                     txt.type = 'text';
                     txt.value = opt.label || '';
                     txt.dataset.optionIndex = idx;
+                    row.appendChild(txt);
                     var rm = document.createElement('button');
                     rm.type = 'button';
                     rm.className = 'gs-remove-option-btn';
@@ -9474,8 +9517,6 @@
                     rm.textContent = '✕';
                     rm.disabled = (axisData.options.length <= 1);
                     rm.addEventListener('click', function() { _gsRemoveOption(axis, idx); });
-                    row.appendChild(cb);
-                    row.appendChild(txt);
                     row.appendChild(rm);
                     optsContainer.appendChild(row);
                 });
@@ -9543,14 +9584,21 @@
                 listEl.style.display = 'none';
                 var find  = (typeof loadCustomGames === 'function') ? loadCustomGames()   : [];
                 var catchg = (typeof loadCatchGames  === 'function') ? loadCatchGames()  : [];
+                // Identify the current game so it can be marked + pre-checked.
+                var curType = _gsGameType;
+                var curIdx  = (curType === 'catch')
+                    ? (typeof currentCatchGameViewIndex !== 'undefined' ? currentCatchGameViewIndex : -1)
+                    : (typeof currentGameViewIndex      !== 'undefined' ? currentGameViewIndex      : -1);
                 function addRow(type, idx, name) {
+                    var isCurrent = (type === curType && idx === curIdx);
                     var lbl = document.createElement('label');
-                    lbl.className = 'gs-apply-game-row';
+                    lbl.className = 'gs-apply-game-row' + (isCurrent ? ' gs-apply-game-row-current' : '');
                     var cb = document.createElement('input');
                     cb.type = 'checkbox';
                     cb.value = type + ':' + idx;
+                    if (isCurrent) cb.checked = true; // Pre-checked for the current game.
                     var span = document.createElement('span');
-                    span.textContent = '[' + (type === 'catch' ? 'Catch' : 'Find') + '] ' + name;
+                    span.textContent = '[' + (type === 'catch' ? 'Catch' : 'Find') + '] ' + name + (isCurrent ? '  (current)' : '');
                     lbl.appendChild(cb);
                     lbl.appendChild(span);
                     listEl.appendChild(lbl);

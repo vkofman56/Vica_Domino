@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 20, 2026
+**Last Updated**: April 25, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -685,6 +685,123 @@ With Phase 4 done and this polish round complete, candidates to scope next:
 - **L1 desktop density**: `@media (min-width:1025px)` block at end of css/style.css (~line 5812+).
 - **Loupe functions**: `openLoupe()` at line ~1404, `_isLoupeOpen()` at line ~7121, `drawKeyHandler` at ~line 4000.
 - **Card creation**: `addNewDrawnCard(svgEl, cardName)` at ~line 4707. Always uses viewBox `0 0 60 60`.
+
+## April 22–23 Session — Game Settings (Phase A.1 + A.2)
+
+The admin gets a per-game configuration matrix that drives what the
+player sees on the setup screens. Cogwheel ⚙ in Game View opens the
+modal. Touch / Mouse tabs are independent.
+
+### Phase A.1 — admin-side modal (commits `37e4fae` → `5ec898d`)
+- Cogwheel button on Find / Catch Game View.
+- Modal with **Touch** and **Mouse** tabs, each holding three axes:
+  **Player Options** (1P+timer / 2P / 2P+timer), **Level** (Find only —
+  Catch hides this), **Type of Game** (Type 1 / 2 / 3 placeholder).
+- Per axis: editable axis label + per-option checkbox + editable label.
+- **Timer** field at the top (Find default 20s, Catch default 6s).
+- **⎘ Touch → Mouse** button: deep-copies the touch matrix into mouse.
+- **⎘ From another game…** picker: clones settings from another
+  same-type game.
+- **Save** persists `game.setup = { timer, touch, mouse }` onto the game
+  record (Find: `findGames`, Catch: `catchGames`).
+- **Bug fixed mid-session (`5ec98d`)**: cogwheel click ran but modal was
+  invisible — modal was inside a clipped/hidden parent. Fix: relocate the
+  overlay to `<body>` level on first show.
+- Key functions in `pm-studio-DrV.html` ~line 9250+:
+  `_defaultGameSetup`, `_getGameSetup`, `_saveGameSetupToCurrent`,
+  `openGameSettingsModal`, `_gsRenderTab`, `_gsCaptureForm`,
+  `_gsCopyTouchToMouse`, `_gsOpenCopyFromGame`, `saveGameSettings`.
+
+### Phase A.2 — player-side runtime consumer (commit `3858b5c`)
+The player setup screens (GP F Setup / GPt Ct Setup / GPm Cm Setup) now
+read `game.setup[currentInputMode]` on game launch and:
+- hide deactivated `.player-btn` rows (`display:none`).
+- hide deactivated `.level-btn-wrapper` rows (Find only).
+- substitute admin-custom labels on player buttons + `.level-label` spans.
+- replace the h3 headers ("How many players?", "Choose your game:") with
+  the admin's axis labels (defaults match the original strings).
+- stash timer on `window._currentGameSetupTimer` for gameplay code (Phase
+  A.3 to consume).
+
+Input-mode detection:
+- **Catch** → `_catchInputMode` (`'touch'` or `'mouse'`, set by the popup
+  on GP 0).
+- **Find** → `_hasTouchScreen` (true on iPad, false on Mac/desktop).
+
+Hook sites in `index.html`:
+- `// Phase A.2: apply admin's matrix for this catch game` (~line 990)
+- `// Phase A.2: apply admin's matrix for this find game` (~line 1152)
+- `_resetSetupPanel` (~line 869) — restores original labels + show-all
+  on game switch so customizations don't leak between games.
+
+## April 25 Session — Game Settings: lockedOff removed (commit `6303149`)
+
+Yesterday's Phase A.1/A.2 had a hard-coded restriction: in Mouse mode the
+2-player rows were locked off (gray, disabled, "(N/A in mouse mode)"
+note). User feedback: **the admin decides what's possible, not the
+system.** A 2-player turn-taking game can work fine with a mouse. If a
+specific game-set genuinely can't support 2P, that should surface as a
+creation-time warning (separate, future task).
+
+Changes in `pm-studio-DrV.html`:
+- `_defaultGameSetup`: `mouse.players` now uses the same `mkAxis()`
+  helper as `touch.players`. All three options on by default.
+- Option-row builder (`_gsRenderTab`): dropped the `.locked-off` class,
+  the `cb.disabled` flip, and the "(N/A in mouse mode)" note. Every
+  option is now editable.
+- `_gsCopyTouchToMouse`: plain deep-copy of touch → mouse (no
+  flag-preservation pass).
+- `_getGameSetup`: strips any legacy `lockedOff:true` from stored saves
+  on load — games saved between Apr 23 and Apr 25 self-heal on next open.
+
+CSS: dropped the dead `.gs-option-row.locked-off` and `.gs-locked-note`
+rules from `css/style.css`.
+
+### Phase A.3 — NOT YET DONE
+- Wire `window._currentGameSetupTimer` into actual gameplay:
+  - **Find / Xeno timer**: hardcoded 20s in `js/game.js` should read
+    the admin override.
+  - **Catch fall-duration**: hardcoded 6s should read the admin override.
+- Decide what to do when admin's timer is 0 / blank (treat as "use
+  hardcoded default"?).
+
+### Future / deferred (open spec questions)
+- **Creation-time warning** when a new game-set genuinely can't support
+  2P, so the admin sees the constraint at creation rather than running
+  into it after editing the matrix.
+- **Type of Game** axis is editable in the admin modal but the player UI
+  doesn't have a picker for it yet — placeholder per original spec.
+
+## Branch landscape (as of April 25)
+
+**Three branches kept in sync** (every push goes to all three):
+| Branch | Role |
+|---|---|
+| `master` | Primary work branch |
+| `claude/general-session-yVBQq` | Push target #2 |
+| `claude/review-project-docs-JOOeh` | **GitHub Pages deploy** — site lives here |
+
+**Stale/abandoned branches** (per-session auto-named, never cleaned up):
+`main` (305 behind, abandoned Mar 31), `claude/review-project-docs-QNagl`,
+`claude/fix-image-upload-cnMr5`, `claude/clarify-task-1NM0X`,
+`claude/read-todays-notes-zfR1g`, `claude/review-daily-progress-4qGJy`,
+`claude/review-vica-domino-notes-vxyYf`, `find-the-double`,
+`Resizing-for-different-hardware`. Safe to delete on GitHub when
+convenient. **Note**: ignore the auto-generated branch name when a new
+Claude session starts — switch to `master` first thing.
+
+## Session-recovery lessons (April 25)
+- **Claude has no cross-session memory.** Anything not committed before a
+  session crash is gone. Treat this MEMORY.md (and STATUS_NOTES.md) as
+  the only durable record between sessions.
+- **Large image uploads can crash a session** with
+  `cache_control cannot be set for empty text blocks`. Workaround:
+  downscale screenshots to ~1024px wide before attaching, or describe
+  what's on screen in text.
+- **First thing in a new session**: check `git log --all --since=...` for
+  recent commits + read MEMORY.md tail to see where the previous session
+  left off. The branch the session opens on is auto-generated and rarely
+  the right one.
 
 ### Mobile Player Proposals (DEFERRED — discuss later)
 - **T1**: Touch-optimized card selection (larger tap targets, swipe gestures)

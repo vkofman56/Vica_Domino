@@ -757,6 +757,61 @@ Changes in `pm-studio-DrV.html`:
 CSS: dropped the dead `.gs-option-row.locked-off` and `.gs-locked-note`
 rules from `css/style.css`.
 
+## April 25 Session (cont.) — Uniform 3-axis console + UC badges + dynamic options (commit `4e1ab3d`)
+
+The Game Settings modal is now identical for Find and Catch: three axes
+(**Player Options**, **Level**, **Type of Game**) plus the timer.
+
+### `_defaultGameSetup` changes (`pm-studio-DrV.html` ~line 9250)
+- `mkAxis(labels, axisName, defaultOn)` — new third param. Default `true`.
+- **Level axis always present for both game types.** Catch defaults all
+  Level options to `on: false` so visible player behavior is identical to
+  before (Phase A.2 hides any axis with all-unchecked options).
+- **Type of Game axis defaults all-off** for both game types (no player
+  picker exists yet; nothing would happen if they were on).
+- Touch and Mouse blocks are now symmetric — same three axes each.
+
+### Dynamic option count
+- Per-axis **+ Add option** button appended to `.gs-options` container.
+  Adds a new option `{ id: 'opt<n+1>', label: 'Option <n+1>', on: false }`
+  and re-renders.
+- Per-row **✕** remove button. Disabled when only one option remains
+  (min-1 enforced). Form values are captured first so in-progress edits
+  on other rows aren't lost on re-render.
+- Helpers: `_gsAddOption(axis)`, `_gsRemoveOption(axis, idx)`.
+
+### "🚧 Under construction" badges
+- Helper `_gsIsAxisUC(gameType, axis)` returns true when:
+  - `axis === 'types'` (both game types — no player picker)
+  - `axis === 'levels' && gameType === 'catch'` (no Catch level UI)
+- Timer field gets a permanent UC badge until Phase A.3 wires it to
+  gameplay. Static HTML span `#gs-timer-uc-badge` is always shown by
+  `_gsRenderForm`.
+- CSS: `.gs-uc-badge` — small orange pill with tooltip "Admin can edit
+  this, but no runtime/player code uses it yet."
+
+### Player-side constraint (important to remember)
+- `index.html` hardcodes **3 `.level-btn-wrapper` rows** (line 79, 104,
+  138) for Find, each tied to a specific `data-level` enum
+  (`circle` / `triangle` / `star`) consumed by gameplay code. Adding a
+  4th Level option in the admin matrix **saves fine** (localStorage has
+  no row count limit) but **does not render a 4th button** on the player
+  side. The UC badge on "Level (Catch)" and "Type (both)" covers
+  axis-wide cosmetic behaviour; per-option "beyond-N" warnings on the
+  Find-Level axis are a future refinement if the discrepancy becomes
+  confusing.
+
+### Modal template HTML changes
+- `gs-timer-row` gained `<span class="gs-uc-badge" id="gs-timer-uc-badge">`.
+- Axis section templates unchanged — `.gs-options` container gets the
+  add-button appended dynamically by `_gsRenderForm`.
+
+### CSS additions (`css/style.css` ~line 2593)
+- `.gs-axis-label-row` became flex so the badge sits next to the axis
+  label input.
+- New: `.gs-uc-badge`, `.gs-add-option-btn`, `.gs-remove-option-btn`
+  (with `:disabled` and `:hover:not(:disabled)` states).
+
 ### Phase A.3 — NOT YET DONE
 - Wire `window._currentGameSetupTimer` into actual gameplay:
   - **Find / Xeno timer**: hardcoded 20s in `js/game.js` should read
@@ -766,11 +821,22 @@ rules from `css/style.css`.
   hardcoded default"?).
 
 ### Future / deferred (open spec questions)
+Each of these, when shipped, removes a UC badge from the Game Settings
+modal:
+- **Phase A.3 — timer wiring** → removes Timer UC badge. See above.
+- **Dynamic player-side level rendering** (Find) — generate
+  `.level-btn-wrapper` rows from the matrix instead of hardcoding 3 →
+  admin's 4th+ Level option actually renders. Gameplay needs to define
+  card counts for whatever levels are added.
+- **Catch-Level player UI** — build a level picker into the Catch setup
+  flow → removes Catch-Level UC badge.
+- **Type of Game player picker** — build a picker into player setup that
+  reads `game.setup[mode].types.options` → removes Type-of-Game UC badge
+  for both game types. Need a spec on what "Type 1" / "Type 2" actually
+  change in gameplay.
 - **Creation-time warning** when a new game-set genuinely can't support
   2P, so the admin sees the constraint at creation rather than running
   into it after editing the matrix.
-- **Type of Game** axis is editable in the admin modal but the player UI
-  doesn't have a picker for it yet — placeholder per original spec.
 
 ## Branch landscape (as of April 25)
 

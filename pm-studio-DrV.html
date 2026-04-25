@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:19 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9525,6 +9525,157 @@
             _gsWorking.mouse = JSON.parse(JSON.stringify(_gsWorking.touch));
             _gsSwitchTab('mouse');
         }
+        // ===== "Apply to…" — propagate selected matrix sections to other games =====
+        function _gsOpenApplyTo() {
+            if (!_gsWorking) return;
+            _gsCaptureForm(); // include any in-progress edits
+            // Reset checkboxes to defaults each time the picker opens.
+            ['timer','players','levels','types'].forEach(function(k) {
+                var el = document.getElementById('gs-apply-what-' + k);
+                if (el) el.checked = true;
+            });
+            var thisRadio = document.querySelector('input[name="gs-apply-scope"][value="this"]');
+            if (thisRadio) thisRadio.checked = true;
+            // Populate the specific-games checklist (hidden until "Pick specific" chosen).
+            var listEl = document.getElementById('gs-apply-game-list');
+            if (listEl) {
+                listEl.innerHTML = '';
+                listEl.style.display = 'none';
+                var find  = (typeof loadCustomGames === 'function') ? loadCustomGames()   : [];
+                var catchg = (typeof loadCatchGames  === 'function') ? loadCatchGames()  : [];
+                function addRow(type, idx, name) {
+                    var lbl = document.createElement('label');
+                    lbl.className = 'gs-apply-game-row';
+                    var cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = type + ':' + idx;
+                    var span = document.createElement('span');
+                    span.textContent = '[' + (type === 'catch' ? 'Catch' : 'Find') + '] ' + name;
+                    lbl.appendChild(cb);
+                    lbl.appendChild(span);
+                    listEl.appendChild(lbl);
+                }
+                find.forEach(function(g, i)   { addRow('find',  i, g.name || ('Game ' + (i+1))); });
+                catchg.forEach(function(g, i) { addRow('catch', i, g.name || ('Game ' + (i+1))); });
+            }
+            // Wire scope radio change → reveal/hide list + update Apply button label.
+            document.querySelectorAll('input[name="gs-apply-scope"]').forEach(function(r) {
+                r.onchange = _gsApplyScopeChanged;
+            });
+            // Wire game-checkbox changes → keep button label live.
+            if (listEl) listEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                cb.onchange = _gsApplyScopeChanged;
+            });
+            _gsApplyScopeChanged();
+            var ov = document.getElementById('gs-apply-overlay');
+            if (ov) ov.style.display = 'flex';
+        }
+        function _gsCloseApplyTo() {
+            var ov = document.getElementById('gs-apply-overlay');
+            if (ov) ov.style.display = 'none';
+        }
+        function _gsApplyScopeChanged() {
+            var scopeEl = document.querySelector('input[name="gs-apply-scope"]:checked');
+            var scope = scopeEl ? scopeEl.value : 'this';
+            var listEl = document.getElementById('gs-apply-game-list');
+            if (listEl) listEl.style.display = (scope === 'specific') ? 'block' : 'none';
+            var btn = document.getElementById('gs-apply-confirm-btn');
+            if (!btn) return;
+            var n = _gsResolveTargets(scope).length;
+            btn.textContent = (scope === 'this' || n <= 1) ? 'Apply' : ('Apply to ' + n + ' games');
+        }
+        function _gsResolveTargets(scope) {
+            // Returns [{type, idx}, …] for the currently-selected scope.
+            var find  = (typeof loadCustomGames === 'function') ? loadCustomGames()   : [];
+            var catchg = (typeof loadCatchGames  === 'function') ? loadCatchGames()  : [];
+            var out = [];
+            if (scope === 'this') {
+                if (_gsGameType === 'catch' && typeof currentCatchGameViewIndex !== 'undefined' && currentCatchGameViewIndex >= 0) {
+                    out.push({ type: 'catch', idx: currentCatchGameViewIndex });
+                } else if (_gsGameType === 'find' && typeof currentGameViewIndex !== 'undefined' && currentGameViewIndex >= 0) {
+                    out.push({ type: 'find', idx: currentGameViewIndex });
+                }
+                return out;
+            }
+            if (scope === 'all-find' || scope === 'all') {
+                find.forEach(function(_g, i) { out.push({ type: 'find', idx: i }); });
+            }
+            if (scope === 'all-catch' || scope === 'all') {
+                catchg.forEach(function(_g, i) { out.push({ type: 'catch', idx: i }); });
+            }
+            if (scope === 'specific') {
+                document.querySelectorAll('#gs-apply-game-list input[type="checkbox"]:checked').forEach(function(cb) {
+                    var parts = (cb.value || '').split(':');
+                    if (parts.length === 2) out.push({ type: parts[0], idx: parseInt(parts[1], 10) });
+                });
+            }
+            return out;
+        }
+        function _gsApplyToConfirm() {
+            if (!_gsWorking) return;
+            // Re-capture in case the admin tabbed back to the main modal between Open and Apply.
+            // (Defensive — most flows already captured on Open.)
+            _gsCaptureForm();
+            var sections = {
+                timer:   !!document.getElementById('gs-apply-what-timer')   && document.getElementById('gs-apply-what-timer').checked,
+                players: !!document.getElementById('gs-apply-what-players') && document.getElementById('gs-apply-what-players').checked,
+                levels:  !!document.getElementById('gs-apply-what-levels')  && document.getElementById('gs-apply-what-levels').checked,
+                types:   !!document.getElementById('gs-apply-what-types')   && document.getElementById('gs-apply-what-types').checked
+            };
+            if (!sections.timer && !sections.players && !sections.levels && !sections.types) {
+                alert('Pick at least one section to apply (Timer / Player Options / Level / Type of Game).');
+                return;
+            }
+            var scopeEl = document.querySelector('input[name="gs-apply-scope"]:checked');
+            var scope = scopeEl ? scopeEl.value : 'this';
+            var targets = _gsResolveTargets(scope);
+            if (targets.length === 0) {
+                alert('No games selected.');
+                return;
+            }
+            // Confirm bulk overwrites (skip for single-game / current-game-only).
+            if (targets.length > 1) {
+                var ok = confirm('Apply to ' + targets.length + ' games — overwrite the checked sections in each one?');
+                if (!ok) return;
+            }
+            var find  = loadCustomGames();
+            var catchg = loadCatchGames();
+            var findDirty = false, catchDirty = false;
+            targets.forEach(function(t) {
+                var arr = (t.type === 'catch') ? catchg : find;
+                var game = arr[t.idx];
+                if (!game) return;
+                if (!game.setup) game.setup = JSON.parse(JSON.stringify(_defaultGameSetup(t.type)));
+                if (sections.timer && typeof _gsWorking.timer === 'number') game.setup.timer = _gsWorking.timer;
+                ['players','levels','types'].forEach(function(ax) {
+                    if (!sections[ax]) return;
+                    ['touch','mouse'].forEach(function(mode) {
+                        if (_gsWorking[mode] && _gsWorking[mode][ax]) {
+                            if (!game.setup[mode]) game.setup[mode] = {};
+                            game.setup[mode][ax] = JSON.parse(JSON.stringify(_gsWorking[mode][ax]));
+                        }
+                    });
+                });
+                if (t.type === 'catch') catchDirty = true;
+                else findDirty = true;
+            });
+            if (findDirty)  localStorage.setItem('savedCustomGames', JSON.stringify(find));
+            if (catchDirty) saveCatchGames(catchg);
+            _gsCloseApplyTo();
+            // Brief success feedback.
+            try {
+                var oldTitle = document.getElementById('gs-title');
+                if (oldTitle) {
+                    var prev = oldTitle.textContent;
+                    oldTitle.textContent = '✓ Applied to ' + targets.length + ' game' + (targets.length === 1 ? '' : 's');
+                    setTimeout(function() { if (oldTitle.textContent.indexOf('✓ Applied') === 0) oldTitle.textContent = prev; }, 1800);
+                }
+            } catch (e) {}
+        }
+        try { window._gsOpenApplyTo = _gsOpenApplyTo; } catch(e) {}
+        try { window._gsCloseApplyTo = _gsCloseApplyTo; } catch(e) {}
+        try { window._gsApplyToConfirm = _gsApplyToConfirm; } catch(e) {}
+
         function _gsOpenCopyFromGame() {
             // Show a small picker of same-type games to copy from.
             if (!_gsGameType) return;
@@ -16509,7 +16660,40 @@
             </div>
             <div class="gs-footer">
                 <button class="gs-btn gs-btn-primary" onclick="saveGameSettings()">Save</button>
+                <button class="gs-btn gs-btn-apply-to" onclick="_gsOpenApplyTo()" title="Apply selected sections of these settings to other games">Apply to…</button>
                 <button class="gs-btn gs-btn-secondary" onclick="closeGameSettingsModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apply-to picker overlay (sits above the main Game Settings modal). -->
+    <div id="gs-apply-overlay" class="gs-overlay gs-apply-overlay" style="display:none;">
+        <div class="gs-dialog gs-apply-dialog">
+            <div class="gs-header">
+                <h2 id="gs-apply-title">Apply settings to…</h2>
+                <button class="gs-close" onclick="_gsCloseApplyTo()">&times;</button>
+            </div>
+            <div class="gs-body">
+                <div class="gs-apply-section">
+                    <h3 class="gs-apply-h">What to apply</h3>
+                    <label class="gs-apply-check"><input type="checkbox" id="gs-apply-what-timer" checked> Timer value</label>
+                    <label class="gs-apply-check"><input type="checkbox" id="gs-apply-what-players" checked> Player Options axis (Touch &amp; Mouse)</label>
+                    <label class="gs-apply-check"><input type="checkbox" id="gs-apply-what-levels" checked> Level axis (Touch &amp; Mouse)</label>
+                    <label class="gs-apply-check"><input type="checkbox" id="gs-apply-what-types" checked> Type of Game axis (Touch &amp; Mouse)</label>
+                </div>
+                <div class="gs-apply-section">
+                    <h3 class="gs-apply-h">Where to apply</h3>
+                    <label class="gs-apply-radio"><input type="radio" name="gs-apply-scope" value="this" checked> This game only</label>
+                    <label class="gs-apply-radio"><input type="radio" name="gs-apply-scope" value="all-find"> All Find games</label>
+                    <label class="gs-apply-radio"><input type="radio" name="gs-apply-scope" value="all-catch"> All Catch games</label>
+                    <label class="gs-apply-radio"><input type="radio" name="gs-apply-scope" value="all"> All games (Find + Catch)</label>
+                    <label class="gs-apply-radio"><input type="radio" name="gs-apply-scope" value="specific"> Pick specific games…</label>
+                    <div class="gs-apply-game-list" id="gs-apply-game-list" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="gs-footer">
+                <button class="gs-btn gs-btn-primary" id="gs-apply-confirm-btn" onclick="_gsApplyToConfirm()">Apply</button>
+                <button class="gs-btn gs-btn-secondary" onclick="_gsCloseApplyTo()">Cancel</button>
             </div>
         </div>
     </div>

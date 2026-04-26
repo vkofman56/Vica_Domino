@@ -812,13 +812,119 @@ The Game Settings modal is now identical for Find and Catch: three axes
 - New: `.gs-uc-badge`, `.gs-add-option-btn`, `.gs-remove-option-btn`
   (with `:disabled` and `:hover:not(:disabled)` states).
 
-### Phase A.3 — NOT YET DONE
-- Wire `window._currentGameSetupTimer` into actual gameplay:
-  - **Find / Xeno timer**: hardcoded 20s in `js/game.js` should read
-    the admin override.
+### Phase A.3 — NOT YET DONE (DEFERRED, UC badge stays)
+Per April 26 user direction: "timer is a very long and hard issue.
+Put the symbol 'under construction' on timer and lets move to the next
+item." — A.3 is parked. Timer field permanently shows the 🚧 badge until
+revisited.
+- When eventually picked back up: wire `window._currentGameSetupTimer`
+  into actual gameplay:
+  - **Find / Xeno timer**: hardcoded 20s in `js/game.js` should read the
+    admin override (3 sites: lines 135, 1260, 3419).
   - **Catch fall-duration**: hardcoded 6s should read the admin override.
 - Decide what to do when admin's timer is 0 / blank (treat as "use
   hardcoded default"?).
+
+## April 26 Session — Apply to… (commit `3224e4a`)
+
+A new **"Apply to…"** button in the Game Settings modal footer opens a
+picker overlay that propagates the current matrix to other games.
+
+### Two independent selectors
+**What to apply** (4 checkboxes, all-checked by default — Granularity A
+per user choice):
+- ☑ Timer value
+- ☑ Player Options axis (Touch + Mouse together)
+- ☑ Level axis (Touch + Mouse together)
+- ☑ Type of Game axis (Touch + Mouse together)
+
+**Where to apply** (5 radios):
+- ⦿ This game only (default — same effect as Save)
+- ◯ All Find games
+- ◯ All Catch games
+- ◯ All games (Find + Catch)
+- ◯ Pick specific games… → reveals a scrollable
+  `[Find] / [Catch]`-prefixed checklist of every game
+
+### Implementation (`pm-studio-DrV.html`)
+- New helpers: `_gsOpenApplyTo`, `_gsCloseApplyTo`,
+  `_gsApplyScopeChanged`, `_gsResolveTargets`, `_gsApplyToConfirm`.
+- `_gsCaptureForm()` runs on Open and again on Confirm so any
+  in-progress edits in the main modal are included.
+- Apply button label updates live: "Apply" for ≤1 target,
+  "Apply to N games" otherwise. Bulk applies (≥2 targets) get a
+  `confirm()` dialog before write.
+- Per-target write only touches checked sections; unchecked sections
+  stay untouched in target games.
+- Find writes go through `localStorage.setItem('savedCustomGames', …)`;
+  Catch writes go through `saveCatchGames(…)`. Loads buffer once, write
+  once per type.
+- New overlay HTML `#gs-apply-overlay` with `z-index: 20100` so it
+  stacks above the main `#game-settings-overlay`.
+- New CSS: `.gs-btn-apply-to`, `.gs-apply-overlay`, `.gs-apply-section`,
+  `.gs-apply-h`, `.gs-apply-check`, `.gs-apply-radio`,
+  `.gs-apply-game-list`, `.gs-apply-game-row`.
+
+## April 26 Session (cont.) — Prefix labels + current-game marker (commit `d7a895d`)
+
+### Prefix labels for Levels and Type
+Levels and Type-of-Game rows now render a **non-editable "Level N" /
+"Type N" prefix** to the LEFT of the editable text box. Prefix is
+computed live from row index — auto-renumbers when rows are
+added/removed. Player Options stays free-form (no prefix).
+
+Visual: `☑  [Level N]   [editable suffix]   ✕`
+
+### Storage = suffix only
+Stored labels are SUFFIX-ONLY for prefix-bearing axes. Migration regex in
+`_getGameSetup`:
+```
+/^(Level|Type)\s+\d+\s*[—–-]\s*(.+)$/i
+```
+Strips prefix iff there's a separator + content after.
+- `"Level 1 — 2 dominos"` → `"2 dominos"` ✓
+- `"Type 1"` → no match, stays `"Type 1"` ✓
+- `"Easy"` → no match, stays `"Easy"` ✓ (legacy Catch labels preserved)
+
+Helper `_gsStripStoredPrefix(label)` does the strip; called inside the
+schema-repair loop (alongside the lockedOff strip).
+
+### Default suffix for fresh games
+- Find-Level: `"2 dominos"`, `"3 dominos"`, `"4 dominos"`
+- **Catch-Level: empty `""`** (per user spec — "I prefer start from
+  numerical levels since there can be more than 3 levels of difficulty.
+  but I can change to the words at any moment"). Old `"Easy/Medium/Hard"`
+  hardcoded defaults dropped.
+- Type: `"Type 1"`, `"Type 2"`, `"Type 3"` (matches prefix per user spec
+  — visual reads `Type 1 [Type 1]` until renamed).
+
+### Default suffix for "+ Add option" rows
+- Find-Level / Catch-Level: empty
+- Type: `"Type N"` matching prefix
+- Player Options: `"Option N"` (legacy free-form)
+Logic in `_gsAddOption(axis)`.
+
+### Render helper
+`_gsOptionPrefix(axis, idx)`:
+- `'levels'` → `"Level " + (idx + 1)`
+- `'types'`  → `"Type "  + (idx + 1)`
+- else        → `""` (no prefix span rendered)
+
+### Apply-to picker: current-game marker
+The current game now appears in the "Pick specific games…" list with:
+- `(current)` suffix on the name
+- Faint gold tint (`.gs-apply-game-row-current`)
+- Pre-checked checkbox
+
+Admin can uncheck to "apply to others, leave this one alone" — but the
+default scope still includes the current game, matching the other
+"Where to apply" scopes.
+
+### No player-side change needed
+`index.html` `.level-label` spans already display the suffix only
+(`"2 dominos"`, etc.). Phase A.2's label-substitution code in
+`index.html` reads `axisData.options[i].label` directly, which is now
+the suffix — exactly what the player should see.
 
 ### Future / deferred (open spec questions)
 Each of these, when shipped, removes a UC badge from the Game Settings

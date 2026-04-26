@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:00 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1163,41 +1163,81 @@
                 }
             });
 
+            // Apply mGroups (Studio "Match" groups) so multiple cards that share
+            // the same value collapse into a single domino slot — matching what
+            // Studio shows. Without this, a Match-style game generates many more
+            // dominos than Studio displays, with the wrong pairings.
+            var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
+            var labelToGroupIdx = {};
+            mGroups.forEach(function(g, gi) {
+                if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+            });
+            var effective = []; // each: { label, _gameValue, cards: [...] }
+            var addedGroups = {};
+            origCards.forEach(function(c) {
+                var gi = labelToGroupIdx[c.label];
+                if (gi !== undefined) {
+                    if (addedGroups[gi]) return;
+                    addedGroups[gi] = true;
+                    var groupCards = [];
+                    mGroups[gi].forEach(function(lbl) {
+                        for (var k = 0; k < origCards.length; k++) {
+                            if (origCards[k].label === lbl) { groupCards.push(origCards[k]); break; }
+                        }
+                    });
+                    var rep = groupCards[0] || c;
+                    effective.push({
+                        label: rep.label,
+                        _gameValue: rep._gameValue || rep.label.charAt(0),
+                        cards: groupCards
+                    });
+                } else {
+                    effective.push({
+                        label: c.label,
+                        _gameValue: c._gameValue || c.label.charAt(0),
+                        cards: [c]
+                    });
+                }
+            });
+
             var valueSet = {};
-            origCards.forEach(function(c) { valueSet[c.label.charAt(0)] = true; });
+            effective.forEach(function(e) { valueSet[e._gameValue] = true; });
             var values = Object.keys(valueSet).sort();
 
-            // Build SVG pools from svgMarkup (no DOM dependency)
+            // Build SVG pools keyed by group representative label. Pool contains
+            // SVGs for every card in the group, so randomPick picks a variant.
             var svgPools = {};
             var svgMarkupPools = {};
-            origCards.forEach(function(c) {
+            effective.forEach(function(eff) {
                 var pool = [];
-                var svg = getGameCardSVG(c);
-                if (svg) {
-                    pool.push(svg);
-                    svgMarkupPools[c.label] = c.svgMarkup;
+                eff.cards.forEach(function(c) {
+                    var svg = getGameCardSVG(c);
+                    if (svg) pool.push(svg);
+                });
+                svgPools[eff.label] = pool;
+                if (eff.cards[0] && eff.cards[0].svgMarkup) {
+                    svgMarkupPools[eff.label] = eff.cards[0].svgMarkup;
                 }
-                svgPools[c.label] = pool;
             });
 
             var excludedKeys = getExcludedDominos(gameIndex);
 
-            // Generate domino deck
+            // Generate domino deck — one per pair of groups (not per pair of cards)
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
-            for (var i = 0; i < origCards.length; i++) {
-                for (var j = i + 1; j < origCards.length; j++) {
-                    var leftCard = origCards[i];
-                    var rightCard = origCards[j];
-                    var dominoKey = leftCard.label + ':' + rightCard.label;
+            for (var i = 0; i < effective.length; i++) {
+                for (var j = i + 1; j < effective.length; j++) {
+                    var leftEff = effective[i];
+                    var rightEff = effective[j];
+                    var dominoKey = leftEff.label + ':' + rightEff.label;
                     if (excludedKeys.indexOf(dominoKey) >= 0) continue;
-                    var leftValue = leftCard.label.charAt(0);
-                    var rightValue = rightCard.label.charAt(0);
-                    var leftKey = leftCard.label + '_d' + cardId + 'L';
-                    var rightKey = rightCard.label + '_d' + cardId + 'R';
-                    var leftPool = svgPools[leftCard.label];
-                    var rightPool = svgPools[rightCard.label];
+                    var leftValue = leftEff._gameValue;
+                    var rightValue = rightEff._gameValue;
+                    var leftKey = leftEff.label + '_d' + cardId + 'L';
+                    var rightKey = rightEff.label + '_d' + cardId + 'R';
+                    var leftPool = svgPools[leftEff.label];
+                    var rightPool = svgPools[rightEff.label];
                     if (leftPool && leftPool.length > 0) svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
                     if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
                     customDeck.push({ id: cardId++, left: leftKey, right: rightKey, leftValue: leftValue, rightValue: rightValue });
@@ -1210,7 +1250,10 @@
 
             values.forEach(function(v, idx) { VALUE_RANK[v] = idx + 1; });
 
-            try { updateLevelDominoIcons(origCards, svgPools, svgMarkupPools); } catch(e) {
+            // updateLevelDominoIcons takes per-slot cards; pass group representatives
+            // so previews mirror the actual deck.
+            var iconCards = effective.map(function(eff) { return eff.cards[0]; });
+            try { updateLevelDominoIcons(iconCards, svgPools, svgMarkupPools); } catch(e) {
                 console.error('[startCustomGame] updateLevelDominoIcons error:', e);
             }
         }

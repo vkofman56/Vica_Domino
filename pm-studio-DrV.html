@@ -4981,11 +4981,51 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
+            // Capture the game-view identity from the dataset BEFORE removing the
+            // card, since the dataset comes from buildGameViewCard's tagging and
+            // is the authoritative key for finding the entry in game.cards.
+            var gvLabel = card.dataset.gameCardLabel;
+            var gvCardSet = card.dataset.gameCardSet;
+            var gvIsVariation = card.dataset.gameCardVariation === '1';
+            var gvTransform = card.dataset.gameCardTransform;
+
             // Also remove any variations of this card
             if (row && labelText) {
                 row.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) {
                     v.remove();
                 });
+            }
+
+            // If in Game View, remove card from game data first so a save failure
+            // doesn't leave the DOM out of sync with localStorage.
+            var gameViewScreen = document.getElementById('game-view-screen');
+            var inGameView = gameViewScreen && gameViewScreen.style.display !== 'none' && currentGameViewIndex >= 0;
+            if (inGameView) {
+                var games = loadCustomGames();
+                var game = games[currentGameViewIndex];
+                if (game && game.cards) {
+                    var matchKey = (gvLabel !== undefined && gvLabel !== '') ? gvLabel : labelText;
+                    var removeIdx = -1;
+                    for (var i = 0; i < game.cards.length; i++) {
+                        var c = game.cards[i];
+                        if (c.label !== matchKey) continue;
+                        if (gvCardSet && c.cardSet && c.cardSet !== gvCardSet) continue;
+                        if (gvLabel !== undefined && !!c.isVariation !== gvIsVariation) continue;
+                        if (gvIsVariation && gvTransform && c.transform !== gvTransform) continue;
+                        removeIdx = i;
+                        break;
+                    }
+                    // Fallback: if dataset didn't yield a match, fall back to label-only match
+                    if (removeIdx < 0 && matchKey) {
+                        for (var j = 0; j < game.cards.length; j++) {
+                            if (game.cards[j].label === matchKey) { removeIdx = j; break; }
+                        }
+                    }
+                    if (removeIdx >= 0) {
+                        game.cards.splice(removeIdx, 1);
+                        localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                    }
+                }
             }
 
             card.remove();
@@ -4996,21 +5036,11 @@
             // Renumber remaining cards sequentially
             if (row) renumberRow(row);
 
-            // If in Game View, also remove card from game data
-            var gameViewScreen = document.getElementById('game-view-screen');
-            if (gameViewScreen && gameViewScreen.style.display !== 'none' && currentGameViewIndex >= 0 && labelText) {
-                var games = loadCustomGames();
-                var game = games[currentGameViewIndex];
-                if (game && game.cards) {
-                    game.cards = game.cards.filter(function(c) {
-                        return c.label !== labelText;
-                    });
-                    localStorage.setItem('savedCustomGames', JSON.stringify(games));
-                    // Refresh dominos if visible
-                    var dominoArea = document.getElementById('game-view-dominos-area');
-                    if (dominoArea && dominoArea.style.display === 'block') {
-                        rebuildGameViewDominos();
-                    }
+            if (inGameView) {
+                // Refresh dominos if visible
+                var dominoArea = document.getElementById('game-view-dominos-area');
+                if (dominoArea && dominoArea.style.display === 'block') {
+                    rebuildGameViewDominos();
                 }
             }
 
@@ -6823,6 +6853,7 @@
         }
 
         function buildGameViewCard(cardInfo) {
+            var result;
             if (!cardInfo.isVariation) {
                 var original = findCardByLabel(cardInfo.label, cardInfo.cardSet);
                 if (original) {
@@ -6832,10 +6863,10 @@
                     if (del) del.remove();
                     // Re-bind buttons to work with the clone (not the original)
                     rebindGameViewCardButtons(clone);
-                    return clone;
+                    result = clone;
+                } else {
+                    result = buildCardFromMarkup(cardInfo);
                 }
-                // Fallback: build from stored svgMarkup
-                return buildCardFromMarkup(cardInfo);
             } else {
                 var original = findCardByLabel(cardInfo.originalLabel, cardInfo.cardSet);
                 if (original) {
@@ -6851,11 +6882,22 @@
                     var lbl = clone.querySelector('.library-label');
                     if (lbl) lbl.textContent = cardInfo.label;
                     rebindGameViewCardButtons(clone);
-                    return clone;
+                    result = clone;
+                } else {
+                    result = buildCardFromMarkup(cardInfo);
                 }
-                // Fallback: build from stored svgMarkup
-                return buildCardFromMarkup(cardInfo);
             }
+            // Tag the rendered element with identifying fields so deletion can
+            // reliably find the matching entry in game.cards even when the
+            // displayed label differs (e.g., due to renumbering or migration).
+            if (result) {
+                result.dataset.gameCardLabel = cardInfo.label || '';
+                result.dataset.gameCardSet = cardInfo.cardSet || '';
+                result.dataset.gameCardVariation = cardInfo.isVariation ? '1' : '0';
+                if (cardInfo.transform) result.dataset.gameCardTransform = cardInfo.transform;
+                if (cardInfo.originalLabel) result.dataset.gameCardOriginalLabel = cardInfo.originalLabel;
+            }
+            return result;
         }
 
         function getGameCardSVGWithFallback(cardInfo) {

@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:17 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:17 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 04:17 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -10085,9 +10085,15 @@
                 return;
             }
 
-            // Determine which cards are already in the game by checking what's
-            // actually VISIBLE in the game view DOM. This is the ground truth —
-            // it avoids issues with stale UIDs, mismatched SVG, or ghost entries.
+            // Determine which cards are already in the game by matching
+            // storage cards against the game's saved card list.
+            //
+            // The match is set-aware: a storage card "A1" from the ABC set is
+            // a DIFFERENT card from a game card "A1" from "Numbers and Dots"
+            // or any custom set, so label alone isn't enough. Priority:
+            //   1. stableId (unique across all sets)
+            //   2. (label, cardSet) tuple
+            //   3. SVG text content (for cards that genuinely share visuals)
             function extractSvgText(svgMarkup) {
                 if (!svgMarkup) return '';
                 var tmp = document.createElement('div');
@@ -10101,43 +10107,43 @@
                 return result.join('|');
             }
 
-            // Build set of text content + labels from cards currently rendered in game view
-            var gameViewTexts = {};
-            var gameViewLabels = {};
-            var gvContainer = document.getElementById('game-view-cards');
-            if (gvContainer) {
-                gvContainer.querySelectorAll('.library-card').forEach(function(cardEl) {
-                    // Collect label
-                    var lblEl = cardEl.querySelector('.library-label');
-                    if (lblEl) gameViewLabels[lblEl.textContent] = true;
-                    // Collect SVG text content
-                    var svgEl = cardEl.querySelector('svg');
-                    if (svgEl) {
-                        var texts = svgEl.querySelectorAll('text');
-                        var result = [];
-                        for (var ti = 0; ti < texts.length; ti++) {
-                            var t = texts[ti].textContent.trim();
-                            if (t) result.push(t);
-                        }
-                        var key = result.join('|');
-                        if (key) gameViewTexts[key] = true;
-                    }
-                });
-            }
+            // The cardSet name the storage cards belong to in this dialog
+            var storageSetName = (setId === 'numbers') ? 'Numbers and Dots' : (setId === 'abc') ? 'ABC' : setName;
+
+            // Collect identity keys from this game's persisted cards
+            var gameStableIds = {};
+            var gameLabelSetPairs = {};
+            var gameTextSetPairs = {};
+            (game.cards || []).forEach(function(c) {
+                if (!c) return;
+                if (c.stableId) gameStableIds[c.stableId] = true;
+                var cs = c.cardSet || '';
+                if (c.label) gameLabelSetPairs[c.label + ' ' + cs] = true;
+                var t = extractSvgText(c.svgMarkup);
+                if (t) gameTextSetPairs[t + ' ' + cs] = true;
+            });
 
             // Track which storage cards are matched (by index)
             var matchedStorage = {};
 
-            // Check each storage card against the rendered game view
+            // Check each storage card against the saved game cards
             for (var si = 0; si < cards.length; si++) {
-                // Match by visible text content (primary — most reliable)
-                var storageText = extractSvgText(cards[si].svgContent);
-                if (storageText && gameViewTexts[storageText]) {
+                var sc = cards[si];
+                // 1. stableId — unique across all sets, most reliable
+                if (sc.stableId && gameStableIds[sc.stableId]) {
                     matchedStorage[si] = true;
                     continue;
                 }
-                // Match by label (fallback for graphical cards without text)
-                if (cards[si].label && gameViewLabels[cards[si].label]) {
+                // 2. (label, cardSet) — same label in a different set is a
+                //    different card (e.g., ABC's A1 vs Numbers' A1)
+                if (sc.label && gameLabelSetPairs[sc.label + ' ' + storageSetName]) {
+                    matchedStorage[si] = true;
+                    continue;
+                }
+                // 3. (svg-text, cardSet) — secondary check for entries that
+                //    were copied without a stableId
+                var storageText = extractSvgText(sc.svgContent);
+                if (storageText && gameTextSetPairs[storageText + ' ' + storageSetName]) {
                     matchedStorage[si] = true;
                 }
             }

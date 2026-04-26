@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 02:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 02:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 02:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 02:51 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 02:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 02:51 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6738,17 +6738,26 @@
                 _applyShapeToPreview(card);
             }
 
-            // If in Game View, add the new card to game data and rebuild dominos
+            // If in any Game View (Find OR Catch), persist the copy to that
+            // game's cards so it survives re-render and the × button can find
+            // it by stableId. Without this, copies live in DOM only and any
+            // re-render erases them (and any × delete looks like it removes
+            // every copy because the re-render brings back only originals).
             var gameViewScreen = document.getElementById('game-view-screen');
-            if (gameViewScreen && gameViewScreen.style.display !== 'none' && currentGameViewIndex >= 0) {
-                var games = loadCustomGames();
-                var game = games[currentGameViewIndex];
-                if (game && game.cards) {
+            var inGameView = gameViewScreen && gameViewScreen.style.display !== 'none';
+            var inFind = inGameView && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
+            var inCatch = inGameView && !inFind && (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
+            if (inFind || inCatch) {
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
+                var _games = inFind ? loadCustomGames() : loadCatchGames();
+                var _gameIdx = inFind ? currentGameViewIndex : currentCatchGameViewIndex;
+                var _vgame = _games[_gameIdx];
+                if (_vgame && Array.isArray(_vgame.cards)) {
                     // Find the source card in game data to copy its properties
                     var sourceInfo = null;
-                    for (var si = 0; si < game.cards.length; si++) {
-                        if (game.cards[si].label === baseLabel) {
-                            sourceInfo = game.cards[si];
+                    for (var si = 0; si < _vgame.cards.length; si++) {
+                        if (_vgame.cards[si].label === baseLabel) {
+                            sourceInfo = _vgame.cards[si];
                             break;
                         }
                     }
@@ -6761,6 +6770,7 @@
                         _gameRow: sourceInfo ? sourceInfo._gameRow : undefined,
                         _gameValue: sourceInfo ? sourceInfo._gameValue : copyLabel.charAt(0)
                     };
+                    if (card.dataset.stableId) newCardInfo.stableId = card.dataset.stableId;
                     if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                         newCardInfo.cardShape = card.dataset.cardShape;
                         newCardInfo.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -6768,18 +6778,17 @@
                         newCardInfo.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                     }
                     // Insert after the source card in the cards array
-                    var insertIdx = sourceInfo ? game.cards.indexOf(sourceInfo) + 1 : game.cards.length;
-                    game.cards.splice(insertIdx, 0, newCardInfo);
-                    localStorage.setItem('savedCustomGames', JSON.stringify(games));
-                    // Re-apply the game-level shape (circle / rect / corner radius)
-                    // so the brand-new tile picks up the same round/etc. styling
-                    // as the rest of the deck. applyGameShapeOverride styles every
-                    // .library-card under #game-view-cards.
-                    if (typeof applyGameShapeOverride === 'function') applyGameShapeOverride();
-                    // Rebuild dominos if visible
-                    var dominoArea = document.getElementById('game-view-dominos-area');
-                    if (dominoArea && dominoArea.style.display === 'block') {
-                        rebuildGameViewDominos();
+                    var insertIdx = sourceInfo ? _vgame.cards.indexOf(sourceInfo) + 1 : _vgame.cards.length;
+                    _vgame.cards.splice(insertIdx, 0, newCardInfo);
+                    if (inFind) {
+                        localStorage.setItem('savedCustomGames', JSON.stringify(_games));
+                        // Rebuild dominos if visible (Find only — Catch has no domino area)
+                        var dominoArea = document.getElementById('game-view-dominos-area');
+                        if (dominoArea && dominoArea.style.display === 'block') {
+                            rebuildGameViewDominos();
+                        }
+                    } else {
+                        saveCatchGames(_games);
                     }
                 }
             }

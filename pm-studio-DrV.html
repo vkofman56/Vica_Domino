@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:17 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:17 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:16 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:17 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7579,13 +7579,23 @@
             var label = card.querySelector('.library-label');
             var labelText = label ? label.textContent : '';
 
-            // Also remove any variations of this card
+            // Capture the game-view identity from the dataset before any DOM
+            // mutation, since these are the authoritative keys for finding the
+            // entry in game.cards.
+            var gvLabel = card.dataset.gameCardLabel;
+            var gvCardSet = card.dataset.gameCardSet;
+            var gvIsVariation = card.dataset.gameCardVariation === '1';
+            var gvTransform = card.dataset.gameCardTransform;
+            var gvStableId = card.dataset.gameCardStableId;
+            var gvUid = card.dataset.gameCardUid;
+
+            // Remove from DOM first so the user gets immediate visual feedback,
+            // even if the localStorage save below were to throw.
             if (row && labelText) {
                 row.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) {
                     v.remove();
                 });
             }
-
             card.remove();
 
             // Update empty-row visual state (row stays, shows letter placeholder)
@@ -7596,20 +7606,54 @@
 
             // If in Game View, also remove card from game data
             var gameViewScreen = document.getElementById('game-view-screen');
-            if (gameViewScreen && gameViewScreen.style.display !== 'none' && labelText) {
-                var info = _getCurrentViewGame();
-                if (info && info.game && info.game.cards) {
-                    info.game.cards = info.game.cards.filter(function(c) {
-                        return c.label !== labelText;
-                    });
-                    _saveCurrentViewGames(info);
-                    // Refresh dominos if visible (Find games only)
-                    if (info.type === 'find') {
-                        var dominoArea = document.getElementById('game-view-dominos-area');
-                        if (dominoArea && dominoArea.style.display === 'block') {
-                            rebuildGameViewDominos();
+            if (gameViewScreen && gameViewScreen.style.display !== 'none') {
+                try {
+                    var info = _getCurrentViewGame();
+                    if (info && info.game && info.game.cards) {
+                        var matchKey = (gvLabel !== undefined && gvLabel !== '') ? gvLabel : labelText;
+                        var removeIdx = -1;
+                        // Prefer stableId / uid match when available — labels can drift.
+                        if (gvStableId) {
+                            for (var si = 0; si < info.game.cards.length; si++) {
+                                if (info.game.cards[si].stableId === gvStableId) { removeIdx = si; break; }
+                            }
+                        }
+                        if (removeIdx < 0 && gvUid) {
+                            for (var ui = 0; ui < info.game.cards.length; ui++) {
+                                if (info.game.cards[ui].uid === gvUid) { removeIdx = ui; break; }
+                            }
+                        }
+                        if (removeIdx < 0 && matchKey) {
+                            for (var i = 0; i < info.game.cards.length; i++) {
+                                var c = info.game.cards[i];
+                                if (c.label !== matchKey) continue;
+                                if (gvCardSet && c.cardSet && c.cardSet !== gvCardSet) continue;
+                                if (gvLabel !== undefined && !!c.isVariation !== gvIsVariation) continue;
+                                if (gvIsVariation && gvTransform && c.transform !== gvTransform) continue;
+                                removeIdx = i;
+                                break;
+                            }
+                        }
+                        // Fallback: label-only match if stricter matching failed
+                        if (removeIdx < 0 && matchKey) {
+                            for (var j = 0; j < info.game.cards.length; j++) {
+                                if (info.game.cards[j].label === matchKey) { removeIdx = j; break; }
+                            }
+                        }
+                        if (removeIdx >= 0) {
+                            info.game.cards.splice(removeIdx, 1);
+                            _saveCurrentViewGames(info);
+                            // Refresh dominos if visible (Find games only)
+                            if (info.type === 'find') {
+                                var dominoArea = document.getElementById('game-view-dominos-area');
+                                if (dominoArea && dominoArea.style.display === 'block') {
+                                    rebuildGameViewDominos();
+                                }
+                            }
                         }
                     }
+                } catch(err) {
+                    console.error('[deleteCard] Failed to save deletion:', err);
                 }
             }
 
@@ -11919,7 +11963,7 @@
         // Run migration on page load
         _migrateAllGameStableIds();
 
-        function buildGameViewCard(cardInfo) {
+        function _buildGameViewCardInner(cardInfo) {
             // PRIMARY: Look up by stableId in card set storage (always up-to-date)
             if (cardInfo.stableId) {
                 var storedCard = _findCardDataByStableId(cardInfo.stableId);
@@ -12009,6 +12053,23 @@
 
             // LAST RESORT: build from stored svgMarkup snapshot
             return buildCardFromMarkup(cardInfo);
+        }
+
+        function buildGameViewCard(cardInfo) {
+            var result = _buildGameViewCardInner(cardInfo);
+            // Tag the rendered element with identifying fields so deletion can
+            // reliably find the matching entry in game.cards even when the
+            // displayed label drifted.
+            if (result) {
+                result.dataset.gameCardLabel = cardInfo.label || '';
+                result.dataset.gameCardSet = cardInfo.cardSet || '';
+                result.dataset.gameCardVariation = cardInfo.isVariation ? '1' : '0';
+                if (cardInfo.transform) result.dataset.gameCardTransform = cardInfo.transform;
+                if (cardInfo.originalLabel) result.dataset.gameCardOriginalLabel = cardInfo.originalLabel;
+                if (cardInfo.stableId) result.dataset.gameCardStableId = cardInfo.stableId;
+                if (cardInfo.uid) result.dataset.gameCardUid = cardInfo.uid;
+            }
+            return result;
         }
 
         function getGameCardSVGWithFallback(cardInfo) {

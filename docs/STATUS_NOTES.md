@@ -171,6 +171,13 @@ Vica_Domino/
 - [x] Variations disappearing on reload for ABC and custom card sets
 - [x] Built-in Numbers and Dots cards accidentally removed and restored
 - [x] Custom card set data wiped when previewing in Library
+- [x] Game-view × delete didn't visually remove the card (typo: `openCustomGameView` → `openGameView`)
+- [x] Copying a card in Catch view created a square tile and wasn't persisted to `savedCatchGames`
+- [x] Deleting one of two same-labeled copies removed both (label-only fallback fired because tile dataset lacked `stableId`)
+- [x] GP rendered stale math-expression SVGs for cards edited in Card Maker after add (now resolves freshest svgContent by `stableId`)
+- [x] GP domino count and pairings differed from Studio (GP now honors `mGroups`)
+- [x] GP intro buttons could load the wrong game when localStorage changed in another tab (`populateIntroGames` re-runs on home click)
+- [x] Cmd+Z / Ctrl+Z covers game-view edits (delete, copy, shape, M-card group) in both Find and Catch — re-renders the open game view after applying snapshot
 
 ---
 
@@ -235,6 +242,11 @@ Vica_Domino/
     - No hosting/deployment pipeline
     - No PWA support (offline capability, installable)
     - No service worker for caching
+
+13. **Recovery / undo gaps (deferred from April 26 session)**
+    - `_undoStack` is in-memory only — page refresh wipes Cmd+Z history. Persisting it to localStorage was discussed (item "c") and deferred.
+    - "Restore Cards from Cloud" only covers `customDrawnCards_*`, not `savedCustomGames` / `savedCatchGames`. A catch-game corruption can't be rolled back from cloud. Extending `_pushCardBackup` was discussed (item "d") and deferred.
+    - Game-view mutations still NOT undoable: `confirmAddCards` (the + overlay), game rename / description, drag-reorder via `saveGameViewOrder`, combine games, clone-to-catch, delete entire game, copy game, plus ~22 direct `localStorage.setItem('savedCustomGames', …)` callers and ~10 direct `saveCatchGames(…)` callers. Audit-and-wire pass deferred. Easiest path: add the snapshot push inside `saveCatchGames` itself and a wrapper around savedCustomGames sets, then drop the per-call snapshots from `_saveCurrentViewGames` / `_removeCardFromThisGame`.
 
 ---
 

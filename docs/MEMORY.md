@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: April 25, 2026
+**Last Updated**: April 26, 2026
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV
@@ -943,6 +943,160 @@ modal:
 - **Creation-time warning** when a new game-set genuinely can't support
   2P, so the admin sees the constraint at creation rather than running
   into it after editing the matrix.
+
+## April 26 Session (cont.) — Game-view edits: delete + copy + Cmd+Z (commits `384f106` … `a29e089`)
+
+Parallel session in a different chat. Started on a fresh
+`claude/fix-card-deletion-bug-ElUcy` branch (now deleted) before
+switching to the standard 3-branch flow. **Lesson**: read
+`docs/MEMORY.md` *first thing* on every session — this session burned
+hours pushing fixes only to `claude/review-project-docs-JOOeh` because
+the 3-branch rule wasn't read until the user pointed it out.
+
+### Bugs fixed
+
+- **Card deletion in game view didn't persist visually**.
+  `_removeCardFromThisGame` (the × button handler in game view) called
+  `openCustomGameView(...)` — a function that doesn't exist. The
+  `ReferenceError` aborted the post-save re-render after
+  `savedCustomGames` had already been written, so the card stayed on
+  screen even though it was gone in storage. **Fix**: rename the call
+  to `openGameView` (the actual function — the catch branch right
+  above already used the correct `openCatchGameView` name).
+
+- **Copy in Catch view created a square tile and was not persisted**.
+  `copyCardInRow`'s "in Game View" persistence block was gated on
+  `currentGameViewIndex >= 0`, which is only set for Find games. In
+  Catch view (`currentCatchGameViewIndex >= 0`,
+  `currentGameViewIndex === -1`) the entire block was skipped — the
+  copy lived in DOM only and didn't get the game-level shape. Worse,
+  any later × delete in the Catch view re-rendered from
+  `savedCatchGames`, which still had only the original, so all unsaved
+  copies vanished and looked like deletion bugs. **Fix**: replace the
+  Find-only check with parallel Find/Catch handling that loads the
+  right store, splices the new `cardInfo` (carrying `stableId`,
+  `uid`, and shape attributes), and saves through
+  `localStorage.setItem('savedCustomGames', …)` or `saveCatchGames(…)`
+  as appropriate.
+
+- **Deleting one of two same-labeled copies removed both**. The ×
+  handler's filter fell back to `c.label === labelText` matching when
+  `cardEl.dataset.stableId` was empty. The clicked tile had no
+  `stableId` because `buildCardFromMarkup` wasn't writing
+  `cardInfo.stableId` / `cardInfo.uid` onto the rendered tile's
+  dataset, and `_buildGameViewCardInner` wasn't passing `stableId`
+  into `freshInfo`. **Fix**: persist `stableId` / `uid` to dataset in
+  `buildCardFromMarkup`; carry `stableId` through all three
+  `_buildGameViewCardInner` lookup paths.
+
+- **New copy looked square inside a row of round/rect tiles**. Game
+  shape is applied per-render via a container sweep in
+  `applyGameShapeOverride` — a freshly-inserted DOM tile is missed
+  until the next view rebuild. Calling the sweep right after copy was
+  associated with destructive-side-effect reports earlier in the
+  session, so we apply the same shape math (border-radius, preview
+  width/height, SVG viewBox/transform) to **just the new tile** rather
+  than sweeping every card. Wrapped in try/catch so a styling error
+  never blocks the copy.
+
+### Cmd+Z (Mac) / Ctrl+Z scope expanded into game-view
+
+The desktop-only undo/redo system (`_undoStack`, `_undoPushSnapshot`,
+`globalUndo`) already snapshotted `savedCustomGames` and
+`savedCatchGames` in its key list, but no Find/Catch game-view
+mutation pushed a snapshot before saving — so undo covered Card Maker
+work but did nothing for game-view edits.
+
+- `_undoPushSnapshot(force)`: added a `force` flag that bypasses the
+  `_cardMakerBuilt` guard. Card Maker callers keep `force=undefined`
+  (existing behaviour); game-view callers pass `force=true` since they
+  may run before Card Maker is ever built.
+- `_saveCurrentViewGames(info)`: pushes a snapshot at the top, so
+  `deleteCard`'s game-view branch, `saveMCardGroups`, and
+  `applyGameShape` all get an undo entry for free.
+- `_removeCardFromThisGame`: pushes a snapshot inside the on-confirm
+  callback (this helper writes to localStorage directly — bypassing
+  `_saveCurrentViewGames`).
+- `copyCardInRow` game-view block: pushes a snapshot before splicing
+  the new card.
+- `_undoApplySnapshot`: now calls `_reopenCurrentView()` if
+  `#game-view-screen` is visible so a restored snapshot becomes
+  visible immediately (was rebuilding Card Maker DOM only — undo
+  silently restored data but the view never re-rendered).
+
+Result: in game view, deleting a card → Cmd+Z brings it back; copying
+a card → Cmd+Z removes the copy. Find and Catch both supported.
+
+### GP (player) fixes
+
+- **GP showed math-expression dominos for "Match 0-4"**. Root cause:
+  GP rendered cards from `cardInfo.svgMarkup` (the snapshot baked into
+  `game.cards` at add-time), while Studio re-resolves SVG content from
+  card-set storage by `stableId` on every render. Editing a card in
+  Card Maker after it's been added to a game updated card-set storage
+  but not the `game.cards` snapshot, so Studio showed the new content
+  and GP showed the stale math expressions.
+  **Fix**: ported the `stableId` resolver into GP. New helpers
+  `_gpAllCardStorageKeys()`, `_gpResolveBySid(stableId)`,
+  `_gpInvalidateCardCache()`. `getGameCardSVG` prefers the freshest
+  `svgContent` by stableId before falling back to `cardInfo.svgMarkup`.
+  Cache is invalidated at the top of each `startCustomGame`.
+
+- **GP domino count and pairings differed from Studio**. Studio's
+  `rebuildGameViewDominos` runs cards through `buildEffectiveCards`
+  which collapses `mGroups` (Match-style groups) into one effective
+  slot per group. GP's `startCustomGame` paired every distinct card
+  label, generating many more dominos with the wrong pairings.
+  **Fix**: mirror Studio's grouping in GP — build effective groups via
+  `mGroups`, iterate pairs of groups, pool every group member's SVG
+  so `randomPick` rotates variants per render. Pass group
+  representatives (not raw `origCards`) into `updateLevelDominoIcons`.
+
+- **GP intro buttons could load the wrong game** if Studio mutated the
+  list while GP stayed open (closures captured a stale array index).
+  **Fix**: `populateIntroGames()` is now re-run when the home button
+  is clicked, so the next click resolves the right game.
+
+### Process (the `docs/MEMORY.md` rules I missed early)
+
+- **3-branch push**: every push must hit `master`,
+  `claude/general-session-yVBQq`, and `claude/review-project-docs-JOOeh`.
+  Pages deploys from JOOeh. Caught the violation mid-session and
+  merged the parallel session's `4c92a63` (MEMORY.md April 26 update)
+  before pushing all three to a common tip.
+- **Trial timestamp** in **both** `index.html` and `pm-studio-DrV.html`
+  must be bumped on every push. The user verifies which build is
+  loaded by reading the stamp.
+
+### Recovery / undo gaps still open
+
+- `_undoStack` is in-memory only — page refresh wipes history. User
+  affected during an unrelated bad-state earlier in the session;
+  cloud-backup restore was offered, only 4 backups available, all
+  post-corruption. Deferred items (user said "discuss later"):
+  - **(c)** Persist `_undoStack` to localStorage so Cmd+Z survives a
+    refresh.
+  - **(d)** Extend the cloud backup writer (`_pushCardBackup`) to
+    include `savedCustomGames` and `savedCatchGames` so a future
+    catch-game corruption is recoverable from cloud (today's
+    "Restore Cards from Cloud" only covers `customDrawnCards_*`).
+
+### Known game-view mutations still NOT undoable
+
+These older code paths bypass both `_saveCurrentViewGames` and
+`_removeCardFromThisGame`, so they don't snapshot:
+- `confirmAddCards` (the + overlay that adds cards from a card set)
+- Game rename / description edit
+- Drag-reorder via `saveGameViewOrder`
+- Combine games / clone-to-catch / delete entire game / copy game
+- Direct `localStorage.setItem('savedCustomGames', …)` callers (~22)
+- Direct `saveCatchGames(…)` callers (~10)
+
+Audit-and-wire pass deferred. Easiest path is probably to add the
+snapshot push to `saveCatchGames` itself and to a wrapper around
+`localStorage.setItem('savedCustomGames', …)`, then delete it from the
+two places I already added it (`_saveCurrentViewGames`,
+`_removeCardFromThisGame`).
 
 ## Branch landscape (as of April 25)
 

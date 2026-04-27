@@ -182,6 +182,9 @@ Vica_Domino/
 - [x] `getCardsFromStorage` — custom set named "ABC" no longer aliases to the built-in `customDrawnCards_abc` key
 - [x] **Non-stop Type of Game (Find)** — admin sets behavior per Type option in Game Settings; player picks Type on level-pick screen; round-end auto-restarts after a 3 s countdown unless user taps the button (skip-ahead) or stays idle for 60 s. `visibilitychange` pauses the countdown when the tab is hidden.
 - [x] **Non-stop Type of Game (Catch)** — Type picker rendered as a vertical radio list in the right column of GP Cm/Ct Setup, replacing the "Choose domino style" panel when the active Catch game has 1+ Type options. `_catchGameOver` honors `_currentTypeBehavior` with the same 3 s countdown / idle-cancel / visibility-pause behavior as Find.
+- [x] **Find Type picker unified with Catch** — `_renderTypesPicker` no longer branches by game type; both Find and Catch render the same right-column radio list ("Choose the game type:") and hide the domino-style SVGs. Legacy top-of-panel `#setup-types-row` left in DOM but always hidden.
+- [x] **Type axis mirrors across touch+mouse on save** — `_gsCaptureForm` now copies the captured types axis to the other mode immediately, so admin can edit either tab and the player picker shows up regardless of input mode.
+- [x] **"🚧 Under construction" badge removed** from the Type axis section in Game Settings — picker exists, runtime honors behavior, badge claim was stale.
 
 ---
 

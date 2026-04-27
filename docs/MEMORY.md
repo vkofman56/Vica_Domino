@@ -1169,13 +1169,15 @@ active Catch game has 1+ Type options, replaced with
 radio rows. The user clicks a row to flip
 `window._currentTypeBehavior` (and `_currentTypeLabel`).
 
-`_renderTypesPicker` now branches:
-- Find: top-of-panel button picker (unchanged), domino-style stays.
-- Catch: hides the top picker, hides `#domino-style-select`, retitles
-  the right-column h3, populates `#setup-right-types` with radio
-  lines.
-- If the active game has 0 Type options at all, leave the
-  domino-style block visible and revert the h3.
+`_renderTypesPicker` initially branched by `gameType` (Find = top-of-
+panel button picker; Catch = right-column radio list). Per a later
+user request, it was unified — **both Find and Catch now use the
+right-column radio list.** The legacy `#setup-types-row` at the top
+of the panel is left in the DOM but always hidden (harmless; kept so
+nothing referencing it breaks). The right-column header reads
+"Choose the game type:" and the four domino-style SVGs are hidden
+whenever the active game has 1+ enabled Type options. Games with
+zero Type options keep the original "Choose domino style" SVG panel.
 
 `_catchGameOver` (in BOTH `index.html` and `pm-studio-DrV.html`,
 since admin can also test Catch from Studio) now hijacks the Play
@@ -1189,15 +1191,46 @@ Cleanup also fires from the Exit button.
 New CSS `.catch-gameover-btn.nonstop-countdown` reuses the
 `nonstop-tick` keyframes defined for the Find button.
 
+### Type axis is mode-agnostic — `_gsCaptureForm` mirrors edits
+Game Settings keeps separate per-mode (`touch` / `mouse`)
+configurations of the Players, Levels, and Types axes. That made
+sense for Players ("1 player + timer" might apply only to one input
+mode) and Levels (Catch has no levels), but **Type of Game is
+device-independent** ("Slow Pace" reads the same on touch and
+mouse). The original implementation captured form values into the
+visible tab only — an admin who edited the touch tab and tested in
+a desktop browser saved enabled Types into `setup.touch` while the
+player read `setup.mouse` (still default-all-off), so the player-side
+Type picker silently showed nothing.
+
+`_gsCaptureForm` now mirrors the captured types axis to the OTHER
+mode immediately after capture (`JSON.parse(JSON.stringify(conf.types))`).
+Players and Levels keep per-mode edits.
+
+### `_gsIsAxisUC` no longer reports types as UC
+Now that the player picker exists for Find + Catch and the runtime
+honors the behavior choice, the "🚧 Under construction" badge for
+the Type axis section is removed. `_gsIsAxisUC` only flags
+`levels` for `catch` (Catch has no level UI) and nothing else.
+
+### Temporary on-screen probe (still live)
+A small yellow box pinned to the top-left of GP Setup prints
+`gameType / mode / types.options / enabled` so the user can verify
+which mode the player reads and how many enabled Types reached the
+picker. Tap to dismiss. To remove once the picker is verified
+working in the user's environment.
+
 ### Open follow-ups
 - Type label (`window._currentTypeLabel`) currently has no gameplay
   consequence. Once the runtime defines what "Type 2" actually
-  changes, swap the manual/nonstop dropdown for a richer behavior
-  config or a separate per-Type ruleset.
+  changes (e.g., "Voiced Answer"), swap the manual/nonstop dropdown
+  for a richer behavior config or a separate per-Type ruleset.
 - The countdown shows the Play Again button doing the counting. If
   the celebration overlay covers the button, tapping the overlay
   doesn't currently skip ahead — only tapping the button does. If
   this is a problem in practice, hoist the click to the overlay too.
+- Remove the temporary yellow GP-Setup probe once the picker
+  rendering is verified working.
 
 ## Branch landscape (as of April 25)
 

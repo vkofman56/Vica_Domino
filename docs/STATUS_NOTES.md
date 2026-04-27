@@ -181,6 +181,7 @@ Vica_Domino/
 - [x] "Add Cards to Game" — set-blind label match no longer hides cross-set cards (label match now scoped by `(label, cardSet)`)
 - [x] `getCardsFromStorage` — custom set named "ABC" no longer aliases to the built-in `customDrawnCards_abc` key
 - [x] **Non-stop Type of Game (Find)** — admin sets behavior per Type option in Game Settings; player picks Type on level-pick screen; round-end auto-restarts after a 3 s countdown unless user taps the button (skip-ahead) or stays idle for 60 s. `visibilitychange` pauses the countdown when the tab is hidden.
+- [x] **Non-stop Type of Game (Catch)** — Type picker rendered as a vertical radio list in the right column of GP Cm/Ct Setup, replacing the "Choose domino style" panel when the active Catch game has 1+ Type options. `_catchGameOver` honors `_currentTypeBehavior` with the same 3 s countdown / idle-cancel / visibility-pause behavior as Find.
 
 ---
 

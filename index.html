@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:50 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:50 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -191,8 +191,8 @@
                     </div>
 
                     <div class="setup-right">
-                        <h3>Choose domino style:</h3>
-                        <div class="domino-style-select">
+                        <h3 id="setup-right-h3">Choose domino style:</h3>
+                        <div class="domino-style-select" id="domino-style-select">
                             <svg viewBox="0 0 50 100" width="50" height="100" class="domino-preview">
                                 <rect x="1" y="1" width="48" height="98" rx="6" fill="#f0e0d0" stroke="#999" stroke-width="1.5"/>
                                 <line x1="1" y1="50" x2="49" y2="50" stroke="#999" stroke-width="1"/>
@@ -221,6 +221,10 @@
                                 <text x="25" y="82" text-anchor="middle" font-size="22" fill="#363">3+2</text>
                             </svg>
                         </div>
+                        <!-- Catch Type picker — replaces the domino-style list
+                             when the active screen is a Catch game. Populated
+                             by _renderTypesPicker; hidden for Find. -->
+                        <div class="setup-right-types" id="setup-right-types" style="display:none;"></div>
                     </div>
                 </div>
 
@@ -1052,47 +1056,97 @@
         }
 
         function _renderTypesPicker(gameType, conf) {
-            var row = document.getElementById('setup-types-row');
-            var btns = document.getElementById('setup-types-buttons');
-            if (!row || !btns) return;
-            btns.innerHTML = '';
+            var topRow = document.getElementById('setup-types-row');
+            var topBtns = document.getElementById('setup-types-buttons');
+            var rightTypes = document.getElementById('setup-right-types');
+            var rightH3 = document.getElementById('setup-right-h3');
+            var dominoStyleEl = document.getElementById('domino-style-select');
+            if (topBtns) topBtns.innerHTML = '';
+            if (rightTypes) rightTypes.innerHTML = '';
             // Default to manual unless we explicitly find a non-stop choice.
             window._currentTypeBehavior = 'manual';
             window._currentTypeLabel = '';
-            if (gameType === 'catch') { row.style.display = 'none'; return; }
+
             var types = conf && conf.types && Array.isArray(conf.types.options) ? conf.types.options : [];
             var enabled = types.filter(function(o) { return o && o.on; });
-            if (enabled.length < 2) {
-                // Still pick up the behavior of the single-enabled option (if any)
-                // so non-stop can be set as the only option without a UI.
-                if (enabled.length === 1) {
-                    window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
-                    window._currentTypeLabel = enabled[0].label || '';
+            // Pick up the single-option behavior so non-stop can be on without a UI.
+            if (enabled.length === 1) {
+                window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
+                window._currentTypeLabel = enabled[0].label || '';
+            }
+
+            if (gameType === 'catch') {
+                // Catch setup: replace "Choose domino style" with "Choose the
+                // game type" + a vertical list of Type options. Each line is a
+                // labeled radio. Tapping flips the active behavior.
+                if (topRow) topRow.style.display = 'none';
+                if (!rightTypes || !rightH3 || !dominoStyleEl) return;
+                if (enabled.length < 1) {
+                    // No types at all — leave the original domino-style block visible.
+                    rightTypes.style.display = 'none';
+                    dominoStyleEl.style.display = '';
+                    rightH3.textContent = 'Choose domino style:';
+                    return;
                 }
-                row.style.display = 'none';
+                rightH3.textContent = (conf.types.axisLabel || 'Choose the game type') + ':';
+                dominoStyleEl.style.display = 'none';
+                rightTypes.style.display = '';
+                window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
+                window._currentTypeLabel = enabled[0].label || '';
+                enabled.forEach(function(opt, i) {
+                    var line = document.createElement('label');
+                    line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
+                    var radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'setup-type-pick';
+                    radio.checked = (i === 0);
+                    var span = document.createElement('span');
+                    var prefix = 'Type ' + (types.indexOf(opt) + 1);
+                    span.textContent = opt.label ? prefix + ' — ' + opt.label : prefix;
+                    line.appendChild(radio);
+                    line.appendChild(span);
+                    line.addEventListener('click', function() {
+                        rightTypes.querySelectorAll('.setup-type-line').forEach(function(x) { x.classList.remove('selected'); });
+                        rightTypes.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
+                        line.classList.add('selected');
+                        radio.checked = true;
+                        window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                        window._currentTypeLabel = opt.label || '';
+                    });
+                    rightTypes.appendChild(line);
+                });
                 return;
             }
-            row.style.display = '';
-            var h3 = document.getElementById('setup-h3-types');
-            if (h3 && conf.types.axisLabel) h3.textContent = conf.types.axisLabel + ':';
+
+            // Find: keep the domino-style panel as-is and use the top-of-panel
+            // button picker, hidden when 0 or 1 enabled types.
+            if (rightTypes) rightTypes.style.display = 'none';
+            if (dominoStyleEl) dominoStyleEl.style.display = '';
+            if (rightH3) rightH3.textContent = 'Choose domino style:';
+            if (!topRow || !topBtns) return;
+            if (enabled.length < 2) {
+                topRow.style.display = 'none';
+                return;
+            }
+            topRow.style.display = '';
+            var topH3 = document.getElementById('setup-h3-types');
+            if (topH3 && conf.types.axisLabel) topH3.textContent = conf.types.axisLabel + ':';
             // Default selection: first enabled option
-            var selected = 0;
             window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
             window._currentTypeLabel = enabled[0].label || '';
             enabled.forEach(function(opt, i) {
                 var b = document.createElement('button');
                 b.type = 'button';
-                b.className = 'setup-type-btn' + (i === selected ? ' selected' : '');
-                // Show prefix "Type N" + suffix label
+                b.className = 'setup-type-btn' + (i === 0 ? ' selected' : '');
                 var prefix = 'Type ' + (types.indexOf(opt) + 1);
                 b.textContent = opt.label ? prefix + ' — ' + opt.label : prefix;
                 b.addEventListener('click', function() {
-                    btns.querySelectorAll('.setup-type-btn').forEach(function(x) { x.classList.remove('selected'); });
+                    topBtns.querySelectorAll('.setup-type-btn').forEach(function(x) { x.classList.remove('selected'); });
                     b.classList.add('selected');
                     window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
                     window._currentTypeLabel = opt.label || '';
                 });
-                btns.appendChild(b);
+                topBtns.appendChild(b);
             });
         }
 
@@ -2080,14 +2134,74 @@
                 '<div><button class="catch-gameover-btn" id="catch-play-again">Play Again</button>' +
                 '<button class="catch-gameover-btn catch-exit-btn" id="catch-exit">Exit</button></div>';
             area.appendChild(go);
-            document.getElementById('catch-play-again').onclick = function() {
-                var idx = _catchGame.catchIndex;
-                _catchCleanup();
-                openCatchPlayModal(idx);
+            var playAgainBtn = document.getElementById('catch-play-again');
+            var exitBtn = document.getElementById('catch-exit');
+            var idx = _catchGame.catchIndex;
+            var doRestart = function() { _catchCleanup(); openCatchPlayModal(idx); };
+            playAgainBtn.onclick = function() {
+                _stopCatchNonstopCountdown();
+                doRestart();
             };
-            document.getElementById('catch-exit').onclick = function() {
+            exitBtn.onclick = function() {
+                _stopCatchNonstopCountdown();
                 _catchCleanup();
             };
+            // Non-stop: count the Play Again button down 3 → 0, then auto-restart.
+            // Tap the button to skip ahead. Idle for 60 s cancels the countdown.
+            if (window._currentTypeBehavior === 'nonstop') {
+                _startCatchNonstopCountdown(playAgainBtn, doRestart);
+            }
+        }
+
+        var _catchNonstopState = null;
+        function _startCatchNonstopCountdown(btn, fireFn) {
+            if (!btn) return;
+            _stopCatchNonstopCountdown();
+            var TOTAL = 3, IDLE_LIMIT = 60000;
+            var remaining = TOTAL;
+            btn.classList.add('nonstop-countdown');
+            btn.textContent = '⏵ ' + remaining;
+            var st = { btn: btn, fireFn: fireFn, lastActivity: Date.now(), wasPaused: false };
+            st.activityHandler = function() { st.lastActivity = Date.now(); };
+            ['pointerdown','keydown','touchstart'].forEach(function(ev){ document.addEventListener(ev, st.activityHandler, true); });
+            st.tick = function() {
+                if (Date.now() - st.lastActivity > IDLE_LIMIT) {
+                    _stopCatchNonstopCountdown();
+                    if (btn) btn.textContent = 'Play Again';
+                    return;
+                }
+                remaining -= 1;
+                if (remaining <= 0) {
+                    _stopCatchNonstopCountdown();
+                    fireFn();
+                    return;
+                }
+                btn.textContent = '⏵ ' + remaining;
+            };
+            st.timer = setInterval(st.tick, 1000);
+            st.visHandler = function() {
+                if (document.visibilityState === 'hidden') {
+                    st.wasPaused = true;
+                    clearInterval(st.timer); st.timer = null;
+                } else if (st.wasPaused && st.btn) {
+                    st.wasPaused = false;
+                    st.lastActivity = Date.now();
+                    st.timer = setInterval(st.tick, 1000);
+                }
+            };
+            document.addEventListener('visibilitychange', st.visHandler);
+            _catchNonstopState = st;
+        }
+        function _stopCatchNonstopCountdown() {
+            var st = _catchNonstopState;
+            if (!st) return;
+            if (st.timer) clearInterval(st.timer);
+            if (st.activityHandler) {
+                ['pointerdown','keydown','touchstart'].forEach(function(ev){ document.removeEventListener(ev, st.activityHandler, true); });
+            }
+            if (st.visHandler) document.removeEventListener('visibilitychange', st.visHandler);
+            if (st.btn) st.btn.classList.remove('nonstop-countdown');
+            _catchNonstopState = null;
         }
 
         function _catchCleanup() {

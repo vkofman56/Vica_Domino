@@ -1160,11 +1160,36 @@ We considered matching `/non[-\s]?stop/i` against the editable suffix.
 Rejected — admin spelling and translation can break it. The dropdown
 makes the choice explicit and survives renames.
 
+### Catch end-of-round wiring (added later same session)
+The Type picker is also rendered for Catch, but in a different slot
+than for Find. On the Catch setup screen (GP Cm / Ct Setup), the
+existing right-column "Choose domino style" panel is hidden when the
+active Catch game has 1+ Type options, replaced with
+"Choose the game type:" plus a vertical list of `.setup-type-line`
+radio rows. The user clicks a row to flip
+`window._currentTypeBehavior` (and `_currentTypeLabel`).
+
+`_renderTypesPicker` now branches:
+- Find: top-of-panel button picker (unchanged), domino-style stays.
+- Catch: hides the top picker, hides `#domino-style-select`, retitles
+  the right-column h3, populates `#setup-right-types` with radio
+  lines.
+- If the active game has 0 Type options at all, leave the
+  domino-style block visible and revert the h3.
+
+`_catchGameOver` (in BOTH `index.html` and `pm-studio-DrV.html`,
+since admin can also test Catch from Studio) now hijacks the Play
+Again button into the same 3-second countdown when
+`_currentTypeBehavior === 'nonstop'`. Helpers
+`_startCatchNonstopCountdown` / `_stopCatchNonstopCountdown` mirror
+game.js's pattern: capture-phase activity listeners,
+`visibilitychange` pause/resume, 60 s idle cancel, tap-to-skip-ahead.
+Cleanup also fires from the Exit button.
+
+New CSS `.catch-gameover-btn.nonstop-countdown` reuses the
+`nonstop-tick` keyframes defined for the Find button.
+
 ### Open follow-ups
-- Catch end-of-round flow doesn't honor `behavior` yet. The data is
-  already on `game.setup[mode].types.options`, but the Catch UI has
-  no Type picker and the falling-cards loop has no end-of-round
-  countdown injection point. Separate pass.
 - Type label (`window._currentTypeLabel`) currently has no gameplay
   consequence. Once the runtime defines what "Type 2" actually
   changes, swap the manual/nonstop dropdown for a richer behavior

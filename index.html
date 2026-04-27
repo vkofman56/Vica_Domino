@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,11 +67,20 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
             <div class="setup-panel">
+                <!-- Type-of-game picker. Hidden when the active game has 0 or 1
+                     enabled Type option. Populated by _applyGameSetupToPlayerScreen
+                     from game.setup[mode].types.options. The selected option's
+                     behavior ("manual" / "nonstop") is stored on
+                     window._currentTypeBehavior for game.js to read. -->
+                <div class="setup-types-row" id="setup-types-row" style="display:none;">
+                    <h3 id="setup-h3-types">Type of Game:</h3>
+                    <div class="setup-types-buttons" id="setup-types-buttons"></div>
+                </div>
                 <div class="setup-columns">
                     <div class="setup-left">
                         <h3 id="setup-h3-level">Choose your game:</h3>
@@ -1037,6 +1046,54 @@
             }
             // Timer value — stashed globally for the gameplay code to pick up.
             window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
+            // Type-of-game picker — only meaningful for Find right now (Catch
+            // doesn't yet honor a Type axis on its end-of-round flow).
+            _renderTypesPicker(gameType, conf);
+        }
+
+        function _renderTypesPicker(gameType, conf) {
+            var row = document.getElementById('setup-types-row');
+            var btns = document.getElementById('setup-types-buttons');
+            if (!row || !btns) return;
+            btns.innerHTML = '';
+            // Default to manual unless we explicitly find a non-stop choice.
+            window._currentTypeBehavior = 'manual';
+            window._currentTypeLabel = '';
+            if (gameType === 'catch') { row.style.display = 'none'; return; }
+            var types = conf && conf.types && Array.isArray(conf.types.options) ? conf.types.options : [];
+            var enabled = types.filter(function(o) { return o && o.on; });
+            if (enabled.length < 2) {
+                // Still pick up the behavior of the single-enabled option (if any)
+                // so non-stop can be set as the only option without a UI.
+                if (enabled.length === 1) {
+                    window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
+                    window._currentTypeLabel = enabled[0].label || '';
+                }
+                row.style.display = 'none';
+                return;
+            }
+            row.style.display = '';
+            var h3 = document.getElementById('setup-h3-types');
+            if (h3 && conf.types.axisLabel) h3.textContent = conf.types.axisLabel + ':';
+            // Default selection: first enabled option
+            var selected = 0;
+            window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
+            window._currentTypeLabel = enabled[0].label || '';
+            enabled.forEach(function(opt, i) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'setup-type-btn' + (i === selected ? ' selected' : '');
+                // Show prefix "Type N" + suffix label
+                var prefix = 'Type ' + (types.indexOf(opt) + 1);
+                b.textContent = opt.label ? prefix + ' — ' + opt.label : prefix;
+                b.addEventListener('click', function() {
+                    btns.querySelectorAll('.setup-type-btn').forEach(function(x) { x.classList.remove('selected'); });
+                    b.classList.add('selected');
+                    window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                    window._currentTypeLabel = opt.label || '';
+                });
+                btns.appendChild(b);
+            });
         }
 
         function goToMainPage() {

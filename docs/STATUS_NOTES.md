@@ -178,6 +178,9 @@ Vica_Domino/
 - [x] GP domino count and pairings differed from Studio (GP now honors `mGroups`)
 - [x] GP intro buttons could load the wrong game when localStorage changed in another tab (`populateIntroGames` re-runs on home click)
 - [x] Cmd+Z / Ctrl+Z covers game-view edits (delete, copy, shape, M-card group) in both Find and Catch — re-renders the open game view after applying snapshot
+- [x] "Add Cards to Game" — set-blind label match no longer hides cross-set cards (label match now scoped by `(label, cardSet)`)
+- [x] `getCardsFromStorage` — custom set named "ABC" no longer aliases to the built-in `customDrawnCards_abc` key
+- [x] **Non-stop Type of Game (Find)** — admin sets behavior per Type option in Game Settings; player picks Type on level-pick screen; round-end auto-restarts after a 3 s countdown unless user taps the button (skip-ahead) or stays idle for 60 s. `visibilitychange` pauses the countdown when the tab is hidden.
 
 ---
 

@@ -2118,6 +2118,10 @@ class VicaDominoGame {
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
 
+        // If a Non-stop countdown is running, cancel it cleanly so this
+        // restart isn't followed by the timer firing again.
+        this._stopNonstopCountdown();
+
         // Flush any pending coin→gem exchanges before checking progression
         this._flushPendingExchanges();
 
@@ -2196,7 +2200,24 @@ class VicaDominoGame {
         } else {
             playAgainBtn.textContent = 'Play Again';
         }
-        playAgainBtn.addEventListener('click', () => this.playAgain());
+        playAgainBtn.addEventListener('click', () => {
+            // In Non-stop the same button doubles as Stop / skip-ahead:
+            //   - if the auto-restart countdown is running, fire playAgain now
+            //   - the playAgain itself clears the countdown via _stopNonstopCountdown
+            this._stopNonstopCountdown();
+            this.playAgain();
+        });
+
+        // If the active Type is Non-stop, hijack the Play Again button into a
+        // 3-second countdown. After the count, playAgain fires automatically.
+        // Tapping the button at any point (including during the celebration
+        // or "lost" sound that plays out underneath) skips to the next round.
+        // Idle for 60 s with no input cancels the countdown — user is left on
+        // the end-game screen as if it were a normal manual round.
+        if (window._currentTypeBehavior === 'nonstop' &&
+            !(this.combinedGame && (this.combinedGame.pendingCelebration || this.combinedGame.pendingAdvance))) {
+            this._startNonstopCountdown(playAgainBtn);
+        }
 
         const newGameBtn = document.createElement('button');
         newGameBtn.className = 'btn btn-secondary end-game-btn';
@@ -2214,6 +2235,87 @@ class VicaDominoGame {
             playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
         }
     }
+
+    // === Non-stop type-of-game support ===
+    // Replaces the Play Again button text with a 3 → 2 → 1 countdown.
+    // When the count hits 0, playAgain fires automatically. Tapping the
+    // button (handler set by showEndGameButtons) cancels the countdown via
+    // _stopNonstopCountdown and starts the next round immediately.
+    _startNonstopCountdown(btn) {
+        if (!btn) return;
+        this._stopNonstopCountdown(); // make sure no previous one lingers
+        const NONSTOP_TOTAL = 3;       // seconds of countdown
+        const IDLE_LIMIT_MS = 60000;   // 1 minute with no input → cancel
+        let remaining = NONSTOP_TOTAL;
+        this._nonstopBtn = btn;
+        this._nonstopOriginalText = btn.textContent;
+        btn.classList.add('nonstop-countdown');
+        btn.textContent = '⏵ ' + remaining;
+
+        // Track latest activity for idle auto-cancel.
+        this._nonstopLastActivity = Date.now();
+        this._nonstopActivityHandler = () => { this._nonstopLastActivity = Date.now(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
+            document.addEventListener(ev, this._nonstopActivityHandler, true);
+        });
+        // Pause / resume on tab-hide so the round doesn't fire when the user
+        // isn't looking at the page.
+        this._nonstopVisHandler = () => {
+            if (document.visibilityState === 'hidden') {
+                this._nonstopWasPaused = true;
+                clearInterval(this._nonstopTimer);
+                this._nonstopTimer = null;
+            } else if (this._nonstopWasPaused && this._nonstopBtn) {
+                this._nonstopWasPaused = false;
+                // Reset activity stamp so the user gets a fresh idle window.
+                this._nonstopLastActivity = Date.now();
+                this._nonstopTimer = setInterval(tick, 1000);
+            }
+        };
+        document.addEventListener('visibilitychange', this._nonstopVisHandler);
+
+        const tick = () => {
+            // Idle timeout: stay on the end-game screen, like manual mode.
+            if (Date.now() - this._nonstopLastActivity > IDLE_LIMIT_MS) {
+                this._stopNonstopCountdown();
+                if (this._nonstopBtn) {
+                    // already cleared, but keep a graceful label for the user.
+                    btn.textContent = 'Play Again';
+                }
+                return;
+            }
+            remaining -= 1;
+            if (remaining <= 0) {
+                this._stopNonstopCountdown();
+                this.playAgain();
+                return;
+            }
+            btn.textContent = '⏵ ' + remaining;
+        };
+        this._nonstopTimer = setInterval(tick, 1000);
+    }
+
+    _stopNonstopCountdown() {
+        if (this._nonstopTimer) { clearInterval(this._nonstopTimer); this._nonstopTimer = null; }
+        if (this._nonstopActivityHandler) {
+            ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
+                document.removeEventListener(ev, this._nonstopActivityHandler, true);
+            });
+            this._nonstopActivityHandler = null;
+        }
+        if (this._nonstopVisHandler) {
+            document.removeEventListener('visibilitychange', this._nonstopVisHandler);
+            this._nonstopVisHandler = null;
+        }
+        if (this._nonstopBtn) {
+            this._nonstopBtn.classList.remove('nonstop-countdown');
+            // Don't revert label here — caller (playAgain or idle handler)
+            // sets the next state.
+        }
+        this._nonstopBtn = null;
+        this._nonstopWasPaused = false;
+    }
+
     // Dim the playing area over 10 seconds, show buttons immediately
     startPlayAreaDim() {
         this.gamePhase = 'sunLevelWon';
@@ -3394,6 +3496,9 @@ class VicaDominoGame {
     }
 
     resetToSetup() {
+        // Cancel any running Non-stop countdown so it doesn't auto-start
+        // a new round after the user has explicitly returned to setup.
+        this._stopNonstopCountdown();
         // Clean up combined game
         this.combinedGame = null;
         this.playerCoins = {};

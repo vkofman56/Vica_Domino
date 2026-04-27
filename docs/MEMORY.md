@@ -1098,6 +1098,82 @@ snapshot push to `saveCatchGames` itself and to a wrapper around
 two places I already added it (`_saveCurrentViewGames`,
 `_removeCardFromThisGame`).
 
+## April 26 Session (cont.) — Non-stop type-of-game
+
+Wires the Type axis into the player runtime for Find games. Slow-pace
+(current behaviour) keeps the manual Play Again click. Non-stop plays
+the existing celebration / lost feedback, then the Play Again button
+counts down 3 → 2 → 1 in place and auto-triggers `playAgain()`.
+Tapping the button at any point during the countdown (including over
+the celebration) skips ahead immediately; idle for 60 s leaves the
+user on the end-game screen so the game doesn't run unattended.
+
+### Per-Type `behavior` field (admin)
+- `_defaultGameSetup` now seeds every Type option with
+  `behavior: 'manual'` via a new `mkTypesAxis` helper.
+- `_getGameSetup` schema-repairs older saves: any Type option whose
+  `behavior` isn't exactly `'nonstop'` is forced back to `'manual'`.
+- `_gsRenderForm` adds a small `<select class="gs-option-behavior">`
+  ("manual" / "non-stop") next to each Type row's text input. New CSS
+  in `.gs-option-row select.gs-option-behavior` keeps it inline.
+- `_gsCaptureForm` reads the dropdown back into the option.
+- `_gsAddOption` seeds new Type rows with `behavior: 'manual'`.
+
+### Player-side picker (Find only)
+- New `#setup-types-row` block in `index.html`'s start-screen, hidden
+  until the active game has 2+ enabled Type options. Header label
+  comes from `axisData.axisLabel`.
+- `_renderTypesPicker(gameType, conf)` (called by
+  `_applyGameSetupToPlayerScreen`) builds one `<button.setup-type-btn>`
+  per enabled option, label = `"Type N — " + suffix`. Default
+  selection: first enabled option.
+- The selected option's behavior is stashed on
+  `window._currentTypeBehavior` ('manual' or 'nonstop') and the label
+  on `window._currentTypeLabel`. game.js reads the behavior on
+  end-of-round; the label is reserved for future Type-specific
+  gameplay variants.
+- Catch is excluded — no Type axis runtime support there yet.
+
+### Non-stop end-of-round in `js/game.js`
+- `showEndGameButtons` keeps the Play Again button as before, but
+  when `window._currentTypeBehavior === 'nonstop'` (and we're not in
+  a combined-game stage transition or final celebration) it calls
+  `_startNonstopCountdown(playAgainBtn)`.
+- `_startNonstopCountdown(btn)` replaces the button text with `⏵ N`
+  and ticks down once per second from 3 to 0. Adds capture-phase
+  pointer/key/touch listeners to track activity, plus a
+  `visibilitychange` listener that pauses the timer when the tab is
+  hidden and resumes (with a fresh idle stamp) when shown again.
+- After the count reaches 0, `playAgain()` fires. Idle for 60 s
+  cancels the countdown and leaves the screen as in manual mode.
+- Tapping the button is a deliberate skip-ahead: the click handler
+  calls `_stopNonstopCountdown()` then `playAgain()`. This means a
+  tap during the celebration / lost sound does start the next round
+  early, by design (engaged players want pace).
+- `_stopNonstopCountdown()` is called from `playAgain` and
+  `resetToSetup` so the countdown can never outlive its context.
+- New CSS `.end-game-btn.nonstop-countdown` adds a 1 s `nonstop-tick`
+  pulse animation so the count visibly ticks.
+
+### Identifier choice — explicit `behavior` field, not label substring
+We considered matching `/non[-\s]?stop/i` against the editable suffix.
+Rejected — admin spelling and translation can break it. The dropdown
+makes the choice explicit and survives renames.
+
+### Open follow-ups
+- Catch end-of-round flow doesn't honor `behavior` yet. The data is
+  already on `game.setup[mode].types.options`, but the Catch UI has
+  no Type picker and the falling-cards loop has no end-of-round
+  countdown injection point. Separate pass.
+- Type label (`window._currentTypeLabel`) currently has no gameplay
+  consequence. Once the runtime defines what "Type 2" actually
+  changes, swap the manual/nonstop dropdown for a richer behavior
+  config or a separate per-Type ruleset.
+- The countdown shows the Play Again button doing the counting. If
+  the celebration overlay covers the button, tapping the overlay
+  doesn't currently skip ahead — only tapping the button does. If
+  this is a problem in practice, hoist the click to the overlay too.
+
 ## Branch landscape (as of April 25)
 
 **Three branches kept in sync** (every push goes to all three):

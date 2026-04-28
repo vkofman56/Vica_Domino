@@ -1318,6 +1318,32 @@ fingerprint) without touching the routing.
   Safari occasionally drops `continuous` (handled by auto-restart);
   Chrome/Edge are the smooth path.
 
+### Voice v1 stable point — rollback marker
+
+If the per-Type editable synonym tables (work in progress next, see
+sections below) turn out to be a regression, **revert to the stable
+v1 baseline at commit `3f2d799`** (`Voice input v1 — Find game,
+1-player, EN/ES/RU`). The synonym tables there are hardcoded inside
+`js/voice.js` and admin has only the 🎤 checkbox + EN/ES/RU language
+dropdown per Type — no editor.
+
+To roll back:
+
+```sh
+git revert <new-editor-commit-hash>   # creates a clean revert
+# or, if multiple new commits stacked on top:
+git revert --no-commit 3f2d799..HEAD
+git commit -m "Revert per-Type voice editor; restore v1 baseline"
+git push origin master
+git push origin master:claude/general-session-yVBQq
+git push origin master:claude/review-project-docs-JOOeh
+```
+
+The data shape change is additive (`option.voiceSynonyms` is a new
+optional field); games saved while the editor was active still load
+under v1 because v1's matcher ignores the field. So no data migration
+needed in either direction.
+
 ## Branch landscape (as of April 25)
 
 **Three branches kept in sync** (every push goes to all three):

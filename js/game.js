@@ -1042,6 +1042,7 @@ class VicaDominoGame {
             this._voice = new VoiceInput({
                 language: window._currentVoiceLang || 'en',
                 maxPosition: maxPos,
+                synonyms: window._currentVoiceSynonyms || null,
                 onPhrase: function(ev) { self._onVoicePhrase(ev); },
                 onError: function(err) {
                     if (err.kind === 'permission') {
@@ -1056,6 +1057,11 @@ class VicaDominoGame {
         } else {
             this._voice.setLanguage(window._currentVoiceLang || 'en');
             this._voice.setMaxPosition(maxPos);
+            // setSynonyms takes effect on the next utterance — no recognizer
+            // restart needed.
+            if (typeof this._voice.setSynonyms === 'function') {
+                this._voice.setSynonyms(window._currentVoiceSynonyms || null);
+            }
         }
         this._ensureMicIndicator();
         this._voice.start();

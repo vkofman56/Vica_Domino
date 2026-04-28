@@ -1318,6 +1318,91 @@ fingerprint) without touching the routing.
   Safari occasionally drops `continuous` (handled by auto-restart);
   Chrome/Edge are the smooth path.
 
+### Voice v1.1 — per-Type editable synonym tables (commit pending)
+
+Per-game-type editor on top of v1. Each voice-enabled Type option now
+carries a `voiceSynonyms` field; admin sees a 3-column EN/ES/RU table
+inline under the option row in Game Settings and can add or remove
+phrases per position. The matcher honours single-word and multi-word
+entries.
+
+**Why per-Type, not per-game**: a single game can offer multiple
+teaching modes — e.g., Type 3 = ordinals only ("first / the first"),
+Type 4 = cardinals for younger kids ("one"), Type 5 = both. Per-game
+would force cloning the whole game three times.
+
+### voice.js extensions
+- `_normalizeKeep(s)` added alongside `_normalize(s)`. Strip variant
+  removes articles `the / el / la / los / las`; keep variant doesn't.
+- `_matchPosition` now takes `(text, table, maxPosition)` — table is
+  the active language's `{1:[...], 2:[...], 3:[...], 4:[...]}` lifted
+  from `_activeTable()`.
+- Per-position match: walks 1→maxPosition, first match wins. For each
+  entry: if it contains a space, **substring match** against the
+  article-keeping normalised transcript (so "the first" entry
+  matches "the first one"). If single-word, **token match** against
+  the article-stripped tokens (so "first" entry matches "the first
+  one"). Empty entries are ignored.
+- New `VoiceInput.prototype.setSynonyms(s)` — runtime override, no
+  recognizer restart needed.
+- Constructor now accepts `opts.synonyms`. Stored as `this.synonyms`,
+  used by `_activeTable()`. Falls back to internal `SYNONYMS` if
+  missing or empty for the active language.
+- `VoiceInput.DEFAULT_SYNONYMS` exposed as a deep clone — the editor
+  reads it for "Reset" and for the initial seed of fresh editor
+  panels.
+
+### Game Settings — inline per-Type editor (pm-studio-DrV.html)
+- New `voiceSynonyms` field per Type option. Stored shape:
+  `{ en: { 1:[…], 2:[…], 3:[…], 4:[…] }, es: {…}, ru: {…} }`.
+- `null`/missing means "use defaults at runtime". Once admin opens
+  the editor and saves, it becomes a concrete object (the editor
+  seeds it with current defaults on first open). After that, defaults
+  no longer apply — admin's authority is total. Empty position list
+  = no voice trigger for that position (the user's pedagogical
+  example: "the answer is never first; the kid must say second/
+  third/fourth").
+- Schema repair only normalises type: leaves `null` alone, coerces
+  non-object values to `null`. Existing `voiceSynonyms` objects
+  pass through untouched.
+- `_gsAddOption` seeds new Type rows with `voiceSynonyms: null`.
+- New `✎ words` button in the option row, next to the EN/ES/RU
+  language select. Disabled when `voiceInput` is off (the
+  checkbox-change handler now also closes any open editor).
+- `_gsBuildVoiceEditor(idx, optionRef, defaults)` builds the inline
+  panel: 3 flex columns (English / Español / Русский), each with a
+  "↺" reset-to-defaults-for-this-language button and 4 rows (1st /
+  2nd / 3rd / 4th) of comma-separated text inputs. Live `oninput`
+  writes to the option's `voiceSynonyms`; `_gsCaptureForm` re-reads
+  open editors on save as a defensive guard.
+- New CSS in `css/style.css` for `.gs-voice-editor`, `.gs-voice-cols`,
+  `.gs-voice-col`, `.gs-voice-row`, `.gs-voice-reset-lang-btn`,
+  `.gs-voice-hint`, plus the `.gs-voice-edit-btn` row button.
+
+### Player picker → game.js wiring
+- `_renderTypesPicker` now stashes `window._currentVoiceSynonyms`
+  alongside the existing language / behavior / label. Set to the
+  active option's `voiceSynonyms` (object) or `null` (defaults).
+- `Game._startVoiceForRound()` passes `synonyms:
+  window._currentVoiceSynonyms` to `new VoiceInput(...)`. Re-tunes
+  the existing `_voice` instance via `setSynonyms()` on subsequent
+  rounds — no recognizer restart needed.
+
+### Rollback recipe (revised)
+v1 stable baseline is still commit `3f2d799`. The editor work is
+strictly additive on top — same revert recipe applies:
+
+```sh
+git revert --no-commit 3f2d799..HEAD
+git commit -m "Revert per-Type voice editor; restore v1 baseline"
+git push origin master
+git push origin master:claude/general-session-yVBQq
+git push origin master:claude/review-project-docs-JOOeh
+```
+
+`option.voiceSynonyms` is unread by v1's matcher, so games saved
+while the editor was active still load fine after a revert.
+
 ### Voice v1 stable point — rollback marker
 
 If the per-Type editable synonym tables (work in progress next, see

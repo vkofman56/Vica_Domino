@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:19 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:19 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:19 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9469,6 +9469,13 @@
                             if (ax === 'types') {
                                 if (typeof opt.voiceInput !== 'boolean') opt.voiceInput = false;
                                 if (opt.voiceLang !== 'es' && opt.voiceLang !== 'ru') opt.voiceLang = 'en';
+                                // voiceSynonyms is intentionally left as null/undefined when
+                                // missing — that means "use VoiceInput.DEFAULT_SYNONYMS at
+                                // runtime". Once admin opens the editor and saves, it
+                                // becomes a concrete object and overrides the defaults.
+                                if (opt.voiceSynonyms != null && typeof opt.voiceSynonyms !== 'object') {
+                                    opt.voiceSynonyms = null;
+                                }
                             }
                         });
                     }
@@ -9613,6 +9620,7 @@
                 newOpt.behavior = 'manual';
                 newOpt.voiceInput = false;
                 newOpt.voiceLang = 'en';
+                newOpt.voiceSynonyms = null; // null = use VoiceInput.DEFAULT_SYNONYMS
             }
             conf[axis].options.push(newOpt);
             _gsRenderForm();
@@ -9728,10 +9736,42 @@
                         // Disabled when voiceInput is off — reduces visual noise
                         // for the common case of no voice.
                         langSel.disabled = !voiceCb.checked;
+                        row.appendChild(langSel);
+
+                        // "Edit words ▾" toggle — opens an inline 3-column
+                        // EN/ES/RU editor below the option row. Disabled when
+                        // voice is off.
+                        var editBtn = document.createElement('button');
+                        editBtn.type = 'button';
+                        editBtn.className = 'gs-voice-edit-btn';
+                        editBtn.title = 'Edit voice trigger words for this Type';
+                        editBtn.textContent = '✎ words';
+                        editBtn.disabled = !voiceCb.checked;
+                        row.appendChild(editBtn);
+
                         voiceCb.addEventListener('change', function() {
                             langSel.disabled = !voiceCb.checked;
+                            editBtn.disabled = !voiceCb.checked;
+                            if (!voiceCb.checked) {
+                                // Hide the editor if the admin turned voice off.
+                                var open = optsContainer.querySelector('.gs-voice-editor[data-option-index="' + idx + '"]');
+                                if (open) open.remove();
+                            }
                         });
-                        row.appendChild(langSel);
+
+                        editBtn.addEventListener('click', function() {
+                            var existing = optsContainer.querySelector('.gs-voice-editor[data-option-index="' + idx + '"]');
+                            if (existing) { existing.remove(); return; }
+                            // Build a fresh editor for this option. Reads
+                            // current values straight off the working setup
+                            // (capture-on-toggle keeps it in sync).
+                            _gsCaptureForm();
+                            var current = conf.types.options[idx];
+                            var defaults = (window.VoiceInput && VoiceInput.DEFAULT_SYNONYMS) || {};
+                            var ed = _gsBuildVoiceEditor(idx, current, defaults);
+                            // Insert immediately after the option row.
+                            row.parentNode.insertBefore(ed, row.nextSibling);
+                        });
                     }
                     var rm = document.createElement('button');
                     rm.type = 'button';
@@ -9752,6 +9792,104 @@
                 optsContainer.appendChild(addBtn);
             });
         }
+        // Build the inline 3-column EN/ES/RU voice-words editor for one Type
+        // option. Returns a DOM element to insert below the option row. The
+        // editor is populated with the option's saved voiceSynonyms when
+        // present, otherwise with the runtime defaults from VoiceInput. On
+        // every input change it writes back to the option's voiceSynonyms;
+        // _gsCaptureForm also re-reads from open editors to be safe.
+        function _gsBuildVoiceEditor(optionIdx, optionRef, defaults) {
+            var ed = document.createElement('div');
+            ed.className = 'gs-voice-editor';
+            ed.dataset.optionIndex = optionIdx;
+
+            var langs = [
+                { id: 'en', label: 'English' },
+                { id: 'es', label: 'Español' },
+                { id: 'ru', label: 'Русский' }
+            ];
+            var positions = [1, 2, 3, 4];
+            var posLabels = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th' };
+
+            // Seed if missing — an open-and-save without edits captures the
+            // current defaults verbatim. Future runtime-default updates won't
+            // propagate, but admin authority is explicit (required so admin
+            // can also _remove_ a default like "one").
+            if (!optionRef.voiceSynonyms || typeof optionRef.voiceSynonyms !== 'object') {
+                optionRef.voiceSynonyms = JSON.parse(JSON.stringify(defaults || {}));
+            }
+            // Ensure each lang/position key exists.
+            langs.forEach(function(L) {
+                if (!optionRef.voiceSynonyms[L.id]) optionRef.voiceSynonyms[L.id] = {};
+                positions.forEach(function(p) {
+                    if (!Array.isArray(optionRef.voiceSynonyms[L.id][p])) {
+                        optionRef.voiceSynonyms[L.id][p] = ((defaults[L.id] || {})[p] || []).slice();
+                    }
+                });
+            });
+
+            var cols = document.createElement('div');
+            cols.className = 'gs-voice-cols';
+            langs.forEach(function(L) {
+                var col = document.createElement('div');
+                col.className = 'gs-voice-col';
+                col.dataset.lang = L.id;
+
+                var head = document.createElement('div');
+                head.className = 'gs-voice-col-head';
+                var hLabel = document.createElement('span');
+                hLabel.textContent = L.label;
+                head.appendChild(hLabel);
+                var resetBtn = document.createElement('button');
+                resetBtn.type = 'button';
+                resetBtn.className = 'gs-voice-reset-lang-btn';
+                resetBtn.title = 'Reset ' + L.label + ' to defaults';
+                resetBtn.textContent = '↺';
+                resetBtn.addEventListener('click', function() {
+                    var def = (defaults[L.id] || {});
+                    positions.forEach(function(p) {
+                        var input = col.querySelector('input[data-pos="' + p + '"]');
+                        if (input) input.value = (def[p] || []).join(', ');
+                        optionRef.voiceSynonyms[L.id][p] = (def[p] || []).slice();
+                    });
+                });
+                head.appendChild(resetBtn);
+                col.appendChild(head);
+
+                positions.forEach(function(p) {
+                    var rowEl = document.createElement('div');
+                    rowEl.className = 'gs-voice-row';
+                    var lbl = document.createElement('label');
+                    lbl.textContent = posLabels[p];
+                    rowEl.appendChild(lbl);
+                    var inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.dataset.lang = L.id;
+                    inp.dataset.pos = p;
+                    inp.value = (optionRef.voiceSynonyms[L.id][p] || []).join(', ');
+                    inp.placeholder = 'comma-separated phrases';
+                    inp.addEventListener('input', function() {
+                        // Live write-back so toggling the editor closed/open
+                        // doesn't lose pending edits.
+                        var arr = inp.value.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+                        optionRef.voiceSynonyms[L.id][p] = arr;
+                    });
+                    rowEl.appendChild(inp);
+                    col.appendChild(rowEl);
+                });
+
+                cols.appendChild(col);
+            });
+            ed.appendChild(cols);
+
+            var hint = document.createElement('div');
+            hint.className = 'gs-voice-hint';
+            hint.textContent = 'Comma-separated. Multi-word entries match against the full transcript ("the first" matches "the first one"). Empty row = no voice trigger for that position.';
+            ed.appendChild(hint);
+
+            return ed;
+        }
+
         function _gsCaptureForm() {
             // Read the current visible form values into _gsWorking[_gsCurrentTab].
             if (!_gsWorking) return;
@@ -9787,6 +9925,21 @@
                         if (langSel) {
                             var lv = langSel.value;
                             conf[axis].options[idx].voiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
+                        }
+                        // If the inline voice editor for this option is open,
+                        // re-read every input. The editor's input listener
+                        // already writes live, but capture-on-save avoids
+                        // missing the in-progress text-cursor word.
+                        var openEditor = optsContainer.querySelector('.gs-voice-editor[data-option-index="' + idx + '"]');
+                        if (openEditor) {
+                            var optRef = conf[axis].options[idx];
+                            if (!optRef.voiceSynonyms) optRef.voiceSynonyms = {};
+                            openEditor.querySelectorAll('input[data-lang][data-pos]').forEach(function(inp) {
+                                var L = inp.dataset.lang;
+                                var p = parseInt(inp.dataset.pos, 10);
+                                if (!optRef.voiceSynonyms[L]) optRef.voiceSynonyms[L] = {};
+                                optRef.voiceSynonyms[L][p] = inp.value.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+                            });
                         }
                     }
                 });

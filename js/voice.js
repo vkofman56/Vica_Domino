@@ -66,22 +66,43 @@
             .replace(/\s+/g, ' ')
             .trim();
     }
+    // Article-keeping variant for multi-word entries — if the admin puts
+    // "the first" into the table, the user's "the first" must be matched
+    // verbatim. Stripping articles would eat the entry's own "the".
+    function _normalizeKeep(s) {
+        if (!s) return '';
+        return String(s)
+            .toLowerCase()
+            .replace(/[.,!?;:'"()\[\]]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
 
-    function _matchPosition(text, lang, maxPosition) {
-        var norm = _normalize(text);
-        if (!norm) return 0;
-        var table = SYNONYMS[lang] || SYNONYMS.en;
-        // Tokenize and check each token against every position's synonyms.
+    function _matchPosition(text, table, maxPosition) {
+        if (!table) return 0;
+        var stripNorm = _normalize(text);
+        var keepNorm = _normalizeKeep(text);
+        if (!stripNorm && !keepNorm) return 0;
+        var tokens = stripNorm ? stripNorm.split(' ') : [];
         // First match wins so a stray "second" buried after "first" doesn't
-        // override the user's first word.
-        var tokens = norm.split(' ');
-        for (var t = 0; t < tokens.length; t++) {
-            var tok = tokens[t];
-            for (var p = 1; p <= maxPosition; p++) {
-                var list = table[p];
-                if (!list) continue;
-                for (var i = 0; i < list.length; i++) {
-                    if (tok === list[i]) return p;
+        // override the user's first word. Walk by position so position-1
+        // entries always beat position-2 entries when both could match.
+        for (var p = 1; p <= maxPosition; p++) {
+            var list = table[p];
+            if (!list) continue;
+            for (var i = 0; i < list.length; i++) {
+                var entry = (list[i] || '').toLowerCase().trim();
+                if (!entry) continue;
+                if (entry.indexOf(' ') >= 0) {
+                    // Multi-word entry: substring match against the
+                    // articles-kept transcript.
+                    if (keepNorm.indexOf(entry) >= 0) return p;
+                } else {
+                    // Single-word entry: token match against the
+                    // articles-stripped transcript.
+                    for (var t = 0; t < tokens.length; t++) {
+                        if (tokens[t] === entry) return p;
+                    }
                 }
             }
         }
@@ -95,11 +116,22 @@
         this.onPhrase = opts.onPhrase || function() {};
         this.onError = opts.onError || function() {};
         this.onListeningChange = opts.onListeningChange || function() {};
+        // Optional override for the synonym tables, keyed by language.
+        // Shape: { en: { 1:[...], 2:[...], 3:[...], 4:[...] }, es: {...}, ru: {...} }.
+        // If present for the active language, used verbatim — empty position
+        // lists mean "no triggers for that position" (admin choice). If null
+        // / missing, fall back to DEFAULT_SYNONYMS.
+        this.synonyms = opts.synonyms || null;
         this._rec = null;
         this._wantOn = false;        // user intent — keep restarting on ends
         this._lastFiredAt = 0;       // simple cooldown
         this._lastHeard = '';
     }
+
+    VoiceInput.prototype._activeTable = function() {
+        if (this.synonyms && this.synonyms[this.language]) return this.synonyms[this.language];
+        return SYNONYMS[this.language] || SYNONYMS.en;
+    };
 
     VoiceInput.isSupported = function() {
         return !!SpeechRecognition;
@@ -123,7 +155,7 @@
                     var alt = res[a];
                     var conf = (typeof alt.confidence === 'number' && alt.confidence > 0) ? alt.confidence : 1;
                     if (!res.isFinal && conf < CONFIDENCE_FLOOR) continue;
-                    var pos = _matchPosition(alt.transcript, self.language, self.maxPosition);
+                    var pos = _matchPosition(alt.transcript, self._activeTable(), self.maxPosition);
                     if (pos > 0) {
                         // Cooldown so the same utterance doesn't fire twice
                         // when the recognizer keeps pushing partials.
@@ -207,8 +239,18 @@
         if (n >= 2 && n <= 4) this.maxPosition = n;
     };
 
+    // Update the synonym override at runtime. Pass null/undefined to fall
+    // back to defaults. Takes effect on the next utterance — no need to
+    // restart the recognizer.
+    VoiceInput.prototype.setSynonyms = function(synonyms) {
+        this.synonyms = synonyms || null;
+    };
+
     VoiceInput.prototype.lastHeard = function() { return this._lastHeard; };
 
-    // Expose
+    // Expose. DEFAULT_SYNONYMS is published as a deep clone so callers
+    // can edit the result without mutating our internal table.
+    VoiceInput.DEFAULT_SYNONYMS = JSON.parse(JSON.stringify(SYNONYMS));
+    VoiceInput.LANG_CODES = LANG_CODES;
     window.VoiceInput = VoiceInput;
 })();

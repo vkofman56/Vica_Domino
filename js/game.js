@@ -1018,6 +1018,97 @@ class VicaDominoGame {
             // Hide timer box if no Xeno
             document.getElementById('xeno-timer-box').style.display = 'none';
         }
+
+        // Voice input: start the recognizer for this round if the active Type
+        // has voiceInput enabled. 1-player only for v1.
+        this._startVoiceForRound();
+    }
+
+    // === Voice input (Find the Doubles, 1-player) ===
+    // Stand-alone VoiceInput module (js/voice.js) emits position events;
+    // we route them through the same handler a click would.
+    _startVoiceForRound() {
+        if (!window._currentVoiceInput) return;
+        if (!this.players || this.players.length !== 1) return; // 1-player only for v1
+        if (typeof VoiceInput === 'undefined') return;
+        if (!VoiceInput.isSupported()) {
+            this._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+            return;
+        }
+        var maxPos = (this.players[0].hand || []).length;
+        if (maxPos < 2) maxPos = 2;
+        var self = this;
+        if (!this._voice) {
+            this._voice = new VoiceInput({
+                language: window._currentVoiceLang || 'en',
+                maxPosition: maxPos,
+                onPhrase: function(ev) { self._onVoicePhrase(ev); },
+                onError: function(err) {
+                    if (err.kind === 'permission') {
+                        self._showVoiceNotice('Microphone permission denied. Tap to play.');
+                    } else if (err.kind === 'unsupported') {
+                        self._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+                    }
+                    self._setMicIndicator('error');
+                },
+                onListeningChange: function(on) { self._setMicIndicator(on ? 'listening' : 'idle'); }
+            });
+        } else {
+            this._voice.setLanguage(window._currentVoiceLang || 'en');
+            this._voice.setMaxPosition(maxPos);
+        }
+        this._ensureMicIndicator();
+        this._voice.start();
+    }
+
+    _stopVoice() {
+        if (this._voice) this._voice.stop();
+        this._setMicIndicator('idle');
+    }
+
+    _onVoicePhrase(ev) {
+        if (this.gamePhase !== 'sunLevel') return; // ignore during celebration / setup
+        var idx = (ev.position || 0) - 1;
+        var player = this.players && this.players[0];
+        if (!player || !player.hand || idx < 0 || idx >= player.hand.length) return;
+        this._showLastHeard(ev.raw);
+        this.handleSunLevelCardClick(player.hand[idx], 0, idx);
+    }
+
+    _ensureMicIndicator() {
+        if (document.getElementById('voice-mic-indicator')) return;
+        var box = document.createElement('div');
+        box.id = 'voice-mic-indicator';
+        box.className = 'voice-mic-indicator idle';
+        box.innerHTML = '<span class="voice-mic-icon">🎤</span><span class="voice-mic-heard"></span>';
+        document.body.appendChild(box);
+    }
+    _setMicIndicator(state) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        box.classList.remove('listening', 'idle', 'error');
+        box.classList.add(state || 'idle');
+    }
+    _showLastHeard(text) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        var span = box.querySelector('.voice-mic-heard');
+        if (!span) return;
+        span.textContent = text || '';
+        clearTimeout(this._lastHeardTimer);
+        this._lastHeardTimer = setTimeout(function() { span.textContent = ''; }, 2200);
+    }
+    _showVoiceNotice(msg) {
+        // Shown once per session — the unsupported-browser notice keeps
+        // popping up on every round otherwise.
+        if (this._voiceNoticeShown) return;
+        this._voiceNoticeShown = true;
+        var n = document.createElement('div');
+        n.className = 'voice-notice';
+        n.textContent = msg;
+        n.addEventListener('click', function() { n.remove(); });
+        document.body.appendChild(n);
+        setTimeout(function() { if (n.parentNode) n.remove(); }, 6000);
     }
 
     dealSunLevelCards() {
@@ -2319,6 +2410,9 @@ class VicaDominoGame {
     // Dim the playing area over 10 seconds, show buttons immediately
     startPlayAreaDim() {
         this.gamePhase = 'sunLevelWon';
+        // Round is over — stop the voice recognizer so the celebration / lost
+        // sound and any "Play Again" tap aren't picked up as a position word.
+        this._stopVoice();
 
         // Build winner status with icons
         this.updateWinnerStatus();
@@ -3499,6 +3593,10 @@ class VicaDominoGame {
         // Cancel any running Non-stop countdown so it doesn't auto-start
         // a new round after the user has explicitly returned to setup.
         this._stopNonstopCountdown();
+        // Stop voice and remove its UI when the user quits to the setup screen.
+        this._stopVoice();
+        var ind = document.getElementById('voice-mic-indicator');
+        if (ind) ind.remove();
         // Clean up combined game
         this.combinedGame = null;
         this.playerCoins = {};

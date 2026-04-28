@@ -1232,6 +1232,92 @@ working in the user's environment.
 - Remove the temporary yellow GP-Setup probe once the picker
   rendering is verified working.
 
+## April 26 Session (cont.) — Voice input v1 (Find, 1-player, EN/ES/RU)
+
+Wires Web Speech API recognition to "Find the Doubles" so a 1-player
+round can be answered by voice ("the first" / "second" / "third" /
+"fourth") in addition to clicks. Decoupled audio-source layer so
+2-player can plug in later (separate mics, push-to-talk, or speaker
+fingerprint) without touching the routing.
+
+### Per-Type `voiceInput` + `voiceLang` (admin)
+- `_defaultGameSetup`'s `mkTypesAxis` seeds each option with
+  `voiceInput: false`, `voiceLang: 'en'` alongside the existing
+  `behavior` field.
+- `_getGameSetup` schema-repairs both fields (older saves get
+  `voiceInput: false`, `voiceLang: 'en'`).
+- Game Settings option-row UI gains a 🎤 checkbox + EN/ES/RU language
+  dropdown next to the manual/non-stop dropdown. The lang select is
+  disabled when the checkbox is off (visual quietness for the common
+  case). New CSS `.gs-option-voice` and `.gs-option-voice-lang`.
+- Voice is a separate dimension from behavior, per user direction —
+  any combination is allowed (manual + voice, non-stop + voice).
+
+### `js/voice.js` — stand-alone `VoiceInput` module
+- Wraps `SpeechRecognition` / `webkitSpeechRecognition`.
+- Continuous + interim results, with auto-restart on `onend` because
+  Safari kills the recognizer after each utterance even with
+  `continuous: true`.
+- Phrase parser: normalize transcript (lowercase, strip articles
+  the / el / la / los / las, strip punctuation), tokenize, match
+  against per-language synonym tables. Includes common mishears
+  (e.g., "forth" for "fourth").
+- `LANG_CODES`: `en-US` / `es-ES` / `ru-RU`. Region is best-effort —
+  Mac Safari speaking es-MX still hits the es-ES recognizer well.
+- 700 ms cooldown per fired phrase so the recognizer's chain of
+  partials doesn't double-fire.
+- `onerror` handles `not-allowed` / `service-not-allowed` (permission
+  denied) by clearing `_wantOn` so we don't retry-loop.
+- API: `new VoiceInput({ language, maxPosition, onPhrase, onError,
+  onListeningChange })`, `.start()`, `.stop()`, `.setLanguage()`,
+  `.setMaxPosition()`, `VoiceInput.isSupported()`. Loaded by both
+  `index.html` and `pm-studio-DrV.html` before `game.js`.
+
+### Player picker stash + game.js round lifecycle
+- `_renderTypesPicker` now stashes `window._currentVoiceInput` and
+  `window._currentVoiceLang` alongside `_currentTypeBehavior` /
+  `_currentTypeLabel`. Each setup-type-line shows a 🎤 suffix when
+  the option has voice on.
+- `Game.startSunLevelGame()` calls `_startVoiceForRound()` after
+  layout is ready: skips if `!_currentVoiceInput`, skips for 2+
+  player matches (1-player only for v1), shows the unsupported
+  notice if `VoiceInput.isSupported()` returns false, otherwise
+  creates / re-tunes the recognizer and starts.
+- `_onVoicePhrase` ignores phrases unless `gamePhase === 'sunLevel'`
+  (so celebrations and lost-sounds don't trigger fire), then routes
+  the position into the same `handleSunLevelCardClick(card,
+  playerIndex, cardIndex)` a click would call.
+- `Game.startPlayAreaDim()` and `Game.resetToSetup()` both call
+  `_stopVoice()` so the recognizer isn't running during the win/loss
+  feedback or after a quit.
+
+### UI
+- `#voice-mic-indicator` corner badge (top-right): 🎤 plus the last
+  heard transcript. CSS classes `idle` / `listening` / `error`. The
+  `listening` state pulses red via `voice-mic-pulse` keyframes —
+  echoes the browser's own tab-record indicator.
+- `_showLastHeard(raw)` shows the transcript that fired the position
+  for ~2 seconds, then clears.
+- `.voice-notice` toast: shown once per session if the browser
+  doesn't support Web Speech API, or if the user denies the mic
+  permission. Tap to dismiss; auto-removes after 6 s.
+- The Type-line in the right-column picker gets a 🎤 suffix so the
+  player can tell which Type uses voice before they pick.
+
+### Open follow-ups (voice)
+- 2-player. Three viable paths documented in the explanation above
+  this session (separate mics / push-to-talk per player / speaker
+  fingerprint with a wasm model). v1 design keeps voice routing in
+  `_onVoicePhrase` decoupled from speaker identity, so the audio
+  source layer is the only thing that changes when 2P ships.
+- Combined-game multi-stage: voice should keep working across stage
+  transitions; not yet verified.
+- Push-to-talk variant: not built. Always-listening per the user's
+  direction.
+- Browser caveats: Firefox doesn't support Web Speech API at all;
+  Safari occasionally drops `continuous` (handled by auto-restart);
+  Chrome/Edge are the smooth path.
+
 ## Branch landscape (as of April 25)
 
 **Three branches kept in sync** (every push goes to all three):

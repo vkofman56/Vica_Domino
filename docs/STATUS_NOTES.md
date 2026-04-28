@@ -185,6 +185,7 @@ Vica_Domino/
 - [x] **Find Type picker unified with Catch** — `_renderTypesPicker` no longer branches by game type; both Find and Catch render the same right-column radio list ("Choose the game type:") and hide the domino-style SVGs. Legacy top-of-panel `#setup-types-row` left in DOM but always hidden.
 - [x] **Type axis mirrors across touch+mouse on save** — `_gsCaptureForm` now copies the captured types axis to the other mode immediately, so admin can edit either tab and the player picker shows up regardless of input mode.
 - [x] **"🚧 Under construction" badge removed** from the Type axis section in Game Settings — picker exists, runtime honors behavior, badge claim was stale.
+- [x] **Voice input v1 (Find, 1-player, EN/ES/RU)** — admin enables `voiceInput` per Type option in Game Settings (🎤 checkbox + language dropdown). New stand-alone `js/voice.js` (Web Speech API wrapper, continuous + interim, Safari auto-restart, per-language synonym tables). Player rounds with voice on listen continuously; saying "the first / second / third / fourth" routes through `handleSunLevelCardClick` exactly like a tap. Corner mic indicator pulses red while listening, toast on browser-unsupported / permission-denied. Decoupled audio-source layer so 2-player extension only swaps the source, not the routing.
 
 ---
 

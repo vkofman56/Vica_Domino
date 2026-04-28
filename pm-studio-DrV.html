@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:51 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:51 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9405,9 +9405,17 @@
             // 'manual'  = current behavior (winner modal, user clicks Play Again)
             // 'nonstop' = round-end celebration plays, 3 s countdown, then auto-restart
             //             unless user taps Stop or is idle for 60 s
+            // Plus a per-option `voiceInput` boolean (single-player only for v1)
+            // and `voiceLang` (en / es / ru) — when enabled, the player can say
+            // "first / second / third / fourth" instead of clicking. Decoupled
+            // from behavior so voice can combine with either manual or nonstop.
             function mkTypesAxis(axisName, defaultOn) {
                 var ax = mkAxis(['Type 1', 'Type 2', 'Type 3'], axisName, defaultOn);
-                ax.options.forEach(function(opt) { opt.behavior = 'manual'; });
+                ax.options.forEach(function(opt) {
+                    opt.behavior = 'manual';
+                    opt.voiceInput = false;
+                    opt.voiceLang = 'en';
+                });
                 return ax;
             }
             return {
@@ -9456,6 +9464,11 @@
                             // Default behavior on Type options (older saves don't have it).
                             if (ax === 'types' && opt.behavior !== 'nonstop') {
                                 opt.behavior = 'manual';
+                            }
+                            // Default voice fields on Type options (older saves don't have them).
+                            if (ax === 'types') {
+                                if (typeof opt.voiceInput !== 'boolean') opt.voiceInput = false;
+                                if (opt.voiceLang !== 'es' && opt.voiceLang !== 'ru') opt.voiceLang = 'en';
                             }
                         });
                     }
@@ -9596,7 +9609,11 @@
             if (axis === 'players') label = 'Option ' + n;
             else if (axis === 'types') label = 'Type ' + n;
             var newOpt = { id: 'opt' + n, label: label, on: false };
-            if (axis === 'types') newOpt.behavior = 'manual';
+            if (axis === 'types') {
+                newOpt.behavior = 'manual';
+                newOpt.voiceInput = false;
+                newOpt.voiceLang = 'en';
+            }
             conf[axis].options.push(newOpt);
             _gsRenderForm();
         }
@@ -9664,10 +9681,8 @@
                     txt.value = opt.label || '';
                     txt.dataset.optionIndex = idx;
                     row.appendChild(txt);
-                    // Types axis: per-option behavior dropdown (manual / nonstop).
-                    // Determines whether the round-end on the player side waits
-                    // for a click ("manual" — current behavior) or auto-restarts
-                    // after a 3 s countdown ("nonstop").
+                    // Types axis: per-option behavior dropdown (manual / nonstop)
+                    // plus a voice-input checkbox + language picker.
                     if (axis === 'types') {
                         var beh = document.createElement('select');
                         beh.className = 'gs-option-behavior';
@@ -9683,6 +9698,40 @@
                         beh.appendChild(nsOpt);
                         beh.value = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
                         row.appendChild(beh);
+
+                        // Voice input checkbox — when on, the player can say
+                        // "first / second / third / fourth" to pick a domino.
+                        // 1-player only for v1; the picker hides for 2-player.
+                        var voiceWrap = document.createElement('label');
+                        voiceWrap.className = 'gs-option-voice';
+                        voiceWrap.title = 'Allow voice input on this Type (1-player only for now)';
+                        var voiceCb = document.createElement('input');
+                        voiceCb.type = 'checkbox';
+                        voiceCb.className = 'gs-option-voice-cb';
+                        voiceCb.checked = !!opt.voiceInput;
+                        var voiceLbl = document.createElement('span');
+                        voiceLbl.textContent = '🎤';
+                        voiceWrap.appendChild(voiceCb);
+                        voiceWrap.appendChild(voiceLbl);
+                        row.appendChild(voiceWrap);
+
+                        var langSel = document.createElement('select');
+                        langSel.className = 'gs-option-voice-lang';
+                        langSel.title = 'Voice recognition language';
+                        [['en', 'EN'], ['es', 'ES'], ['ru', 'RU']].forEach(function(pair) {
+                            var o = document.createElement('option');
+                            o.value = pair[0];
+                            o.textContent = pair[1];
+                            langSel.appendChild(o);
+                        });
+                        langSel.value = (opt.voiceLang === 'es' || opt.voiceLang === 'ru') ? opt.voiceLang : 'en';
+                        // Disabled when voiceInput is off — reduces visual noise
+                        // for the common case of no voice.
+                        langSel.disabled = !voiceCb.checked;
+                        voiceCb.addEventListener('change', function() {
+                            langSel.disabled = !voiceCb.checked;
+                        });
+                        row.appendChild(langSel);
                     }
                     var rm = document.createElement('button');
                     rm.type = 'button';
@@ -9729,6 +9778,15 @@
                         var beh = row.querySelector('select.gs-option-behavior');
                         if (beh) {
                             conf[axis].options[idx].behavior = (beh.value === 'nonstop') ? 'nonstop' : 'manual';
+                        }
+                        var voiceCb = row.querySelector('input.gs-option-voice-cb');
+                        if (voiceCb) {
+                            conf[axis].options[idx].voiceInput = !!voiceCb.checked;
+                        }
+                        var langSel = row.querySelector('select.gs-option-voice-lang');
+                        if (langSel) {
+                            var lv = langSel.value;
+                            conf[axis].options[idx].voiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
                         }
                     }
                 });
@@ -16941,6 +16999,7 @@
         })();
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
+    <script src="js/voice.js?v=v1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
     <script>
         // Intercept Start Game button for catch play mode (after game.js binds)

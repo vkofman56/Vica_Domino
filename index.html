@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:51 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1069,13 +1069,19 @@
             // Default to manual unless we explicitly find a non-stop choice.
             window._currentTypeBehavior = 'manual';
             window._currentTypeLabel = '';
+            window._currentVoiceInput = false;
+            window._currentVoiceLang = 'en';
 
             var types = conf && conf.types && Array.isArray(conf.types.options) ? conf.types.options : [];
             var enabled = types.filter(function(o) { return o && o.on; });
-            if (enabled.length === 1) {
-                window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
-                window._currentTypeLabel = enabled[0].label || '';
+            function _stashTypeChoice(opt) {
+                window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                window._currentTypeLabel = opt.label || '';
+                window._currentVoiceInput = !!opt.voiceInput;
+                var lv = opt.voiceLang;
+                window._currentVoiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
             }
+            if (enabled.length === 1) _stashTypeChoice(enabled[0]);
 
             // Small on-screen probe so we can see what the picker is reading
             // when something doesn't show up. Tap to dismiss. Removed once
@@ -1112,8 +1118,7 @@
             rightH3.textContent = (conf.types.axisLabel || 'Choose the game type') + ':';
             dominoStyleEl.style.display = 'none';
             rightTypes.style.display = '';
-            window._currentTypeBehavior = (enabled[0].behavior === 'nonstop') ? 'nonstop' : 'manual';
-            window._currentTypeLabel = enabled[0].label || '';
+            _stashTypeChoice(enabled[0]);
             enabled.forEach(function(opt, i) {
                 var line = document.createElement('label');
                 line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
@@ -1123,7 +1128,9 @@
                 radio.checked = (i === 0);
                 var span = document.createElement('span');
                 var prefix = 'Type ' + (types.indexOf(opt) + 1);
-                span.textContent = opt.label ? prefix + ' — ' + opt.label : prefix;
+                var labelTxt = opt.label ? prefix + ' — ' + opt.label : prefix;
+                if (opt.voiceInput) labelTxt += ' 🎤';
+                span.textContent = labelTxt;
                 line.appendChild(radio);
                 line.appendChild(span);
                 line.addEventListener('click', function() {
@@ -1131,8 +1138,7 @@
                     rightTypes.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
                     line.classList.add('selected');
                     radio.checked = true;
-                    window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
-                    window._currentTypeLabel = opt.label || '';
+                    _stashTypeChoice(opt);
                 });
                 rightTypes.appendChild(line);
             });
@@ -2624,6 +2630,7 @@
         populateIntroGames();
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
+    <script src="js/voice.js?v=v1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode

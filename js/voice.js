@@ -150,7 +150,15 @@
     VoiceInput.prototype._make = function() {
         var rec = new SpeechRecognition();
         rec.lang = LANG_CODES[this.language] || 'en-US';
-        rec.continuous = true;
+        // continuous=false. With continuous=true, Chrome occasionally batches
+        // two pause-separated utterances into a single delayed transcript
+        // ("first first" instead of two separate "first" results), which
+        // makes the first attempt feel unresponsive. With continuous=false
+        // each utterance is its own short session that ends ~0.5 s after
+        // the user stops talking; the onend handler below auto-restarts a
+        // fresh session 80 ms later, giving us de-facto continuous listening
+        // without the batching.
+        rec.continuous = false;
         rec.interimResults = true;
         rec.maxAlternatives = 3;
 

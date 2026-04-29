@@ -1033,11 +1033,27 @@ class VicaDominoGame {
     // Stand-alone VoiceInput module (js/voice.js) emits position events;
     // we route them through the same handler a click would.
     _startVoiceForRound() {
-        if (!window._currentVoiceInput) return;
-        if (!this.players || this.players.length !== 1) return; // 1-player only for v1
-        if (typeof VoiceInput === 'undefined') return;
-        if (!VoiceInput.isSupported()) {
-            this._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+        // Voice off for this type / 1-player only / browser unsupported:
+        // make sure no leftover mic indicator is visible from a previous
+        // (voice-on) round before bailing.
+        var voiceOn = !!window._currentVoiceInput &&
+                      this.players && this.players.length === 1 &&
+                      typeof VoiceInput !== 'undefined' &&
+                      VoiceInput.isSupported();
+        if (!voiceOn) {
+            // Stop any prior recognizer and remove the indicator entirely
+            // so non-voice rounds don't carry the badge over from a
+            // previous voice-enabled session.
+            if (this._voice) this._voice.stop();
+            var stale = document.getElementById('voice-mic-indicator');
+            if (stale) stale.remove();
+            // Surface the unsupported notice if voice was wanted but
+            // unavailable. Skip if 2+ players (1-player-only is by design,
+            // not a browser limit, so no toast).
+            if (window._currentVoiceInput && this.players && this.players.length === 1 &&
+                typeof VoiceInput !== 'undefined' && !VoiceInput.isSupported()) {
+                this._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+            }
             return;
         }
         var maxPos = (this.players[0].hand || []).length;

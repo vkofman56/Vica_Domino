@@ -1114,9 +1114,15 @@ class VicaDominoGame {
         var box = document.createElement('div');
         box.id = 'voice-mic-indicator';
         box.className = 'voice-mic-indicator idle';
+        box.title = 'Tap for mic check';
         box.innerHTML = '<span class="voice-mic-icon">🎤</span>' +
                         '<span class="voice-mic-status"></span>' +
                         '<span class="voice-mic-heard"></span>';
+        // Tap the indicator to open the diagnostic panel. Useful when the
+        // recognizer sits in 'listening' but no transcripts ever fire.
+        box.addEventListener('click', function() {
+            if (window.VoiceInput && VoiceInput.openMicCheck) VoiceInput.openMicCheck();
+        });
         document.body.appendChild(box);
     }
     _setMicIndicator(state) {

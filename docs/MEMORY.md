@@ -1403,14 +1403,32 @@ git push origin master:claude/review-project-docs-JOOeh
 `option.voiceSynonyms` is unread by v1's matcher, so games saved
 while the editor was active still load fine after a revert.
 
+### Voice v1.1 + lifecycle-race fix — current stable point
+
+**Stable target as of 07:55 PM PDT today**: commit `8bd44b8` (`Voice:
+stale-recognizer guards so round 2+ doesn't go silent`). User
+confirmed voice works across rounds in actual gameplay. Builds on
+top of voice v1.1 (per-Type editor, `97ade1f`), v1 (`3f2d799`), and
+the mic-check diagnostic panel (`a709fa3`, `97ade1f`).
+
+Key reliability tricks now live in `js/voice.js`:
+- Every event handler in `_make()` bails via `_isCurrent()` if it
+  fires after the recognizer has been replaced. Without this,
+  round-1's onend was overriding round-2's listening state and
+  trying to auto-restart a dead recognizer alongside the new one.
+- `start()` always recreates the recognizer (rather than reusing
+  one across rounds). Predictable lifecycle regardless of which
+  order Chrome fires onend/onstart in.
+- `setLanguage` no-ops when language unchanged.
+
 ### Voice v1 stable point — rollback marker
 
-If the per-Type editable synonym tables (work in progress next, see
-sections below) turn out to be a regression, **revert to the stable
-v1 baseline at commit `3f2d799`** (`Voice input v1 — Find game,
-1-player, EN/ES/RU`). The synonym tables there are hardcoded inside
-`js/voice.js` and admin has only the 🎤 checkbox + EN/ES/RU language
-dropdown per Type — no editor.
+If you want to skip ALL the post-v1 voice work (per-Type editor,
+mic-check panel, lifecycle guards), **revert to the v1 baseline at
+commit `3f2d799`** (`Voice input v1 — Find game, 1-player, EN/ES/RU`).
+The synonym tables there are hardcoded inside `js/voice.js` and admin
+has only the 🎤 checkbox + EN/ES/RU language dropdown per Type — no
+editor.
 
 To roll back:
 

@@ -121,6 +121,11 @@
         // diagnosing "recognizer heard X but matcher rejected" vs "recognizer
         // heard nothing". Receives { raw, confidence, matched: boolean }.
         this.onHeard = opts.onHeard || function() {};
+        // Fires on recognizer state transitions (start / end / error). Useful
+        // for surfacing "no-speech" or other quiet failures into the UI when
+        // DevTools isn't available. Receives { kind, detail?, language?,
+        // langCode? }.
+        this.onStatus = opts.onStatus || function() {};
         // Optional override for the synonym tables, keyed by language.
         // Shape: { en: { 1:[...], 2:[...], 3:[...], 4:[...] }, es: {...}, ru: {...} }.
         // If present for the active language, used verbatim — empty position
@@ -186,9 +191,12 @@
         };
 
         rec.onerror = function(ev) {
-            // 'no-speech' fires routinely when the user is silent; ignore.
-            // 'aborted' fires when we call stop() ourselves.
-            if (!ev || ev.error === 'no-speech' || ev.error === 'aborted') return;
+            // 'no-speech' fires routinely when the user is silent; surface it
+            // for diagnostic display but don't treat as a hard error.
+            if (!ev) return;
+            if (ev.error === 'aborted') return;
+            try { self.onStatus({ kind: 'error', detail: ev.error }); } catch(_){ }
+            if (ev.error === 'no-speech') return;
             if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
                 self._wantOn = false; // don't keep retrying after a denial
                 try { self.onError({ kind: 'permission', detail: ev.error }); } catch(_){ }
@@ -199,6 +207,7 @@
 
         rec.onend = function() {
             try { self.onListeningChange(false); } catch(_){ }
+            try { self.onStatus({ kind: 'end' }); } catch(_){ }
             // Safari kills the recognizer after every utterance even with
             // continuous=true. Restart automatically while the caller still
             // wants us listening.
@@ -212,6 +221,7 @@
 
         rec.onstart = function() {
             try { self.onListeningChange(true); } catch(_){ }
+            try { self.onStatus({ kind: 'start', language: self.language, langCode: rec.lang }); } catch(_){ }
         };
 
         return rec;

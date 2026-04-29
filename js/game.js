@@ -1051,6 +1051,21 @@ class VicaDominoGame {
                     var prefix = ev.matched ? '' : '? ';
                     self._showLastHeard(prefix + (ev.raw || ''));
                 },
+                onStatus: function(ev) {
+                    // Surface recognizer events (start/end/error) into the
+                    // indicator so the user can diagnose "blink with no
+                    // transcript" without DevTools. Common cases:
+                    //  - error: no-speech       → mic alive, no audio detected
+                    //  - error: language-not-supported → wrong langCode
+                    //  - end (with no result)   → recognizer dropped silently
+                    if (ev.kind === 'start') {
+                        self._setVoiceStatus('listening (' + (ev.langCode || ev.language || '?') + ')');
+                    } else if (ev.kind === 'end') {
+                        self._setVoiceStatus('end → restart');
+                    } else if (ev.kind === 'error') {
+                        self._setVoiceStatus('err: ' + (ev.detail || 'unknown'));
+                    }
+                },
                 onError: function(err) {
                     if (err.kind === 'permission') {
                         self._showVoiceNotice('Microphone permission denied. Tap to play.');
@@ -1093,7 +1108,9 @@ class VicaDominoGame {
         var box = document.createElement('div');
         box.id = 'voice-mic-indicator';
         box.className = 'voice-mic-indicator idle';
-        box.innerHTML = '<span class="voice-mic-icon">🎤</span><span class="voice-mic-heard"></span>';
+        box.innerHTML = '<span class="voice-mic-icon">🎤</span>' +
+                        '<span class="voice-mic-status"></span>' +
+                        '<span class="voice-mic-heard"></span>';
         document.body.appendChild(box);
     }
     _setMicIndicator(state) {
@@ -1110,6 +1127,13 @@ class VicaDominoGame {
         span.textContent = text || '';
         clearTimeout(this._lastHeardTimer);
         this._lastHeardTimer = setTimeout(function() { span.textContent = ''; }, 2200);
+    }
+    _setVoiceStatus(text) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        var span = box.querySelector('.voice-mic-status');
+        if (!span) return;
+        span.textContent = text || '';
     }
     _showVoiceNotice(msg) {
         // Shown once per session — the unsupported-browser notice keeps

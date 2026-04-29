@@ -1044,6 +1044,13 @@ class VicaDominoGame {
                 maxPosition: maxPos,
                 synonyms: window._currentVoiceSynonyms || null,
                 onPhrase: function(ev) { self._onVoicePhrase(ev); },
+                onHeard: function(ev) {
+                    // Show what the recognizer heard, matched or not — gives
+                    // the user feedback that the mic is alive when nothing
+                    // in their phrase matches the synonym table.
+                    var prefix = ev.matched ? '' : '? ';
+                    self._showLastHeard(prefix + (ev.raw || ''));
+                },
                 onError: function(err) {
                     if (err.kind === 'permission') {
                         self._showVoiceNotice('Microphone permission denied. Tap to play.');

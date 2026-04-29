@@ -116,6 +116,11 @@
         this.onPhrase = opts.onPhrase || function() {};
         this.onError = opts.onError || function() {};
         this.onListeningChange = opts.onListeningChange || function() {};
+        // Fires for every final transcript (and any high-confidence interim)
+        // regardless of whether _matchPosition found a position. Useful for
+        // diagnosing "recognizer heard X but matcher rejected" vs "recognizer
+        // heard nothing". Receives { raw, confidence, matched: boolean }.
+        this.onHeard = opts.onHeard || function() {};
         // Optional override for the synonym tables, keyed by language.
         // Shape: { en: { 1:[...], 2:[...], 3:[...], 4:[...] }, es: {...}, ru: {...} }.
         // If present for the active language, used verbatim — empty position
@@ -156,6 +161,14 @@
                     var conf = (typeof alt.confidence === 'number' && alt.confidence > 0) ? alt.confidence : 1;
                     if (!res.isFinal && conf < CONFIDENCE_FLOOR) continue;
                     var pos = _matchPosition(alt.transcript, self._activeTable(), self.maxPosition);
+                    // Always surface the transcript so the indicator can show
+                    // what the recognizer heard, even when no position matched.
+                    // Skip on low-confidence partials to keep noise down.
+                    if (res.isFinal || conf >= CONFIDENCE_FLOOR) {
+                        try {
+                            self.onHeard({ raw: alt.transcript, confidence: conf, matched: pos > 0 });
+                        } catch(_) {}
+                    }
                     if (pos > 0) {
                         // Cooldown so the same utterance doesn't fire twice
                         // when the recognizer keeps pushing partials.

@@ -318,43 +318,81 @@
                 '<button class="vmc-close" type="button">×</button>' +
             '</div>' +
             '<div class="vmc-body">' +
-                '<div class="vmc-status">Requesting permission…</div>' +
+                '<div class="vmc-row vmc-perm">' +
+                    '<strong>Browser permission:</strong> <span class="vmc-perm-state">checking…</span>' +
+                '</div>' +
+                '<div class="vmc-row vmc-active">' +
+                    '<strong>Speech engine uses:</strong> <span class="vmc-active-name">(loading…)</span>' +
+                '</div>' +
                 '<div class="vmc-meter"><div class="vmc-meter-bar"></div></div>' +
-                '<div class="vmc-meter-hint">Speak. The bar should jump when you talk.</div>' +
+                '<div class="vmc-meter-hint">Speak — the bar should jump. <span class="vmc-meter-which"></span></div>' +
+                '<div class="vmc-status"></div>' +
                 '<div class="vmc-devices"></div>' +
                 '<div class="vmc-help">' +
-                    'If the bar stays still:<br>' +
-                    '• <strong>macOS:</strong> System Settings → Privacy & Security → Microphone — make sure your browser is allowed.<br>' +
-                    '• <strong>macOS:</strong> System Settings → Sound → Input — confirm the right device is selected and the input meter moves.<br>' +
-                    '• <strong>Browser:</strong> click the lock/site-info icon in the address bar — Microphone must be Allow.<br>' +
-                    '<em>The speech engine uses the system’s default mic; switching mics has to be done in macOS Sound settings, not in this app.</em>' +
+                    '<strong>How to allow microphone in Chrome for this site:</strong><br>' +
+                    '1. Click the <em>lock icon</em> (or "View site information") in the address bar to the left of the URL.<br>' +
+                    '2. Find <em>Microphone</em> in the dropdown — set to <em>Allow</em>.<br>' +
+                    '3. Reload the page.<br><br>' +
+                    '<strong>How to change which mic is the default (the one the speech engine uses):</strong><br>' +
+                    '• <em>macOS</em>: System Settings → Sound → Input → choose your preferred mic.<br>' +
+                    '• <em>Chrome</em>: chrome://settings/content/microphone → set the default at the top.<br><br>' +
+                    '<em>The speech engine in this app always uses the browser/system default mic. To preview a different mic on this panel, click its name in the list — that only changes the audio meter, not the speech engine.</em>' +
                 '</div>' +
             '</div>';
         document.body.appendChild(panel);
+        var permStateEl = panel.querySelector('.vmc-perm-state');
+        var activeNameEl = panel.querySelector('.vmc-active-name');
         var statusEl = panel.querySelector('.vmc-status');
         var bar = panel.querySelector('.vmc-meter-bar');
+        var meterWhichEl = panel.querySelector('.vmc-meter-which');
         var devicesEl = panel.querySelector('.vmc-devices');
         var closeBtn = panel.querySelector('.vmc-close');
 
         var stream = null, audioCtx = null, analyser = null, dataArray = null, animFrame = null;
+        var defaultDeviceId = null;
+        var defaultLabel = '(unknown)';
+
         function cleanup() {
             if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+            if (analyser) { try { analyser.disconnect(); } catch(_){} analyser = null; }
             if (audioCtx) { try { audioCtx.close(); } catch(_){} audioCtx = null; }
             if (stream) { try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){} stream = null; }
         }
         closeBtn.addEventListener('click', function() { _closeMicCheck(); });
         _micCheckOpen = { panel: panel, cleanup: cleanup };
 
-        // Step 1: getUserMedia (also triggers macOS-level permission prompt).
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            statusEl.textContent = 'Browser does not expose microphones.';
-            return;
-        }
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s) {
-            stream = s;
-            statusEl.textContent = 'Microphone accessed. Speak now…';
-            // Step 2: build audio analyser pipeline.
+        // Permission state via the Permissions API (works in Chrome/Edge for
+        // 'microphone'). Surfaces "granted / denied / prompt" without forcing
+        // us to call getUserMedia first.
+        if (navigator.permissions && navigator.permissions.query) {
             try {
+                navigator.permissions.query({ name: 'microphone' }).then(function(p) {
+                    var s = p.state;
+                    if (s === 'granted')      permStateEl.innerHTML = '<span style="color:#7ee37e">✓ granted</span>';
+                    else if (s === 'denied')  permStateEl.innerHTML = '<span style="color:#ff7e7e">✗ denied</span> — see help below';
+                    else                       permStateEl.innerHTML = '<span style="color:#ffd54f">prompt (will ask)</span>';
+                    p.onchange = function() { _closeMicCheck(); _openMicCheck(); };
+                }).catch(function() {
+                    permStateEl.textContent = '(permission state not exposed by this browser)';
+                });
+            } catch(_) {
+                permStateEl.textContent = '(permission state not exposed)';
+            }
+        } else {
+            permStateEl.textContent = '(permission state not exposed)';
+        }
+
+        // Build the analyser pipeline against a chosen device. Called once
+        // for the default at startup, and again whenever the user clicks
+        // a different device in the list to preview it.
+        function startMeter(deviceId, label) {
+            cleanup();
+            meterWhichEl.textContent = '(' + (label || 'default mic') + ')';
+            var constraints = deviceId
+                ? { audio: { deviceId: { exact: deviceId } } }
+                : { audio: true };
+            return navigator.mediaDevices.getUserMedia(constraints).then(function(s) {
+                stream = s;
                 var Ctx = window.AudioContext || window.webkitAudioContext;
                 audioCtx = new Ctx();
                 var source = audioCtx.createMediaStreamSource(stream);
@@ -371,42 +409,86 @@
                         var v = Math.abs(dataArray[i] - 128);
                         if (v > max) max = v;
                     }
-                    // Amplify because spoken voice rarely peaks above ~30/128.
                     var pct = Math.min(100, (max / 60) * 100);
                     bar.style.width = pct.toFixed(0) + '%';
                     animFrame = requestAnimationFrame(tick);
                 };
                 tick();
-            } catch(e) {
-                statusEl.textContent = 'Audio analysis failed: ' + (e.message || e);
-            }
-            // Step 3: enumerate devices. Labels are visible only after a
-            // getUserMedia grant on this page, which we just did.
-            navigator.mediaDevices.enumerateDevices().then(function(devs) {
+            });
+        }
+
+        // Step 1: claim audio so labels appear in enumerateDevices.
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusEl.textContent = 'Browser does not expose microphones.';
+            return;
+        }
+        startMeter(null, 'system default')
+            .then(function() {
+                statusEl.innerHTML = '<span style="color:#7ee37e">Microphone accessed.</span>';
+                // Identify the default-mic deviceId by looking at the active
+                // track's settings. Then list every other mic with a click
+                // handler so the user can preview each one's level.
+                try {
+                    var settings = stream.getAudioTracks()[0].getSettings();
+                    defaultDeviceId = settings && settings.deviceId;
+                } catch(_) {}
+                return navigator.mediaDevices.enumerateDevices();
+            })
+            .then(function(devs) {
+                if (!devs) return;
                 var mics = devs.filter(function(d) { return d.kind === 'audioinput'; });
+                // Resolve the default-mic label. Chrome lists a synthetic
+                // entry with deviceId === 'default' whose label points at
+                // the actual system default ("Default - <name>"). Use that
+                // when present; otherwise match by track-settings deviceId.
+                var defEntry = mics.filter(function(m) { return m.deviceId === 'default'; })[0];
+                if (defEntry) {
+                    defaultLabel = defEntry.label || '(unnamed default)';
+                } else {
+                    var match = mics.filter(function(m) { return m.deviceId === defaultDeviceId; })[0];
+                    if (match) defaultLabel = match.label || '(unnamed)';
+                }
+                activeNameEl.textContent = defaultLabel;
+                meterWhichEl.textContent = '(' + defaultLabel + ')';
+
                 if (mics.length === 0) {
                     devicesEl.innerHTML = '<em>No microphones detected.</em>';
                     return;
                 }
-                var html = '<strong>Microphones (' + mics.length + '):</strong><ul>';
+                var html = '<strong>All microphones (' + mics.length + '):</strong><ul>';
                 mics.forEach(function(m, i) {
                     var label = m.label || ('Mic ' + (i + 1) + ' (' + (m.deviceId || '').slice(0, 6) + '…)');
-                    var defMark = (m.deviceId === 'default' || i === 0) ? ' ← default' : '';
-                    html += '<li>' + label + defMark + '</li>';
+                    var isDefault = (m.deviceId === 'default') || (m.deviceId === defaultDeviceId);
+                    var className = 'vmc-dev-row' + (isDefault ? ' vmc-dev-default' : '');
+                    var marker = isDefault ? ' ★' : '';
+                    html += '<li class="' + className + '" data-device-id="' + (m.deviceId || '') + '" data-label="' + (m.label || '').replace(/"/g, '&quot;') + '">' + label + marker + '</li>';
                 });
-                html += '</ul>';
+                html += '</ul><div class="vmc-dev-hint">★ = system default (this is what the speech engine uses). Click any other mic to preview its audio level.</div>';
                 devicesEl.innerHTML = html;
-            }).catch(function() { /* ignore */ });
-        }).catch(function(err) {
-            var name = (err && err.name) || 'unknown';
-            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-                statusEl.innerHTML = '<strong>Permission denied.</strong> Allow microphone in the browser site settings, then reopen this panel.';
-            } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-                statusEl.innerHTML = '<strong>No microphone found.</strong> Connect a mic or check macOS Sound → Input.';
-            } else {
-                statusEl.textContent = 'getUserMedia failed: ' + name;
-            }
-        });
+                devicesEl.querySelectorAll('.vmc-dev-row').forEach(function(row) {
+                    row.addEventListener('click', function() {
+                        var did = row.getAttribute('data-device-id');
+                        var lab = row.getAttribute('data-label') || did;
+                        if (did === defaultDeviceId || did === 'default') {
+                            startMeter(null, defaultLabel + ' (default)').catch(function() {});
+                        } else {
+                            startMeter(did, lab).catch(function(e) {
+                                statusEl.textContent = 'Could not open ' + lab + ': ' + (e && e.name);
+                            });
+                        }
+                    });
+                });
+            })
+            .catch(function(err) {
+                var name = (err && err.name) || 'unknown';
+                if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+                    statusEl.innerHTML = '<strong style="color:#ff7e7e">Permission denied.</strong> See "How to allow microphone in Chrome" below.';
+                } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+                    statusEl.innerHTML = '<strong style="color:#ff7e7e">No microphone found.</strong> Connect a mic or check macOS Sound → Input.';
+                } else {
+                    statusEl.textContent = 'getUserMedia failed: ' + name;
+                }
+            });
     }
 
     // Expose. DEFAULT_SYNONYMS is published as a deep clone so callers

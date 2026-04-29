@@ -156,6 +156,21 @@
 
         var self = this;
         rec.onresult = function(ev) {
+            // Any onresult call counts as evidence that audio is reaching the
+            // engine. Fire onStatus so the user sees a status flash even
+            // before we try to match a position — helps tell apart "mic
+            // alive but no match" from "mic completely silent".
+            var transcriptPreview = '';
+            try {
+                if (ev.results && ev.results.length) {
+                    var lastIdx = ev.results.length - 1;
+                    var lastRes = ev.results[lastIdx];
+                    if (lastRes && lastRes[0] && lastRes[0].transcript) {
+                        transcriptPreview = lastRes[0].transcript.slice(0, 60);
+                    }
+                }
+                self.onStatus({ kind: 'result', count: ev.results ? ev.results.length : 0, preview: transcriptPreview });
+            } catch(_) {}
             // Walk new results; a single utterance can produce many partials.
             for (var i = ev.resultIndex; i < ev.results.length; i++) {
                 var res = ev.results[i];

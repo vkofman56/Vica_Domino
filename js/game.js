@@ -972,7 +972,12 @@ class VicaDominoGame {
 
         // Update status
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
-            this.updateStatus('🌞 Select double by pressing it', 'highlight');
+            // Voice mode on? Tell the player they can speak the position.
+            if (window._currentVoiceInput) {
+                this.updateStatus('🌞 Press or say "first" / "second" / "third" / "fourth"', 'highlight');
+            } else {
+                this.updateStatus('🌞 Select double by pressing it', 'highlight');
+            }
         } else if (this.includeXeno) {
             this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
         } else {
@@ -1052,18 +1057,19 @@ class VicaDominoGame {
                     self._showLastHeard(prefix + (ev.raw || ''));
                 },
                 onStatus: function(ev) {
-                    // Surface recognizer events (start/end/error) into the
-                    // indicator so the user can diagnose "blink with no
-                    // transcript" without DevTools. Common cases:
-                    //  - error: no-speech       → mic alive, no audio detected
-                    //  - error: language-not-supported → wrong langCode
-                    //  - end (with no result)   → recognizer dropped silently
+                    // Surface recognizer events (start/end/error/result) into
+                    // the indicator so the user can diagnose without DevTools.
                     if (ev.kind === 'start') {
                         self._setVoiceStatus('listening (' + (ev.langCode || ev.language || '?') + ')');
                     } else if (ev.kind === 'end') {
                         self._setVoiceStatus('end → restart');
                     } else if (ev.kind === 'error') {
                         self._setVoiceStatus('err: ' + (ev.detail || 'unknown'));
+                    } else if (ev.kind === 'result') {
+                        // Any audio reaching the engine — show the live
+                        // transcript preview here so the user sees whether
+                        // the recognizer is receiving sound at all.
+                        self._setVoiceStatus('hearing: ' + (ev.preview || '(empty)'));
                     }
                 },
                 onError: function(err) {

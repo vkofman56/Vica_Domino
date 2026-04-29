@@ -1421,6 +1421,52 @@ Key reliability tricks now live in `js/voice.js`:
   order Chrome fires onend/onstart in.
 - `setLanguage` no-ops when language unchanged.
 
+### Voice polish (commits `347dbaf`, `25deffd`)
+
+- **Yellow setup probe removed** (`347dbaf`). The on-screen
+  diagnostic that printed `Setup: gameType=… mode=… types.options=…
+  enabled=…` in the corner of GP setup was no longer needed once
+  the per-mode mirror-on-save was in place.
+- **`continuous: false`** (`25deffd`). With `continuous: true`,
+  Chrome occasionally batched two pause-separated utterances into
+  one delayed transcript ("first first" instead of two "first"s),
+  making the first attempt feel unresponsive. With `continuous:
+  false`, each utterance is its own short session that ends ~0.5 s
+  after the user stops; `onend`'s 80 ms auto-restart spins up a
+  fresh session — de-facto continuous listening, no batching.
+- **Mic indicator only during voice rounds** (`25deffd`).
+  `_startVoiceForRound`'s early-return path now stops any prior
+  voice instance and removes the indicator div before bailing, so
+  non-voice rounds start with a clean screen. The unsupported-
+  browser notice fires only when voice was wanted (1-player +
+  voiceInput=true) but the browser doesn't support
+  SpeechRecognition.
+- **"Test mic" button visibility tracks the selected type**
+  (`25deffd`). `_renderTypesPicker` builds one button per render
+  and exposes a `_refreshTestMicVisibility()` helper that each
+  setup-type-line click calls after `_stashTypeChoice`. Pick a
+  voice type → button appears. Pick a non-voice type → button
+  hides.
+
+### Mishears workflow (no code, just process)
+
+Chrome's English speech recognizer occasionally misheards "first"
+or "one" in user-specific ways (heard as "fast", "thirst", "won",
+"juan", etc.). The corner mic indicator's `hearing: <text>` line
+shows what Chrome actually transcribed. Workflow when a user wants
+to extend recognition:
+
+1. Play a round, watch what `hearing: …` shows when a word fails
+   to match (it'll have a `?` prefix and the heard transcript).
+2. Open Studio → Game Settings → that voice Type → `✎ words`.
+3. Add the mishear to the appropriate position's comma-separated
+   list (e.g., position 1: `first, the first, fast, thirst`).
+4. Save the game.
+
+Defaults in `js/voice.js` are intentionally conservative — extending
+them globally risks false positives across all voices. Per-Type
+editor lets each game tune to its actual users.
+
 ### Voice v1 stable point — rollback marker
 
 If you want to skip ALL the post-v1 voice work (per-Type editor,

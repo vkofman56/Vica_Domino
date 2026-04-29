@@ -155,7 +155,14 @@
         rec.maxAlternatives = 3;
 
         var self = this;
+        // Stale-recognizer guard: every event handler bails out unless the
+        // recognizer that fired it is still the active one on this VoiceInput
+        // instance. This prevents round 1's onend from overriding round 2's
+        // listening state, or auto-restarting a dead recognizer alongside
+        // the new one.
+        function _isCurrent() { return self._rec === rec; }
         rec.onresult = function(ev) {
+            if (!_isCurrent()) return;
             // Any onresult call counts as evidence that audio is reaching the
             // engine. Fire onStatus so the user sees a status flash even
             // before we try to match a position — helps tell apart "mic
@@ -206,6 +213,7 @@
         };
 
         rec.onerror = function(ev) {
+            if (!_isCurrent()) return;
             // 'no-speech' fires routinely when the user is silent; surface it
             // for diagnostic display but don't treat as a hard error.
             if (!ev) return;
@@ -221,20 +229,22 @@
         };
 
         rec.onend = function() {
+            if (!_isCurrent()) return; // stale recognizer; ignore its tail
             try { self.onListeningChange(false); } catch(_){ }
             try { self.onStatus({ kind: 'end' }); } catch(_){ }
             // Safari kills the recognizer after every utterance even with
             // continuous=true. Restart automatically while the caller still
-            // wants us listening.
-            if (self._wantOn) {
+            // wants us listening AND we're still the current recognizer.
+            if (self._wantOn && _isCurrent()) {
                 setTimeout(function() {
-                    if (!self._wantOn) return;
+                    if (!self._wantOn || !_isCurrent()) return;
                     try { rec.start(); } catch(_){ }
                 }, 80);
             }
         };
 
         rec.onstart = function() {
+            if (!_isCurrent()) return;
             try { self.onListeningChange(true); } catch(_){ }
             try { self.onStatus({ kind: 'start', language: self.language, langCode: rec.lang }); } catch(_){ }
         };
@@ -247,8 +257,20 @@
             try { this.onError({ kind: 'unsupported' }); } catch(_){ }
             return false;
         }
+        // Always start with a fresh recognizer. Reusing across rounds means
+        // the previous round's onend may fire concurrently with the new
+        // round's onstart, racing the listening-state indicator and (in
+        // continuous=true mode) sometimes attempting to auto-restart a
+        // recognizer that the caller already considers retired. The
+        // _isCurrent guards in _make's handlers handle the latter; this
+        // recreate path makes the lifecycle predictable.
+        if (this._rec) {
+            var oldRec = this._rec;
+            this._rec = null; // mark stale so old events bail via _isCurrent
+            try { oldRec.stop(); } catch(_){ }
+        }
         this._wantOn = true;
-        if (!this._rec) this._rec = this._make();
+        this._rec = this._make();
         try { this._rec.start(); } catch(e) {
             // start() throws if already running; safe to ignore.
         }
@@ -263,12 +285,15 @@
 
     VoiceInput.prototype.setLanguage = function(lang) {
         if (lang !== 'en' && lang !== 'es' && lang !== 'ru') return;
+        if (this.language === lang) return; // nothing to do
         this.language = lang;
         // Recreate the recognizer next time we start; can't change lang on a
-        // running instance.
+        // running instance. The recreate happens inside start() unconditionally
+        // now, so we just clear the existing one.
         if (this._rec) {
-            this.stop();
+            var oldRec = this._rec;
             this._rec = null;
+            try { oldRec.stop(); } catch(_){ }
         }
     };
 

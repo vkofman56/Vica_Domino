@@ -959,6 +959,12 @@ class VicaDominoGame {
     startSunLevelGame() {
         this._gameRound = (this._gameRound || 0) + 1;
         this.gamePhase = 'sunLevel';
+        // Mark the round as actively running. CSS uses this to show the
+        // pause button. We add it here (the universal round-start entry
+        // point) rather than inside startSunLevelTimer because that
+        // timer is only set up when the player options include Xeno;
+        // pause should be available for every round, timer or not.
+        document.body.classList.add('game-round-running');
         this.sunLevelTimer = null;
         this.sunLevelTimeLeft = this.currentTimerDuration;
         this.sunLevelDuration = this.currentTimerDuration;
@@ -1506,10 +1512,6 @@ class VicaDominoGame {
     }
 
     startSunLevelTimer() {
-        // Mark the round as actively running. CSS uses this to show the
-        // pause button. Removed in stopSunLevelTimer / startPlayAreaDim /
-        // resetToSetup so pause never appears on non-gameplay screens.
-        document.body.classList.add('game-round-running');
         const progressCircle = document.querySelector('.timer-progress');
         const circumference = 2 * Math.PI * 50; // 2πr where r=50
         progressCircle.style.strokeDasharray = circumference;
@@ -1549,9 +1551,12 @@ class VicaDominoGame {
             clearInterval(this.sunLevelTimer);
             this.sunLevelTimer = null;
         }
-        // Hide the pause button as soon as the timer stops. _resumeGame
-        // re-runs startSunLevelTimer, which puts the class back.
-        if (!this._isPaused) document.body.classList.remove('game-round-running');
+        // body.game-round-running is intentionally NOT removed here. The
+        // class tracks "round in progress" broadly (including the post-
+        // round celebration window). It's set once in startSunLevelGame
+        // and removed only when the user navigates away (resetToSetup /
+        // _cleanupVoiceUI). That way the pause button stays visible
+        // through "You WON" so the kid can pause the auto-restart.
     }
 
     sunLevelTimeUp() {

@@ -255,6 +255,21 @@ class VicaDominoGame {
         var _homeGame = document.getElementById('home-btn-game');
         if (_homeGame) _homeGame.addEventListener('click', _goHome);
 
+        // Pause button (top-right of game-screen, visible only during a
+        // sun-level round) and overlay (tap-anywhere-to-resume).
+        var _pauseBtn = document.getElementById('game-pause-btn');
+        if (_pauseBtn) _pauseBtn.addEventListener('click', () => this._pauseGame());
+        var _pauseOverlay = document.getElementById('game-pause-overlay');
+        if (_pauseOverlay) _pauseOverlay.addEventListener('click', () => this._resumeGame());
+        // Tab-hidden mid-round → auto-pause. On return we stay paused so the
+        // kid (who may have left the page distracted) explicitly taps to
+        // resume rather than waking up to a running timer.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this._canPause()) {
+                this._pauseGame();
+            }
+        });
+
         // Back from create-edit screen (admin only)
         var _createEditBtn = document.getElementById('back-from-create-edit-btn');
         if (_createEditBtn) _createEditBtn.addEventListener('click', () => this.hideCreateEdit());
@@ -1139,9 +1154,97 @@ class VicaDominoGame {
         if (window.VoiceInput && VoiceInput.closeMicCheck) {
             try { VoiceInput.closeMicCheck(); } catch(_){ }
         }
+        // Pause is round-scoped; navigating away kills it.
+        document.body.classList.remove('game-round-running', 'game-paused');
+        this._isPaused = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
+    }
+
+    // === Pause / Resume — kid-friendly freeze so a 6-8 year old can step
+    // away (bathroom, snack) without losing progress.
+    //
+    // What "freeze everything" means:
+    //   - Stop the Xeno timer at its current value; resume from the same
+    //     remaining seconds.
+    //   - Stop the voice recognizer (kid's "I'm leaving" mustn't fire a
+    //     wrong-answer); restart on resume if voice was on.
+    //   - Stop the non-stop countdown if running; resume from saved value.
+    //   - body.game-paused class freezes CSS animations under #game-screen.
+    //   - Click/touch handlers on dominos early-return on this._isPaused.
+    //   - Show a full-screen overlay; tap anywhere to resume.
+    //   - Tab-hidden mid-round auto-pauses; on visible we stay paused so
+    //     the kid explicitly taps to resume.
+    //
+    // What we don't pause (v1 simplifications):
+    //   - Web Audio fire-and-forget oscillator sounds (lost wah-wah,
+    //     celebration jingle) — they're <1 s each and will play out before
+    //     the kid is back. Pausing each AudioContext mid-flight isn't worth
+    //     the complexity right now.
+    //   - The 10 s sun-level dim animation — already a brief locked-in
+    //     cinematic and pausing it complicates the win-flow.
+    //
+    // Persistence: in-session only. A page reload loses paused state.
+    // Future: restore on reload once player names / scores are persisted.
+    _canPause() {
+        // Pause is only meaningful during an active sun-level round.
+        return !this._isPaused && this.gamePhase === 'sunLevel';
+    }
+
+    _pauseGame() {
+        if (!this._canPause()) return;
+        this._isPaused = true;
+        // Save the timer's remaining seconds so resume restarts cleanly.
+        // sunLevelTimeLeft is updated inside startSunLevelTimer's interval
+        // and is the freshest read; fall back to sunLevelDuration if absent.
+        if (this.sunLevelTimer) {
+            // The interval re-reads elapsed time from a private startTime
+            // closure, so we compute remaining from the displayed value.
+            var disp = parseInt(document.getElementById('timer-display').textContent, 10);
+            this._pausedTimerSeconds = isNaN(disp) ? this.sunLevelDuration : disp;
+            this.stopSunLevelTimer();
+        }
+        // Voice: remember whether it was on so we can restart on resume.
+        this._pausedVoiceWasOn = !!(this._voice && this._voice._wantOn);
+        if (this._voice) this._voice.stop();
+        document.body.classList.remove('voice-round-active');
+        // Non-stop countdown: should never fire during a round (it only
+        // fires between rounds), but pause it defensively in case the
+        // user pauses while a celebration overlay is up after a win.
+        if (this._stopNonstopCountdown) this._stopNonstopCountdown();
+        document.body.classList.add('game-paused');
+        var overlay = document.getElementById('game-pause-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
+    _resumeGame() {
+        if (!this._isPaused) return;
+        this._isPaused = false;
+        document.body.classList.remove('game-paused');
+        var overlay = document.getElementById('game-pause-overlay');
+        if (overlay) overlay.style.display = 'none';
+        // Restart the timer from saved remaining seconds. Update the
+        // current duration so the interval recomputes correctly.
+        if (typeof this._pausedTimerSeconds === 'number' && this.gamePhase === 'sunLevel') {
+            this.sunLevelTimeLeft = this._pausedTimerSeconds;
+            this.sunLevelDuration = this._pausedTimerSeconds;
+            this.currentTimerDuration = this._pausedTimerSeconds;
+            // Re-display the saved value before the next tick so the player
+            // sees the correct number even before 100 ms has elapsed.
+            var disp = document.getElementById('timer-display');
+            if (disp) disp.textContent = this._pausedTimerSeconds;
+            this.startSunLevelTimer();
+        }
+        this._pausedTimerSeconds = null;
+        // Voice: restart if it was on before pause.
+        if (this._pausedVoiceWasOn && window._currentVoiceInput) {
+            this._startVoiceForRound();
+        }
+        this._pausedVoiceWasOn = false;
     }
 
     _onVoicePhrase(ev) {
+        if (this._isPaused) return;
         if (this.gamePhase !== 'sunLevel') return; // ignore during celebration / setup
         var idx = (ev.position || 0) - 1;
         var player = this.players && this.players[0];
@@ -1379,6 +1482,10 @@ class VicaDominoGame {
     }
 
     startSunLevelTimer() {
+        // Mark the round as actively running. CSS uses this to show the
+        // pause button. Removed in stopSunLevelTimer / startPlayAreaDim /
+        // resetToSetup so pause never appears on non-gameplay screens.
+        document.body.classList.add('game-round-running');
         const progressCircle = document.querySelector('.timer-progress');
         const circumference = 2 * Math.PI * 50; // 2πr where r=50
         progressCircle.style.strokeDasharray = circumference;
@@ -1418,6 +1525,9 @@ class VicaDominoGame {
             clearInterval(this.sunLevelTimer);
             this.sunLevelTimer = null;
         }
+        // Hide the pause button as soon as the timer stops. _resumeGame
+        // re-runs startSunLevelTimer, which puts the class back.
+        if (!this._isPaused) document.body.classList.remove('game-round-running');
     }
 
     sunLevelTimeUp() {
@@ -1617,6 +1727,7 @@ class VicaDominoGame {
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {
+        if (this._isPaused) return; // pause: ignore stray taps from siblings or the kid coming back
         if (this.gamePhase !== 'sunLevel') return;
 
         const player = this.players[playerIndex];
@@ -2504,6 +2615,12 @@ class VicaDominoGame {
         // Round is over — stop the voice recognizer so the celebration / lost
         // sound and any "Play Again" tap aren't picked up as a position word.
         this._stopVoice();
+        // Round ended — pause is no longer meaningful. Hide the button and
+        // close any overlay if (somehow) still up. Clear pause state.
+        document.body.classList.remove('game-round-running', 'game-paused');
+        this._isPaused = false;
+        var ov = document.getElementById('game-pause-overlay');
+        if (ov) ov.style.display = 'none';
 
         // Build winner status with icons
         this.updateWinnerStatus();
@@ -3688,6 +3805,12 @@ class VicaDominoGame {
         this._stopVoice();
         var ind = document.getElementById('voice-mic-indicator');
         if (ind) ind.remove();
+        // Clear pause state — kid hit Home / back during a paused round; the
+        // pause was about THIS round, returning to setup ends it.
+        document.body.classList.remove('game-round-running', 'game-paused');
+        this._isPaused = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
         // Clean up combined game
         this.combinedGame = null;
         this.playerCoins = {};

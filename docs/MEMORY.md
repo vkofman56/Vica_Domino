@@ -1518,6 +1518,90 @@ layers:
 "yes, it works now"). Builds on top of `8bd44b8` (lifecycle race),
 `97ade1f` (mic-check panel), `3f2d799` (voice v1 baseline).
 
+## Pause / Resume v1 — kid-friendly mid-round freeze
+
+**Use case**: kids 6-8 playing Find the Doubles need to suddenly step
+away (bathroom, distraction) without losing their place or progress.
+The kid taps Pause → game freezes mid-round → kid comes back → taps
+the overlay → game resumes from exactly where it was.
+
+**Available for ALL game types** (slow-pace, non-stop, voiced) —
+not gated on the non-stop type. The kid-safety rationale applies to
+every type since every type runs the Xeno timer.
+
+### What "freeze everything" means
+
+- **Xeno timer**: stopped at pause, remaining seconds saved, restarted
+  from the saved value on resume. (`Game._pauseGame` reads the visible
+  timer-display value as the freshest source of truth.)
+- **Voice recognizer**: stopped at pause; restarted on resume if it
+  was on. `_pausedVoiceWasOn` remembers the prior state.
+- **CSS animations under #game-screen**: paused via
+  `body.game-paused { animation-play-state: paused }`.
+- **Click / touch handlers**: `handleSunLevelCardClick` and
+  `_onVoicePhrase` both early-return when `this._isPaused`. So sibling
+  pokes at the screen do nothing while paused.
+- **Input is strictly blocked** (per user direction): the overlay
+  sits at `z-index: 13500` and consumes taps; the only thing that
+  resumes is a tap on the overlay itself.
+
+### What we don't pause (v1 simplifications)
+
+- **Web Audio fire-and-forget oscillator sounds** (the lost wah-wah
+  ~0.3 s, the celebration jingle ~1 s). Each is created with its own
+  `AudioContext` and started/stopped at known offsets — pausing them
+  mid-flight would mean tracking every active context. They're short
+  enough to play out before the kid is back.
+- **The 10 s sun-level dim animation** between win and end-game-buttons.
+  Already a brief locked-in cinematic; pause is unavailable during
+  this window (`_canPause()` returns false unless `gamePhase === 'sunLevel'`).
+- **Persistence across page reloads** — paused state is in-memory only.
+  Future: when player names + scores are persisted, save paused-state
+  to localStorage and offer a "Resume your paused game?" prompt on
+  page load. Tracked as a deferred upgrade.
+
+### UI
+
+- **Pause button** (top-right corner, 40 × 40 round button with white
+  ⏸ icon). Visible only when `body.game-round-running` is set —
+  toggled on by `startSunLevelTimer`, off by `stopSunLevelTimer` /
+  `startPlayAreaDim` / `resetToSetup` / `_cleanupVoiceUI` /
+  `_pauseGame`. Defined in both `index.html` and `pm-studio-DrV.html`
+  (admin can also test rounds in Studio).
+- **Pause overlay** (full-screen translucent dark, blurred backdrop,
+  centered card with ▶ icon, "Game paused", "Tap anywhere to
+  continue"). Tap anywhere on the overlay calls `_resumeGame()`.
+
+### Lifecycle notes
+
+- **Tab hidden mid-round** auto-pauses (visibilitychange listener in
+  the Game constructor). On return, **stays paused** — kid must
+  explicitly tap to resume.
+- **End of round** (correct answer or timer hits 0) — `startPlayAreaDim`
+  clears pause state (round is over, pause is meaningless).
+- **Home / back-to-intro** during a paused round — `_cleanupVoiceUI`
+  also clears pause state. Pause is round-scoped and dies with the
+  round.
+- **Non-stop countdown** (between-round 3 → 2 → 1) is NOT pause-able
+  in v1. The countdown has its own visibility-pause and idle-cancel
+  built in. If you need to pause between rounds, just don't tap the
+  countdown — it stops at idle for 60 s.
+
+### Files touched
+
+- `index.html` + `pm-studio-DrV.html`: pause button inside
+  `#game-screen`, pause overlay before `</body>`.
+- `css/style.css`: `.game-pause-btn` + `.game-pause-overlay` /
+  `.game-pause-card` / `body.game-paused` / `body.game-round-running`
+  rules.
+- `js/game.js`: constructor wires the pause button click and
+  visibilitychange listener; `Game._canPause()`, `_pauseGame()`,
+  `_resumeGame()` methods near `_cleanupVoiceUI`; pause guard added
+  to `handleSunLevelCardClick` and `_onVoicePhrase`;
+  `body.game-round-running` toggled on in `startSunLevelTimer`, off
+  in `stopSunLevelTimer` / `startPlayAreaDim` / `resetToSetup` /
+  `_cleanupVoiceUI`.
+
 ### Voice v1 stable point — rollback marker
 
 If you want to skip ALL the post-v1 voice work (per-Type editor,

@@ -1187,8 +1187,13 @@ class VicaDominoGame {
     // Persistence: in-session only. A page reload loses paused state.
     // Future: restore on reload once player names / scores are persisted.
     _canPause() {
-        // Pause is only meaningful during an active sun-level round.
-        return !this._isPaused && this.gamePhase === 'sunLevel';
+        // Pause is meaningful both during an active sun-level round (freezes
+        // the timer + voice + animations) and during the post-round
+        // celebration / end-game-buttons window (freezes the celebration
+        // animation and cancels any non-stop auto-restart countdown so the
+        // kid can step away without the next round firing on its own).
+        if (this._isPaused) return false;
+        return this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon';
     }
 
     _pauseGame() {
@@ -2615,9 +2620,13 @@ class VicaDominoGame {
         // Round is over — stop the voice recognizer so the celebration / lost
         // sound and any "Play Again" tap aren't picked up as a position word.
         this._stopVoice();
-        // Round ended — pause is no longer meaningful. Hide the button and
-        // close any overlay if (somehow) still up. Clear pause state.
-        document.body.classList.remove('game-round-running', 'game-paused');
+        // Keep body.game-round-running ON through the celebration + end-game
+        // buttons phase so the pause button stays visible. The kid might
+        // want to step away during "You WON" so the next round (in non-stop)
+        // doesn't auto-start while they're gone. The class is removed when
+        // the user navigates away (resetToSetup / _cleanupVoiceUI) or when
+        // the next round's startSunLevelTimer re-asserts it.
+        document.body.classList.remove('game-paused');
         this._isPaused = false;
         var ov = document.getElementById('game-pause-overlay');
         if (ov) ov.style.display = 'none';

@@ -1159,6 +1159,25 @@ class VicaDominoGame {
         this._isPaused = false;
         var pauseOv = document.getElementById('game-pause-overlay');
         if (pauseOv) pauseOv.style.display = 'none';
+        // Kill the active round's timer + suppress any pending time-up
+        // callback. Without this, navigating away (Home / back-to-intro)
+        // leaves the sunLevelTimer ticking; it eventually fires
+        // sunLevelTimeUp() and the kid hears the loss sound from the
+        // intro/setup screen. Same for the catch falling-cards loop and
+        // the post-win dim setTimeout.
+        if (this.sunLevelTimer) {
+            clearInterval(this.sunLevelTimer);
+            this.sunLevelTimer = null;
+        }
+        if (this.playAreaDimTimeout) {
+            clearTimeout(this.playAreaDimTimeout);
+            this.playAreaDimTimeout = null;
+        }
+        // Mark the round as no longer in-progress so any in-flight
+        // callback that escaped a clear can early-return on phase check.
+        if (this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon') {
+            this.gamePhase = 'navigatedAway';
+        }
     }
 
     // === Pause / Resume — kid-friendly freeze so a 6-8 year old can step

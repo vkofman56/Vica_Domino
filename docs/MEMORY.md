@@ -1467,14 +1467,65 @@ Defaults in `js/voice.js` are intentionally conservative — extending
 them globally risks false positives across all voices. Per-Type
 editor lets each game tune to its actual users.
 
+### Mic-check panel: synonym table display (commit `16e59fc`)
+
+Added a "Words this game listens for (Lang)" section to
+`VoiceInput.openMicCheck()`. Reads `window._currentVoiceSynonyms` /
+`_currentVoiceLang` and shows position 1-4 lists as little code
+chips, with a "custom (from Game Settings)" / "default (no per-Type
+override)" annotation. Diagnoses whether an admin's per-Type editor
+edit actually reached the player runtime — when a user added
+"whatever" to position 1 but voice didn't fire, this section
+showed they hadn't clicked the parent Game Settings dialog's main
+Save button (the inline editor's writes only persist when the
+parent saves).
+
+### Voice indicator leak fixes (commits `1ba4a45`, `50723e5`,
+`aac8c73`, `ca08a4c`)
+
+Series of fixes addressing "the listening indicator stays visible
+after returning from a voice round". Issue ran through several
+layers:
+
+- **`1ba4a45`** — added `Game._cleanupVoiceUI()` helper and wired it
+  into `_goHome` and the `back-to-intro-btn` click handler. Also
+  added it to the catch-overlay home button in `index.html`. Stops
+  any active recognizer, removes the indicator div, closes any
+  open mic-check panel.
+- **`50723e5`** — belt-and-suspenders: `_renderTypesPicker` now
+  calls `_cleanupVoiceUI()` at the top so any path that lands on
+  the setup screen gets a clean slate, regardless of how the
+  navigation happened.
+- **`aac8c73`** — CSS-level safety net. The indicator's visibility
+  is now gated on `body.voice-round-active`. Default
+  `display: none`; `body.voice-round-active .voice-mic-indicator`
+  flips to `display: grid`. `_ensureMicIndicator` adds the class,
+  `_stopVoice` and `_cleanupVoiceUI` remove it. So even if some
+  path leaves the indicator div in the DOM, CSS keeps it invisible
+  until a real voice round explicitly turns the class back on.
+  `_cleanupVoiceUI` also switched to a `querySelectorAll` sweep
+  in case orphaned elements lost their id.
+- **`ca08a4c`** — final fix: each `.setup-type-line` click handler
+  now calls a new free helper `_killVoiceUI()` (defined in the
+  same inline script as `_renderTypesPicker`, doesn't depend on
+  `window.game` being instantiated). Removes body class, sweeps
+  indicator divs, closes diagnostic panel, calls game-side
+  cleanup if available. So tapping any type immediately wipes the
+  indicator — the user-visible "I picked Type 1, indicator should
+  go away" expectation works.
+
+**Current voice-stable point: commit `ca08a4c`** (user verified
+"yes, it works now"). Builds on top of `8bd44b8` (lifecycle race),
+`97ade1f` (mic-check panel), `3f2d799` (voice v1 baseline).
+
 ### Voice v1 stable point — rollback marker
 
 If you want to skip ALL the post-v1 voice work (per-Type editor,
-mic-check panel, lifecycle guards), **revert to the v1 baseline at
-commit `3f2d799`** (`Voice input v1 — Find game, 1-player, EN/ES/RU`).
-The synonym tables there are hardcoded inside `js/voice.js` and admin
-has only the 🎤 checkbox + EN/ES/RU language dropdown per Type — no
-editor.
+mic-check panel, lifecycle guards, indicator leak fixes), **revert
+to the v1 baseline at commit `3f2d799`** (`Voice input v1 — Find
+game, 1-player, EN/ES/RU`). The synonym tables there are hardcoded
+inside `js/voice.js` and admin has only the 🎤 checkbox + EN/ES/RU
+language dropdown per Type — no editor.
 
 To roll back:
 

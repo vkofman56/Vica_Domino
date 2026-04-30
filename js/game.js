@@ -229,6 +229,7 @@ class VicaDominoGame {
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('intro-screen').style.display = 'flex';
                 resetIntroScreen();
+                this._cleanupVoiceUI();
             } else if (pn && pn.style.display !== 'none') {
                 this.backToGameSetup();
                 _showSetupLabel();
@@ -236,6 +237,7 @@ class VicaDominoGame {
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('intro-screen').style.display = 'flex';
                 resetIntroScreen();
+                this._cleanupVoiceUI();
             }
         });
 
@@ -246,6 +248,7 @@ class VicaDominoGame {
             document.getElementById('intro-screen').style.display = 'flex';
             resetIntroScreen();
             _showSetupLabel();
+            this._cleanupVoiceUI();
         };
         var _homeSetup = document.getElementById('home-btn-setup');
         if (_homeSetup) _homeSetup.addEventListener('click', _goHome);
@@ -1114,6 +1117,20 @@ class VicaDominoGame {
     _stopVoice() {
         if (this._voice) this._voice.stop();
         this._setMicIndicator('idle');
+    }
+
+    // Full voice teardown — used when navigating away from gameplay (Home,
+    // Back-to-intro). Stops any active recognizer, removes the corner mic
+    // indicator div, and closes any open mic-check diagnostic panel so
+    // they don't carry over into GP setup or the intro screen.
+    _cleanupVoiceUI() {
+        this._stopVoice();
+        this._stopNonstopCountdown && this._stopNonstopCountdown();
+        var ind = document.getElementById('voice-mic-indicator');
+        if (ind) ind.remove();
+        if (window.VoiceInput && VoiceInput.closeMicCheck) {
+            try { VoiceInput.closeMicCheck(); } catch(_){ }
+        }
     }
 
     _onVoicePhrase(ev) {

@@ -360,6 +360,7 @@
                 '<div class="vmc-meter"><div class="vmc-meter-bar"></div></div>' +
                 '<div class="vmc-meter-hint">Speak — the bar should jump. <span class="vmc-meter-which"></span></div>' +
                 '<div class="vmc-status"></div>' +
+                '<div class="vmc-synonyms"></div>' +
                 '<div class="vmc-devices"></div>' +
                 '<div class="vmc-help">' +
                     '<strong>How to allow microphone in Chrome for this site:</strong><br>' +
@@ -379,7 +380,39 @@
         var bar = panel.querySelector('.vmc-meter-bar');
         var meterWhichEl = panel.querySelector('.vmc-meter-which');
         var devicesEl = panel.querySelector('.vmc-devices');
+        var synonymsEl = panel.querySelector('.vmc-synonyms');
         var closeBtn = panel.querySelector('.vmc-close');
+
+        // Show the synonym table the live game is using right now. Reads
+        // window._currentVoiceSynonyms / _currentVoiceLang (set by
+        // _renderTypesPicker on the player setup screen). Falls back to
+        // VoiceInput.DEFAULT_SYNONYMS when no per-Type override exists.
+        // Useful for verifying that an admin edit in Game Settings actually
+        // reached the player runtime — if the user added a word here in
+        // Game Settings but it doesn't show in this list, the edit wasn't
+        // saved (likely closed the Game Settings dialog without clicking
+        // its main Save button).
+        function _renderSynonyms() {
+            if (!synonymsEl) return;
+            var lang = window._currentVoiceLang || 'en';
+            var langLabel = lang === 'en' ? 'English' : (lang === 'es' ? 'Español' : 'Русский');
+            var customTable = (window._currentVoiceSynonyms && window._currentVoiceSynonyms[lang]) ? window._currentVoiceSynonyms[lang] : null;
+            var defaultTable = (VoiceInput.DEFAULT_SYNONYMS && VoiceInput.DEFAULT_SYNONYMS[lang]) ? VoiceInput.DEFAULT_SYNONYMS[lang] : { 1: [], 2: [], 3: [], 4: [] };
+            var table = customTable || defaultTable;
+            var source = customTable ? '<em style="color:#7ee37e">custom (from Game Settings)</em>' : '<em>default (no per-Type override)</em>';
+            var html = '<strong>Words this game listens for (' + langLabel + '):</strong>' +
+                       '<div style="font-size:12px;color:#aaa;margin-bottom:6px">' + source + '</div>' +
+                       '<ul style="margin:4px 0 0 0;padding-left:0;list-style:none;font-size:13px">';
+            ['1', '2', '3', '4'].forEach(function(p) {
+                var posLbl = ({ '1':'1st','2':'2nd','3':'3rd','4':'4th' })[p];
+                var words = (table[p] || table[parseInt(p, 10)] || []);
+                var joined = words.length ? words.map(function(w) { return '<code style="background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px">' + w + '</code>'; }).join(' ') : '<em style="color:#888">(empty)</em>';
+                html += '<li style="padding:3px 0"><strong style="color:#FFD700">' + posLbl + ':</strong> ' + joined + '</li>';
+            });
+            html += '</ul>';
+            synonymsEl.innerHTML = html;
+        }
+        _renderSynonyms();
 
         var stream = null, audioCtx = null, analyser = null, dataArray = null, animFrame = null;
         var defaultDeviceId = null;

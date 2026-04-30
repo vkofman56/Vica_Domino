@@ -1117,6 +1117,10 @@ class VicaDominoGame {
     _stopVoice() {
         if (this._voice) this._voice.stop();
         this._setMicIndicator('idle');
+        // Hide the indicator entirely between rounds — it should only show
+        // while voice listening is actively wanted. _ensureMicIndicator
+        // re-adds the class on the next round-start.
+        document.body.classList.remove('voice-round-active');
     }
 
     // Full voice teardown — used when navigating away from gameplay (Home,
@@ -1126,8 +1130,12 @@ class VicaDominoGame {
     _cleanupVoiceUI() {
         this._stopVoice();
         this._stopNonstopCountdown && this._stopNonstopCountdown();
-        var ind = document.getElementById('voice-mic-indicator');
-        if (ind) ind.remove();
+        document.body.classList.remove('voice-round-active');
+        // Defensive sweep — handles any orphaned indicator div even if it
+        // somehow lost its id, and any leftover mic-check panels.
+        document.querySelectorAll('.voice-mic-indicator').forEach(function(el) { el.remove(); });
+        var diag = document.getElementById('voice-mic-check');
+        if (diag) diag.remove();
         if (window.VoiceInput && VoiceInput.closeMicCheck) {
             try { VoiceInput.closeMicCheck(); } catch(_){ }
         }
@@ -1143,6 +1151,7 @@ class VicaDominoGame {
     }
 
     _ensureMicIndicator() {
+        document.body.classList.add('voice-round-active');
         if (document.getElementById('voice-mic-indicator')) return;
         var box = document.createElement('div');
         box.id = 'voice-mic-indicator';

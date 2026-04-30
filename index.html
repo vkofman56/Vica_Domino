@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:29 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:29 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1055,15 +1055,36 @@
             _renderTypesPicker(gameType, conf);
         }
 
+        // Free helper — removes any visible voice UI (indicator div, mic-check
+        // panel) and clears body.voice-round-active. Doesn't depend on
+        // window.game existing yet, so safe to call from anywhere on the
+        // setup screen including the very first render. Called from
+        // _renderTypesPicker AND from each type-line click, so the user can
+        // see the indicator disappear the instant they pick a different type.
+        function _killVoiceUI() {
+            try {
+                document.body.classList.remove('voice-round-active');
+                document.querySelectorAll('.voice-mic-indicator').forEach(function(el) { el.remove(); });
+                var diag = document.getElementById('voice-mic-check');
+                if (diag) diag.remove();
+                if (window.VoiceInput && VoiceInput.closeMicCheck) {
+                    VoiceInput.closeMicCheck();
+                }
+                if (window.game && window.game._cleanupVoiceUI) {
+                    window.game._cleanupVoiceUI();
+                }
+            } catch(_e) {}
+        }
+        // Surface to other inline scripts that need to wipe voice UI.
+        window._killVoiceUI = _killVoiceUI;
+
         function _renderTypesPicker(gameType, conf) {
             // Belt-and-suspenders cleanup of any voice UI carried over from a
             // previous round. The setup screen should never show the corner
             // mic indicator or the diagnostic panel — those are gameplay
             // affordances. Whatever navigation path got us here, this
             // guarantees a clean slate.
-            if (window.game && window.game._cleanupVoiceUI) {
-                window.game._cleanupVoiceUI();
-            }
+            _killVoiceUI();
             // Both Find and Catch now use the same right-column radio list.
             // The legacy top-of-panel button row (#setup-types-row) is left in
             // place but always hidden — kept harmless to avoid disturbing other
@@ -1129,6 +1150,11 @@
                     radio.checked = true;
                     _stashTypeChoice(opt);
                     _refreshTestMicVisibility();
+                    // Picking a type — voice or otherwise — wipes any leftover
+                    // voice UI from a previous round. The indicator will be
+                    // recreated by _ensureMicIndicator when the next voice
+                    // round actually starts.
+                    _killVoiceUI();
                 });
                 rightTypes.appendChild(line);
             });

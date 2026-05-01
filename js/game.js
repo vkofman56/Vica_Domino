@@ -1293,13 +1293,13 @@ class VicaDominoGame {
             this._startVoiceForRound();
         }
         this._pausedVoiceWasOn = false;
-        // Sand-timer: if it was running before pause, restart it from full
-        // (the user explicitly asked: tap-to-resume restarts the sand timer
-        // rather than continuing from the partial value).
-        if (this._sandWasRunning) {
-            this._sandWasRunning = false;
-            this._startSandTimer();
-        }
+        // Sand-timer: always re-evaluate on resume. _startSandTimer is a
+        // no-op when conditions aren't met (e.g. round ended), and the
+        // expiry path stops the timer before pausing, which would have
+        // cleared a was-running flag — so simpler to just restart fresh
+        // any time we resume into an active round.
+        this._sandWasRunning = false;
+        this._startSandTimer();
     }
 
     // === Sand-timer (hourglass) — auto-pause for non-stop games without

@@ -2520,6 +2520,20 @@ class VicaDominoGame {
             this.playAreaDimTimeout = null;
         }
         this.stopSunLevelTimer();
+        // Sand-timer is round-scoped; tear it down on every reset path so
+        // navigate-away (back-arrow → setup) doesn't leave the hourglass
+        // ticking — without this, the sand-expiry pause overlay can fire
+        // while the player is sitting on the GP setup page.
+        this._stopSandTimer();
+        // If we were sitting in a paused state when the round was reset
+        // (e.g. kid hit back-arrow while the "Are you still there?" overlay
+        // was up), clear the pause UI too. The overlay is fixed-position
+        // and would otherwise stay on top of every screen.
+        document.body.classList.remove('game-paused', 'game-round-running');
+        this._isPaused = false;
+        this._sandWasRunning = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
         document.getElementById('xeno-timer-box').style.display = 'none';
         document.getElementById('celebration-area').style.display = 'none';
         document.querySelector('.bank-area').style.display = '';

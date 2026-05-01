@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:28 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -848,6 +848,20 @@
                     <rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>
                 </svg>
             </button>
+            <!-- Sand-timer (mirrors index.html). -->
+            <div class="game-sand-timer" id="game-sand-timer" aria-hidden="true">
+                <svg class="sand-hourglass" viewBox="0 0 24 36" width="32" height="48">
+                    <path d="M4 2 H20 M4 34 H20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M4 2 L4 8 L12 18 L4 28 L4 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <path d="M20 2 L20 8 L12 18 L20 28 L20 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <g class="sand-top">
+                        <polygon points="5,3 19,3 12,17" fill="#FFD54F"/>
+                    </g>
+                    <g class="sand-bottom">
+                        <polygon points="5,33 19,33 12,19" fill="#FFD54F"/>
+                    </g>
+                </svg>
+            </div>
             <div class="page-name-label" contenteditable="true" id="a-game-board-label">A Game Board</div>
             <header>
                 <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span id="game-name-display" class="game-name-display"></span><span id="header-stage-stones" class="header-stage-stones"></span></h1>
@@ -9427,6 +9441,7 @@
             }
             return {
                 timer: isCatch ? 6 : 20,
+                sandTimer: 60,
                 touch: {
                     players: mkAxis(['1 player + timer', '2 players', '2 players + timer'], 'Player Options'),
                     levels:  mkAxis(levelLabels, 'Level', !isCatch),
@@ -9489,6 +9504,9 @@
                 });
             });
             if (typeof game.setup.timer !== 'number') game.setup.timer = def.timer;
+            // Sand-timer (inactivity auto-pause for non-stop games without
+            // the Xeno timer). Default 60 s; 0 disables.
+            if (typeof game.setup.sandTimer !== 'number') game.setup.sandTimer = 60;
             return game.setup;
         }
         function _saveGameSetupToCurrent(setup) {
@@ -9649,6 +9667,8 @@
             if (tEl) tEl.value = (typeof _gsWorking.timer === 'number') ? _gsWorking.timer : 0;
             var tBadge = document.getElementById('gs-timer-uc-badge');
             if (tBadge) tBadge.style.display = ''; // Timer is UC until Phase A.3 wires it to gameplay.
+            var sEl = document.getElementById('gs-sand-timer');
+            if (sEl) sEl.value = (typeof _gsWorking.sandTimer === 'number') ? _gsWorking.sandTimer : 60;
             // Each axis section
             ['players', 'levels', 'types'].forEach(function(axis) {
                 var section = document.getElementById('gs-section-' + axis);
@@ -9905,6 +9925,11 @@
             if (tEl) {
                 var n = parseInt(tEl.value, 10);
                 if (!isNaN(n)) _gsWorking.timer = n;
+            }
+            var sEl = document.getElementById('gs-sand-timer');
+            if (sEl) {
+                var sn = parseInt(sEl.value, 10);
+                if (!isNaN(sn) && sn >= 0) _gsWorking.sandTimer = sn;
             }
             ['players', 'levels', 'types'].forEach(function(axis) {
                 var section = document.getElementById('gs-section-' + axis);
@@ -17198,6 +17223,11 @@
                     <span class="gs-uc-badge" id="gs-timer-uc-badge" title="Admin can edit this, but no runtime/player code uses it yet.">🚧 Under construction</span>
                     <small id="gs-timer-hint">How long bubbles take to reach the floor at game start.</small>
                 </div>
+                <div class="gs-row gs-sand-timer-row">
+                    <label for="gs-sand-timer">Sand-timer (s):</label>
+                    <input type="number" id="gs-sand-timer" min="0" max="999" step="1" value="60">
+                    <small id="gs-sand-timer-hint">Auto-pauses non-stop games (without Xeno timer) after this many seconds with no input. Shows a "tap to continue" overlay. 0 = disabled.</small>
+                </div>
                 <div class="gs-section" id="gs-section-players">
                     <div class="gs-axis-label-row">
                         <input type="text" class="gs-axis-label" data-axis="players" placeholder="Axis name">
@@ -17266,8 +17296,8 @@
                     <polygon points="9,8 9,16 17,12" fill="white"/>
                 </svg>
             </div>
-            <div class="game-pause-title">Game paused</div>
-            <div class="game-pause-sub">Tap anywhere to continue</div>
+            <div class="game-pause-title" id="game-pause-title">Game paused</div>
+            <div class="game-pause-sub" id="game-pause-sub">Tap anywhere to continue</div>
         </div>
     </div>
 </body>

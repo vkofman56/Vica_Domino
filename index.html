@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -291,6 +291,26 @@
                     <rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>
                 </svg>
             </button>
+            <!-- Sand-timer (hourglass): appears for non-stop games without
+                 the Xeno timer. Resets on round start and on any input;
+                 expiry triggers a 'sand' pause. Hidden when sand-timer is
+                 disabled (admin set 0) or when Xeno timer is active. -->
+            <div class="game-sand-timer" id="game-sand-timer" aria-hidden="true">
+                <svg class="sand-hourglass" viewBox="0 0 24 36" width="32" height="48">
+                    <!-- Frame -->
+                    <path d="M4 2 H20 M4 34 H20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M4 2 L4 8 L12 18 L4 28 L4 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <path d="M20 2 L20 8 L12 18 L20 28 L20 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <!-- Top sand (drains): clipped triangle. The mask shrinks via CSS scaleY -->
+                    <g class="sand-top">
+                        <polygon points="5,3 19,3 12,17" fill="#FFD54F"/>
+                    </g>
+                    <!-- Bottom sand (fills): grows via CSS scaleY -->
+                    <g class="sand-bottom">
+                        <polygon points="5,33 19,33 12,19" fill="#FFD54F"/>
+                    </g>
+                </svg>
+            </div>
             <div class="page-name-label" contenteditable="true" id="board-page-label">GP Game Board</div>
             <header>
                 <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span id="game-name-display" class="game-name-display"></span><span id="header-stage-stones" class="header-stage-stones"></span></h1>
@@ -1004,11 +1024,13 @@
         // Hides deactivated options, substitutes custom labels, and stores the
         // timer value on window._currentGameSetupTimer so gameplay code can read it.
         window._currentGameSetupTimer = null;
+        window._currentGameSetupSandTimer = null;
         function _applyGameSetupToPlayerScreen(game, gameType) {
             // Always reset first, so a previous game's customizations don't linger.
             _resetGameSetupLabels();
             if (!game || !game.setup) {
                 window._currentGameSetupTimer = null;
+                window._currentGameSetupSandTimer = null;
                 return;
             }
             var setup = game.setup;
@@ -1021,6 +1043,7 @@
             var conf = setup[mode];
             if (!conf) {
                 window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
+                window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
                 return;
             }
             // Axis header labels
@@ -1059,6 +1082,9 @@
             }
             // Timer value — stashed globally for the gameplay code to pick up.
             window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
+            // Sand-timer value — game.js reads this on round-start to decide
+            // whether to show the hourglass (non-stop, no-Xeno, sandTimer > 0).
+            window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
             // Type-of-game picker — only meaningful for Find right now (Catch
             // doesn't yet honor a Type axis on its end-of-round flow).
             _renderTypesPicker(gameType, conf);
@@ -2721,8 +2747,8 @@
                     <polygon points="9,8 9,16 17,12" fill="white"/>
                 </svg>
             </div>
-            <div class="game-pause-title">Game paused</div>
-            <div class="game-pause-sub">Tap anywhere to continue</div>
+            <div class="game-pause-title" id="game-pause-title">Game paused</div>
+            <div class="game-pause-sub" id="game-pause-sub">Tap anywhere to continue</div>
         </div>
     </div>
 </body>

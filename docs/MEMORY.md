@@ -1,5 +1,66 @@
 # Vica Domino Project Memory
-**Last Updated**: April 26, 2026
+**Last Updated**: May 1, 2026
+
+## Sand-timer (hourglass) — auto-pause for non-stop games without Xeno
+
+**Use case**: a 2-player non-stop Find-the-Doubles round has no Xeno
+timer pushing the kids forward. If they walk away mid-round, the
+celebration / loss flow never fires and the game just sits there.
+Sand-timer fixes that with a soft, kid-friendly "are you still there?"
+pause after a configurable silent stretch.
+
+### Scope
+
+- **Activates when**: Type behavior = `nonstop`, Xeno timer **off**,
+  admin-configured `sandTimer` > 0. Otherwise it's a no-op (hourglass
+  stays hidden).
+- **Resets on**: any pointerdown / keydown / voice phrase (capture-phase
+  listener on `#game-screen`).
+- **Expires** after `sandTimer` seconds of silence → calls
+  `_pauseGame('sand')` which shows the existing pause overlay with
+  swapped text: "Are you still there? / Tap anywhere to continue".
+- **Resume** restarts sand-timer from full (per design — not
+  continue from partial).
+- **Manual pause during sand-timer**: sand-timer suspends; on resume
+  it restarts from full. Same one overlay, different reason text.
+
+### Admin UI
+
+- **Game Settings** (per-game) has a new "Sand-timer (s):" row right
+  below the existing Timer row. `0` disables. Default `60`.
+- Stored at `game.setup.sandTimer` (peer of `game.setup.timer`,
+  shared across touch / mouse modes). Schema-repaired in `_getGameSetup`.
+
+### Runtime plumbing
+
+- Player-screen apply-setup writes `window._currentGameSetupSandTimer`
+  alongside `_currentGameSetupTimer` so `js/game.js` can read it.
+- `Game._startSandTimer / _stopSandTimer / _resetSandTimer` —
+  hourglass scaling driven by CSS variable `--sand-progress` on
+  `.sand-hourglass`. 250 ms tick.
+- Capture-phase pointerdown / keydown listeners on `#game-screen`
+  bind once per game instance and only act when timer is running.
+- `_pauseGame(reason)` swaps overlay title between "Game paused"
+  (manual) and "Are you still there?" (sand). `_resumeGame` reads
+  `_sandWasRunning` and restarts the sand-timer fresh.
+
+### Files touched
+
+- `index.html` + `pm-studio-DrV.html`: hourglass markup inside
+  `#game-screen`, overlay title/sub now have IDs `game-pause-title`
+  / `game-pause-sub`.
+- `pm-studio-DrV.html`: new `gs-sand-timer` row, `_defaultGameSetup`
+  + `_getGameSetup` + `_gsCaptureForm` + `_gsRenderForm` plumbing.
+- `index.html` apply-setup: writes `window._currentGameSetupSandTimer`.
+- `css/style.css`: `.game-sand-timer` + `.sand-hourglass`,
+  `body.sand-timer-active` gating, two `.sand-top` / `.sand-bottom`
+  scaleY transforms.
+- `js/game.js`: `_startSandTimer / _stopSandTimer / _resetSandTimer
+  / _shouldRunSandTimer / _sandSetProgress`; round-start hook in
+  `startSunLevelGame`; reset hook in `_onVoicePhrase`;
+  navigate-away hook in `_cleanupVoiceUI`; pause-reason text
+  swap and `_sandWasRunning` save/restore in `_pauseGame`/
+  `_resumeGame`.
 
 ## Deployment Notes
 - **Site URL**: https://vkofman56.github.io/Vica_Domino/pm-studio-DrV

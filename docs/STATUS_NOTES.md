@@ -6,6 +6,49 @@
 
 ---
 
+## May 1, 2026 — Sand-timer (hourglass) for non-stop games
+
+A new soft-pause for non-stop rounds with no Xeno timer: if neither
+player taps / speaks for the admin-configured duration, the game
+auto-pauses with a kid-friendly "Are you still there?" overlay.
+
+- **Admin**: Game Settings → "Sand-timer (s):" row (default 60, 0
+  disables). Stored at `game.setup.sandTimer` peer of the existing
+  `timer` field.
+- **Visible**: small white-frame hourglass (top-right, below the
+  timer panel) that drains from full to empty over `sandTimer` seconds.
+  Hidden unless `body.sand-timer-active`.
+- **Resets on**: any pointerdown / keydown / voice phrase (capture-phase
+  listener on `#game-screen`) — kid pokes the screen, sand resets.
+- **Expires**: triggers `_pauseGame('sand')` which reuses the existing
+  pause overlay. Title swaps to "Are you still there?" while the
+  manual pause keeps "Game paused". Sub-text is "Tap anywhere to
+  continue" in both cases.
+- **Resume from sand-pause**: restarts sand-timer from full
+  (per design — fresh restart, not a continue-from-partial).
+- **Manual pause during sand-timer**: sand-timer suspends; on resume
+  it restarts from full.
+
+**Files touched**:
+- `pm-studio-DrV.html`: new `gs-sand-timer` admin row, default 60 in
+  `_defaultGameSetup`, schema repair in `_getGameSetup`, capture/render
+  plumbing in `_gsCaptureForm` / `_gsRenderForm`. Hourglass markup +
+  overlay title/sub IDs in the game screen.
+- `index.html`: hourglass markup + overlay IDs; apply-setup writes
+  `window._currentGameSetupSandTimer`.
+- `css/style.css`: `.game-sand-timer` + `.sand-hourglass` with
+  CSS-variable-driven scaleY transforms; gated by
+  `body.sand-timer-active`.
+- `js/game.js`: `_startSandTimer / _stopSandTimer / _resetSandTimer
+  / _shouldRunSandTimer / _sandSetProgress` near `_resumeGame`;
+  start hook in `startSunLevelGame`; reset hook in `_onVoicePhrase`;
+  navigate-away hook in `_cleanupVoiceUI`; pause-reason text swap
+  and `_sandWasRunning` save/restore in `_pauseGame`/`_resumeGame`.
+  Tick auto-stops if `gamePhase !== 'sunLevel'` to handle round-end
+  cleanly.
+
+---
+
 ## Project Overview
 
 **Vica Domino** is an educational math game built as a single-page web app under the **Pinky Math Gaming** brand. The primary game is **"Find the Double"** — a domino-based game where players must identify the double card from a dealt hand before time runs out. It supports 1-2 human players plus an optional AI opponent ("Xeno"), custom card creation, and multi-stage game progression.

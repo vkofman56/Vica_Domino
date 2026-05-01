@@ -1051,6 +1051,10 @@ class VicaDominoGame {
         // Voice input: start the recognizer for this round if the active Type
         // has voiceInput enabled. 1-player only for v1.
         this._startVoiceForRound();
+        // Sand-timer: start the hourglass if conditions are met (non-stop
+        // type, no Xeno, sandTimer > 0). Internally guarded so non-matching
+        // games are no-ops.
+        this._startSandTimer();
     }
 
     // === Voice input (Find the Doubles, 1-player) ===
@@ -1179,6 +1183,9 @@ class VicaDominoGame {
             clearTimeout(this.playAreaDimTimeout);
             this.playAreaDimTimeout = null;
         }
+        // Sand-timer: navigate-away kills it.
+        this._stopSandTimer();
+        this._sandWasRunning = false;
         // Mark the round as no longer in-progress so any in-flight
         // callback that escaped a clear can early-return on phase check.
         if (this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon') {
@@ -1221,9 +1228,10 @@ class VicaDominoGame {
         return this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon';
     }
 
-    _pauseGame() {
+    _pauseGame(reason) {
         if (!this._canPause()) return;
         this._isPaused = true;
+        this._pauseReason = (reason === 'sand') ? 'sand' : 'manual';
         // Save the timer's remaining seconds so resume restarts cleanly.
         // sunLevelTimeLeft is updated inside startSunLevelTimer's interval
         // and is the freshest read; fall back to sunLevelDuration if absent.
@@ -1242,7 +1250,21 @@ class VicaDominoGame {
         // fires between rounds), but pause it defensively in case the
         // user pauses while a celebration overlay is up after a win.
         if (this._stopNonstopCountdown) this._stopNonstopCountdown();
+        // Sand-timer: stop it but remember it was running so we can
+        // restart fresh on resume (per design — full reset, not continue).
+        this._sandWasRunning = !!this._sandStartedAt;
+        this._stopSandTimer();
         document.body.classList.add('game-paused');
+        // Swap overlay text based on reason.
+        var titleEl = document.getElementById('game-pause-title');
+        var subEl = document.getElementById('game-pause-sub');
+        if (this._pauseReason === 'sand') {
+            if (titleEl) titleEl.textContent = 'Are you still there?';
+            if (subEl) subEl.textContent = 'Tap anywhere to continue';
+        } else {
+            if (titleEl) titleEl.textContent = 'Game paused';
+            if (subEl) subEl.textContent = 'Tap anywhere to continue';
+        }
         var overlay = document.getElementById('game-pause-overlay');
         if (overlay) overlay.style.display = 'flex';
     }
@@ -1271,6 +1293,84 @@ class VicaDominoGame {
             this._startVoiceForRound();
         }
         this._pausedVoiceWasOn = false;
+        // Sand-timer: if it was running before pause, restart it from full
+        // (the user explicitly asked: tap-to-resume restarts the sand timer
+        // rather than continuing from the partial value).
+        if (this._sandWasRunning) {
+            this._sandWasRunning = false;
+            this._startSandTimer();
+        }
+    }
+
+    // === Sand-timer (hourglass) — auto-pause for non-stop games without
+    // the Xeno timer. Resets on any user input (click / touch / key /
+    // voice). Expiry triggers _pauseGame('sand') which shows the
+    // "Are you still there? Tap to continue" overlay. Single source of
+    // truth for "any input" — a capture-phase listener on #game-screen
+    // catches clicks and touches before the per-domino handlers do, so
+    // the timer resets even on inputs the kid lands outside a domino.
+    _shouldRunSandTimer() {
+        if (window._currentTypeBehavior !== 'nonstop') return false;
+        if (this.includeXeno) return false;
+        var seconds = window._currentGameSetupSandTimer;
+        if (typeof seconds !== 'number' || seconds <= 0) return false;
+        return this.gamePhase === 'sunLevel';
+    }
+    _startSandTimer() {
+        this._stopSandTimer();
+        if (!this._shouldRunSandTimer()) return;
+        var seconds = window._currentGameSetupSandTimer;
+        this._sandSeconds = seconds;
+        this._sandStartedAt = Date.now();
+        document.body.classList.add('sand-timer-active');
+        this._sandSetProgress(0);
+        // Bind the input listener once per game instance; the handler
+        // checks _sandStartedAt so it's a no-op when the timer isn't up.
+        if (!this._sandInputBound) {
+            this._sandInputHandler = () => {
+                if (!this._sandStartedAt || this._isPaused) return;
+                this._resetSandTimer();
+            };
+            var screen = document.getElementById('game-screen');
+            if (screen) {
+                screen.addEventListener('pointerdown', this._sandInputHandler, true);
+                screen.addEventListener('keydown', this._sandInputHandler, true);
+            }
+            this._sandInputBound = true;
+        }
+        var self = this;
+        this._sandTickTimer = setInterval(function() {
+            if (self._isPaused) return; // shouldn't tick — we stop on pause — but defensive
+            // Round ended (won/lost/navigated): stop quietly. The expiry
+            // pause should only fire while a round is actively in progress.
+            if (self.gamePhase !== 'sunLevel') { self._stopSandTimer(); return; }
+            var elapsed = (Date.now() - self._sandStartedAt) / 1000;
+            var progress = elapsed / self._sandSeconds;
+            if (progress >= 1) {
+                self._sandSetProgress(1);
+                self._stopSandTimer();
+                self._pauseGame('sand');
+                return;
+            }
+            self._sandSetProgress(progress);
+        }, 250);
+    }
+    _stopSandTimer() {
+        if (this._sandTickTimer) {
+            clearInterval(this._sandTickTimer);
+            this._sandTickTimer = null;
+        }
+        this._sandStartedAt = null;
+        document.body.classList.remove('sand-timer-active');
+    }
+    _resetSandTimer() {
+        if (!this._sandStartedAt) return;
+        this._sandStartedAt = Date.now();
+        this._sandSetProgress(0);
+    }
+    _sandSetProgress(p) {
+        var hg = document.querySelector('#game-sand-timer .sand-hourglass');
+        if (hg) hg.style.setProperty('--sand-progress', String(Math.max(0, Math.min(1, p))));
     }
 
     _onVoicePhrase(ev) {
@@ -1280,6 +1380,8 @@ class VicaDominoGame {
         var player = this.players && this.players[0];
         if (!player || !player.hand || idx < 0 || idx >= player.hand.length) return;
         this._showLastHeard(ev.raw);
+        // Voice input counts as user activity for the sand-timer.
+        this._resetSandTimer();
         this.handleSunLevelCardClick(player.hand[idx], 0, idx);
     }
 

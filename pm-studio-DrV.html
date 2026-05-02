@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:03 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:23 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:03 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:23 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:03 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:23 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17201,19 +17201,31 @@
     <script src="js/voice.js?v=v1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
     <script>
-        // Intercept Start Game button for catch play mode (after game.js binds)
-        if (typeof _catchPlayModeIndex !== 'undefined' && _catchPlayModeIndex >= 0) {
+        // Intercept Start Game button for catch play mode.
+        //
+        // Must run AFTER game.js has bound its Find-game startGame() click
+        // handler. game.js binds inside DOMContentLoaded, so this MUST also
+        // run inside DOMContentLoaded (and registers second so it fires
+        // second). If we ran synchronously here, the inline-script clone
+        // would happen BEFORE game.js bound — leaving the cloned button
+        // with no listeners, then game.js binds Find-game startGame() to
+        // the clone. After we add the catch launcher to the same clone,
+        // BOTH handlers fire on Start click: catch opens correctly, but
+        // startGame() also spawns the last-active Find game in the
+        // background and its cards bleed into the Catch session.
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof _catchPlayModeIndex === 'undefined' || _catchPlayModeIndex < 0) return;
             var _startBtn = document.getElementById('start-game-btn');
-            if (_startBtn) {
-                // Clone to remove game.js listener, add catch game launcher
-                var _newStartBtn = _startBtn.cloneNode(true);
-                _startBtn.parentNode.replaceChild(_newStartBtn, _startBtn);
-                _newStartBtn.addEventListener('click', function() {
-                    document.getElementById('start-screen').style.display = 'none';
-                    _launchCatchGameDirect(_catchPlayModeIndex);
-                });
-            }
-        }
+            if (!_startBtn) return;
+            // Clone (drops every prior listener including game.js's), then
+            // wire only the catch launcher.
+            var _newStartBtn = _startBtn.cloneNode(true);
+            _startBtn.parentNode.replaceChild(_newStartBtn, _startBtn);
+            _newStartBtn.addEventListener('click', function() {
+                document.getElementById('start-screen').style.display = 'none';
+                _launchCatchGameDirect(_catchPlayModeIndex);
+            });
+        });
 
     </script>
     <!-- Phase A: Game Settings modal (placed at body-level so it renders

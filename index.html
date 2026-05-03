@@ -1299,6 +1299,7 @@
                             btn.title = btn.title.replace('Dominos', 'Bubbles');
                         }
                     });
+                    _fillCatchLevelBubbles(catchGame);
 
                     // Show player-names section with single player setup
                     var playerNamesDiv = document.getElementById('player-names');
@@ -1644,6 +1645,81 @@
             document.querySelectorAll('.level-domino-img').forEach(function(img) { img.remove(); });
             document.querySelectorAll('.level-domino-face').forEach(function(face) { face.style.display = ''; });
             document.querySelectorAll('.level-domino-dot').forEach(function(dot) { dot.style.display = ''; });
+        }
+
+        // Catch counterpart of updateLevelDominoIcons. The Catch start screen
+        // replaces each .level-btn's content with a hardcoded bubble SVG that
+        // contains no card pictures. This walks the bubble circles and drops
+        // a clipped nested <svg> of each card into them, using the admin's
+        // saved game.mainPageDominos config (one label per bubble: {top: 'A1'}).
+        // Falls back to recycling the game's own card labels in order so the
+        // bubbles never look empty when MPP is missing or stale.
+        function _fillCatchLevelBubbles(game) {
+            if (!game) return;
+            var ns = 'http://www.w3.org/2000/svg';
+            var mpp = game.mainPageDominos || {};
+
+            var markupMap = {};
+            var viewBoxMap = {};
+            (game.cards || []).forEach(function(c) {
+                if (c.isVariation || markupMap[c.label]) return;
+                var svg = getGameCardSVG(c);
+                if (!svg) return;
+                var inner = svg.innerHTML;
+                if (!inner || !inner.trim().length) return;
+                markupMap[c.label] = inner;
+                viewBoxMap[c.label] = svg.getAttribute('viewBox') || '0 0 60 60';
+            });
+            var fallbackLabels = Object.keys(markupMap);
+            if (fallbackLabels.length === 0) return;
+
+            ['circle', 'triangle', 'star'].forEach(function(lvl) {
+                var btn = document.querySelector('.level-btn[data-level="' + lvl + '"]');
+                if (!btn) return;
+                var rootSvg = btn.querySelector('svg');
+                if (!rootSvg) return;
+                // Identify main bubble fills: <circle fill="url(#bgN)"> (large)
+                // and <circle fill="url(#bsN)"> (small) — the gradient-filled
+                // ones in DOM order are the bubbles. Decorative inner rings
+                // and shines have fill="none" or "rgba(...)".
+                var bubbles = [];
+                rootSvg.querySelectorAll('circle').forEach(function(c) {
+                    var f = c.getAttribute('fill') || '';
+                    if (f.indexOf('url(#bg') === 0 || f.indexOf('url(#bs') === 0) bubbles.push(c);
+                });
+                var saved = Array.isArray(mpp[lvl]) ? mpp[lvl] : [];
+                bubbles.forEach(function(circ, idx) {
+                    var label = (saved[idx] && saved[idx].top) || fallbackLabels[idx % fallbackLabels.length];
+                    var markup = markupMap[label];
+                    if (!markup) return;
+                    var cx = parseFloat(circ.getAttribute('cx'));
+                    var cy = parseFloat(circ.getAttribute('cy'));
+                    var r = parseFloat(circ.getAttribute('r'));
+                    if (!isFinite(cx) || !isFinite(cy) || !isFinite(r)) return;
+                    var clipId = 'lvl-bubble-clip-' + lvl + '-' + idx;
+                    var clip = document.createElementNS(ns, 'clipPath');
+                    clip.setAttribute('id', clipId);
+                    var clipCirc = document.createElementNS(ns, 'circle');
+                    clipCirc.setAttribute('cx', cx);
+                    clipCirc.setAttribute('cy', cy);
+                    clipCirc.setAttribute('r', r - 1);
+                    clip.appendChild(clipCirc);
+                    rootSvg.insertBefore(clip, rootSvg.firstChild);
+                    var nested = document.createElementNS(ns, 'svg');
+                    nested.setAttribute('viewBox', viewBoxMap[label] || '0 0 60 60');
+                    nested.setAttribute('x', cx - r);
+                    nested.setAttribute('y', cy - r);
+                    nested.setAttribute('width', 2 * r);
+                    nested.setAttribute('height', 2 * r);
+                    nested.setAttribute('clip-path', 'url(#' + clipId + ')');
+                    nested.setAttribute('overflow', 'hidden');
+                    nested.innerHTML = markup;
+                    // Insert directly after the bubble's main fill so the
+                    // card draws over the bubble background but under any
+                    // shine/inner-ring decoration that follows.
+                    circ.parentNode.insertBefore(nested, circ.nextSibling);
+                });
+            });
         }
 
         // === Combined Games ===

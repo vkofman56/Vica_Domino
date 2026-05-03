@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:25 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:25 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -834,7 +834,16 @@
         }
 
         // Render one game button (icon + label) into the given column list.
-        function _renderIntroGameBtn(listEl, label, iconSVG, onclick) {
+        // If eyeAction is supplied, an eye-icon button is rendered next to
+        // the game button. Clicking it opens the cards-library overlay
+        // showing every card the Player would actually use, grouped by
+        // mGroup ("equivalence lines") with red/green borders for any
+        // freeze/float assignments saved on the game. Lets the user verify
+        // that Studio's Game Creator content survived the round-trip into
+        // localStorage and back into the Player's runtime.
+        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction) {
+            var row = document.createElement('div');
+            row.className = 'intro-game-row';
             var btn = document.createElement('button');
             btn.className = 'intro-game-btn';
             var icon = document.createElement('span');
@@ -846,7 +855,23 @@
             btn.appendChild(icon);
             btn.appendChild(text);
             btn.onclick = onclick;
-            listEl.appendChild(btn);
+            row.appendChild(btn);
+            if (eyeAction) {
+                var eye = document.createElement('button');
+                eye.type = 'button';
+                eye.className = 'intro-game-eye';
+                eye.title = 'View cards in this game';
+                eye.innerHTML = '<svg viewBox="0 0 24 16" width="22" height="14" aria-hidden="true">' +
+                    '<path d="M12 1C6 1 2 8 2 8s4 7 10 7 10-7 10-7-4-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+                    '<circle cx="12" cy="8" r="3" fill="currentColor"/></svg>';
+                eye.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    eyeAction();
+                });
+                row.appendChild(eye);
+            }
+            listEl.appendChild(row);
             return btn;
         }
 
@@ -861,18 +886,18 @@
             var games = loadCustomGames();
             games.forEach(function(game, i) {
                 if (game.published === false) return;
-                _renderIntroGameBtn(findList, game.name, _introFindIconSVG(), function() {
-                    selectedIntroGame = 'custom-' + i;
-                    goToMainPage();
-                });
+                _renderIntroGameBtn(findList, game.name, _introFindIconSVG(),
+                    function() { selectedIntroGame = 'custom-' + i; goToMainPage(); },
+                    function() { _openCardsLibrary('find', i); });
             });
 
             // Combined games live in the column of their underlying game type
             // (first stage's type). Today all combined games chain Find stages,
-            // so they appear in the Find column.
+            // so they appear in the Find column. No eye button on combined
+            // games yet — they wrap multiple stages and a single cards-library
+            // view doesn't represent that cleanly.
             var combinedGames = loadCombinedGames();
             combinedGames.forEach(function(cg, ci) {
-                // TODO once Catch-based combined games exist, branch on first stage type.
                 _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), function() {
                     selectedIntroGame = 'combined-' + ci;
                     goToMainPage();
@@ -882,7 +907,8 @@
             var catchGames = loadCatchGames();
             catchGames.forEach(function(cg, ci) {
                 if (cg.published === false) return;
-                var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(), null);
+                var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(), null,
+                    function() { _openCardsLibrary('catch', ci); });
                 btn.onclick = function(e) { showCatchModePopup('catch-' + ci, btn, e); };
             });
         }
@@ -894,6 +920,147 @@
             if (selectedIntroGame === gameId) { selectedIntroGame = null; return; }
             selectedIntroGame = gameId;
             if (btnEl) btnEl.classList.add('selected');
+        }
+
+        // Cards-library overlay: shows every card the Player would render for
+        // the given game, grouped into "equivalence lines" by mGroup. Each
+        // card is resolved through getGameCardSVG (the same path used during
+        // gameplay), so what's displayed here is exactly what the Player
+        // would draw at runtime — letting the user verify that Studio content
+        // survived the localStorage round-trip. Per-card freeze/float state
+        // is reflected as a colored border (red=frozen, green=floating, none
+        // if unassigned). Find games don't have freeze/float yet, so all
+        // their cards render borderless until that feature is added.
+        function _openCardsLibrary(gameType, gameIndex) {
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+
+            var prior = document.getElementById('cards-library-overlay');
+            if (prior) prior.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'cards-library-overlay';
+            overlay.className = 'cards-library-overlay';
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            var modal = document.createElement('div');
+            modal.className = 'cards-library-modal';
+
+            var header = document.createElement('div');
+            header.className = 'cards-library-header';
+            var title = document.createElement('span');
+            title.className = 'cards-library-title';
+            var prefix = (gameType === 'catch') ? 'Catch the double: ' : 'Find the doubles: ';
+            title.textContent = prefix + (game.name || '');
+            header.appendChild(title);
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'cards-library-close';
+            closeBtn.title = 'Close';
+            closeBtn.textContent = '×';
+            closeBtn.addEventListener('click', function() { overlay.remove(); });
+            header.appendChild(closeBtn);
+            modal.appendChild(header);
+
+            // Legend — only meaningful for Catch today, but rendered for both
+            // so the user understands the borders when looking at any game.
+            var legend = document.createElement('div');
+            legend.className = 'cards-library-legend';
+            legend.innerHTML =
+                '<span class="cards-library-legend-item"><span class="cards-library-legend-swatch swatch-frozen"></span>Frozen</span>' +
+                '<span class="cards-library-legend-item"><span class="cards-library-legend-swatch swatch-floating"></span>Floating</span>' +
+                '<span class="cards-library-legend-item"><span class="cards-library-legend-swatch swatch-none"></span>Unassigned</span>' +
+                '<span class="cards-library-legend-note">Each row = one equivalence (M-group). Singletons each on their own row.</span>';
+            modal.appendChild(legend);
+
+            var body = document.createElement('div');
+            body.className = 'cards-library-body';
+
+            // Player-equivalent dedup: skip variations, one entry per label.
+            var seen = {};
+            var origCards = [];
+            (game.cards || []).forEach(function(c) {
+                if (!c || c.isVariation) return;
+                if (seen[c.label]) return;
+                seen[c.label] = true;
+                origCards.push(c);
+            });
+
+            if (origCards.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'cards-library-empty';
+                empty.textContent = 'No cards in this game.';
+                body.appendChild(empty);
+            } else {
+                var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
+                var labelToGroupIdx = {};
+                mGroups.forEach(function(g, gi) {
+                    if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+                });
+                // Walk the origCards in their saved order. The first time we
+                // encounter a label belonging to a group, emit the entire
+                // group as one row (preserving the group's stored order).
+                // Ungrouped cards each emit their own singleton row, so the
+                // user can see at a glance which cards have no equivalence
+                // partner yet.
+                var emittedGroups = {};
+                origCards.forEach(function(c) {
+                    var gi = labelToGroupIdx[c.label];
+                    if (gi !== undefined) {
+                        if (emittedGroups[gi]) return;
+                        emittedGroups[gi] = true;
+                        var groupCards = [];
+                        mGroups[gi].forEach(function(lbl) {
+                            for (var k = 0; k < origCards.length; k++) {
+                                if (origCards[k].label === lbl) { groupCards.push(origCards[k]); break; }
+                            }
+                        });
+                        body.appendChild(_buildCardsLibraryRow(groupCards, true, gi));
+                    } else {
+                        body.appendChild(_buildCardsLibraryRow([c], false, -1));
+                    }
+                });
+            }
+
+            modal.appendChild(body);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        }
+
+        function _buildCardsLibraryRow(cards, isGroup, groupIdx) {
+            var row = document.createElement('div');
+            row.className = 'cards-library-row' + (isGroup ? ' cards-library-row-group' : ' cards-library-row-singleton');
+            if (isGroup) {
+                var tag = document.createElement('span');
+                tag.className = 'cards-library-row-tag';
+                tag.textContent = 'M' + (groupIdx + 1);
+                row.appendChild(tag);
+            }
+            cards.forEach(function(c) {
+                var cardEl = document.createElement('div');
+                cardEl.className = 'cards-library-card';
+                if (c._freezeState === 'frozen') cardEl.classList.add('cards-library-card-frozen');
+                else if (c._freezeState === 'floating') cardEl.classList.add('cards-library-card-floating');
+                var imgWrap = document.createElement('div');
+                imgWrap.className = 'cards-library-card-img';
+                var svg = getGameCardSVG(c);
+                if (svg) {
+                    imgWrap.appendChild(svg);
+                } else {
+                    imgWrap.textContent = c.label || '?';
+                    imgWrap.classList.add('cards-library-card-img-fallback');
+                }
+                cardEl.appendChild(imgWrap);
+                var lbl = document.createElement('div');
+                lbl.className = 'cards-library-card-label';
+                lbl.textContent = c.label || '';
+                cardEl.appendChild(lbl);
+                row.appendChild(cardEl);
+            });
+            return row;
         }
 
         var _pendingCatchGameIndex = -1; // >= 0 when setting up a catch game

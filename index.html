@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:46 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:03 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:46 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:03 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1046,10 +1046,45 @@
                 else if (c._freezeState === 'floating') cardEl.classList.add('cards-library-card-floating');
                 var imgWrap = document.createElement('div');
                 imgWrap.className = 'cards-library-card-img';
-                var svg = getGameCardSVG(c);
-                if (svg) {
-                    imgWrap.appendChild(svg);
+                // Resolve markup ourselves rather than calling getGameCardSVG —
+                // that helper folds "intentionally empty" (svgContent === '')
+                // into the same null-return as "data missing", which makes
+                // empty cards render as their text label here. We need to
+                // distinguish the two: empty cards should look empty, only
+                // truly-unresolvable cards should fall back to label text.
+                var markup;          // string we'll use, or undefined if no source found
+                var sourceFound = false;
+                if (c.stableId && typeof _gpResolveBySid === 'function') {
+                    var stored = _gpResolveBySid(c.stableId);
+                    if (stored && typeof stored.svgContent === 'string') {
+                        markup = stored.svgContent;
+                        sourceFound = true;
+                    }
+                }
+                if (!sourceFound && typeof c.svgMarkup === 'string') {
+                    markup = c.svgMarkup;
+                    sourceFound = true;
+                }
+                if (sourceFound) {
+                    var svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svgEl.setAttribute('viewBox', '0 0 60 60');
+                    if (markup && markup.trim().length > 0) {
+                        svgEl.innerHTML = markup;
+                        if (c.isVariation && c.transform) {
+                            var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                            g.setAttribute('transform', c.transform);
+                            while (svgEl.firstChild) g.appendChild(svgEl.firstChild);
+                            svgEl.appendChild(g);
+                        }
+                    }
+                    // markup may legitimately be '' or whitespace — that's
+                    // an empty card. Append the (possibly empty) SVG so the
+                    // tile still has card-shaped chrome but no content.
+                    imgWrap.appendChild(svgEl);
                 } else {
+                    // No svgMarkup AND no resolvable stableId → the card data
+                    // really is missing. Surface the label so the user can
+                    // see WHICH card is unresolved.
                     imgWrap.textContent = c.label || '?';
                     imgWrap.classList.add('cards-library-card-img-fallback');
                 }

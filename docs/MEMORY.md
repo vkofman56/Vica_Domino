@@ -232,7 +232,7 @@ pause after a configurable silent stretch.
 - Key commits: `56d966d` (v2 migration with key detection), `d3888a7` (fix timing — run after sync)
 
 ## Development Workflow Rules
-- **ALWAYS update trial timestamps with EVERY deploy/push**: This is the #1 rule. Update `TRIAL HH:MM AM/PM PDT` in ALL locations across BOTH files (`index.html` and `pm-studio-DrV.html`) with every single push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'` to get the time. The user verifies deployments by checking the timestamp — if it's stale, they can't tell if the new code loaded. **Never skip this step.**
+- **ALWAYS update trial timestamps with EVERY deploy/push**: This is the #1 rule. The deployed `TRIAL HH:MM AM/PM PDT` banner must reflect actual deploy time so the user can tell whether the live site is current. **Use `bash scripts/bump-trial.sh`** — it sets all 5 locations across `index.html` and `pm-studio-DrV.html` to the current Los Angeles time in one shot. Run it BEFORE every commit that touches those two HTML files. (A pre-commit hook at `.githooks/pre-commit` does this automatically when enabled with `git config core.hooksPath .githooks`; if not enabled, run the script by hand.) **Never hand-pick a timestamp** — the script reads the system clock and the result is always honest.
 - **Push to 3 branches**: Every push must go to all 3 branches: `git push origin master && git push origin master:claude/general-session-yVBQq && git push origin master:claude/review-project-docs-JOOeh`
 - **Dual-file architecture**: `index.html` (player) and `pm-studio-DrV.html` (admin) have SEPARATE code. Timestamp changes must be applied to BOTH. Feature changes typically only go to `pm-studio-DrV.html` unless they affect gameplay.
 - **ALWAYS validate JS syntax before committing**: Run `node -e "new Function(require('fs').readFileSync('file.js','utf8'))"` for JS files. For inline scripts in HTML, extract and validate each `<script>` block. Broken syntax (e.g., unescaped quotes in innerHTML strings) causes silent failures that are hard to debug.
@@ -738,7 +738,7 @@ With Phase 4 done and this polish round complete, candidates to scope next:
 - Any new UX tweaks the user surfaces.
 
 ### Key technical details for continuity
-- **Trial timestamps**: Must update ALL 5 locations (2 in index.html lines ~32/58, 3 in pm-studio-DrV.html lines ~116/134/368) with every push. Use `TZ='America/Los_Angeles' date '+%I:%M %p PDT'`.
+- **Trial timestamps**: Run `bash scripts/bump-trial.sh` before every commit that touches `index.html` or `pm-studio-DrV.html` — it updates all 5 locations to the current Los Angeles time. The pre-commit hook at `.githooks/pre-commit` does this automatically when enabled (`git config core.hooksPath .githooks`).
 - **3-branch push**: Every push goes to `claude/general-session-yVBQq`, `master`, and `claude/review-project-docs-JOOeh`.
 - **Undo system**: Snapshot-based (`_undoPushSnapshot()` before mutations). Batch operations use `_undoSuspended = true` to collapse multiple mutations into one undo step.
 - **S2 context menu**: Functions `_ctxShow()`, `_ctxClose()`, `_ctxItem()` at ~line 5010 of pm-studio-DrV.html.

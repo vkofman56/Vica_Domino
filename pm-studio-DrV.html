@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:59 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:59 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:52 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:59 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -12234,16 +12234,37 @@
             return null;
         }
 
+        // Build storage-key list with the card's OWN cardSet first, then the
+        // remaining sets in their normal order. Used by _findStableIdFromStorage
+        // so a UID/SVG/label match in the card's home set always wins over a
+        // coincidental match in a foreign set. Without this preference, the
+        // migration could (and did) bind a Match-0-4 card to a Multiply-by-4
+        // card that happened to share a uid or label, then persist the wrong
+        // stableId — corrupting future renders for that game permanently.
+        function _orderedStorageKeysForCardSet(cardSet) {
+            var keys = _getAllCardStorageKeys();
+            var primaryKey = null;
+            if (cardSet === 'ABC') primaryKey = 'customDrawnCards_abc';
+            else if (cardSet === 'Numbers and Dots' || cardSet === 'numbers') primaryKey = getNumbersStorageKey();
+            else if (cardSet) primaryKey = 'customDrawnCards_' + cardSet;
+            var ordered = [];
+            if (primaryKey) ordered.push(primaryKey);
+            for (var i = 0; i < keys.length; i++) {
+                if (ordered.indexOf(keys[i]) === -1) ordered.push(keys[i]);
+            }
+            return ordered;
+        }
+
         // Look up stableId from localStorage data (works even when Card Maker DOM isn't built)
         // svgMarkup is optional — used for SVG content matching when UID/label are ambiguous
         function _findStableIdFromStorage(label, uid, cardSet, svgMarkup) {
-            var keys = _getAllCardStorageKeys();
+            var orderedKeys = _orderedStorageKeysForCardSet(cardSet);
 
-            // PASS 1: UID match across ALL sets (most reliable — ignores wrong cardSet)
+            // PASS 1: UID match — prefer the card's own cardSet first.
             if (uid) {
-                for (var ki = 0; ki < keys.length; ki++) {
+                for (var ki = 0; ki < orderedKeys.length; ki++) {
                     try {
-                        var raw = localStorage.getItem(keys[ki]);
+                        var raw = localStorage.getItem(orderedKeys[ki]);
                         if (!raw) continue;
                         var cards = JSON.parse(raw);
                         for (var ci = 0; ci < cards.length; ci++) {
@@ -12253,12 +12274,12 @@
                 }
             }
 
-            // PASS 2: SVG content match across ALL sets (handles wrong cardSet + stale UIDs)
+            // PASS 2: SVG content match — also prefer the card's own cardSet first.
             if (svgMarkup) {
                 var svgNorm = svgMarkup.trim();
-                for (var ki2 = 0; ki2 < keys.length; ki2++) {
+                for (var ki2 = 0; ki2 < orderedKeys.length; ki2++) {
                     try {
-                        var raw2 = localStorage.getItem(keys[ki2]);
+                        var raw2 = localStorage.getItem(orderedKeys[ki2]);
                         if (!raw2) continue;
                         var cards2 = JSON.parse(raw2);
                         for (var ci2 = 0; ci2 < cards2.length; ci2++) {
@@ -12271,16 +12292,7 @@
                 }
             }
 
-            // PASS 3: Label match — prefer the cardSet-specific key, then others
-            var orderedKeys = [];
-            var primaryKey = null;
-            if (cardSet === 'ABC') primaryKey = 'customDrawnCards_abc';
-            else if (cardSet === 'Numbers and Dots' || cardSet === 'numbers') primaryKey = getNumbersStorageKey();
-            else if (cardSet) primaryKey = 'customDrawnCards_' + cardSet;
-            if (primaryKey) orderedKeys.push(primaryKey);
-            for (var oi = 0; oi < keys.length; oi++) {
-                if (orderedKeys.indexOf(keys[oi]) === -1) orderedKeys.push(keys[oi]);
-            }
+            // PASS 3: Label match (also cardSet-preferred via the same ordered list).
             for (var ki3 = 0; ki3 < orderedKeys.length; ki3++) {
                 try {
                     var raw3 = localStorage.getItem(orderedKeys[ki3]);
@@ -12293,6 +12305,59 @@
             }
 
             return null;
+        }
+
+        // Extract the safeSet portion encoded in a generated stableId.
+        // Format produced by generateStableId(): `${ts}_${safeSet}_${safeLabel}_${suffix}`.
+        // Returns null if the stableId doesn't fit that shape (legacy / external IDs).
+        function _safeSetFromStableId(stableId) {
+            if (!stableId || typeof stableId !== 'string') return null;
+            var parts = stableId.split('_');
+            if (parts.length < 4) return null;
+            // First part should be all digits (timestamp). If not, this isn't
+            // one of our generated IDs and we shouldn't infer a set from it.
+            if (!/^\d+$/.test(parts[0])) return null;
+            return parts[1] || null;
+        }
+        function _safeSetMatchesCardSet(safeSet, cardSet) {
+            if (!safeSet || !cardSet) return true; // unknown either way → treat as compatible (don't repair)
+            var canonical = (cardSet === 'numbers') ? 'NumbersAndDots'
+                          : (cardSet === 'abc') ? 'ABC'
+                          : cardSet.replace(/\s+/g, '');
+            return safeSet === canonical;
+        }
+
+        // One-pass repair: for every saved Find / Catch game card, if the card
+        // claims cardSet=X but its stableId encodes set=Y (Y≠X), the migration
+        // bound it to a foreign set and the renderer is now showing a card from
+        // the wrong set. Drop the bad stableId so the next migration pass with
+        // the cardSet-preferring lookup binds it to the correct card.
+        // Idempotent: re-running with already-correct data is a no-op.
+        function _repairCrossSetStableIds() {
+            function repairList(storageKey) {
+                var raw, list, changed = false;
+                try { raw = localStorage.getItem(storageKey); } catch(e) { return; }
+                if (!raw) return;
+                try { list = JSON.parse(raw); } catch(e) { return; }
+                if (!Array.isArray(list)) return;
+                list.forEach(function(game) {
+                    if (!game || !Array.isArray(game.cards)) return;
+                    game.cards.forEach(function(c) {
+                        if (!c || !c.stableId || !c.cardSet) return;
+                        var encodedSet = _safeSetFromStableId(c.stableId);
+                        if (encodedSet === null) return; // legacy id, can't validate
+                        if (_safeSetMatchesCardSet(encodedSet, c.cardSet)) return;
+                        // Mismatch: clear so re-migration can bind correctly.
+                        delete c.stableId;
+                        changed = true;
+                    });
+                });
+                if (changed) {
+                    try { localStorage.setItem(storageKey, JSON.stringify(list)); } catch(e) {}
+                }
+            }
+            repairList('savedCustomGames');
+            repairList('savedCatchGames');
         }
 
         // Migrate stableIds for ALL game cards — called on page load and after card set builds
@@ -12382,7 +12447,11 @@
             if (_gameStableIdTimer) clearTimeout(_gameStableIdTimer);
             _gameStableIdTimer = setTimeout(_migrateAllGameStableIds, 3000);
         }
-        // Run migration on page load
+        // Run migration on page load. Repair pass FIRST so any cards with
+        // stableIds bound to a foreign set (legacy bug — cross-set UID/SVG
+        // collisions before the cardSet-preferred lookup was in place) get
+        // their bad stableId cleared. Migration then re-binds them correctly.
+        _repairCrossSetStableIds();
         _migrateAllGameStableIds();
 
         function _buildGameViewCardInner(cardInfo) {

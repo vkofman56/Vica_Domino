@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:03 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:03 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2847,17 +2847,43 @@
         }
 
         function _catchBuildCardSVG(cardInfo) {
-            if (cardInfo.svgMarkup !== undefined) {
-                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('viewBox', '0 0 60 60');
-                svg.innerHTML = cardInfo.svgMarkup || '';
-                if (cardInfo.isVariation && cardInfo.transform) {
-                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                    g.setAttribute('transform', cardInfo.transform);
-                    while (svg.firstChild) g.appendChild(svg.firstChild);
-                    svg.appendChild(g);
+            // PRIMARY: resolve by stableId against card-set storage so the
+            // round renders the LIVE card content, not a stale svgMarkup
+            // snapshot frozen onto the game record. Without this, a card's
+            // snapshot that was overwritten in the past (e.g. cross-game
+            // contamination from Multiply-by-4 into Match-0-4) keeps showing
+            // up forever even after Studio's repair pass binds the stableId
+            // to the correct home-set card. Mirrors Studio's _catchBuildCardSVG
+            // (pm-studio-DrV.html ~17027) and the cards-library overlay logic.
+            if (cardInfo.stableId && typeof _gpResolveBySid === 'function') {
+                var stored = _gpResolveBySid(cardInfo.stableId);
+                if (stored && typeof stored.svgContent === 'string') {
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    svg.innerHTML = stored.svgContent;
+                    if (cardInfo.isVariation && cardInfo.transform) {
+                        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        g.setAttribute('transform', cardInfo.transform);
+                        while (svg.firstChild) g.appendChild(svg.firstChild);
+                        svg.appendChild(g);
+                    }
+                    return svg;
                 }
-                return svg;
+            }
+            // FALLBACK: snapshot on the game record. Used only when the
+            // stableId can't be resolved (e.g. card storage missing the
+            // entry, or card has no stableId at all).
+            if (cardInfo.svgMarkup !== undefined) {
+                var svg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg2.setAttribute('viewBox', '0 0 60 60');
+                svg2.innerHTML = cardInfo.svgMarkup || '';
+                if (cardInfo.isVariation && cardInfo.transform) {
+                    var g2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g2.setAttribute('transform', cardInfo.transform);
+                    while (svg2.firstChild) g2.appendChild(svg2.firstChild);
+                    svg2.appendChild(g2);
+                }
+                return svg2;
             }
             var fallback = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             fallback.setAttribute('viewBox', '0 0 60 60');

@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:46 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:46 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:46 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -10253,6 +10253,38 @@
             }
         }
 
+        // Catch parallel of copyGame: duplicate a Catch game under a new
+        // name. Uses the same prompt UX as Find ("Name for the copy:" /
+        // default "Copy of <name>" / cancel-or-empty aborts silently).
+        // Deep-copies the entire game struct via JSON round-trip so every
+        // saved field is preserved — cards (incl. per-card _freezeState),
+        // mGroups, freezeEnabled, mainPageDominos (MPP config), setup
+        // (Type options / voice / etc.), shape overrides, description,
+        // published flag — without us having to enumerate them. The copy
+        // drops `sourceName` so it isn't treated as a Find→Catch clone
+        // (the "Update from source" affordance shouldn't apply to a copy
+        // of a Catch game). Ends by opening the new copy in the Catch
+        // Game Creator, mirroring Find's copyGame flow.
+        function copyCatchGame(catchIndex) {
+            var catchGames = loadCatchGames();
+            var game = catchGames[catchIndex];
+            if (!game) return;
+            var newName = prompt('Name for the copy:', 'Copy of ' + game.name);
+            if (!newName || !newName.trim()) return;
+            newName = newName.trim();
+            var copy = JSON.parse(JSON.stringify(game));
+            copy.name = newName;
+            delete copy.sourceName;
+            catchGames.push(copy);
+            saveCatchGames(catchGames);
+            alert('Game copied as “' + newName + '”');
+            populateLibraryGames();
+            if (typeof populateStartScreenGames === 'function') populateStartScreenGames();
+            if (typeof populateCardMakerGames === 'function') populateCardMakerGames();
+            // Open the new copy in the Catch Game Creator
+            openCatchGameView(catchGames.length - 1, gameViewReturnScreen);
+        }
+
         // --- Game view ---
         var gameViewReturnScreen = 'card-library-screen';
 
@@ -10762,6 +10794,12 @@
             // Buttons row
             var btnRow = document.createElement('div');
             btnRow.style.cssText = 'margin: 20px 0 10px 40px;';
+
+            var copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-game-btn';
+            copyBtn.textContent = 'Copy Game';
+            copyBtn.onclick = function() { copyCatchGame(catchIndex); };
+            btnRow.appendChild(copyBtn);
 
             var delBtn = document.createElement('button');
             delBtn.className = 'delete-game-btn';

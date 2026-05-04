@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:25 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:39 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:25 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:39 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2101,7 +2101,12 @@
             hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Round 1</div>' +
                 '<div class="catch-coin-gem-display" id="catch-coin-display"></div>' +
                 '<div class="catch-hud-lives" id="catch-lives"></div>' +
-                '<button class="catch-close-btn" id="catch-close-btn">&times;</button>';
+                '<button class="catch-pause-btn" id="catch-pause-btn" type="button" title="Pause" aria-label="Pause">' +
+                  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+                    '<rect x="6" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                    '<rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                  '</svg>' +
+                '</button>';
             overlay.appendChild(hud);
             var gameArea = document.createElement('div');
             gameArea.className = 'catch-game-area';
@@ -2145,7 +2150,7 @@
             // Upgrade layout to 2-player mode if selected
             if (_np === 2) { _catch2pBuildLayout(); }
             _catchUpdateHUD();
-            document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
+            document.getElementById('catch-pause-btn').onclick = function() { _catchPause(); };
             // Pre-apply shape to static card so it doesn't flash as square
             var _preStatic = document.getElementById('catch-static-card');
             if (_preStatic && _catchGame.gameCardShape === 'circle') {
@@ -2569,6 +2574,59 @@
             if (overlay) overlay.remove();
         }
 
+        // Catch pause: freeze the round in place and show a tap-to-continue
+        // overlay. Per spec, resume does NOT continue the same round — any
+        // tap on the overlay clears the current falling cards and starts a
+        // fresh round (single-player or 2-player as appropriate). Lives /
+        // score / round counter are preserved across the pause, so it acts
+        // like a momentary "skip this drop and serve a new one" rather than
+        // a full quit.
+        function _catchPause() {
+            if (!_catchGame || _catchGame.paused) return;
+            _catchGame.paused = true;
+            // Stop the round: cancel the animation frame and disable click
+            // routing so falling cards don't accept input while paused.
+            if (_catchGame.animFrameId) {
+                cancelAnimationFrame(_catchGame.animFrameId);
+                _catchGame.animFrameId = null;
+            }
+            _catchGame.roundActive = false;
+            var host = document.getElementById('catch-game-overlay');
+            if (!host) return;
+            // Build the pause overlay if it isn't already there.
+            var pauseEl = document.getElementById('catch-pause-overlay');
+            if (!pauseEl) {
+                pauseEl = document.createElement('div');
+                pauseEl.id = 'catch-pause-overlay';
+                pauseEl.className = 'catch-pause-overlay';
+                pauseEl.innerHTML =
+                    '<div class="catch-pause-card">' +
+                      '<div class="catch-pause-title">Paused</div>' +
+                      '<div class="catch-pause-sub">Tap anywhere to continue with a new task</div>' +
+                    '</div>';
+                pauseEl.addEventListener('click', _catchResume);
+                host.appendChild(pauseEl);
+            }
+        }
+
+        function _catchResume() {
+            if (!_catchGame || !_catchGame.paused) return;
+            _catchGame.paused = false;
+            var pauseEl = document.getElementById('catch-pause-overlay');
+            if (pauseEl) pauseEl.remove();
+            // Wipe whatever was mid-fall and serve a fresh round. The next
+            // round picks a (possibly different) target value via the same
+            // logic the regular round-end path uses, so 'tap to continue'
+            // really does feel like a new task rather than a resume.
+            if (_catchGame.numPlayers === 2) {
+                if (typeof _catch2pClearFalling === 'function') _catch2pClearFalling();
+                if (typeof _catch2pStartRound === 'function') _catch2pStartRound();
+            } else {
+                _catchClearFalling();
+                _catchStartRound();
+            }
+        }
+
         // =====================================================================
         // 2-player touch Catch mode (shared target card in the middle, two
         // independent play zones, per-player lives + coins, winner decided
@@ -2615,11 +2673,19 @@
             middle.className = 'catch-2p-middle';
             middle.innerHTML = '<div class="catch-2p-target-label">Find this card</div>' +
                                '<div class="catch-2p-target-card" id="catch-2p-target"></div>' +
-                               '<div class="catch-2p-round" id="catch-2p-round">Round 1</div>';
+                               '<div class="catch-2p-round" id="catch-2p-round">Round 1</div>' +
+                               '<button class="catch-pause-btn catch-2p-pause-btn" id="catch-2p-pause-btn" type="button" title="Pause" aria-label="Pause">' +
+                                 '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+                                   '<rect x="6" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                                   '<rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                                 '</svg>' +
+                               '</button>';
             var p2 = makeZone(1);
             ga.appendChild(p1);
             ga.appendChild(middle);
             ga.appendChild(p2);
+            var p2pBtn = document.getElementById('catch-2p-pause-btn');
+            if (p2pBtn) p2pBtn.onclick = function() { _catchPause(); };
             _catch2pUpdateHUD();
         }
 

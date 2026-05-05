@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:35 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:35 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1283,20 +1283,51 @@
                     }
                 });
             }
-            // Level options — only meaningful for Find. Catch has null `levels`.
-            if (gameType !== 'catch' && conf.levels && conf.levels.options) {
+            // Level options — admin's enable/disable per option drives both
+            // visibility and the label override. Applies to Find AND Catch
+            // (Catch's level row gets its dominos→bubbles SVG/label swap
+            // later in goToMainPage; that code reads display:none correctly
+            // and only paints visible buttons).
+            if (conf.levels && Array.isArray(conf.levels.options)) {
                 var lws = document.querySelectorAll('#start-screen .level-btn-wrapper');
+                var enabledLevelCount = 0;
+                var firstVisibleLevelBtn = null;
+                var hiddenSelectedLevel = false;
                 lws.forEach(function(w, i) {
                     var lopt = conf.levels.options[i];
-                    if (!lopt) return;
-                    if (lopt.on) {
-                        w.style.display = '';
-                        var lbl = w.querySelector('.level-label');
-                        if (lbl && lopt.label) lbl.textContent = lopt.label;
-                    } else {
+                    var btn = w.querySelector('.level-btn');
+                    if (!lopt || !lopt.on) {
                         w.style.display = 'none';
+                        if (btn && btn.classList.contains('selected')) hiddenSelectedLevel = true;
+                        return;
                     }
+                    w.style.display = '';
+                    var lbl = w.querySelector('.level-label');
+                    if (lbl && lopt.label) lbl.textContent = lopt.label;
+                    enabledLevelCount++;
+                    if (!firstVisibleLevelBtn) firstVisibleLevelBtn = btn;
                 });
+                // No levels enabled → hide the whole left column (heading +
+                // button row). One or more enabled → show the column with
+                // only the enabled buttons. Heading h3 stays unchanged so
+                // axis-label edits keep working when admin re-enables.
+                var leftCol = document.querySelector('#start-screen .setup-left');
+                if (leftCol) leftCol.style.display = (enabledLevelCount === 0) ? 'none' : '';
+                // If the previously-.selected level is now hidden, shift
+                // selection to the first visible button. Persist the new
+                // choice through localStorage and game.js's selectedLevel
+                // so gameplay launch picks it up without a manual click.
+                if (hiddenSelectedLevel && firstVisibleLevelBtn) {
+                    document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
+                        b.classList.remove('selected');
+                    });
+                    firstVisibleLevelBtn.classList.add('selected');
+                    var newLevel = firstVisibleLevelBtn.getAttribute('data-level');
+                    if (newLevel) {
+                        try { localStorage.setItem('vicaSelectedLevel', newLevel); } catch(_e) {}
+                        if (window.game) window.game.selectedLevel = newLevel;
+                    }
+                }
             }
             // Timer value — stashed globally for the gameplay code to pick up.
             window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;

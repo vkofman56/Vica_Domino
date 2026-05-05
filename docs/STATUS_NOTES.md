@@ -6,6 +6,91 @@
 
 ---
 
+## May 5, 2026 — Catch round-trip + cards-library overlay + bump-trial
+
+Closed the Studio→Player loop for Catch: the Match-0-4 board was
+rendering 4×6 / 2×14 stragglers from Multiply-by-4 because the only
+Catch path still using stale `svgMarkup` snapshots was the live
+gameplay renderer. Mirrored Studio's `stableId → live storage`
+resolution into the Player. Plus a per-game eye button on the GP
+intro screen that gives the user a verification surface, the
+freeze/float semantics wired correctly, the × close button replaced
+with a real pause, Copy Game added to the Catch Game Creator, the
+Player Setup level box now reflects admin's choices, and the trial
+banner is now stamped automatically by a pre-commit hook reading the
+system clock so it always matches actual deploy time.
+
+Stable triple-push throughout: `master` + `claude/general-session-yVBQq`
++ `claude/review-project-docs-JOOeh`, all at `cc9d0ef` on real GitHub.
+
+### Commits (chronological, this session)
+
+- `03deb40` Catch player: fill level-button bubbles with MPP card pictures
+- `5b9b980` Merge claude/catch-bubble-pictograms-fix into master
+- `c44c134` GP intro: per-game eye button opens cards-library overlay
+- `a50578f` Auto-bump trial banner via scripts/bump-trial.sh
+- `dc69dfe` Cards library: show empty cards as blank tiles, not as their label
+- `5d1cf04` Catch player runtime: resolve cards by stableId, not snapshot
+- `fe462a3` Cards-library overlay: rows by value, M-badges in-row (match Studio)
+- `18e1bd1` Cards-library: M-group as border color, drop badges
+- `989ad1c` Cards-library: left-edge dot-line for freeze/float per card
+- `224e4f6` Catch player: undo wrong freeze-spawn behavior
+- `d5dc91c` Catch player: honor _freezeState — frozen=static-only, floating=fall-only
+- `69a59cc` Catch: replace × with ⏸ pause; tap-to-continue starts a fresh round
+- `836372f` Catch 2P: drop redundant middle-column pause button
+- `a21e198` Catch: hide Find pause button while a Catch overlay is open
+- `2c5845d` Catch Game Creator: add Copy Game button, mirror Find behavior
+- `cc9d0ef` GP setup: hide level box when 0 enabled; warn on reduced choices
+
+### What ships in the live Player
+
+- **Eye button** on every game tile in the intro screen → modal
+  with rows-by-value, mGroup-colored borders, left-edge red/green
+  dotted strip for freeze/float, blank tiles for intentionally
+  empty cards. The visible cards are exactly what GP picks at
+  runtime.
+- **Catch ⏸ pause** in the round HUD. Click → freeze-in-place +
+  "Tap anywhere to continue with a new task" overlay. Resume wipes
+  current falling cards and starts a fresh round (lives / score /
+  round counter preserved).
+- **Find pause button suppressed** during Catch via
+  `body.catch-active`, so 1P never sees two pause buttons.
+- **Frozen / Floating** behave per spec: frozen cards are eligible
+  only as the LEFT static target, floating only as falling tiles,
+  unmarked cards play either role.
+- **Catch Game Creator Copy Game** button next to Delete Game,
+  same UX as Find's. Carries every Catch field including
+  `_freezeState`, `mGroups`, `freezeEnabled`, `mainPageDominos`,
+  `setup`, shape overrides; drops `sourceName` lineage.
+- **Player Setup level box** hides entirely when admin disables
+  all levels; auto-selects first visible when admin disables the
+  default-selected one. Save shows "You reduced the number of
+  choices…" alert when an axis lost enabled options.
+
+### Operational
+
+- `scripts/bump-trial.sh` writes the current PDT time into all 5
+  banner occurrences. `.githooks/pre-commit` calls it on every
+  commit that touches `index.html` or `pm-studio-DrV.html`, then
+  re-stages. Activate per clone:
+  `git config core.hooksPath .githooks`.
+- The temp diagnostic alert from `153230f` (`CATCH LAUNCH
+  DIAGNOSTIC` in `pm-studio-DrV.html:16541-16553`) is still in
+  place — its commit message tagged it for removal once Match-0-4
+  was verified. With the chain now consistent, it can be dropped
+  in the next session.
+
+### Heads-up
+
+Existing Catch games whose `levels` axis is at the legacy
+all-off-with-blank-labels default will hide the level box on the
+Player Setup page until admin enables specific levels in Game
+Settings → Levels. No automatic migration shipped because games
+where the admin had legitimately disabled all levels would
+otherwise be silently re-enabled.
+
+---
+
 ## May 1, 2026 — Sand-timer (hourglass) for non-stop games
 
 A new soft-pause for non-stop rounds with no Xeno timer: if neither

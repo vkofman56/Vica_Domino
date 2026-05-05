@@ -1,5 +1,257 @@
 # Vica Domino Project Memory
-**Last Updated**: May 1, 2026
+**Last Updated**: May 5, 2026
+
+## May 5, 2026 session — Catch round-trip fixes + cards-library overlay
+
+A focused session on closing the loop between Studio (Game Creator)
+and Player for Catch games: the player was rendering the right cards
+in some places but stale ones during gameplay, the freeze/float UI
+was wired up backwards, and the only visible "stop" affordance during
+a round was a × that crashed the screen. All commits land on master
++ `claude/general-session-yVBQq` + `claude/review-project-docs-JOOeh`
+(stable triple-push, see "Push to 3 branches" rule below). Trial
+banner now reflects actual commit time via `scripts/bump-trial.sh`.
+
+### 1. Catch player level-button bubbles fill from MPP (`03deb40`, `5b9b980`)
+
+The Catch start screen's level-buttons were stamped with hardcoded
+*empty* bubble SVGs (`_bubbleSVGs` in `index.html` ~line 1261). MPP
+saved a card per bubble in `game.mainPageDominos`, but the live
+Player never read it — Catch had no equivalent of Find's
+`updateLevelDominoIcons`. Added `_fillCatchLevelBubbles(game)`,
+called right after the bubble swap in `goToMainPage`'s catch+mouse
+branch:
+
+- Builds `markupMap[label] -> {markup, viewBox}` from `game.cards`
+  via `getGameCardSVG` (stableId-first, snapshot fallback) so post-
+  add Card Maker edits flow through.
+- Walks each `.level-btn[data-level=…]`, picks the bubble fills by
+  matching `fill="url(#bg…)" / "url(#bs…)"` so decorative inner
+  rings + shines are skipped.
+- For each bubble (DOM order = MPP slot order from Studio's
+  `_bubblePos`), reads `game.mainPageDominos[level][i].top`, falls
+  back to recycling `game.cards` labels when MPP is missing.
+- Inserts a `clipPath` sized to the bubble + a nested `<svg>` with
+  the card markup, sized 2r square at `(cx-r, cy-r)`, inserted right
+  after the bubble fill so shine/inner-ring decoration draws on top.
+
+### 2. Cards-library overlay (eye button on GP intro)
+
+**Per-game eye button next to every Find / Catch game on the intro
+screen** (combined games skipped — multi-stage doesn't fit a single
+view). Click → modal showing every card the Player would render for
+that game, organized into "equivalence lines". The modal is the
+verification surface for the Studio → localStorage → Player round-
+trip: if the eye matches Studio, the rendering chain is intact.
+
+Final layout after a few iterations (commits `c44c134`, `dc69dfe`,
+`fe462a3`, `18e1bd1`, `989ad1c`):
+
+- **Rows match Studio's Game Creator**: walk `origCards` in saved
+  order, group consecutive cards by `_gameRow` (or `label.charAt(0)`
+  fallback) — same logic as `openCatchGameView` / `openGameView`.
+- **Border color = M-group**: cards sharing a group share a border
+  color; palette is the same `_mGroupColors` Studio's
+  `applyMCardBadges` uses. Cards not in any mGroup keep the default
+  neutral border. (Replaced an earlier corner-badge prototype.)
+- **Left-edge dot-line = freeze/float assignment**: `border-left:
+  4px dotted` on an absolutely-positioned span sitting inside the
+  card's left edge. Red = `_freezeState === 'frozen'`, green =
+  `'floating'`, no strip = unassigned ("can do both"). The mGroup
+  border stays solid on all 4 sides — the freeze indicator lives
+  inside without competing for the border slot.
+- **Empty cards render as blank tiles**: `_buildCardsLibraryRow`
+  resolves markup *itself* rather than calling `getGameCardSVG`,
+  which folds `svgContent === ''` into the same null-return as
+  "data missing". The row builder distinguishes "intentionally
+  empty" (sourceFound but markup is whitespace) from "data missing"
+  (no source found at all) and only falls back to the label-as-text
+  display in the latter case.
+- Card name labels under each tile preserved.
+
+The dedup matches the Player runtime (`!c.isVariation`, one entry
+per label), so the cards displayed in the eye-overlay are exactly
+the pool the Player picks from at gameplay time.
+
+### 3. Catch player resolves cards by stableId, not snapshot (`5d1cf04`)
+
+**Root cause of the "Match 0-4 board renders 4×6 / 2×14" bug.** The
+Player's `_catchBuildCardSVG` (at `index.html:2849`) was the last
+renderer in the codebase still using only `cardInfo.svgMarkup` — the
+snapshot frozen onto the game record at add-time. When a Match-0-4
+card's snapshot got overwritten with Multiply-by-4 content at some
+past point, gameplay faithfully rendered the stale snapshot forever.
+Studio's `_catchBuildCardSVG` (in `pm-studio-DrV.html`) and the
+cards-library overlay both already resolved through `stableId →
+_gpResolveBySid → live storage`. Player's renderer mirrored to
+match: PRIMARY = stableId-resolved svgContent (typeof === 'string',
+so empty cards still render as blank); FALLBACK = snapshot only when
+stableId can't be resolved; LAST RESORT = label-as-text. Variation
+transform applied in both PRIMARY and FALLBACK paths.
+
+After this commit, all three card-rendering surfaces (Studio Game
+Creator, eye-overlay, Catch gameplay board) read from the same
+source of truth.
+
+### 4. Frozen / Floating semantics — wired correctly this time
+
+The previous Catch player code interpreted `_freezeState` as "spawn
+this card stationary in the falling area" — frozen cards became
+fixed-position tiles in the drop zone, unmarked cards got a 50/50
+random spawn-state. Wrong design.
+
+**Correct semantics**:
+- `_freezeState === 'frozen'` (red) → static-only: the card can be
+  the LEFT "Find this card" target, never falls.
+- `_freezeState === 'floating'` (green) → falling-only: never sits
+  on the LEFT target slot, only spawns as a falling tile.
+- `undefined` → unconstrained, can play either role.
+
+Implemented in two passes:
+
+- `224e4f6` — strip the misinterpretation. Removed `_freezeMap`
+  build in `openCatchPlayModal`, the `freezeEnabled` / `freezeMap`
+  fields on `_catchGame`, the per-card `isFrozen` branching in
+  `_catchStartRound` (positioning, tiltSpeed/drift overrides,
+  `frozen` field on cardData, opacity dim), the `if (cd.frozen)
+  return` skip in the animation loop, and the round-end check's
+  `(cd.frozen && !cd.isMatch)` clause (collapsed to `cd.clicked`).
+- `d5dc91c` — wire the correct semantics in both `_catchStartRound`
+  and `_catch2pStartRound`:
+  - **Static pool** = `targetCards` filtered to drop floating-only cards.
+  - **Match pool** = `targetCards` minus the static label, minus frozen.
+  - **Distractor pool** = other-value cards minus frozen.
+  - Each pool has a graceful fallback: if the strict filter empties
+    the pool (e.g. every card in the value group is floating), the
+    constraint is relaxed for that one round so the round still
+    proceeds. The Game Creator's existing per-game warning pill is
+    the right surface for admins to fix unbalanced assignments.
+
+### 5. Catch ⏸ pause button replaces × close
+
+The × close button on the Catch HUD only ran `_catchCleanup()`
+(remove overlay, no navigation), leaving a blank page. Replaced
+entirely with a real pause control (commits `69a59cc`, `836372f`,
+`a21e198`):
+
+- New `⏸` SVG button in the same HUD slot the legacy × occupied,
+  same round chrome (`.catch-pause-btn`).
+- `_catchPause()` sets `_catchGame.paused = true`, cancels the
+  animation frame, marks `roundActive = false`, and layers a
+  centered `.catch-pause-overlay` ("Paused / Tap anywhere to
+  continue with a new task").
+- `_catchResume()` (any click on the pause overlay) removes the
+  pause overlay and starts a **fresh round** — current falling
+  cards are wiped, a new target value is picked. Lives, score,
+  gems, and round counter persist. So pause = "skip this drop,
+  give me a fresh task" rather than a hard quit. Routes to
+  `_catchClearFalling` + `_catchStartRound` (1P) or
+  `_catch2pClearFalling` + `_catch2pStartRound` (2P).
+- 2-player redundancy: dropped the duplicate pause button I had
+  briefly added in the 2P middle column (`836372f`). The existing
+  2P-build code keeps the top HUD's pause button visible, so 2P now
+  has exactly one pause button, matching 1P.
+- `body.catch-active` toggle around catch overlay lifecycle hides
+  Find's `.game-pause-btn` (z-index 11500, above the catch overlay's
+  10000) for the duration of any Catch round. Without that, the
+  Find pause button leaked through whenever
+  `body.game-round-running` was still set from a prior Find round.
+
+### 6. Catch Game Creator — Copy Game button (`2c5845d`)
+
+Find Game Creator already had Copy Game; Catch only had Delete Game.
+Mirrored Find's flow:
+
+- `Copy Game` button next to `Delete Game` in `openCatchGameView`'s
+  button row.
+- `copyCatchGame(catchIndex)` prompts "Name for the copy:" with
+  default `Copy of <name>`. Cancel / empty input aborts silently.
+- Deep-copies the entire `savedCatchGames` entry via JSON round-trip
+  so every saved field is preserved without enumeration: cards
+  (incl. per-card `_freezeState`), `mGroups`, `freezeEnabled`,
+  `mainPageDominos`, `setup` (Type options / voice / etc.), shape
+  overrides, description, published flag.
+- Drops `sourceName` from the copy. If the original was a Find→Catch
+  clone (`cloneGameToCatch` sets sourceName), the copy shouldn't
+  carry that lineage — "Update from source" should only apply to
+  the original clone, not copies of it.
+- Refreshes Library / start screen / Card Maker game lists, opens
+  the new copy in the Catch Game Creator.
+
+### 7. GP Setup level box reflects admin's choices (`cc9d0ef`)
+
+Two related Game-Settings UX fixes:
+
+- `_applyGameSetupToPlayerScreen` (in `index.html`): apply the
+  `levels` axis filter to BOTH Find and Catch (was Find-only, with
+  an explicit `gameType !== 'catch'` skip). Per-button on/off drives
+  `display:none` on `.level-btn-wrapper` as before, plus:
+  - **0 levels enabled** → entire `.setup-left` column hidden
+    (heading + button row).
+  - **N levels enabled** → only those N show.
+  - If the previously-`.selected` level button is now hidden,
+    selection auto-shifts to the first visible one and is persisted
+    through `localStorage.vicaSelectedLevel` +
+    `window.game.selectedLevel` so launching the game still picks
+    the right level without a manual click.
+- `saveGameSettings` (in `pm-studio-DrV.html`): before persisting,
+  compare each axis's enabled-count between the working copy and
+  the currently saved setup across both modes. If any axis
+  (players / levels / types) lost an enabled option, alert
+  *"You reduced the number of choices in game player setup"* after
+  the modal closes.
+
+**Heads-up on legacy Catch games**: Catch's `levels` axis defaulted
+to all-off-with-blank-labels. The Player previously skipped Catch's
+levels axis entirely, so admins never saw or configured it. With
+the filter now applied, those games will hide the level box on the
+Player Setup page until admin opens Game Settings → Levels and
+enables the ones they want. One-time per Catch game; no migration
+shipped because legitimately-disabled-by-admin Catch games would
+otherwise be silently re-enabled.
+
+### 8. `scripts/bump-trial.sh` + pre-commit hook (`a50578f`)
+
+Old rule was "manually update `TRIAL HH:MM AM/PM PDT` in 5 places
+on every push." Easy to forget; led to stale banners that confused
+"is the live site current?" checks. Replaced with deterministic
+tooling so the deployed banner always reflects actual commit time:
+
+- `scripts/bump-trial.sh` — reads `TZ='America/Los_Angeles' date`,
+  rewrites all 5 banner occurrences in `index.html` +
+  `pm-studio-DrV.html` to `TRIAL <now PDT>` via perl in-place edit.
+  Permissive regex normalizes legacy variants (PDT/PST, extra
+  whitespace) too.
+- `.githooks/pre-commit` — runs the script automatically before
+  every commit that stages either of the two HTML files, then
+  re-stages them. Skips bumping for commits that don't touch
+  deployable HTML to avoid noisy diffs on docs/CSS-only commits.
+- Enable per-clone with `git config core.hooksPath .githooks`. If
+  not enabled, `bash scripts/bump-trial.sh` works as a manual call.
+- `MEMORY.md` rule was rewritten — replaced the two manual-bump
+  rules (lines ~235 and ~741) with the new script-based workflow so
+  future Claude sessions don't fall back to hand-picking
+  timestamps.
+
+### Files touched this session
+
+- `index.html`: `_fillCatchLevelBubbles`, `_openCardsLibrary` and
+  `_buildCardsLibraryRow`, `_catchBuildCardSVG` rewrite,
+  `_catchStartRound` + `_catch2pStartRound` filters, `_catchPause`
+  + `_catchResume`, level-axis filter in
+  `_applyGameSetupToPlayerScreen`, `body.catch-active` toggle, eye
+  button in `_renderIntroGameBtn` + `populateIntroGames`. Trial
+  banner bumped on every push.
+- `pm-studio-DrV.html`: `copyCatchGame` + Copy Game button in
+  `openCatchGameView`, `saveGameSettings` reduced-choices warning.
+- `css/style.css`: `.intro-game-row`, `.intro-game-eye`,
+  `.cards-library-*` family, `.cards-library-card-freeze-strip`,
+  `.catch-pause-btn`, `.catch-pause-overlay/-card/-title/-sub`,
+  `body.catch-active .game-pause-btn { display: none !important }`.
+- `scripts/bump-trial.sh`, `.githooks/pre-commit` (new files,
+  executable).
+- `docs/MEMORY.md`, `docs/STATUS_NOTES.md` (this entry).
+
 
 ## Sand-timer (hourglass) — auto-pause for non-stop games without Xeno
 

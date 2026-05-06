@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:20 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:20 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1272,16 +1272,42 @@
             // Player options — buttons are in DOM order matching matrix slots 0..2
             if (conf.players && conf.players.options) {
                 var pbs = document.querySelectorAll('#start-screen .player-btn');
+                var enabledIdxP = -1;
+                var enabledCountP = 0;
                 pbs.forEach(function(b, i) {
+                    b.classList.remove('is-static-text');
                     var opt = conf.players.options[i];
-                    if (!opt) return;
-                    if (opt.on) {
-                        b.style.display = '';
-                        b.textContent = opt.label || b.textContent;
-                    } else {
-                        b.style.display = 'none';
+                    if (opt && opt.on) {
+                        enabledCountP++;
+                        enabledIdxP = i;
                     }
                 });
+                if (enabledCountP === 1) {
+                    // Single option — no buttons, just the text the admin
+                    // entered (if any). The visible "button" is restyled as
+                    // plain text via .is-static-text but stays clickable so
+                    // selectPlayerCount still fires and reveals the player-
+                    // names form. If no label was entered, hide everything.
+                    var only = conf.players.options[enabledIdxP];
+                    pbs.forEach(function(b) { b.style.display = 'none'; });
+                    if (only && only.label) {
+                        var btn = pbs[enabledIdxP];
+                        btn.textContent = only.label;
+                        btn.style.display = '';
+                        btn.classList.add('is-static-text');
+                    }
+                } else {
+                    pbs.forEach(function(b, i) {
+                        var opt = conf.players.options[i];
+                        if (!opt) return;
+                        if (opt.on) {
+                            b.style.display = '';
+                            b.textContent = opt.label || b.textContent;
+                        } else {
+                            b.style.display = 'none';
+                        }
+                    });
+                }
             }
             // Level options — admin's enable/disable per option drives both
             // visibility and the label override. Applies to Find AND Catch
@@ -1290,42 +1316,83 @@
             // and only paints visible buttons).
             if (conf.levels && Array.isArray(conf.levels.options)) {
                 var lws = document.querySelectorAll('#start-screen .level-btn-wrapper');
-                var enabledLevelCount = 0;
-                var firstVisibleLevelBtn = null;
-                var hiddenSelectedLevel = false;
+                // Reset any previous static-text styling and restore button
+                // visibility before re-evaluating — _applyGameSetupToPlayerScreen
+                // is called every time the user picks a different game.
+                lws.forEach(function(w) {
+                    w.classList.remove('is-static-text');
+                    var lb = w.querySelector('.level-btn');
+                    if (lb) lb.style.display = '';
+                });
+                var enabledIdxL = [];
                 lws.forEach(function(w, i) {
                     var lopt = conf.levels.options[i];
-                    var btn = w.querySelector('.level-btn');
-                    if (!lopt || !lopt.on) {
-                        w.style.display = 'none';
-                        if (btn && btn.classList.contains('selected')) hiddenSelectedLevel = true;
-                        return;
-                    }
-                    w.style.display = '';
-                    var lbl = w.querySelector('.level-label');
-                    if (lbl && lopt.label) lbl.textContent = lopt.label;
-                    enabledLevelCount++;
-                    if (!firstVisibleLevelBtn) firstVisibleLevelBtn = btn;
+                    if (lopt && lopt.on) enabledIdxL.push(i);
                 });
-                // No levels enabled → hide the whole left column (heading +
-                // button row). One or more enabled → show the column with
-                // only the enabled buttons. Heading h3 stays unchanged so
-                // axis-label edits keep working when admin re-enables.
                 var leftCol = document.querySelector('#start-screen .setup-left');
-                if (leftCol) leftCol.style.display = (enabledLevelCount === 0) ? 'none' : '';
-                // If the previously-.selected level is now hidden, shift
-                // selection to the first visible button. Persist the new
-                // choice through localStorage and game.js's selectedLevel
-                // so gameplay launch picks it up without a manual click.
-                if (hiddenSelectedLevel && firstVisibleLevelBtn) {
-                    document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
-                        b.classList.remove('selected');
+                if (enabledIdxL.length === 1) {
+                    // Single option — no clickable button, just the admin's
+                    // text. Hide every wrapper, then rehydrate the enabled
+                    // one with .is-static-text which (via CSS) hides the SVG
+                    // button and shows the .level-label only. Game still
+                    // launches at the right level because we set .selected +
+                    // localStorage + window.game.selectedLevel.
+                    var soleIdx = enabledIdxL[0];
+                    var soleOpt = conf.levels.options[soleIdx];
+                    var soleW = lws[soleIdx];
+                    var soleBtn = soleW && soleW.querySelector('.level-btn');
+                    var soleLbl = soleW && soleW.querySelector('.level-label');
+                    lws.forEach(function(w) { w.style.display = 'none'; });
+                    if (soleOpt && soleOpt.label && soleW) {
+                        if (soleLbl) soleLbl.textContent = soleOpt.label;
+                        soleW.style.display = '';
+                        soleW.classList.add('is-static-text');
+                    }
+                    if (leftCol) leftCol.style.display = (soleOpt && soleOpt.label) ? '' : 'none';
+                    if (soleBtn) {
+                        document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
+                            b.classList.remove('selected');
+                        });
+                        soleBtn.classList.add('selected');
+                        var newLevel1 = soleBtn.getAttribute('data-level');
+                        if (newLevel1) {
+                            try { localStorage.setItem('vicaSelectedLevel', newLevel1); } catch(_e) {}
+                            if (window.game) window.game.selectedLevel = newLevel1;
+                        }
+                    }
+                } else {
+                    // 0 or 2+ enabled — original per-button display + the
+                    // 0-enabled hide-the-column rule. If the previously
+                    // selected button is now hidden, shift selection to the
+                    // first visible one.
+                    var enabledLevelCount = 0;
+                    var firstVisibleLevelBtn = null;
+                    var hiddenSelectedLevel = false;
+                    lws.forEach(function(w, i) {
+                        var lopt = conf.levels.options[i];
+                        var btn = w.querySelector('.level-btn');
+                        if (!lopt || !lopt.on) {
+                            w.style.display = 'none';
+                            if (btn && btn.classList.contains('selected')) hiddenSelectedLevel = true;
+                            return;
+                        }
+                        w.style.display = '';
+                        var lbl = w.querySelector('.level-label');
+                        if (lbl && lopt.label) lbl.textContent = lopt.label;
+                        enabledLevelCount++;
+                        if (!firstVisibleLevelBtn) firstVisibleLevelBtn = btn;
                     });
-                    firstVisibleLevelBtn.classList.add('selected');
-                    var newLevel = firstVisibleLevelBtn.getAttribute('data-level');
-                    if (newLevel) {
-                        try { localStorage.setItem('vicaSelectedLevel', newLevel); } catch(_e) {}
-                        if (window.game) window.game.selectedLevel = newLevel;
+                    if (leftCol) leftCol.style.display = (enabledLevelCount === 0) ? 'none' : '';
+                    if (hiddenSelectedLevel && firstVisibleLevelBtn) {
+                        document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
+                            b.classList.remove('selected');
+                        });
+                        firstVisibleLevelBtn.classList.add('selected');
+                        var newLevel = firstVisibleLevelBtn.getAttribute('data-level');
+                        if (newLevel) {
+                            try { localStorage.setItem('vicaSelectedLevel', newLevel); } catch(_e) {}
+                            if (window.game) window.game.selectedLevel = newLevel;
+                        }
                     }
                 }
             }
@@ -1424,35 +1491,52 @@
             dominoStyleEl.style.display = 'none';
             rightTypes.style.display = '';
             _stashTypeChoice(enabled[0]);
-            enabled.forEach(function(opt, i) {
-                var line = document.createElement('label');
-                line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
-                var radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = 'setup-type-pick';
-                radio.checked = (i === 0);
-                var span = document.createElement('span');
-                var prefix = 'Type ' + (types.indexOf(opt) + 1);
-                var labelTxt = opt.label ? prefix + ' — ' + opt.label : prefix;
-                if (opt.voiceInput) labelTxt += ' 🎤';
-                span.textContent = labelTxt;
-                line.appendChild(radio);
-                line.appendChild(span);
-                line.addEventListener('click', function() {
-                    rightTypes.querySelectorAll('.setup-type-line').forEach(function(x) { x.classList.remove('selected'); });
-                    rightTypes.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
-                    line.classList.add('selected');
-                    radio.checked = true;
-                    _stashTypeChoice(opt);
-                    _refreshTestMicVisibility();
-                    // Picking a type — voice or otherwise — wipes any leftover
-                    // voice UI from a previous round. The indicator will be
-                    // recreated by _ensureMicIndicator when the next voice
-                    // round actually starts.
-                    _killVoiceUI();
+            if (enabled.length === 1) {
+                // Single option — no radio. Print the admin's text (if any),
+                // mirroring the levels/players "1-enabled = static text" rule.
+                // _stashTypeChoice was already called above so the runtime
+                // type/behavior is set correctly without a click.
+                var soleT = enabled[0];
+                if (soleT.label) {
+                    var staticLine = document.createElement('div');
+                    staticLine.className = 'setup-type-line setup-type-line-static';
+                    var prefix0 = 'Type ' + (types.indexOf(soleT) + 1);
+                    var labelTxt0 = prefix0 + ' — ' + soleT.label;
+                    if (soleT.voiceInput) labelTxt0 += ' 🎤';
+                    staticLine.textContent = labelTxt0;
+                    rightTypes.appendChild(staticLine);
+                }
+            } else {
+                enabled.forEach(function(opt, i) {
+                    var line = document.createElement('label');
+                    line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
+                    var radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'setup-type-pick';
+                    radio.checked = (i === 0);
+                    var span = document.createElement('span');
+                    var prefix = 'Type ' + (types.indexOf(opt) + 1);
+                    var labelTxt = opt.label ? prefix + ' — ' + opt.label : prefix;
+                    if (opt.voiceInput) labelTxt += ' 🎤';
+                    span.textContent = labelTxt;
+                    line.appendChild(radio);
+                    line.appendChild(span);
+                    line.addEventListener('click', function() {
+                        rightTypes.querySelectorAll('.setup-type-line').forEach(function(x) { x.classList.remove('selected'); });
+                        rightTypes.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
+                        line.classList.add('selected');
+                        radio.checked = true;
+                        _stashTypeChoice(opt);
+                        _refreshTestMicVisibility();
+                        // Picking a type — voice or otherwise — wipes any leftover
+                        // voice UI from a previous round. The indicator will be
+                        // recreated by _ensureMicIndicator when the next voice
+                        // round actually starts.
+                        _killVoiceUI();
+                    });
+                    rightTypes.appendChild(line);
                 });
-                rightTypes.appendChild(line);
-            });
+            }
 
             // "Test mic" button — built once per render and reused. We toggle
             // visibility based on the *currently selected* type rather than

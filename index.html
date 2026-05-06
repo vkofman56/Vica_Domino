@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1377,6 +1377,12 @@
             var rightTypes = document.getElementById('setup-right-types');
             var rightH3 = document.getElementById('setup-right-h3');
             var dominoStyleEl = document.getElementById('domino-style-select');
+            // Container for the whole right column (h3 + domino-style fallback
+            // + types radio list). Hide it entirely when admin has 0 types
+            // enabled, so the player doesn't see an empty box or the legacy
+            // "Choose domino style:" decoration that no longer reflects an
+            // active choice. Show it again when ≥1 type is enabled.
+            var rightCol = document.querySelector('#start-screen .setup-right');
             if (topRow) topRow.style.display = 'none';
             if (rightTypes) rightTypes.innerHTML = '';
             // Default to manual unless we explicitly find a non-stop choice.
@@ -1401,14 +1407,19 @@
 
             if (!rightTypes || !rightH3 || !dominoStyleEl) return;
             if (enabled.length < 1) {
-                // No Type options on this game — leave the original domino-style
-                // panel visible.
+                // 0 types enabled → hide the entire right column. Player runs
+                // with default behavior (manual / no voice) since the stashed
+                // type choice above already covers that. The legacy
+                // domino-style decoration is also hidden so an empty axis
+                // doesn't surface stale "Choose domino style:" UI.
                 rightTypes.style.display = 'none';
-                dominoStyleEl.style.display = '';
-                rightH3.textContent = 'Choose domino style:';
+                dominoStyleEl.style.display = 'none';
+                if (rightCol) rightCol.style.display = 'none';
                 return;
             }
-            // Replace the domino-style panel with the Type radio list.
+            // ≥1 type enabled → ensure the right column is visible and replace
+            // the domino-style panel with the Type radio list.
+            if (rightCol) rightCol.style.display = '';
             rightH3.textContent = (conf.types.axisLabel || 'Choose the game type') + ':';
             dominoStyleEl.style.display = 'none';
             rightTypes.style.display = '';

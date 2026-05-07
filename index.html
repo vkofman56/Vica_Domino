@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:59 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:33 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:59 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:33 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -230,9 +230,20 @@
 
                 <h3 id="setup-h3-players">How many players?</h3>
                 <div class="player-select">
-                    <button class="player-btn" data-players="1" data-xeno="true">You + Xeno ⏳</button>
-                    <button class="player-btn" data-players="2" data-xeno="false">2 Players</button>
-                    <button class="player-btn" data-players="2" data-xeno="true">2 Players + Xeno ⏳</button>
+                    <!-- Six pre-rendered player-btn templates, one per
+                         PLAYER_CATALOG id (kept in sync with the Studio
+                         catalog). _applyGameSetupToPlayerScreen filters by
+                         the matching option's `on` flag, reorders to match
+                         the saved Game Settings order, and rewrites the
+                         label text from the saved option. game.js's
+                         selectPlayerCount click handler reads data-players
+                         + data-xeno — same as before. -->
+                    <button class="player-btn" data-id="p1"  data-players="1" data-xeno="false">1 player</button>
+                    <button class="player-btn" data-id="p1x" data-players="1" data-xeno="true">1 player + timer</button>
+                    <button class="player-btn" data-id="p2"  data-players="2" data-xeno="false">2 players</button>
+                    <button class="player-btn" data-id="p2x" data-players="2" data-xeno="true">2 players + timer</button>
+                    <button class="player-btn" data-id="p3"  data-players="3" data-xeno="false">3 players</button>
+                    <button class="player-btn" data-id="p3x" data-players="3" data-xeno="true">3 players + timer</button>
                 </div>
 
                 <!-- Xeno Icon SVG -->
@@ -1270,42 +1281,52 @@
             if (h3p && conf.players && conf.players.axisLabel) h3p.textContent = conf.players.axisLabel;
             if (h3l && conf.levels && conf.levels.axisLabel)   h3l.textContent = conf.levels.axisLabel;
             // Player options — buttons are in DOM order matching matrix slots 0..2
-            if (conf.players && conf.players.options) {
+            if (conf.players && Array.isArray(conf.players.options)) {
+                // Catalog-aware filtering: pre-rendered buttons in DOM each
+                // carry data-id matching a PLAYER_CATALOG entry. We match
+                // saved options by id (not by position) so admin's
+                // sticky-rearranged order in Game Settings drives the order
+                // here too — without breaking when the catalog grows.
+                var pselect = document.querySelector('#start-screen .player-select');
                 var pbs = document.querySelectorAll('#start-screen .player-btn');
-                var enabledIdxP = -1;
-                var enabledCountP = 0;
-                pbs.forEach(function(b, i) {
+                var pById = {};
+                pbs.forEach(function(b) {
                     b.classList.remove('is-static-text');
-                    var opt = conf.players.options[i];
-                    if (opt && opt.on) {
-                        enabledCountP++;
-                        enabledIdxP = i;
-                    }
+                    pById[b.getAttribute('data-id')] = b;
                 });
-                if (enabledCountP === 1) {
-                    // Single option — no buttons, just the text the admin
-                    // entered (if any). The visible "button" is restyled as
-                    // plain text via .is-static-text but stays clickable so
-                    // selectPlayerCount still fires and reveals the player-
-                    // names form. If no label was entered, hide everything.
-                    var only = conf.players.options[enabledIdxP];
+                // Pull enabled options in saved order; ids without a matching
+                // pre-rendered button are skipped (graceful for legacy /
+                // unmigrated data).
+                var enabledOpts = conf.players.options.filter(function(o) {
+                    return o && o.on && pById[o.id];
+                });
+                if (enabledOpts.length === 1) {
+                    // Single option — restyle the one visible button as
+                    // plain text. Stays clickable so selectPlayerCount
+                    // still reveals the player-names form. No label → hide
+                    // everything.
                     pbs.forEach(function(b) { b.style.display = 'none'; });
-                    if (only && only.label) {
-                        var btn = pbs[enabledIdxP];
+                    var only = enabledOpts[0];
+                    if (only.label) {
+                        var btn = pById[only.id];
                         btn.textContent = only.label;
                         btn.style.display = '';
                         btn.classList.add('is-static-text');
                     }
                 } else {
-                    pbs.forEach(function(b, i) {
-                        var opt = conf.players.options[i];
-                        if (!opt) return;
-                        if (opt.on) {
-                            b.style.display = '';
-                            b.textContent = opt.label || b.textContent;
-                        } else {
-                            b.style.display = 'none';
-                        }
+                    // 0 or 2+ enabled — show each enabled button with its
+                    // saved label, hide everything else, and reorder the
+                    // visible buttons to match the saved option order.
+                    pbs.forEach(function(b) { b.style.display = 'none'; });
+                    enabledOpts.forEach(function(opt) {
+                        var btn = pById[opt.id];
+                        btn.style.display = '';
+                        if (opt.label) btn.textContent = opt.label;
+                        // Reordering: re-append to the .player-select in
+                        // saved order. For the unenabled siblings the
+                        // display:none above keeps them out of the visual
+                        // flow; their DOM position doesn't matter.
+                        if (pselect) pselect.appendChild(btn);
                     });
                 }
             }

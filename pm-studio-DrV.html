@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:34 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:34 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:15 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:34 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9641,6 +9641,26 @@
         function _gsResetShowOnlyChecked() {
             _gsShowOnlyChecked = { players: true, levels: true, types: true };
         }
+        // Per-axis collapsed state. true = options-list hidden so admin
+        // sees only the section title row + the controls row. Reset to
+        // false (expanded) on every modal open so admin doesn't get stuck
+        // on a collapsed axis from a previous session.
+        var _gsCollapsed = { players: false, levels: false, types: false };
+        function _gsResetCollapsed() {
+            _gsCollapsed = { players: false, levels: false, types: false };
+        }
+        function _gsCollapseAxis(axis) {
+            if (typeof _gsCollapsed[axis] !== 'boolean') return;
+            _gsCaptureForm();
+            _gsCollapsed[axis] = true;
+            _gsRenderForm();
+        }
+        function _gsExpandAxis(axis) {
+            if (typeof _gsCollapsed[axis] !== 'boolean') return;
+            _gsCaptureForm();
+            _gsCollapsed[axis] = false;
+            _gsRenderForm();
+        }
         // Sticky sort: checked rows move to the top in stored order. Mutates
         // the options array in place so captureForm's positional read stays
         // consistent. Stable within each on/off group (preserves admin's
@@ -9676,6 +9696,8 @@
         try {
             window._gsToggleShowOnly = _gsToggleShowOnly;
             window._gsRearrange = _gsRearrange;
+            window._gsCollapseAxis = _gsCollapseAxis;
+            window._gsExpandAxis = _gsExpandAxis;
         } catch(e) {}
         function openGameSettingsModal() {
             try {
@@ -9691,6 +9713,7 @@
                 console.log('[GameSettings] loaded game:', game && game.name, 'type:', t);
                 _gsWorking = JSON.parse(JSON.stringify(_getGameSetup(game, t)));
                 _gsResetShowOnlyChecked();
+                _gsResetCollapsed();
                 console.log('[GameSettings] working setup cloned. timer=', _gsWorking.timer);
                 var titleEl = document.getElementById('gs-title');
                 if (titleEl) titleEl.textContent = 'Game Settings — ' + (game && game.name ? game.name : '');
@@ -10013,6 +10036,19 @@
                     // click "Show all" to start enabling options.
                     showBtn.disabled = !anyUnchecked;
                 }
+                // Collapse: hide the options container + the +Add option
+                // button (if it landed in the controls row) so admin sees
+                // only the title row and the controls. The Show all toggle
+                // still works in collapsed state so admin can change the
+                // filter while collapsed (it'll take effect on expand).
+                var isCollapsed = !!_gsCollapsed[axis];
+                optsContainer.style.display = isCollapsed ? 'none' : '';
+                // Mirror enabled/disabled on the hide/show pair so admin
+                // can see at a glance which action is currently active.
+                var hideBtn = section.querySelector('.gs-axis-collapse');
+                var expandBtn = section.querySelector('.gs-axis-expand');
+                if (hideBtn)   hideBtn.disabled   = isCollapsed;
+                if (expandBtn) expandBtn.disabled = !isCollapsed;
             });
         }
         // Build the inline 3-column EN/ES/RU voice-words editor for one Type
@@ -17600,6 +17636,8 @@
                     <div class="gs-axis-controls">
                         <button type="button" class="gs-axis-rearrange" data-axis="players" onclick="_gsRearrange('players')" title="Move checked options to the top">↑↓ Rearrange</button>
                         <button type="button" class="gs-axis-show-toggle" data-axis="players" onclick="_gsToggleShowOnly('players')">Show all</button>
+                        <button type="button" class="gs-axis-collapse" data-axis="players" onclick="_gsCollapseAxis('players')" title="Collapse — hide the option rows">hide</button>
+                        <button type="button" class="gs-axis-expand" data-axis="players" onclick="_gsExpandAxis('players')" title="Expand — show the option rows">show</button>
                     </div>
                 </div>
                 <div class="gs-section" id="gs-section-levels">
@@ -17611,6 +17649,8 @@
                     <div class="gs-axis-controls">
                         <button type="button" class="gs-axis-rearrange" data-axis="levels" onclick="_gsRearrange('levels')" title="Move checked options to the top">↑↓ Rearrange</button>
                         <button type="button" class="gs-axis-show-toggle" data-axis="levels" onclick="_gsToggleShowOnly('levels')">Show all</button>
+                        <button type="button" class="gs-axis-collapse" data-axis="levels" onclick="_gsCollapseAxis('levels')" title="Collapse — hide the option rows">hide</button>
+                        <button type="button" class="gs-axis-expand" data-axis="levels" onclick="_gsExpandAxis('levels')" title="Expand — show the option rows">show</button>
                     </div>
                 </div>
                 <div class="gs-section" id="gs-section-types">
@@ -17622,6 +17662,8 @@
                     <div class="gs-axis-controls">
                         <button type="button" class="gs-axis-rearrange" data-axis="types" onclick="_gsRearrange('types')" title="Move checked options to the top">↑↓ Rearrange</button>
                         <button type="button" class="gs-axis-show-toggle" data-axis="types" onclick="_gsToggleShowOnly('types')">Show all</button>
+                        <button type="button" class="gs-axis-collapse" data-axis="types" onclick="_gsCollapseAxis('types')" title="Collapse — hide the option rows">hide</button>
+                        <button type="button" class="gs-axis-expand" data-axis="types" onclick="_gsExpandAxis('types')" title="Expand — show the option rows">show</button>
                     </div>
                 </div>
             </div>

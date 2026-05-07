@@ -631,10 +631,21 @@ class VicaDominoGame {
         selectedRow.innerHTML = '';
         selectedRow.style.display = 'flex';
 
-        // Clone the selected level button wrapper
-        const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
-        selectedLevelWrapper.style.display = 'flex';
-        selectedRow.appendChild(selectedLevelWrapper);
+        // Clone the selected level button wrapper — but only if there's
+        // actually a visible level option to represent. When admin disables
+        // every level in Game Settings, the entire .setup-left column is
+        // already hidden upstream (in _applyGameSetupToPlayerScreen). The
+        // selected-options-row should follow suit and not flash a stale
+        // domino icon for `this.selectedLevel`.
+        const _anyVisibleLevel = Array.prototype.some.call(
+            document.querySelectorAll('#start-screen .level-btn-wrapper'),
+            function(w) { return w.style.display !== 'none'; }
+        );
+        if (_anyVisibleLevel) {
+            const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
+            selectedLevelWrapper.style.display = 'flex';
+            selectedRow.appendChild(selectedLevelWrapper);
+        }
 
         // Clone the selected player button
         const selectedPlayerBtn = e.target.cloneNode(true);

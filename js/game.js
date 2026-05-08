@@ -3597,6 +3597,16 @@ class VicaDominoGame {
         // Hide selected options row
         const selectedRow = document.getElementById('selected-options-row');
         if (selectedRow) selectedRow.style.display = 'none';
+
+        // The blanket "show all h3" + show-flex resets above clobber per-
+        // axis hide rules (e.g., the types title that should be hidden when
+        // admin enabled exactly one Type, or any axisLabel that admin
+        // erased). Re-run admin's saved setup for the current game so
+        // those rules are honored on the way back, otherwise navigating
+        // C33 → Ct Setup reveals headings that should stay hidden.
+        if (typeof window._reapplyCurrentSetup === 'function') {
+            window._reapplyCurrentSetup();
+        }
     }
 
     showCreateEdit() {

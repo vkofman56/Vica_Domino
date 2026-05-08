@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:41 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -67,7 +67,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:41 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1461,6 +1461,29 @@
         }
         // Surface to other inline scripts that need to wipe voice UI.
         window._killVoiceUI = _killVoiceUI;
+
+        // Re-apply admin's setup matrix to the start-screen UI for whatever
+        // game is currently active. Called from game.js's backToGameSetup
+        // after it restores blanket visibility on .setup-panel h3 elements
+        // — the blanket reset clobbers per-axis hide rules I set in
+        // _applyGameSetupToPlayerScreen / _renderTypesPicker (e.g., types
+        // title hidden when 1 type is enabled, or any axisLabel that admin
+        // erased). Without this re-apply pass, navigating back from C33 to
+        // Ct Setup re-shows headings that should stay hidden.
+        window._reapplyCurrentSetup = function() {
+            try {
+                if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
+                    var cidx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
+                    var catchGames = loadCatchGames();
+                    var catchGame = catchGames[cidx];
+                    if (catchGame) _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                } else if (typeof activeCustomGameIndex !== 'undefined' && activeCustomGameIndex >= 0) {
+                    var games = loadCustomGames();
+                    var game = games[activeCustomGameIndex];
+                    if (game) _applyGameSetupToPlayerScreen(game, 'find');
+                }
+            } catch(_e) {}
+        };
 
         function _renderTypesPicker(gameType, conf) {
             // Belt-and-suspenders cleanup of any voice UI carried over from a

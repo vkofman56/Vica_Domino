@@ -648,12 +648,14 @@ class VicaDominoGame {
         }
 
         // Clone the selected player button at the top of the
-        // selected-options row — but skip it for the bare "1 player"
-        // option (count===1 without Xeno). That variant has nothing
-        // distinguishing to surface as a top-of-page title; Xeno
-        // variants and 2/3-player options still get the cloned chip
-        // so admin/player can see which configuration is in play.
-        if (!(count === 1 && !includeXeno)) {
+        // selected-options row only for the 1-player-+-timer variant
+        // (count===1 && includeXeno). Per spec:
+        //   - 1 player (no timer): no title (clean single-player page).
+        //   - 1 player + timer: keep the title — surfaces the Xeno/timer
+        //     hint that distinguishes it from the bare 1-player.
+        //   - 2 players (± timer) and 3 players (± timer): no title;
+        //     the multi-player input rows are self-evident.
+        if (count === 1 && includeXeno) {
             const selectedPlayerBtn = e.target.cloneNode(true);
             selectedPlayerBtn.style.display = 'inline-block';
             selectedPlayerBtn.style.marginTop = '-35pt';

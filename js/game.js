@@ -647,22 +647,11 @@ class VicaDominoGame {
             selectedRow.appendChild(selectedLevelWrapper);
         }
 
-        // Clone the selected player button at the top of the
-        // selected-options row only for the 1-player-+-timer variant
-        // (count===1 && includeXeno). Per spec:
-        //   - 1 player (no timer): no title (clean single-player page).
-        //   - 1 player + timer: keep the title — surfaces the Xeno/timer
-        //     hint that distinguishes it from the bare 1-player.
-        //   - 2 players (± timer) and 3 players (± timer): no title;
-        //     the multi-player input rows are self-evident.
-        if (count === 1 && includeXeno) {
-            const selectedPlayerBtn = e.target.cloneNode(true);
-            selectedPlayerBtn.style.display = 'inline-block';
-            selectedPlayerBtn.style.marginTop = '-35pt';
-            selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
-            selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
-            selectedRow.appendChild(selectedPlayerBtn);
-        }
+        // No cloned player-btn chip at the top of the selected-options
+        // row for any variant. Per the user's explicit pass: 1-player
+        // (with or without timer), 2 players (± timer), and 3 players
+        // (± timer) all suppress the title — the player-name inputs
+        // below are self-evident.
 
         // Preserve start button if it was moved into name-inputs (from Xeno row)
         const startBtn = document.getElementById('start-game-btn');

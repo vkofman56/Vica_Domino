@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:21 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -11671,17 +11671,41 @@
             if (!game) return;
 
             var effective = buildEffectiveCards(game);
+            var freezeOn = !!game.freezeEnabled;
 
-            // Generate all domino pairs using effective cards
+            // Pick a representative card from a group that's eligible to
+            // sit on the requested half. When freeze mode is on:
+            //   half === 'top'    → prefer non-floating cards (frozen / unmarked)
+            //   half === 'bottom' → prefer non-frozen cards   (floating / unmarked)
+            // Falls back to cards[0] if no card satisfies the filter so the
+            // domino preview always renders.
+            function _pickRepForHalf(group, half) {
+                if (!group || !group.cards || !group.cards.length) return null;
+                if (!freezeOn) return group.cards[0];
+                var match = null;
+                for (var k = 0; k < group.cards.length; k++) {
+                    var c = group.cards[k];
+                    if (!c) continue;
+                    if (half === 'top' && c._freezeState === 'floating') continue;
+                    if (half === 'bottom' && c._freezeState === 'frozen') continue;
+                    match = c;
+                    break;
+                }
+                return match || group.cards[0];
+            }
+
+            // Generate all domino pairs using effective cards. When
+            // freezeEnabled is on, the representative for each half
+            // honors the red/green placement constraint, so the Show
+            // Dominos preview reflects what the live Player will draw.
             var allDominos = [];
             for (var i = 0; i < effective.length; i++) {
                 for (var j = i + 1; j < effective.length; j++) {
                     var lv = effective[i]._gameValue;
                     var rv = effective[j]._gameValue;
-                    // Use first card of each group as representative for display
                     allDominos.push({
-                        leftCard: effective[i].cards[0],
-                        rightCard: effective[j].cards[0],
+                        leftCard: _pickRepForHalf(effective[i], 'top'),
+                        rightCard: _pickRepForHalf(effective[j], 'bottom'),
                         leftValue: lv,
                         rightValue: rv,
                         isDouble: lv === rv

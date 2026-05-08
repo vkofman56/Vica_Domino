@@ -647,13 +647,20 @@ class VicaDominoGame {
             selectedRow.appendChild(selectedLevelWrapper);
         }
 
-        // Clone the selected player button
-        const selectedPlayerBtn = e.target.cloneNode(true);
-        selectedPlayerBtn.style.display = 'inline-block';
-        selectedPlayerBtn.style.marginTop = '-35pt';
-        selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
-        selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
-        selectedRow.appendChild(selectedPlayerBtn);
+        // Clone the selected player button at the top of the
+        // selected-options row — but skip it for the bare "1 player"
+        // option (count===1 without Xeno). That variant has nothing
+        // distinguishing to surface as a top-of-page title; Xeno
+        // variants and 2/3-player options still get the cloned chip
+        // so admin/player can see which configuration is in play.
+        if (!(count === 1 && !includeXeno)) {
+            const selectedPlayerBtn = e.target.cloneNode(true);
+            selectedPlayerBtn.style.display = 'inline-block';
+            selectedPlayerBtn.style.marginTop = '-35pt';
+            selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
+            selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
+            selectedRow.appendChild(selectedPlayerBtn);
+        }
 
         // Preserve start button if it was moved into name-inputs (from Xeno row)
         const startBtn = document.getElementById('start-game-btn');
@@ -693,10 +700,16 @@ class VicaDominoGame {
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            // No number prefix for single-with-Xeno or 2-player games
-            const isSingleWithXeno = (count === 1 && includeXeno);
-            const noPrefix = isSingleWithXeno || count === 2;
-            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1}`;
+            // Single-player variants (with or without Xeno) → use the
+            // unprefixed "Player's Name" placeholder so the box reads
+            // the same way regardless of which 1-player option the
+            // admin enabled. 2-player drops the "1. ... name" prefix
+            // but keeps the per-player "Player N" tag. 3-player keeps
+            // the prefixed "1. Player 1 name" form so the inputs are
+            // distinguishable from each other.
+            const isSinglePlayer = (count === 1);
+            const noPrefix = isSinglePlayer || count === 2;
+            const placeholderName = isSinglePlayer ? "Player's Name" : `Player ${i + 1}`;
             input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
             input.value = '';
             input.dataset.playerIndex = i;

@@ -3517,18 +3517,35 @@ body.group-edit-active .library-row-letter:hover {
     color: #FFD54F;
 }
 
-/* Game Level Selector */
+/* Game Level Selector
+   Two-column grid: column 1 is a fixed 85px (matches the natural width
+   of .level-btn — 55px SVG + 12px×2 padding + 3px×2 border) so the
+   level icons stack in a tight column; column 2 auto-sizes to the
+   widest .level-label. The fixed col-1 width is what lets the title
+   row land centered above the icons rather than above the icon-plus-
+   label combined width. The whole grid shrinks to its content width
+   and is centered in .setup-left via auto margins. */
 .game-level-select {
-    display: flex;
-    /* Vertical stack with highest level on top, first level on bottom —
-       column-reverse mirrors the DOM order (2 dominos, 3 dominos, 4
-       dominos) so the visual progression reads "lower → higher" from
-       bottom to top, matching the player's mental model of difficulty. */
-    flex-direction: column-reverse;
+    display: grid;
+    grid-template-columns: 85px auto;
+    column-gap: 12px;
+    row-gap: 10px;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 25px;
+    justify-items: start;
+    width: max-content;
+    margin: 0 auto 25px;
+}
+
+/* Title row — h3 was moved into .game-level-select in HTML so it can
+   occupy only column 1 and sit centered above the icon stack. Out-of-
+   the-grid placement (the previous layout) made the title align with
+   the row's center, i.e. between icon and label. */
+.game-level-select > h3 {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: center;
+    margin: 0 0 8px;
+    text-align: center;
 }
 
 .level-btn {
@@ -3560,6 +3577,9 @@ body.group-edit-active .library-row-letter:hover {
     box-shadow: 0 0 15px rgba(255,215,0,0.4);
 }
 
+/* Default flex column — applies to clones of .level-btn-wrapper
+   rendered in .selected-options-row (the chip shown after the legacy
+   click-to-reveal player-pick path). */
 .level-btn-wrapper {
     display: flex;
     flex-direction: column;
@@ -3567,17 +3587,48 @@ body.group-edit-active .library-row-letter:hover {
     gap: 5px;
 }
 
-/* Inside the GP Setup level picker each row is now button-on-left,
-   label-on-right. The base column flex above still applies to clones
-   of .level-btn-wrapper rendered in .selected-options-row (the chip
-   shown after the click-to-reveal player-pick path). */
-.game-level-select .level-btn-wrapper {
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
+/* Inside the GP Setup level picker, wrappers are layout-transparent
+   (display: contents) so each wrapper's .level-btn lands in column 1
+   and .level-label lands in column 2 of the parent grid. */
+.game-level-select > .level-btn-wrapper {
+    display: contents;
 }
-.game-level-select .level-btn-wrapper .level-label {
+
+.game-level-select > .level-btn-wrapper > .level-btn {
+    grid-column: 1;
+    justify-self: center;
+}
+.game-level-select > .level-btn-wrapper > .level-label {
+    grid-column: 2;
     text-align: left;
+}
+
+/* Vertical row order — DOM order is circle (2 dominos), triangle (3),
+   star (4). Visual top→bottom is star, triangle, circle so difficulty
+   reads bottom→top. h3 is row 1; level rows are 2/3/4. */
+.game-level-select > .level-btn-wrapper:nth-of-type(1) > .level-btn,
+.game-level-select > .level-btn-wrapper:nth-of-type(1) > .level-label {
+    grid-row: 4;
+}
+.game-level-select > .level-btn-wrapper:nth-of-type(2) > .level-btn,
+.game-level-select > .level-btn-wrapper:nth-of-type(2) > .level-label {
+    grid-row: 3;
+}
+.game-level-select > .level-btn-wrapper:nth-of-type(3) > .level-btn,
+.game-level-select > .level-btn-wrapper:nth-of-type(3) > .level-label {
+    grid-row: 2;
+}
+
+/* When admin enables exactly one Level option, hide the SVG button and
+   leave only the .level-label text visible. selectedLevel is set
+   programmatically in _applyGameSetupToPlayerScreen, so gameplay still
+   launches at the right level without any clickable element. */
+.level-btn-wrapper.is-static-text .level-btn { display: none; }
+.level-btn-wrapper.is-static-text .level-label {
+    color: rgba(255,255,255,0.92);
+    font-weight: 500;
+    font-size: 1.05rem;
+    padding: 6px 0;
 }
 /* When admin enables exactly one Level option, hide the SVG button and
    leave only the .level-label text visible. selectedLevel is set

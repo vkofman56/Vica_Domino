@@ -684,28 +684,14 @@ class VicaDominoGame {
             const playerRow = document.createElement('div');
             playerRow.className = 'player-input-row';
 
-            // Create icon section with label (only show label for first player row when 2 players)
             const iconSection = document.createElement('div');
             iconSection.className = 'input-section';
-            if (i === 0 || count === 1) {
-                const iconLabel = document.createElement('div');
-                iconLabel.className = 'input-label';
-                iconLabel.textContent = 'Choose the icon';
-                iconSection.appendChild(iconLabel);
-            }
             const iconSelector = this.createIconSelector(i);
             iconSection.appendChild(iconSelector);
             playerRow.appendChild(iconSection);
 
-            // Create name section with label (only show label for first player row when 2 players)
             const nameSection = document.createElement('div');
             nameSection.className = 'input-section name-section';
-            if (i === 0 || count === 1) {
-                const nameLabel = document.createElement('div');
-                nameLabel.className = 'input-label';
-                nameLabel.textContent = 'Type your name';
-                nameSection.appendChild(nameLabel);
-            }
 
             // Create name input
             const input = document.createElement('input');
@@ -886,23 +872,11 @@ class VicaDominoGame {
 
             const iconSection = document.createElement('div');
             iconSection.className = 'input-section';
-            if (i === 0 || count === 1) {
-                const iconLabel = document.createElement('div');
-                iconLabel.className = 'input-label';
-                iconLabel.textContent = 'Choose the icon';
-                iconSection.appendChild(iconLabel);
-            }
             iconSection.appendChild(this.createIconSelector(i));
             playerRow.appendChild(iconSection);
 
             const nameSection = document.createElement('div');
             nameSection.className = 'input-section name-section';
-            if (i === 0 || count === 1) {
-                const nameLabel = document.createElement('div');
-                nameLabel.className = 'input-label';
-                nameLabel.textContent = 'Type your name';
-                nameSection.appendChild(nameLabel);
-            }
             const input = document.createElement('input');
             input.type = 'text';
             const isSinglePlayer = (count === 1);

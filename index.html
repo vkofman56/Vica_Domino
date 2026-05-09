@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:04 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -59,6 +59,15 @@
                     <button onclick="chooseCatchMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
                 </div>
             </div>
+            <!-- Find game input mode popup — same chrome as catch's, lets the
+                 player pick TOUCH or MOUSE before entering Find setup. -->
+            <div id="find-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                <div id="find-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="chooseFindMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
+                    <button onclick="chooseFindMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
+                </div>
+            </div>
         </div>
 
         <!-- Start Screen -->
@@ -67,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:21 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:04 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -897,22 +906,24 @@
             var games = loadCustomGames();
             games.forEach(function(game, i) {
                 if (game.published === false) return;
-                _renderIntroGameBtn(findList, game.name, _introFindIconSVG(),
-                    function() { selectedIntroGame = 'custom-' + i; goToMainPage(); },
+                // Render the game button with the eye action only, then
+                // override its click to open the find-mode popup so the
+                // player picks TOUCH / MOUSE before entering setup
+                // (mirrors the Catch pattern below).
+                var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(), null,
                     function() { _openCardsLibrary('find', i); });
+                fbtn.onclick = function(e) { showFindModePopup('custom-' + i, fbtn, e); };
             });
 
             // Combined games live in the column of their underlying game type
             // (first stage's type). Today all combined games chain Find stages,
-            // so they appear in the Find column. No eye button on combined
-            // games yet — they wrap multiple stages and a single cards-library
-            // view doesn't represent that cleanly.
+            // so they appear in the Find column and go through the same
+            // find-mode popup. No eye button — they wrap multiple stages and
+            // a single cards-library view doesn't represent that cleanly.
             var combinedGames = loadCombinedGames();
             combinedGames.forEach(function(cg, ci) {
-                _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), function() {
-                    selectedIntroGame = 'combined-' + ci;
-                    goToMainPage();
-                });
+                var cbtn = _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), null);
+                cbtn.onclick = function(e) { showFindModePopup('combined-' + ci, cbtn, e); };
             });
 
             var catchGames = loadCatchGames();
@@ -1130,6 +1141,39 @@
         var _catchInputMode = 'touch'; // 'touch' or 'mouse'
         var _catchNumPlayers = 1;      // 1 or 2 (2P only supported in touch mode)
         var _catchModePopupGameId = null;
+        // Mirror of _catchInputMode for Find games. Set via the find-mode
+        // popup before the player enters Find setup; consumed by
+        // _applyGameSetupToPlayerScreen and the page-label code so the
+        // saved touch/mouse Game Settings tab applies to the right input.
+        var _findInputMode = 'touch';
+        var _findModePopupGameId = null;
+
+        function showFindModePopup(gameId, btnEl, e) {
+            // Visually select the game button so the popup is anchored to
+            // a clear "this is the game I'm picking" affordance, same as
+            // showCatchModePopup.
+            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) { b.classList.remove('selected'); });
+            if (btnEl) btnEl.classList.add('selected');
+            _findModePopupGameId = gameId;
+            var popup = document.getElementById('find-mode-popup');
+            var rect = btnEl.getBoundingClientRect();
+            popup.style.left = (rect.right + 8) + 'px';
+            popup.style.top = rect.top + 'px';
+            popup.style.display = 'block';
+            var ntw = document.getElementById('find-mode-no-touch');
+            if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
+        }
+        function chooseFindMode(mode) {
+            _findInputMode = mode;
+            selectedIntroGame = _findModePopupGameId;
+            var popup = document.getElementById('find-mode-popup');
+            if (popup) popup.style.display = 'none';
+            goToMainPage();
+        }
+        function hideFindModePopup() {
+            var popup = document.getElementById('find-mode-popup');
+            if (popup) popup.style.display = 'none';
+        }
 
         function showCatchModePopup(gameId, btnEl, e) {
             // First select the game button visually
@@ -1267,7 +1311,14 @@
             if (gameType === 'catch') {
                 mode = (_catchInputMode === 'mouse') ? 'mouse' : 'touch';
             } else {
-                mode = _hasTouchScreen ? 'touch' : 'mouse';
+                // Find now picks mode the same way Catch does — via the
+                // find-mode popup that fires on game-button click. The
+                // legacy _hasTouchScreen heuristic is kept only as a
+                // last-resort default for code paths that bypass the
+                // popup (e.g. ABC fallback in goToMainPage).
+                mode = (_findInputMode === 'mouse') ? 'mouse'
+                     : (_findInputMode === 'touch') ? 'touch'
+                     : (_hasTouchScreen ? 'touch' : 'mouse');
             }
             var conf = setup[mode];
             if (!conf) {
@@ -1767,7 +1818,7 @@
             document.getElementById('intro-screen').style.display = 'none';
             document.getElementById('start-screen').style.display = 'flex';
             var _spl = document.getElementById('setup-page-label');
-            if (_spl) _spl.textContent = 'GP F Setup';
+            if (_spl) _spl.textContent = (_findInputMode === 'mouse') ? 'GPm F Setup' : 'GPt F Setup';
             clearCustomGame();
             activeCustomGameIndex = -1;
             if (selectedIntroGame && selectedIntroGame.indexOf('custom-') === 0) {

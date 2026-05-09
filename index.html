@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pinky-Math Domino</title>
-    <link rel="stylesheet" href="css/style.css?v=card-sets-create-1">
+    <title>MathGrain Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=no-select-drag-1">
 </head>
 <body>
     <div class="game-container">
@@ -15,7 +18,7 @@
         <!-- Login overlay (player-only: no admin option) -->
         <div id="sync-login-overlay" class="sync-login-overlay" style="display:none;">
             <div class="sync-login-dialog">
-                <h2>Welcome to Pinky-Math Domino</h2>
+                <h2>Welcome to <span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio</h2>
                 <p>Loading game data...</p>
                 <div id="sync-role-choice" style="display:none;"></div>
                 <div id="sync-admin-login" style="display:none;"></div>
@@ -25,29 +28,71 @@
 
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
-            <h1>Pinky-Math Domino</h1>
+            <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:44 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
                 <h3>Choose the game:</h3>
-                <div class="intro-games">
-                    <div id="intro-custom-games"></div>
+                <div class="intro-columns" id="intro-columns">
+                    <div class="intro-col">
+                        <h4 class="intro-col-header">Find the doubles</h4>
+                        <div class="intro-col-list" id="intro-col-find"></div>
+                    </div>
+                    <div class="intro-col">
+                        <h4 class="intro-col-header">Catch the double</h4>
+                        <div class="intro-col-list" id="intro-col-catch"></div>
+                    </div>
+                    <div class="intro-col">
+                        <h4 class="intro-col-header">Spy games</h4>
+                        <div class="intro-col-list" id="intro-col-spy">
+                            <div class="intro-col-empty">(coming soon)</div>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn btn-primary intro-play-btn" id="intro-play-btn" onclick="goToMainPage()">Play</button>
+            </div>
+            <!-- Catch game input mode popup -->
+            <div id="catch-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                <div id="catch-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="chooseCatchMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
+                    <button onclick="chooseCatchMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
+                </div>
+            </div>
+            <!-- Find game input mode popup — same chrome as catch's, lets the
+                 player pick TOUCH or MOUSE before entering Find setup. -->
+            <div id="find-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+                <div id="find-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="chooseFindMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
+                    <button onclick="chooseFindMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
+                </div>
             </div>
         </div>
 
         <!-- Start Screen -->
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <h1>Pinky-Math Domino</h1>
+            <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
+            <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
             <div class="setup-panel">
+                <!-- Type-of-game picker. Hidden when the active game has 0 or 1
+                     enabled Type option. Populated by _applyGameSetupToPlayerScreen
+                     from game.setup[mode].types.options. The selected option's
+                     behavior ("manual" / "nonstop") is stored on
+                     window._currentTypeBehavior for game.js to read. -->
+                <div class="setup-types-row" id="setup-types-row" style="display:none;">
+                    <h3 id="setup-h3-types">Type of Game:</h3>
+                    <div class="setup-types-buttons" id="setup-types-buttons"></div>
+                </div>
                 <div class="setup-columns">
                     <div class="setup-left">
-                        <h3>Choose your game:</h3>
+                        <h3 id="setup-h3-level">Choose your game:</h3>
                         <div class="game-level-select">
                     <div class="level-btn-wrapper">
                         <button class="level-btn selected" data-level="circle" title="2 Dominos">
@@ -155,8 +200,8 @@
                     </div>
 
                     <div class="setup-right">
-                        <h3>Choose domino style:</h3>
-                        <div class="domino-style-select">
+                        <h3 id="setup-right-h3">Choose domino style:</h3>
+                        <div class="domino-style-select" id="domino-style-select">
                             <svg viewBox="0 0 50 100" width="50" height="100" class="domino-preview">
                                 <rect x="1" y="1" width="48" height="98" rx="6" fill="#f0e0d0" stroke="#999" stroke-width="1.5"/>
                                 <line x1="1" y1="50" x2="49" y2="50" stroke="#999" stroke-width="1"/>
@@ -185,14 +230,29 @@
                                 <text x="25" y="82" text-anchor="middle" font-size="22" fill="#363">3+2</text>
                             </svg>
                         </div>
+                        <!-- Catch Type picker — replaces the domino-style list
+                             when the active screen is a Catch game. Populated
+                             by _renderTypesPicker; hidden for Find. -->
+                        <div class="setup-right-types" id="setup-right-types" style="display:none;"></div>
                     </div>
                 </div>
 
-                <h3>How many players?</h3>
+                <h3 id="setup-h3-players">How many players?</h3>
                 <div class="player-select">
-                    <button class="player-btn" data-players="1" data-xeno="true">You + Xeno ⏳</button>
-                    <button class="player-btn" data-players="2" data-xeno="false">2 Players</button>
-                    <button class="player-btn" data-players="2" data-xeno="true">2 Players + Xeno ⏳</button>
+                    <!-- Six pre-rendered player-btn templates, one per
+                         PLAYER_CATALOG id (kept in sync with the Studio
+                         catalog). _applyGameSetupToPlayerScreen filters by
+                         the matching option's `on` flag, reorders to match
+                         the saved Game Settings order, and rewrites the
+                         label text from the saved option. game.js's
+                         selectPlayerCount click handler reads data-players
+                         + data-xeno — same as before. -->
+                    <button class="player-btn" data-id="p1"  data-players="1" data-xeno="false">1 player</button>
+                    <button class="player-btn" data-id="p1x" data-players="1" data-xeno="true">1 player + timer</button>
+                    <button class="player-btn" data-id="p2"  data-players="2" data-xeno="false">2 players</button>
+                    <button class="player-btn" data-id="p2x" data-players="2" data-xeno="true">2 players + timer</button>
+                    <button class="player-btn" data-id="p3"  data-players="3" data-xeno="false">3 players</button>
+                    <button class="player-btn" data-id="p3x" data-players="3" data-xeno="true">3 players + timer</button>
                 </div>
 
                 <!-- Xeno Icon SVG -->
@@ -230,7 +290,6 @@
                 </svg>
 
                 <div class="player-names" id="player-names" style="display: none;">
-                    <button class="back-arrow-btn" id="back-to-setup-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <h3>Enter player names:</h3>
                     <div id="name-inputs"></div>
                     <button class="btn btn-primary" id="start-game-btn">Start Game</button>
@@ -242,8 +301,39 @@
         <div class="screen" id="game-screen" style="display: none;">
             <!-- Back arrow button -->
             <button class="back-arrow-btn" id="back-arrow-btn" title="Go back to setup"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="back-arrow-btn home-btn" id="home-btn-game" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <!-- Pause button: top-right of the game screen. Only visible when
+                 a sun-level round is active (body.game-round-running). Hidden
+                 when paused (the overlay takes over). -->
+            <button class="game-pause-btn" id="game-pause-btn" type="button" title="Pause">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <rect x="6" y="5" width="4" height="14" rx="1.2" fill="white"/>
+                    <rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>
+                </svg>
+            </button>
+            <!-- Sand-timer (hourglass): appears for non-stop games without
+                 the Xeno timer. Resets on round start and on any input;
+                 expiry triggers a 'sand' pause. Hidden when sand-timer is
+                 disabled (admin set 0) or when Xeno timer is active. -->
+            <div class="game-sand-timer" id="game-sand-timer" aria-hidden="true">
+                <svg class="sand-hourglass" viewBox="0 0 24 36" width="32" height="48">
+                    <!-- Frame -->
+                    <path d="M4 2 H20 M4 34 H20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M4 2 L4 8 L12 18 L4 28 L4 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <path d="M20 2 L20 8 L12 18 L20 28 L20 34" fill="none" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+                    <!-- Top sand (drains): clipped triangle. The mask shrinks via CSS scaleY -->
+                    <g class="sand-top">
+                        <polygon points="5,3 19,3 12,17" fill="#FFD54F"/>
+                    </g>
+                    <!-- Bottom sand (fills): grows via CSS scaleY -->
+                    <g class="sand-bottom">
+                        <polygon points="5,33 19,33 12,19" fill="#FFD54F"/>
+                    </g>
+                </svg>
+            </div>
+            <div class="page-name-label" contenteditable="true" id="board-page-label">GP Game Board</div>
             <header>
-                <h1>Pinky-Math Domino <span id="game-name-display" class="game-name-display"></span><span id="header-stage-stones" class="header-stage-stones"></span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Domino <span id="game-name-display" class="game-name-display"></span><span id="header-stage-stones" class="header-stage-stones"></span></h1>
                 <div class="turn-indicator">
                     <span id="current-player-name">Player 1</span>'s turn
                 </div>
@@ -402,6 +492,77 @@
                     if (introPanel) introPanel.style.display = '';
                 }, 300);
             });
+            // Update GP S label when player button is clicked
+            window.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.player-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var lbl1 = document.getElementById('setup-page-label');
+                        var lbl2 = document.getElementById('setup2-page-label');
+                        if (!lbl2) return;
+                        // Game type: F or C
+                        var gt = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) ? 'C' : 'F';
+                        // Dominos: find selected level button
+                        var selLevel = document.querySelector('.level-btn.selected');
+                        var d = '2';
+                        if (selLevel) {
+                            var lv = selLevel.getAttribute('data-level');
+                            if (lv === 'triangle') d = '3';
+                            else if (lv === 'star') d = '4';
+                        }
+                        // Players
+                        var p = parseInt(btn.getAttribute('data-players'), 10);
+                        var x = btn.getAttribute('data-xeno') === 'true';
+                        var pl = (p === 1 && x) ? '1' : (p === 2 && !x) ? '2' : '3';
+                        // Game type prefix: GPt for touch catch, GPm for mouse catch, GP for find
+                        var prefix = 'GP ';
+                        if (gt === 'C') {
+                            var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
+                            prefix = _cim === 'mouse' ? 'GPm ' : 'GPt ';
+                        }
+                        lbl2.textContent = prefix + gt + d + pl;
+                        if (lbl1) lbl1.style.display = 'none';
+                        lbl2.style.display = '';
+                    });
+                });
+                // Persist page name labels to localStorage
+                var _pnKey = 'pageNameLabels_gp2';
+                var _saved = JSON.parse(localStorage.getItem(_pnKey) || '{}');
+                document.querySelectorAll('.page-name-label').forEach(function(el) {
+                    var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
+                    if (_saved[id]) el.textContent = _saved[id];
+                    function _saveLabel() {
+                        var labels = JSON.parse(localStorage.getItem(_pnKey) || '{}');
+                        labels[id] = el.textContent.trim();
+                        localStorage.setItem(_pnKey, JSON.stringify(labels));
+                    }
+                    el.addEventListener('blur', _saveLabel);
+                    el.addEventListener('input', _saveLabel);
+                });
+            });
+            // Override game board back button to go to GP Start (player names), not intro
+            window.addEventListener('DOMContentLoaded', function() {
+                var backBtn = document.getElementById('back-arrow-btn');
+                if (backBtn) {
+                    backBtn.addEventListener('click', function(e) {
+                        e.stopImmediatePropagation();
+                        // Stop game timers/animations without resetting screens
+                        if (window.game) {
+                            if (window.game.resetSunLevel) window.game.resetSunLevel();
+                            if (window.game.hideKeyboardPopup) window.game.hideKeyboardPopup();
+                        }
+                        var wm = document.getElementById('winner-modal');
+                        if (wm) wm.classList.remove('show');
+                        // Just switch back to start-screen (player names still visible)
+                        document.getElementById('game-screen').style.display = 'none';
+                        document.getElementById('start-screen').style.display = 'flex';
+                        // Show the GP Fnm Start label
+                        var _spl = document.getElementById('setup-page-label');
+                        var _s2l = document.getElementById('setup2-page-label');
+                        if (_spl) _spl.style.display = 'none';
+                        if (_s2l) _s2l.style.display = '';
+                    }, true); // capture phase — fires before game.js handler
+                }
+            });
         })();
     </script>
 
@@ -535,8 +696,72 @@
 
         // --- Player-only card SVG: build from stored svgMarkup (no Card Maker DOM) ---
 
+        // Studio re-resolves a card's SVG from card-set localStorage by stableId
+        // each render, so any later edits in Card Maker show through. GP used to
+        // render straight from the snapshot baked into game.cards, so edits made
+        // after a card was added to a game wouldn't appear in GP. Mirror Studio
+        // here by looking up the latest svgContent under the card's stableId.
+        function _gpAllCardStorageKeys() {
+            var keys = [];
+            // Default Numbers key — match Studio's getNumbersStorageKey() fallback.
+            try {
+                var deletedSets = JSON.parse(localStorage.getItem('deletedBuiltinSets') || '[]');
+                if (deletedSets.indexOf('numbers') !== -1) {
+                    var customSets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                    for (var i = 0; i < customSets.length; i++) {
+                        var lower = (typeof customSets[i] === 'string' ? customSets[i] : customSets[i].name || '').toLowerCase();
+                        if (lower === 'numbers and dots' || lower === 'numbers & dots' || lower === 'numbers') {
+                            keys.push('customDrawnCards_' + (typeof customSets[i] === 'string' ? customSets[i] : customSets[i].name));
+                            break;
+                        }
+                    }
+                }
+            } catch(e) {}
+            if (keys.indexOf('customDrawnCards') === -1) keys.push('customDrawnCards');
+            keys.push('customDrawnCards_abc');
+            try {
+                var sets = JSON.parse(localStorage.getItem('savedCardSets') || '[]');
+                sets.forEach(function(s) {
+                    var name = typeof s === 'string' ? s : s.name;
+                    var k = 'customDrawnCards_' + name;
+                    if (keys.indexOf(k) === -1) keys.push(k);
+                });
+            } catch(e) {}
+            return keys;
+        }
+
+        var _gpStableIdCache = null;
+        function _gpResolveBySid(stableId) {
+            if (!stableId) return null;
+            if (!_gpStableIdCache) {
+                _gpStableIdCache = {};
+                var keys = _gpAllCardStorageKeys();
+                for (var i = 0; i < keys.length; i++) {
+                    try {
+                        var raw = localStorage.getItem(keys[i]);
+                        if (!raw) continue;
+                        var cards = JSON.parse(raw);
+                        for (var j = 0; j < cards.length; j++) {
+                            if (cards[j].stableId && !_gpStableIdCache[cards[j].stableId]) {
+                                _gpStableIdCache[cards[j].stableId] = cards[j];
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+            return _gpStableIdCache[stableId] || null;
+        }
+        function _gpInvalidateCardCache() { _gpStableIdCache = null; }
+
         function getGameCardSVG(cardInfo) {
             var markup = cardInfo.svgMarkup;
+            // Prefer the freshest svgContent from card-set storage if we have a
+            // stableId — this picks up edits made in Card Maker after the card
+            // was added to the game, just like Studio does.
+            if (cardInfo.stableId) {
+                var stored = _gpResolveBySid(cardInfo.stableId);
+                if (stored && stored.svgContent) markup = stored.svgContent;
+            }
             if (!markup) return null;
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
@@ -591,35 +816,122 @@
             if (introPanel) introPanel.style.display = '';
         }
 
+        // Build a small Find-the-Double icon: two mini dominos with dots
+        // (same visual style as the GP F Setup "2 dominos" level button, scaled down).
+        function _introFindIconSVG() {
+            return '<svg viewBox="0 0 100 80" aria-hidden="true">' +
+                '<g transform="translate(28,40) rotate(-3)">' +
+                  '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
+                  '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
+                  '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
+                  '<circle cx="-6" cy="11" r="3" fill="#555"/><circle cx="6" cy="11" r="3" fill="#555"/>' +
+                  '<circle cx="0" cy="18" r="3" fill="#555"/><circle cx="-6" cy="25" r="3" fill="#555"/><circle cx="6" cy="25" r="3" fill="#555"/>' +
+                '</g>' +
+                '<g transform="translate(72,40) rotate(3)">' +
+                  '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
+                  '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
+                  '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="0" cy="-18" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
+                  '<circle cx="0" cy="18" r="3" fill="#555"/>' +
+                '</g>' +
+                '</svg>';
+        }
+        // Build a small Catch-the-Double icon: two bubbles side-by-side
+        // (mirrors the bubble iconography from Catch setup / MPP editor).
+        function _introCatchIconSVG() {
+            return '<svg viewBox="0 0 100 80" aria-hidden="true">' +
+                '<defs>' +
+                  '<radialGradient id="ibubG" cx="35%" cy="30%" r="70%">' +
+                    '<stop offset="0%" stop-color="#bde8ff"/>' +
+                    '<stop offset="70%" stop-color="#55b4e8"/>' +
+                    '<stop offset="100%" stop-color="#2a7fbf"/>' +
+                  '</radialGradient>' +
+                '</defs>' +
+                '<circle cx="32" cy="40" r="22" fill="url(#ibubG)" stroke="#1a5a8a" stroke-width="2"/>' +
+                '<circle cx="30" cy="32" r="5" fill="rgba(255,255,255,0.55)"/>' +
+                '<circle cx="68" cy="40" r="22" fill="url(#ibubG)" stroke="#1a5a8a" stroke-width="2"/>' +
+                '<circle cx="66" cy="32" r="5" fill="rgba(255,255,255,0.55)"/>' +
+                '</svg>';
+        }
+
+        // Render one game button (icon + label) into the given column list.
+        // If eyeAction is supplied, an eye-icon button is rendered next to
+        // the game button. Clicking it opens the cards-library overlay
+        // showing every card the Player would actually use, grouped by
+        // mGroup ("equivalence lines") with red/green borders for any
+        // freeze/float assignments saved on the game. Lets the user verify
+        // that Studio's Game Creator content survived the round-trip into
+        // localStorage and back into the Player's runtime.
+        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction) {
+            var row = document.createElement('div');
+            row.className = 'intro-game-row';
+            var btn = document.createElement('button');
+            btn.className = 'intro-game-btn';
+            var icon = document.createElement('span');
+            icon.className = 'intro-game-btn-icon';
+            icon.innerHTML = iconSVG;
+            var text = document.createElement('span');
+            text.className = 'intro-game-btn-label';
+            text.textContent = label;
+            btn.appendChild(icon);
+            btn.appendChild(text);
+            btn.onclick = onclick;
+            row.appendChild(btn);
+            if (eyeAction) {
+                var eye = document.createElement('button');
+                eye.type = 'button';
+                eye.className = 'intro-game-eye';
+                eye.title = 'View cards in this game';
+                eye.innerHTML = '<svg viewBox="0 0 24 16" width="22" height="14" aria-hidden="true">' +
+                    '<path d="M12 1C6 1 2 8 2 8s4 7 10 7 10-7 10-7-4-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+                    '<circle cx="12" cy="8" r="3" fill="currentColor"/></svg>';
+                eye.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    eyeAction();
+                });
+                row.appendChild(eye);
+            }
+            listEl.appendChild(row);
+            return btn;
+        }
+
         function populateIntroGames() {
-            var container = document.getElementById('intro-custom-games');
-            if (!container) return;
-            container.innerHTML = '';
+            var findList = document.getElementById('intro-col-find');
+            var catchList = document.getElementById('intro-col-catch');
+            // Spy column is populated elsewhere (placeholder until that type exists)
+            if (!findList || !catchList) return;
+            findList.innerHTML = '';
+            catchList.innerHTML = '';
+
             var games = loadCustomGames();
             games.forEach(function(game, i) {
                 if (game.published === false) return;
-                var btn = document.createElement('button');
-                btn.className = 'intro-game-btn';
-                btn.textContent = 'Find the doubles: ' + game.name;
-                btn.onclick = function() { selectIntroGame('custom-' + i, btn); };
-                container.appendChild(btn);
+                // Render the game button with the eye action only, then
+                // override its click to open the find-mode popup so the
+                // player picks TOUCH / MOUSE before entering setup
+                // (mirrors the Catch pattern below).
+                var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(), null,
+                    function() { _openCardsLibrary('find', i); });
+                fbtn.onclick = function(e) { showFindModePopup('custom-' + i, fbtn, e); };
             });
+
+            // Combined games live in the column of their underlying game type
+            // (first stage's type). Today all combined games chain Find stages,
+            // so they appear in the Find column and go through the same
+            // find-mode popup. No eye button — they wrap multiple stages and
+            // a single cards-library view doesn't represent that cleanly.
             var combinedGames = loadCombinedGames();
             combinedGames.forEach(function(cg, ci) {
-                var btn = document.createElement('button');
-                btn.className = 'intro-game-btn';
-                btn.textContent = cg.name;
-                btn.onclick = function() { selectIntroGame('combined-' + ci, btn); };
-                container.appendChild(btn);
+                var cbtn = _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), null);
+                cbtn.onclick = function(e) { showFindModePopup('combined-' + ci, cbtn, e); };
             });
+
             var catchGames = loadCatchGames();
             catchGames.forEach(function(cg, ci) {
                 if (cg.published === false) return;
-                var btn = document.createElement('button');
-                btn.className = 'intro-game-btn';
-                btn.textContent = 'Catch the double: ' + cg.name;
-                btn.onclick = function() { selectIntroGame('catch-' + ci, btn); };
-                container.appendChild(btn);
+                var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(), null,
+                    function() { _openCardsLibrary('catch', ci); });
+                btn.onclick = function(e) { showCatchModePopup('catch-' + ci, btn, e); };
             });
         }
 
@@ -632,15 +944,931 @@
             if (btnEl) btnEl.classList.add('selected');
         }
 
-        function goToMainPage() {
-            if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
-                // Launch catch game directly (no start screen needed)
-                var idx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
-                openCatchPlayModal(idx);
+        // Cards-library overlay: shows every card the Player would render for
+        // the given game, grouped into "equivalence lines" by mGroup. Each
+        // card is resolved through getGameCardSVG (the same path used during
+        // gameplay), so what's displayed here is exactly what the Player
+        // would draw at runtime — letting the user verify that Studio content
+        // survived the localStorage round-trip. Per-card freeze/float state
+        // is reflected as a colored border (red=frozen, green=floating, none
+        // if unassigned). Find games don't have freeze/float yet, so all
+        // their cards render borderless until that feature is added.
+        function _openCardsLibrary(gameType, gameIndex) {
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+
+            var prior = document.getElementById('cards-library-overlay');
+            if (prior) prior.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'cards-library-overlay';
+            overlay.className = 'cards-library-overlay';
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            var modal = document.createElement('div');
+            modal.className = 'cards-library-modal';
+
+            var header = document.createElement('div');
+            header.className = 'cards-library-header';
+            var title = document.createElement('span');
+            title.className = 'cards-library-title';
+            var prefix = (gameType === 'catch') ? 'Catch the double: ' : 'Find the doubles: ';
+            title.textContent = prefix + (game.name || '');
+            header.appendChild(title);
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'cards-library-close';
+            closeBtn.title = 'Close';
+            closeBtn.textContent = '×';
+            closeBtn.addEventListener('click', function() { overlay.remove(); });
+            header.appendChild(closeBtn);
+            modal.appendChild(header);
+
+            var legend = document.createElement('div');
+            legend.className = 'cards-library-legend';
+            legend.innerHTML =
+                '<span class="cards-library-legend-note">Rows match the Game Creator. Border color marks the M-group. Left-edge dot-line: <span style="color:#ff4444;font-weight:600;">red</span> = frozen, <span style="color:#44cc44;font-weight:600;">green</span> = floating, none = can do both.</span>';
+            modal.appendChild(legend);
+
+            var body = document.createElement('div');
+            body.className = 'cards-library-body';
+
+            // Player-equivalent dedup: skip variations, one entry per label.
+            var seen = {};
+            var origCards = [];
+            (game.cards || []).forEach(function(c) {
+                if (!c || c.isVariation) return;
+                if (seen[c.label]) return;
+                seen[c.label] = true;
+                origCards.push(c);
+            });
+
+            if (origCards.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'cards-library-empty';
+                empty.textContent = 'No cards in this game.';
+                body.appendChild(empty);
+            } else {
+                var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
+                var labelToGroupIdx = {};
+                mGroups.forEach(function(g, gi) {
+                    if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+                });
+                // Match Studio's openCatchGameView / openGameView row layout:
+                // group consecutive cards by `_gameRow` (or `label.charAt(0)`
+                // as a fallback). All cards sharing a row are rendered on the
+                // same line, exactly as the Studio Game Creator displays them.
+                // M-group equivalence within a row is shown via colored M-N
+                // badges on each card (same `_mGroupColors` palette Studio
+                // uses), not by splitting the row.
+                var rowGroups = [];
+                var lastRowKey = null;
+                var current = null;
+                origCards.forEach(function(c) {
+                    var rowKey = (c._gameRow !== undefined) ? c._gameRow : c.label.charAt(0);
+                    if (rowKey !== lastRowKey) {
+                        current = { rowKey: rowKey, cards: [] };
+                        rowGroups.push(current);
+                        lastRowKey = rowKey;
+                    }
+                    current.cards.push(c);
+                });
+                rowGroups.forEach(function(rg) {
+                    body.appendChild(_buildCardsLibraryRow(rg.cards, rg.rowKey, labelToGroupIdx));
+                });
+            }
+
+            modal.appendChild(body);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        }
+
+        // Studio's mGroup palette — kept in sync so the M-N badge in this
+        // overlay shows the same color for the same group as the badge on
+        // the equivalent card in the Studio Game Creator.
+        var _CARDS_LIBRARY_M_COLORS = ['#7c4dff','#e53935','#43a047','#fb8c00','#00acc1','#8e24aa','#d81b60','#6d4c41'];
+
+        function _buildCardsLibraryRow(cards, rowKey, labelToGroupIdx) {
+            var row = document.createElement('div');
+            row.className = 'cards-library-row';
+            var tag = document.createElement('span');
+            tag.className = 'cards-library-row-tag';
+            tag.textContent = (rowKey == null || rowKey === '') ? '?' : String(rowKey);
+            row.appendChild(tag);
+            cards.forEach(function(c) {
+                var cardEl = document.createElement('div');
+                cardEl.className = 'cards-library-card';
+                // Border color marks mGroup equivalence: cards in the same
+                // group share the same border color, palette mirrors Studio's
+                // applyMCardBadges. Cards not in any group get the default
+                // neutral border. (Freeze/float visual will return as a
+                // different cue once Find gets that feature too — for now,
+                // borders are reserved for the mGroup signal the user
+                // explicitly asked for.)
+                var gi = labelToGroupIdx[c.label];
+                if (gi !== undefined) {
+                    cardEl.style.borderColor = _CARDS_LIBRARY_M_COLORS[gi % _CARDS_LIBRARY_M_COLORS.length];
+                }
+                // Freeze/float dot-line on the left edge (inside the mGroup
+                // border, which keeps colored on all 4 sides). Red dots =
+                // frozen, green dots = floating, no strip = unassigned ("can
+                // do both"). Per-card flag, set in Studio's freeze/float mode.
+                if (c._freezeState === 'frozen' || c._freezeState === 'floating') {
+                    var strip = document.createElement('span');
+                    strip.className = 'cards-library-card-freeze-strip';
+                    strip.style.borderLeftColor = (c._freezeState === 'frozen') ? '#ff4444' : '#44cc44';
+                    cardEl.appendChild(strip);
+                }
+                var imgWrap = document.createElement('div');
+                imgWrap.className = 'cards-library-card-img';
+                // Resolve markup ourselves rather than calling getGameCardSVG —
+                // that helper folds "intentionally empty" (svgContent === '')
+                // into the same null-return as "data missing", which makes
+                // empty cards render as their text label here. We need to
+                // distinguish the two: empty cards should look empty, only
+                // truly-unresolvable cards should fall back to label text.
+                var markup;          // string we'll use, or undefined if no source found
+                var sourceFound = false;
+                if (c.stableId && typeof _gpResolveBySid === 'function') {
+                    var stored = _gpResolveBySid(c.stableId);
+                    if (stored && typeof stored.svgContent === 'string') {
+                        markup = stored.svgContent;
+                        sourceFound = true;
+                    }
+                }
+                if (!sourceFound && typeof c.svgMarkup === 'string') {
+                    markup = c.svgMarkup;
+                    sourceFound = true;
+                }
+                if (sourceFound) {
+                    var svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svgEl.setAttribute('viewBox', '0 0 60 60');
+                    if (markup && markup.trim().length > 0) {
+                        svgEl.innerHTML = markup;
+                        if (c.isVariation && c.transform) {
+                            var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                            g.setAttribute('transform', c.transform);
+                            while (svgEl.firstChild) g.appendChild(svgEl.firstChild);
+                            svgEl.appendChild(g);
+                        }
+                    }
+                    // markup may legitimately be '' or whitespace — that's
+                    // an empty card. Append the (possibly empty) SVG so the
+                    // tile still has card-shaped chrome but no content.
+                    imgWrap.appendChild(svgEl);
+                } else {
+                    // No svgMarkup AND no resolvable stableId → the card data
+                    // really is missing. Surface the label so the user can
+                    // see WHICH card is unresolved.
+                    imgWrap.textContent = c.label || '?';
+                    imgWrap.classList.add('cards-library-card-img-fallback');
+                }
+                cardEl.appendChild(imgWrap);
+                var lbl = document.createElement('div');
+                lbl.className = 'cards-library-card-label';
+                lbl.textContent = c.label || '';
+                cardEl.appendChild(lbl);
+                row.appendChild(cardEl);
+            });
+            return row;
+        }
+
+        var _pendingCatchGameIndex = -1; // >= 0 when setting up a catch game
+        var _hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        var _catchInputMode = 'touch'; // 'touch' or 'mouse'
+        var _catchNumPlayers = 1;      // 1 or 2 (2P only supported in touch mode)
+        var _catchModePopupGameId = null;
+        // Mirror of _catchInputMode for Find games. Set via the find-mode
+        // popup before the player enters Find setup; consumed by
+        // _applyGameSetupToPlayerScreen and the page-label code so the
+        // saved touch/mouse Game Settings tab applies to the right input.
+        var _findInputMode = 'touch';
+        var _findModePopupGameId = null;
+
+        // Outside-click closer for floating popups (catch-mode / find-mode).
+        // After the popup is shown, install a one-shot capture-phase
+        // document click listener: a click whose target is inside the
+        // popup element does nothing (lets the inner button's onclick
+        // run normally); any click outside calls the popup's close
+        // helper and removes the listener. setTimeout(0) defers the
+        // attach past the click that opened the popup, so the same
+        // event doesn't immediately close it.
+        function _attachPopupOutsideCloser(popup, closeFn) {
+            if (!popup || typeof closeFn !== 'function') return;
+            // Remove any previously-installed listener for this popup —
+            // re-opening shouldn't accumulate duplicates.
+            if (popup._outsideCloser) {
+                document.removeEventListener('click', popup._outsideCloser, true);
+                popup._outsideCloser = null;
+            }
+            var handler = function(e) {
+                // Only the inner action buttons keep the popup open. Any
+                // other click — including the popup's own background /
+                // padding ("neutral area") and clicks anywhere outside the
+                // popup — closes it. Lets the user dismiss the popup
+                // without picking a mode.
+                var btns = popup.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].contains(e.target)) return;
+                }
+                document.removeEventListener('click', handler, true);
+                popup._outsideCloser = null;
+                closeFn();
+            };
+            popup._outsideCloser = handler;
+            setTimeout(function() {
+                document.addEventListener('click', handler, true);
+            }, 0);
+        }
+        function _detachPopupOutsideCloser(popup) {
+            if (popup && popup._outsideCloser) {
+                document.removeEventListener('click', popup._outsideCloser, true);
+                popup._outsideCloser = null;
+            }
+        }
+
+        function showFindModePopup(gameId, btnEl, e) {
+            // Visually select the game button so the popup is anchored to
+            // a clear "this is the game I'm picking" affordance, same as
+            // showCatchModePopup.
+            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) { b.classList.remove('selected'); });
+            if (btnEl) btnEl.classList.add('selected');
+            _findModePopupGameId = gameId;
+            var popup = document.getElementById('find-mode-popup');
+            var rect = btnEl.getBoundingClientRect();
+            popup.style.left = (rect.right + 8) + 'px';
+            popup.style.top = rect.top + 'px';
+            popup.style.display = 'block';
+            var ntw = document.getElementById('find-mode-no-touch');
+            if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
+            _attachPopupOutsideCloser(popup, hideFindModePopup);
+        }
+        function chooseFindMode(mode) {
+            _findInputMode = mode;
+            selectedIntroGame = _findModePopupGameId;
+            var popup = document.getElementById('find-mode-popup');
+            _detachPopupOutsideCloser(popup);
+            if (popup) popup.style.display = 'none';
+            goToMainPage();
+        }
+        function hideFindModePopup() {
+            var popup = document.getElementById('find-mode-popup');
+            _detachPopupOutsideCloser(popup);
+            if (popup) popup.style.display = 'none';
+        }
+
+        function showCatchModePopup(gameId, btnEl, e) {
+            // First select the game button visually
+            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) { b.classList.remove('selected'); });
+            if (btnEl) btnEl.classList.add('selected');
+            _catchModePopupGameId = gameId;
+
+            // Position popup near the button
+            var popup = document.getElementById('catch-mode-popup');
+            var rect = btnEl.getBoundingClientRect();
+            popup.style.left = (rect.right + 8) + 'px';
+            popup.style.top = rect.top + 'px';
+            popup.style.display = 'block';
+
+            // Show no-touch warning if needed
+            var ntw = document.getElementById('catch-mode-no-touch');
+            if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
+            _attachPopupOutsideCloser(popup, hideCatchModePopup);
+        }
+
+        function chooseCatchMode(mode) {
+            _catchInputMode = mode;
+            // Default to 1 player here; for touch mode the player count is read
+            // from the setup page's .player-btn selection when Start Game is
+            // pressed (see the 'start-game-btn' click handler below).
+            _catchNumPlayers = 1;
+            selectedIntroGame = _catchModePopupGameId;
+            // Hide popup
+            var popup = document.getElementById('catch-mode-popup');
+            _detachPopupOutsideCloser(popup);
+            if (popup) popup.style.display = 'none';
+            // Go to setup automatically
+            goToMainPage();
+        }
+
+        function hideCatchModePopup() {
+            var popup = document.getElementById('catch-mode-popup');
+            _detachPopupOutsideCloser(popup);
+            if (popup) popup.style.display = 'none';
+        }
+
+        function _resetSetupPanel() {
+            var sc = document.querySelector('.setup-columns');
+            if (sc) sc.style.display = 'flex';
+            var gl = document.querySelector('.game-level-select');
+            if (gl) gl.style.display = 'flex';
+            var ps = document.querySelector('.player-select');
+            if (ps) ps.style.display = 'flex';
+            var pn = document.getElementById('player-names');
+            if (pn) pn.style.display = 'none';
+            var sr = document.getElementById('selected-options-row');
+            if (sr) sr.style.display = 'none';
+            var sp = document.querySelector('.setup-panel');
+            if (sp) sp.querySelectorAll('h3').forEach(function(h3) { h3.style.display = 'block'; });
+            document.querySelectorAll('.player-btn').forEach(function(b) { b.classList.remove('selected'); });
+            // Restore original labels changed by mouse-mode catch
+            var _setupLeft = document.querySelector('.setup-left');
+            if (_setupLeft) {
+                var _cyg = _setupLeft.querySelector('h3');
+                if (_cyg) _cyg.textContent = 'Choose your game:';
+            }
+            document.querySelectorAll('.level-label').forEach(function(lbl) {
+                lbl.textContent = lbl.textContent.replace('bubbles', 'dominos');
+            });
+            // Restore domino SVGs if they were replaced by bubble SVGs
+            document.querySelectorAll('.level-btn').forEach(function(btn) {
+                if (btn.dataset.origSvg) {
+                    btn.innerHTML = btn.dataset.origSvg;
+                    btn.title = btn.title.replace('Bubbles', 'Dominos');
+                    delete btn.dataset.origSvg;
+                }
+            });
+            // Hide catch mode popup if visible
+            hideCatchModePopup();
+            // Phase A.2 reset: restore original labels + show all options so
+            // the next game's _applyGameSetupToPlayerScreen starts from a clean slate.
+            _resetGameSetupLabels();
+        }
+
+        // ===== Phase A.2: player-facing runtime consumer for game.setup =====
+        // Snapshot the original setup-screen labels at page load so we can
+        // always restore them when switching games or when a game has no setup.
+        var _origSetupLabels = null;
+        (function() {
+            function snapshot() {
+                if (_origSetupLabels) return;
+                _origSetupLabels = {
+                    h3Players: 'How many players?',
+                    h3Level:   'Choose your game:',
+                    playerBtns: [], // parallel to DOM order
+                    levelLabels: []
+                };
+                document.querySelectorAll('#start-screen .player-btn').forEach(function(b) {
+                    _origSetupLabels.playerBtns.push(b.textContent.trim());
+                });
+                document.querySelectorAll('#start-screen .level-btn-wrapper .level-label').forEach(function(l) {
+                    _origSetupLabels.levelLabels.push(l.textContent.trim());
+                });
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', snapshot);
+            else snapshot();
+        })();
+
+        function _resetGameSetupLabels() {
+            if (!_origSetupLabels) return;
+            var h3p = document.getElementById('setup-h3-players');
+            var h3l = document.getElementById('setup-h3-level');
+            if (h3p) h3p.textContent = _origSetupLabels.h3Players;
+            if (h3l) h3l.textContent = _origSetupLabels.h3Level;
+            var pbs = document.querySelectorAll('#start-screen .player-btn');
+            pbs.forEach(function(b, i) {
+                b.style.display = '';
+                if (_origSetupLabels.playerBtns[i]) b.textContent = _origSetupLabels.playerBtns[i];
+            });
+            var lws = document.querySelectorAll('#start-screen .level-btn-wrapper');
+            lws.forEach(function(w, i) {
+                w.style.display = '';
+                var lbl = w.querySelector('.level-label');
+                if (lbl && _origSetupLabels.levelLabels[i]) lbl.textContent = _origSetupLabels.levelLabels[i];
+            });
+        }
+
+        // Apply the admin's per-game setup matrix to the start-screen UI.
+        // Hides deactivated options, substitutes custom labels, and stores the
+        // timer value on window._currentGameSetupTimer so gameplay code can read it.
+        window._currentGameSetupTimer = null;
+        window._currentGameSetupSandTimer = null;
+        function _applyGameSetupToPlayerScreen(game, gameType) {
+            // Always reset first, so a previous game's customizations don't linger.
+            _resetGameSetupLabels();
+            if (!game || !game.setup) {
+                window._currentGameSetupTimer = null;
+                window._currentGameSetupSandTimer = null;
                 return;
             }
+            var setup = game.setup;
+            var mode = 'touch';
+            if (gameType === 'catch') {
+                mode = (_catchInputMode === 'mouse') ? 'mouse' : 'touch';
+            } else {
+                // Find now picks mode the same way Catch does — via the
+                // find-mode popup that fires on game-button click. The
+                // legacy _hasTouchScreen heuristic is kept only as a
+                // last-resort default for code paths that bypass the
+                // popup (e.g. ABC fallback in goToMainPage).
+                mode = (_findInputMode === 'mouse') ? 'mouse'
+                     : (_findInputMode === 'touch') ? 'touch'
+                     : (_hasTouchScreen ? 'touch' : 'mouse');
+            }
+            var conf = setup[mode];
+            if (!conf) {
+                window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
+                window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
+                return;
+            }
+            // Axis header labels
+            var h3p = document.getElementById('setup-h3-players');
+            var h3l = document.getElementById('setup-h3-level');
+            // Player-setup section heading mirrors the admin's axis-label
+            // box exactly — including when admin erases it. Empty text
+            // also collapses the h3 visually so the gap between section
+            // title and content doesn't linger.
+            if (h3p && conf.players) {
+                var _pAx = (typeof conf.players.axisLabel === 'string') ? conf.players.axisLabel : '';
+                h3p.textContent = _pAx;
+                h3p.style.display = _pAx ? '' : 'none';
+            }
+            if (h3l && conf.levels) {
+                var _lAx = (typeof conf.levels.axisLabel === 'string') ? conf.levels.axisLabel : '';
+                h3l.textContent = _lAx;
+                h3l.style.display = _lAx ? '' : 'none';
+            }
+            // Player options — buttons are in DOM order matching matrix slots 0..2
+            if (conf.players && Array.isArray(conf.players.options)) {
+                // Catalog-aware filtering: pre-rendered buttons in DOM each
+                // carry data-id matching a PLAYER_CATALOG entry. We match
+                // saved options by id (not by position) so admin's
+                // sticky-rearranged order in Game Settings drives the order
+                // here too — without breaking when the catalog grows.
+                var pselect = document.querySelector('#start-screen .player-select');
+                var pbs = document.querySelectorAll('#start-screen .player-btn');
+                var pById = {};
+                pbs.forEach(function(b) {
+                    b.classList.remove('is-static-text');
+                    pById[b.getAttribute('data-id')] = b;
+                });
+                // Pull enabled options in saved order; ids without a matching
+                // pre-rendered button are skipped (graceful for legacy /
+                // unmigrated data).
+                var enabledOpts = conf.players.options.filter(function(o) {
+                    return o && o.on && pById[o.id];
+                });
+                if (enabledOpts.length === 1) {
+                    // Single option — restyle the one visible button as
+                    // plain text. Stays clickable so selectPlayerCount
+                    // still reveals the player-names form. No label → hide
+                    // everything.
+                    pbs.forEach(function(b) { b.style.display = 'none'; });
+                    var only = enabledOpts[0];
+                    if (only.label) {
+                        var btn = pById[only.id];
+                        btn.textContent = only.label;
+                        btn.style.display = '';
+                        btn.classList.add('is-static-text');
+                    }
+                } else {
+                    // 0 or 2+ enabled — show each enabled button with its
+                    // saved label, hide everything else, and reorder the
+                    // visible buttons to match the saved option order.
+                    pbs.forEach(function(b) { b.style.display = 'none'; });
+                    enabledOpts.forEach(function(opt) {
+                        var btn = pById[opt.id];
+                        btn.style.display = '';
+                        if (opt.label) btn.textContent = opt.label;
+                        // Reordering: re-append to the .player-select in
+                        // saved order. For the unenabled siblings the
+                        // display:none above keeps them out of the visual
+                        // flow; their DOM position doesn't matter.
+                        if (pselect) pselect.appendChild(btn);
+                    });
+                }
+            }
+            // Level options — admin's enable/disable per option drives both
+            // visibility and the label override. Applies to Find AND Catch
+            // (Catch's level row gets its dominos→bubbles SVG/label swap
+            // later in goToMainPage; that code reads display:none correctly
+            // and only paints visible buttons).
+            if (conf.levels && Array.isArray(conf.levels.options)) {
+                var lws = document.querySelectorAll('#start-screen .level-btn-wrapper');
+                // Reset any previous static-text styling and restore button
+                // visibility before re-evaluating — _applyGameSetupToPlayerScreen
+                // is called every time the user picks a different game.
+                lws.forEach(function(w) {
+                    w.classList.remove('is-static-text');
+                    var lb = w.querySelector('.level-btn');
+                    if (lb) lb.style.display = '';
+                });
+                var enabledIdxL = [];
+                lws.forEach(function(w, i) {
+                    var lopt = conf.levels.options[i];
+                    if (lopt && lopt.on) enabledIdxL.push(i);
+                });
+                var leftCol = document.querySelector('#start-screen .setup-left');
+                if (enabledIdxL.length === 1) {
+                    // Single option — no clickable button, just the admin's
+                    // text. Hide every wrapper, then rehydrate the enabled
+                    // one with .is-static-text which (via CSS) hides the SVG
+                    // button and shows the .level-label only. Game still
+                    // launches at the right level because we set .selected +
+                    // localStorage + window.game.selectedLevel.
+                    var soleIdx = enabledIdxL[0];
+                    var soleOpt = conf.levels.options[soleIdx];
+                    var soleW = lws[soleIdx];
+                    var soleBtn = soleW && soleW.querySelector('.level-btn');
+                    var soleLbl = soleW && soleW.querySelector('.level-label');
+                    lws.forEach(function(w) { w.style.display = 'none'; });
+                    if (soleOpt && soleOpt.label && soleW) {
+                        if (soleLbl) soleLbl.textContent = soleOpt.label;
+                        soleW.style.display = '';
+                        soleW.classList.add('is-static-text');
+                    }
+                    if (leftCol) leftCol.style.display = (soleOpt && soleOpt.label) ? '' : 'none';
+                    if (soleBtn) {
+                        document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
+                            b.classList.remove('selected');
+                        });
+                        soleBtn.classList.add('selected');
+                        var newLevel1 = soleBtn.getAttribute('data-level');
+                        if (newLevel1) {
+                            try { localStorage.setItem('vicaSelectedLevel', newLevel1); } catch(_e) {}
+                            if (window.game) window.game.selectedLevel = newLevel1;
+                        }
+                    }
+                } else {
+                    // 0 or 2+ enabled — original per-button display + the
+                    // 0-enabled hide-the-column rule. If the previously
+                    // selected button is now hidden, shift selection to the
+                    // first visible one.
+                    var enabledLevelCount = 0;
+                    var firstVisibleLevelBtn = null;
+                    var hiddenSelectedLevel = false;
+                    lws.forEach(function(w, i) {
+                        var lopt = conf.levels.options[i];
+                        var btn = w.querySelector('.level-btn');
+                        if (!lopt || !lopt.on) {
+                            w.style.display = 'none';
+                            if (btn && btn.classList.contains('selected')) hiddenSelectedLevel = true;
+                            return;
+                        }
+                        w.style.display = '';
+                        var lbl = w.querySelector('.level-label');
+                        if (lbl && lopt.label) lbl.textContent = lopt.label;
+                        enabledLevelCount++;
+                        if (!firstVisibleLevelBtn) firstVisibleLevelBtn = btn;
+                    });
+                    if (leftCol) leftCol.style.display = (enabledLevelCount === 0) ? 'none' : '';
+                    if (hiddenSelectedLevel && firstVisibleLevelBtn) {
+                        document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
+                            b.classList.remove('selected');
+                        });
+                        firstVisibleLevelBtn.classList.add('selected');
+                        var newLevel = firstVisibleLevelBtn.getAttribute('data-level');
+                        if (newLevel) {
+                            try { localStorage.setItem('vicaSelectedLevel', newLevel); } catch(_e) {}
+                            if (window.game) window.game.selectedLevel = newLevel;
+                        }
+                    }
+                }
+            }
+            // Timer value — stashed globally for the gameplay code to pick up.
+            window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
+            // Sand-timer value — game.js reads this on round-start to decide
+            // whether to show the hourglass (non-stop, no-Xeno, sandTimer > 0).
+            window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
+            // Type-of-game picker — only meaningful for Find right now (Catch
+            // doesn't yet honor a Type axis on its end-of-round flow).
+            _renderTypesPicker(gameType, conf);
+        }
+
+        // Free helper — removes any visible voice UI (indicator div, mic-check
+        // panel) and clears body.voice-round-active. Doesn't depend on
+        // window.game existing yet, so safe to call from anywhere on the
+        // setup screen including the very first render. Called from
+        // _renderTypesPicker AND from each type-line click, so the user can
+        // see the indicator disappear the instant they pick a different type.
+        function _killVoiceUI() {
+            try {
+                document.body.classList.remove('voice-round-active');
+                document.querySelectorAll('.voice-mic-indicator').forEach(function(el) { el.remove(); });
+                var diag = document.getElementById('voice-mic-check');
+                if (diag) diag.remove();
+                if (window.VoiceInput && VoiceInput.closeMicCheck) {
+                    VoiceInput.closeMicCheck();
+                }
+                if (window.game && window.game._cleanupVoiceUI) {
+                    window.game._cleanupVoiceUI();
+                }
+            } catch(_e) {}
+        }
+        // Surface to other inline scripts that need to wipe voice UI.
+        window._killVoiceUI = _killVoiceUI;
+
+        // Re-apply admin's setup matrix to the start-screen UI for whatever
+        // game is currently active. Called from game.js's backToGameSetup
+        // after it restores blanket visibility on .setup-panel h3 elements
+        // — the blanket reset clobbers per-axis hide rules I set in
+        // _applyGameSetupToPlayerScreen / _renderTypesPicker (e.g., types
+        // title hidden when 1 type is enabled, or any axisLabel that admin
+        // erased). Without this re-apply pass, navigating back from C33 to
+        // Ct Setup re-shows headings that should stay hidden.
+        window._reapplyCurrentSetup = function() {
+            try {
+                if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
+                    var cidx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
+                    var catchGames = loadCatchGames();
+                    var catchGame = catchGames[cidx];
+                    if (catchGame) _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                } else if (typeof activeCustomGameIndex !== 'undefined' && activeCustomGameIndex >= 0) {
+                    var games = loadCustomGames();
+                    var game = games[activeCustomGameIndex];
+                    if (game) _applyGameSetupToPlayerScreen(game, 'find');
+                }
+            } catch(_e) {}
+        };
+
+        function _renderTypesPicker(gameType, conf) {
+            // Belt-and-suspenders cleanup of any voice UI carried over from a
+            // previous round. The setup screen should never show the corner
+            // mic indicator or the diagnostic panel — those are gameplay
+            // affordances. Whatever navigation path got us here, this
+            // guarantees a clean slate.
+            _killVoiceUI();
+            // Both Find and Catch now use the same right-column radio list.
+            // The legacy top-of-panel button row (#setup-types-row) is left in
+            // place but always hidden — kept harmless to avoid disturbing other
+            // code that might query for it.
+            var topRow = document.getElementById('setup-types-row');
+            var rightTypes = document.getElementById('setup-right-types');
+            var rightH3 = document.getElementById('setup-right-h3');
+            var dominoStyleEl = document.getElementById('domino-style-select');
+            // Container for the whole right column (h3 + domino-style fallback
+            // + types radio list). Hide it entirely when admin has 0 types
+            // enabled, so the player doesn't see an empty box or the legacy
+            // "Choose domino style:" decoration that no longer reflects an
+            // active choice. Show it again when ≥1 type is enabled.
+            var rightCol = document.querySelector('#start-screen .setup-right');
+            if (topRow) topRow.style.display = 'none';
+            if (rightTypes) rightTypes.innerHTML = '';
+            // Default to manual unless we explicitly find a non-stop choice.
+            window._currentTypeBehavior = 'manual';
+            window._currentTypeLabel = '';
+            window._currentVoiceInput = false;
+            window._currentVoiceLang = 'en';
+            window._currentVoiceSynonyms = null;
+
+            var types = conf && conf.types && Array.isArray(conf.types.options) ? conf.types.options : [];
+            var enabled = types.filter(function(o) { return o && o.on; });
+            function _stashTypeChoice(opt) {
+                window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                window._currentTypeLabel = opt.label || '';
+                window._currentVoiceInput = !!opt.voiceInput;
+                var lv = opt.voiceLang;
+                window._currentVoiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
+                // Per-Type voice synonyms — null means "use defaults from voice.js".
+                window._currentVoiceSynonyms = (opt.voiceSynonyms && typeof opt.voiceSynonyms === 'object') ? opt.voiceSynonyms : null;
+            }
+            if (enabled.length === 1) _stashTypeChoice(enabled[0]);
+
+            if (!rightTypes || !rightH3 || !dominoStyleEl) return;
+            if (enabled.length < 1) {
+                // 0 types enabled → hide the entire right column. Player runs
+                // with default behavior (manual / no voice) since the stashed
+                // type choice above already covers that. The legacy
+                // domino-style decoration is also hidden so an empty axis
+                // doesn't surface stale "Choose domino style:" UI.
+                rightTypes.style.display = 'none';
+                dominoStyleEl.style.display = 'none';
+                if (rightCol) rightCol.style.display = 'none';
+                return;
+            }
+            // ≥1 type enabled → ensure the right column is visible and replace
+            // the domino-style panel with the Type radio list. Heading text
+            // mirrors the admin's axisLabel exactly: empty box in Game
+            // Settings → empty heading on the player screen.
+            if (rightCol) rightCol.style.display = '';
+            var _tAx = (conf.types && typeof conf.types.axisLabel === 'string') ? conf.types.axisLabel : '';
+            rightH3.style.display = _tAx ? '' : 'none';
+            rightH3.textContent = _tAx ? (_tAx + ':') : '';
+            dominoStyleEl.style.display = 'none';
+            rightTypes.style.display = '';
+            _stashTypeChoice(enabled[0]);
+            if (enabled.length === 1) {
+                // Single Type option → the title (e.g. "Type of Game:")
+                // is always hidden, regardless of whether the option's
+                // label is filled in. Only the admin's per-option text
+                // (or nothing, if also empty) shows below. Per spec:
+                // "if only one type is chosen in Game Settings, the
+                // title 'Type of Game' should not be seen". 2+ enabled
+                // continues to show the title from axisLabel above
+                // (or hides it when admin erased that field).
+                rightH3.style.display = 'none';
+                var soleT = enabled[0];
+                if (soleT.label) {
+                    var staticLine = document.createElement('div');
+                    staticLine.className = 'setup-type-line setup-type-line-static';
+                    var labelTxt0 = soleT.label;
+                    if (soleT.voiceInput) labelTxt0 += ' 🎤';
+                    staticLine.textContent = labelTxt0;
+                    rightTypes.appendChild(staticLine);
+                } else {
+                    if (rightCol) rightCol.style.display = 'none';
+                }
+            } else {
+                enabled.forEach(function(opt, i) {
+                    var line = document.createElement('label');
+                    line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
+                    var radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'setup-type-pick';
+                    radio.checked = (i === 0);
+                    var span = document.createElement('span');
+                    // Show only the admin-entered text (no "Type N — " prefix).
+                    // Fall back to "Type N" placeholder when admin hasn't
+                    // typed anything so the radio still has a label.
+                    var labelTxt = opt.label || ('Type ' + (types.indexOf(opt) + 1));
+                    if (opt.voiceInput) labelTxt += ' 🎤';
+                    span.textContent = labelTxt;
+                    line.appendChild(radio);
+                    line.appendChild(span);
+                    line.addEventListener('click', function() {
+                        rightTypes.querySelectorAll('.setup-type-line').forEach(function(x) { x.classList.remove('selected'); });
+                        rightTypes.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
+                        line.classList.add('selected');
+                        radio.checked = true;
+                        _stashTypeChoice(opt);
+                        _refreshTestMicVisibility();
+                        // Picking a type — voice or otherwise — wipes any leftover
+                        // voice UI from a previous round. The indicator will be
+                        // recreated by _ensureMicIndicator when the next voice
+                        // round actually starts.
+                        _killVoiceUI();
+                    });
+                    rightTypes.appendChild(line);
+                });
+            }
+
+            // "Test mic" button — built once per render and reused. We toggle
+            // visibility based on the *currently selected* type rather than
+            // "any enabled type has voice", so the button shows up only for
+            // voice-enabled games and disappears when the player picks a
+            // non-voice type.
+            var anyVoice = enabled.some(function(o) { return !!o.voiceInput; });
+            var testBtn = null;
+            if (anyVoice) {
+                testBtn = document.createElement('button');
+                testBtn.type = 'button';
+                testBtn.className = 'setup-mic-check-btn';
+                testBtn.textContent = '🔧 Test mic';
+                testBtn.addEventListener('click', function() {
+                    if (window.VoiceInput && VoiceInput.openMicCheck) VoiceInput.openMicCheck();
+                });
+                rightTypes.appendChild(testBtn);
+            }
+            function _refreshTestMicVisibility() {
+                if (!testBtn) return;
+                testBtn.style.display = window._currentVoiceInput ? '' : 'none';
+            }
+            _refreshTestMicVisibility();
+        }
+
+        function goToMainPage() {
+            _resetSetupPanel();
+            if (selectedIntroGame && selectedIntroGame.indexOf('catch-') === 0) {
+                // Show start screen for catch game
+                var idx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
+                var catchGames = loadCatchGames();
+                var catchGame = catchGames[idx];
+                if (!catchGame) return;
+                _pendingCatchGameIndex = idx;
+                document.getElementById('intro-screen').style.display = 'none';
+                document.getElementById('start-screen').style.display = 'flex';
+                document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
+                // Phase A.2: apply admin's matrix for this catch game
+                _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                var _spl = document.getElementById('setup-page-label');
+                if (_spl) _spl.textContent = _catchInputMode === 'mouse' ? 'GPm Cm Setup' : 'GPt Ct Setup';
+
+                // For MOUSE mode: show single-player icon+name setup directly (no "How many players?")
+                if (_catchInputMode === 'mouse') {
+                    // Hide only "How many players?" heading and player buttons
+                    var _playerSelect = document.querySelector('.player-select');
+                    if (_playerSelect) {
+                        var _hmHead = _playerSelect.previousElementSibling;
+                        if (_hmHead && _hmHead.tagName === 'H3') _hmHead.style.display = 'none';
+                        _playerSelect.style.display = 'none';
+                    }
+
+                    // Change "Choose your game:" to "The Level of Difficulty:"
+                    var _setupLeft = document.querySelector('.setup-left');
+                    if (_setupLeft) {
+                        var _cyg = _setupLeft.querySelector('h3');
+                        if (_cyg) _cyg.textContent = 'The Level of Difficulty:';
+                    }
+                    // Change level labels: "2 dominos" → "2 bubbles", etc.
+                    var _levelLabels = document.querySelectorAll('.level-label');
+                    _levelLabels.forEach(function(lbl) {
+                        lbl.textContent = lbl.textContent.replace('dominos', 'bubbles');
+                    });
+
+                    // Replace domino SVGs with bubble SVGs
+                    var _bubbleSVGs = {
+                        'circle': '<svg viewBox="0 0 100 80" width="55" height="44">' +
+                            '<defs><radialGradient id="bg2" cx="40%" cy="35%"><stop offset="0%" stop-color="#a8e6ff"/><stop offset="100%" stop-color="#4db8e0"/></radialGradient>' +
+                            '<radialGradient id="bs2" cx="40%" cy="35%"><stop offset="0%" stop-color="#ffe0a8"/><stop offset="100%" stop-color="#e0a840"/></radialGradient></defs>' +
+                            '<circle cx="28" cy="40" r="22" fill="url(#bg2)" stroke="#3a9cc0" stroke-width="1.5"/>' +
+                            '<circle cx="28" cy="40" r="16" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>' +
+                            '<circle cx="20" cy="32" r="4" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="68" cy="25" r="14" fill="url(#bs2)" stroke="#c09030" stroke-width="1.2"/><circle cx="62" cy="20" r="3" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="72" cy="55" r="14" fill="url(#bs2)" stroke="#c09030" stroke-width="1.2"/><circle cx="66" cy="50" r="3" fill="rgba(255,255,255,0.5)"/>' +
+                            '</svg>',
+                        'triangle': '<svg viewBox="0 0 100 80" width="55" height="44">' +
+                            '<defs><radialGradient id="bg3" cx="40%" cy="35%"><stop offset="0%" stop-color="#a8e6ff"/><stop offset="100%" stop-color="#4db8e0"/></radialGradient>' +
+                            '<radialGradient id="bs3" cx="40%" cy="35%"><stop offset="0%" stop-color="#ffe0a8"/><stop offset="100%" stop-color="#e0a840"/></radialGradient></defs>' +
+                            '<circle cx="25" cy="40" r="22" fill="url(#bg3)" stroke="#3a9cc0" stroke-width="1.5"/>' +
+                            '<circle cx="25" cy="40" r="16" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>' +
+                            '<circle cx="17" cy="32" r="4" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="62" cy="15" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="57" cy="11" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="78" cy="40" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="73" cy="36" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="62" cy="65" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="57" cy="61" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                            '</svg>',
+                        'star': '<svg viewBox="0 0 100 80" width="55" height="44">' +
+                            '<defs><radialGradient id="bg4" cx="40%" cy="35%"><stop offset="0%" stop-color="#a8e6ff"/><stop offset="100%" stop-color="#4db8e0"/></radialGradient>' +
+                            '<radialGradient id="bs4" cx="40%" cy="35%"><stop offset="0%" stop-color="#ffe0a8"/><stop offset="100%" stop-color="#e0a840"/></radialGradient></defs>' +
+                            '<circle cx="22" cy="40" r="20" fill="url(#bg4)" stroke="#3a9cc0" stroke-width="1.5"/>' +
+                            '<circle cx="22" cy="40" r="14" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>' +
+                            '<circle cx="15" cy="33" r="3.5" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="56" cy="12" r="11" fill="url(#bs4)" stroke="#c09030" stroke-width="1.2"/><circle cx="51" cy="8" r="2.2" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="80" cy="25" r="11" fill="url(#bs4)" stroke="#c09030" stroke-width="1.2"/><circle cx="75" cy="21" r="2.2" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="80" cy="55" r="11" fill="url(#bs4)" stroke="#c09030" stroke-width="1.2"/><circle cx="75" cy="51" r="2.2" fill="rgba(255,255,255,0.5)"/>' +
+                            '<circle cx="56" cy="68" r="11" fill="url(#bs4)" stroke="#c09030" stroke-width="1.2"/><circle cx="51" cy="64" r="2.2" fill="rgba(255,255,255,0.5)"/>' +
+                            '</svg>'
+                    };
+                    document.querySelectorAll('.level-btn').forEach(function(btn) {
+                        var lvl = btn.getAttribute('data-level');
+                        if (_bubbleSVGs[lvl]) {
+                            // Save original SVG for restoration
+                            if (!btn.dataset.origSvg) btn.dataset.origSvg = btn.innerHTML;
+                            btn.innerHTML = _bubbleSVGs[lvl];
+                            btn.title = btn.title.replace('Dominos', 'Bubbles');
+                        }
+                    });
+                    _fillCatchLevelBubbles(catchGame);
+
+                    // Show player-names section with single player setup
+                    var playerNamesDiv = document.getElementById('player-names');
+                    playerNamesDiv.style.display = 'block';
+                    var pnHeading = playerNamesDiv.querySelector('h3');
+                    if (pnHeading) pnHeading.style.display = 'none';
+
+                    // Reset game.js player state for single player
+                    if (window.game) {
+                        window.game.playerIcons = {};
+                        window.game.includeXeno = false;
+                    }
+
+                    var nameInputs = document.getElementById('name-inputs');
+                    nameInputs.innerHTML = '';
+
+                    // Create single player row: icon selector + name input
+                    var playerRow = document.createElement('div');
+                    playerRow.className = 'player-input-row';
+
+                    // Icon section
+                    var iconSection = document.createElement('div');
+                    iconSection.className = 'input-section';
+                    var iconLabel = document.createElement('div');
+                    iconLabel.className = 'input-label';
+                    iconLabel.textContent = 'Choose the icon';
+                    iconSection.appendChild(iconLabel);
+                    if (window.game) {
+                        var iconSelector = window.game.createIconSelector(0);
+                        iconSection.appendChild(iconSelector);
+                    }
+                    playerRow.appendChild(iconSection);
+
+                    // Name section
+                    var nameSection = document.createElement('div');
+                    nameSection.className = 'input-section name-section';
+                    var nameLabel = document.createElement('div');
+                    nameLabel.className = 'input-label';
+                    nameLabel.textContent = 'Type your name';
+                    nameSection.appendChild(nameLabel);
+                    var nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.placeholder = "Player's Name";
+                    nameInput.value = '';
+                    nameInput.dataset.playerIndex = '0';
+                    nameInput.dataset.prefix = '';
+                    nameSection.appendChild(nameInput);
+                    playerRow.appendChild(nameSection);
+
+                    nameInputs.appendChild(playerRow);
+                }
+                return;
+            }
+            _pendingCatchGameIndex = -1;
             document.getElementById('intro-screen').style.display = 'none';
             document.getElementById('start-screen').style.display = 'flex';
+            var _spl = document.getElementById('setup-page-label');
+            if (_spl) _spl.textContent = (_findInputMode === 'mouse') ? 'GPm F Setup' : 'GPt F Setup';
             clearCustomGame();
             activeCustomGameIndex = -1;
             if (selectedIntroGame && selectedIntroGame.indexOf('custom-') === 0) {
@@ -661,9 +1889,11 @@
         var activeCustomGameIndex = -1;
 
         function startCustomGame(gameIndex, btnEl) {
+            _gpInvalidateCardCache();
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
+            console.log('[startCustomGame] gameIndex=' + gameIndex + ' name=' + game.name + ' cards=' + (game.cards ? game.cards.length : 0) + ' mGroups=' + (game.mGroups ? game.mGroups.length : 0));
 
             if (activeCustomGameIndex === gameIndex) {
                 clearCustomGame();
@@ -676,6 +1906,8 @@
             activeCustomGameIndex = gameIndex;
 
             document.querySelector('#start-screen .subtitle').textContent = 'Find the doubles: ' + game.name;
+            // Phase A.2: apply admin's matrix for this find game
+            _applyGameSetupToPlayerScreen(game, 'find');
 
             // Collect original cards with svgMarkup
             var origCards = [];
@@ -688,54 +1920,107 @@
                 }
             });
 
+            // Apply mGroups (Studio "Match" groups) so multiple cards that share
+            // the same value collapse into a single domino slot — matching what
+            // Studio shows. Without this, a Match-style game generates many more
+            // dominos than Studio displays, with the wrong pairings.
+            var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
+            var labelToGroupIdx = {};
+            mGroups.forEach(function(g, gi) {
+                if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+            });
+            var effective = []; // each: { label, _gameValue, cards: [...] }
+            var addedGroups = {};
+            origCards.forEach(function(c) {
+                var gi = labelToGroupIdx[c.label];
+                if (gi !== undefined) {
+                    if (addedGroups[gi]) return;
+                    addedGroups[gi] = true;
+                    var groupCards = [];
+                    mGroups[gi].forEach(function(lbl) {
+                        for (var k = 0; k < origCards.length; k++) {
+                            if (origCards[k].label === lbl) { groupCards.push(origCards[k]); break; }
+                        }
+                    });
+                    var rep = groupCards[0] || c;
+                    effective.push({
+                        label: rep.label,
+                        _gameValue: rep._gameValue || rep.label.charAt(0),
+                        cards: groupCards
+                    });
+                } else {
+                    effective.push({
+                        label: c.label,
+                        _gameValue: c._gameValue || c.label.charAt(0),
+                        cards: [c]
+                    });
+                }
+            });
+
             var valueSet = {};
-            origCards.forEach(function(c) { valueSet[c.label.charAt(0)] = true; });
+            effective.forEach(function(e) { valueSet[e._gameValue] = true; });
             var values = Object.keys(valueSet).sort();
 
-            // Load saved variations
-            var savedVars = [];
-            try { var vd = localStorage.getItem('cardMakerVariations'); savedVars = vd ? JSON.parse(vd) : []; } catch(e) {}
-
-            var excludedVars = getExcludedVariations(gameIndex);
-
-            // Build SVG pools from svgMarkup (no DOM dependency)
+            // Build SVG pools keyed by group representative label. svgPools
+            // is the full unfiltered pool used for level-button previews;
+            // topPools / bottomPools are filtered subsets that respect the
+            // per-card _freezeState constraint set in Studio's Find Game
+            // Creator (mirrors Catch's static/falling rule):
+            //   _freezeState === 'frozen'   → top half only (left in data)
+            //   _freezeState === 'floating' → bottom half only (right)
+            //   undefined                   → either half allowed
+            // Each pool is built only when game.freezeEnabled, otherwise
+            // the constraint is dormant and we fall back to the full pool
+            // for both halves (legacy behavior).
+            var freezeOn = !!game.freezeEnabled;
             var svgPools = {};
+            var topPools = {};
+            var bottomPools = {};
             var svgMarkupPools = {};
-            origCards.forEach(function(c) {
-                var pool = [];
-                var svg = getGameCardSVG(c);
-                if (svg) {
-                    pool.push(svg);
-                    svgMarkupPools[c.label] = c.svgMarkup;
-                }
-                var cardVars = savedVars.filter(function(v) { return v.originalLabel === c.label; });
-                cardVars.forEach(function(v) {
-                    var vKey = getVariationKey(v.originalLabel, v.transform);
-                    if (excludedVars.indexOf(vKey) >= 0) return;
-                    var varSvg = getGameVariationSVG(c, v.transform);
-                    if (varSvg) pool.push(varSvg);
+            effective.forEach(function(eff) {
+                var allPool = [];
+                var topPool = [];
+                var bottomPool = [];
+                eff.cards.forEach(function(c) {
+                    var svg = getGameCardSVG(c);
+                    if (!svg) return;
+                    allPool.push(svg);
+                    if (!freezeOn) return;
+                    if (c._freezeState !== 'floating') topPool.push(svg);
+                    if (c._freezeState !== 'frozen')   bottomPool.push(svg);
                 });
-                svgPools[c.label] = pool;
+                svgPools[eff.label] = allPool;
+                topPools[eff.label] = freezeOn ? topPool : allPool;
+                bottomPools[eff.label] = freezeOn ? bottomPool : allPool;
+                if (eff.cards[0] && eff.cards[0].svgMarkup) {
+                    svgMarkupPools[eff.label] = eff.cards[0].svgMarkup;
+                }
             });
 
             var excludedKeys = getExcludedDominos(gameIndex);
 
-            // Generate domino deck
+            // Generate domino deck — one per pair of groups (not per pair of cards).
+            // Top half draws from topPools (no floating-only cards), bottom half
+            // draws from bottomPools (no frozen-only cards). Either pool falls
+            // back to svgPools when the strict filter empties it, so admin can't
+            // accidentally produce a deck that can't be rendered.
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
-            for (var i = 0; i < origCards.length; i++) {
-                for (var j = i + 1; j < origCards.length; j++) {
-                    var leftCard = origCards[i];
-                    var rightCard = origCards[j];
-                    var dominoKey = leftCard.label + ':' + rightCard.label;
+            for (var i = 0; i < effective.length; i++) {
+                for (var j = i + 1; j < effective.length; j++) {
+                    var leftEff = effective[i];
+                    var rightEff = effective[j];
+                    var dominoKey = leftEff.label + ':' + rightEff.label;
                     if (excludedKeys.indexOf(dominoKey) >= 0) continue;
-                    var leftValue = leftCard.label.charAt(0);
-                    var rightValue = rightCard.label.charAt(0);
-                    var leftKey = leftCard.label + '_d' + cardId + 'L';
-                    var rightKey = rightCard.label + '_d' + cardId + 'R';
-                    var leftPool = svgPools[leftCard.label];
-                    var rightPool = svgPools[rightCard.label];
+                    var leftValue = leftEff._gameValue;
+                    var rightValue = rightEff._gameValue;
+                    var leftKey = leftEff.label + '_d' + cardId + 'L';
+                    var rightKey = rightEff.label + '_d' + cardId + 'R';
+                    var leftPool = topPools[leftEff.label];
+                    if (!leftPool || leftPool.length === 0) leftPool = svgPools[leftEff.label];
+                    var rightPool = bottomPools[rightEff.label];
+                    if (!rightPool || rightPool.length === 0) rightPool = svgPools[rightEff.label];
                     if (leftPool && leftPool.length > 0) svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
                     if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
                     customDeck.push({ id: cardId++, left: leftKey, right: rightKey, leftValue: leftValue, rightValue: rightValue });
@@ -748,7 +2033,10 @@
 
             values.forEach(function(v, idx) { VALUE_RANK[v] = idx + 1; });
 
-            try { updateLevelDominoIcons(origCards, svgPools, svgMarkupPools); } catch(e) {
+            // updateLevelDominoIcons takes per-slot cards; pass group representatives
+            // so previews mirror the actual deck.
+            var iconCards = effective.map(function(eff) { return eff.cards[0]; });
+            try { updateLevelDominoIcons(iconCards, svgPools, svgMarkupPools); } catch(e) {
                 console.error('[startCustomGame] updateLevelDominoIcons error:', e);
             }
         }
@@ -896,6 +2184,81 @@
             document.querySelectorAll('.level-domino-dot').forEach(function(dot) { dot.style.display = ''; });
         }
 
+        // Catch counterpart of updateLevelDominoIcons. The Catch start screen
+        // replaces each .level-btn's content with a hardcoded bubble SVG that
+        // contains no card pictures. This walks the bubble circles and drops
+        // a clipped nested <svg> of each card into them, using the admin's
+        // saved game.mainPageDominos config (one label per bubble: {top: 'A1'}).
+        // Falls back to recycling the game's own card labels in order so the
+        // bubbles never look empty when MPP is missing or stale.
+        function _fillCatchLevelBubbles(game) {
+            if (!game) return;
+            var ns = 'http://www.w3.org/2000/svg';
+            var mpp = game.mainPageDominos || {};
+
+            var markupMap = {};
+            var viewBoxMap = {};
+            (game.cards || []).forEach(function(c) {
+                if (c.isVariation || markupMap[c.label]) return;
+                var svg = getGameCardSVG(c);
+                if (!svg) return;
+                var inner = svg.innerHTML;
+                if (!inner || !inner.trim().length) return;
+                markupMap[c.label] = inner;
+                viewBoxMap[c.label] = svg.getAttribute('viewBox') || '0 0 60 60';
+            });
+            var fallbackLabels = Object.keys(markupMap);
+            if (fallbackLabels.length === 0) return;
+
+            ['circle', 'triangle', 'star'].forEach(function(lvl) {
+                var btn = document.querySelector('.level-btn[data-level="' + lvl + '"]');
+                if (!btn) return;
+                var rootSvg = btn.querySelector('svg');
+                if (!rootSvg) return;
+                // Identify main bubble fills: <circle fill="url(#bgN)"> (large)
+                // and <circle fill="url(#bsN)"> (small) — the gradient-filled
+                // ones in DOM order are the bubbles. Decorative inner rings
+                // and shines have fill="none" or "rgba(...)".
+                var bubbles = [];
+                rootSvg.querySelectorAll('circle').forEach(function(c) {
+                    var f = c.getAttribute('fill') || '';
+                    if (f.indexOf('url(#bg') === 0 || f.indexOf('url(#bs') === 0) bubbles.push(c);
+                });
+                var saved = Array.isArray(mpp[lvl]) ? mpp[lvl] : [];
+                bubbles.forEach(function(circ, idx) {
+                    var label = (saved[idx] && saved[idx].top) || fallbackLabels[idx % fallbackLabels.length];
+                    var markup = markupMap[label];
+                    if (!markup) return;
+                    var cx = parseFloat(circ.getAttribute('cx'));
+                    var cy = parseFloat(circ.getAttribute('cy'));
+                    var r = parseFloat(circ.getAttribute('r'));
+                    if (!isFinite(cx) || !isFinite(cy) || !isFinite(r)) return;
+                    var clipId = 'lvl-bubble-clip-' + lvl + '-' + idx;
+                    var clip = document.createElementNS(ns, 'clipPath');
+                    clip.setAttribute('id', clipId);
+                    var clipCirc = document.createElementNS(ns, 'circle');
+                    clipCirc.setAttribute('cx', cx);
+                    clipCirc.setAttribute('cy', cy);
+                    clipCirc.setAttribute('r', r - 1);
+                    clip.appendChild(clipCirc);
+                    rootSvg.insertBefore(clip, rootSvg.firstChild);
+                    var nested = document.createElementNS(ns, 'svg');
+                    nested.setAttribute('viewBox', viewBoxMap[label] || '0 0 60 60');
+                    nested.setAttribute('x', cx - r);
+                    nested.setAttribute('y', cy - r);
+                    nested.setAttribute('width', 2 * r);
+                    nested.setAttribute('height', 2 * r);
+                    nested.setAttribute('clip-path', 'url(#' + clipId + ')');
+                    nested.setAttribute('overflow', 'hidden');
+                    nested.innerHTML = markup;
+                    // Insert directly after the bubble's main fill so the
+                    // card draws over the bubble background but under any
+                    // shine/inner-ring decoration that follows.
+                    circ.parentNode.insertBefore(nested, circ.nextSibling);
+                });
+            });
+        }
+
         // === Combined Games ===
 
         function resolveStageGameIndex(stage) {
@@ -985,12 +2348,90 @@
             var overlay = document.createElement('div');
             overlay.className = 'catch-game-overlay';
             overlay.id = 'catch-game-overlay';
+            // Mark the body while a Catch overlay is up so any leftover
+            // Find-game UI (notably .game-pause-btn, kept visible by
+            // body.game-round-running from a prior Find round) is hidden
+            // and we don't end up showing two pause buttons. Removed in
+            // _catchCleanup.
+            document.body.classList.add('catch-active');
+
+            // Back arrow button
+            var backBtn = document.createElement('button');
+            backBtn.className = 'back-arrow-btn catch-overlay-back';
+            backBtn.title = 'Go back';
+            backBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            backBtn.onclick = function() {
+                var savedIdx = _catchGame ? _catchGame.catchIndex : -1;
+                var savedMode = _catchGame ? _catchGame.inputMode : 'touch';
+                _catchCleanup();
+                // Restore catch game index so Start Game launches catch again
+                _pendingCatchGameIndex = savedIdx;
+                document.getElementById('game-screen').style.display = 'none';
+                document.getElementById('start-screen').style.display = 'flex';
+                var _spl = document.getElementById('setup-page-label');
+                var _s2l = document.getElementById('setup2-page-label');
+                if (savedMode === 'mouse') {
+                    // Mouse mode: go back to GPm Cm Setup (single-player setup page)
+                    if (_spl) { _spl.style.display = ''; _spl.textContent = 'GPm Cm Setup'; }
+                    if (_s2l) _s2l.style.display = 'none';
+                } else {
+                    // Touch mode: go back to GP Cnm player names page
+                    if (_spl) _spl.style.display = 'none';
+                    if (_s2l) _s2l.style.display = '';
+                }
+            };
+            overlay.appendChild(backBtn);
+
+            // Home button
+            var homeBtn = document.createElement('button');
+            homeBtn.className = 'back-arrow-btn home-btn catch-overlay-home';
+            homeBtn.title = 'Go to Welcome';
+            homeBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            homeBtn.onclick = function() {
+                _catchCleanup();
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('game-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                if (typeof resetIntroScreen === 'function') resetIntroScreen();
+                // Re-pull games so closure indices reflect any localStorage changes
+                // made in another tab (Studio) since the page loaded.
+                if (typeof populateIntroGames === 'function') populateIntroGames();
+                if (window.game && window.game._cleanupVoiceUI) window.game._cleanupVoiceUI();
+            };
+            overlay.appendChild(homeBtn);
+
+            // Page name label
+            var selLevel = document.querySelector('.level-btn.selected');
+            var _d = '2';
+            if (selLevel) {
+                var lv = selLevel.getAttribute('data-level');
+                if (lv === 'triangle') _d = '3';
+                else if (lv === 'star') _d = '4';
+            }
+            var _p = '1'; // default
+            var selPlayer = document.querySelector('.player-btn.selected');
+            if (selPlayer) {
+                var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
+                var xx = selPlayer.getAttribute('data-xeno') === 'true';
+                _p = (pp === 1 && xx) ? '1' : (pp === 2 && !xx) ? '2' : '3';
+            }
+            var pageLbl = document.createElement('div');
+            pageLbl.className = 'page-name-label catch-overlay-label';
+            var _modePrefix = (_catchGame && _catchGame.inputMode === 'mouse') ? 'GPm' : 'GPt';
+            pageLbl.textContent = _modePrefix + ' C' + _d + _p + ' Board';
+            overlay.appendChild(pageLbl);
+
             var hud = document.createElement('div');
             hud.className = 'catch-hud';
             hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Round 1</div>' +
-                '<div class="catch-hud-score" id="catch-score">Score: 0</div>' +
+                '<div class="catch-coin-gem-display" id="catch-coin-display"></div>' +
                 '<div class="catch-hud-lives" id="catch-lives"></div>' +
-                '<button class="catch-close-btn" id="catch-close-btn">&times;</button>';
+                '<button class="catch-pause-btn" id="catch-pause-btn" type="button" title="Pause" aria-label="Pause">' +
+                  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+                    '<rect x="6" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                    '<rect x="14" y="5" width="4" height="14" rx="1.2" fill="white"/>' +
+                  '</svg>' +
+                '</button>';
             overlay.appendChild(hud);
             var gameArea = document.createElement('div');
             gameArea.className = 'catch-game-area';
@@ -1005,27 +2446,63 @@
             gameArea.appendChild(fallingArea);
             overlay.appendChild(gameArea);
             document.body.appendChild(overlay);
+            var _np = (_catchNumPlayers === 2 && (_catchInputMode || 'touch') === 'touch') ? 2 : 1;
             _catchGame = {
                 catchIndex: catchIndex,
+                inputMode: _catchInputMode || 'touch',
+                numPlayers: _np,
                 origCards: origCards,
                 valueGroups: valueGroups,
                 valueKeys: valueKeys,
-                score: 0, lives: 3, round: 1, numFalling: 2,
+                score: 0, coins: 0, gems: 0, lives: 3, round: 1, numFalling: 2,
                 baseFallDuration: 6, fallDuration: 6,
                 active: true, roundActive: false,
-                fallingCards: [], animFrameId: null, lastUsedValues: []
+                fallingCards: [], animFrameId: null, lastUsedValues: [],
+                _coinAddedAt: 0, _coinAddedCount: 0,
+                _gemAddedAt: 0, _coinFallAt: 0, _exchangeTimeout: null,
+                // Game-level shape override
+                gameCardShape: game.gameCardShape || null,
+                gameCardShapeW: game.gameCardShapeW || 60,
+                gameCardShapeH: game.gameCardShapeH || 60,
+                gameCardCornerR: game.gameCardCornerR || 0,
+                gameCardScale: game.gameCardScale || 100,
+                // Per-player state (only meaningful when numPlayers === 2)
+                players: (_np === 2) ? [
+                    { lives: 3, coins: 0, fallingCards: [] },
+                    { lives: 3, coins: 0, fallingCards: [] }
+                ] : null
             };
+            // Upgrade layout to 2-player mode if selected
+            if (_np === 2) { _catch2pBuildLayout(); }
             _catchUpdateHUD();
-            document.getElementById('catch-close-btn').onclick = function() { _catchCleanup(); };
-            setTimeout(function() { _catchStartRound(); }, 600);
+            document.getElementById('catch-pause-btn').onclick = function() { _catchPause(); };
+            // Pre-apply shape to static card so it doesn't flash as square
+            var _preStatic = document.getElementById('catch-static-card');
+            if (_preStatic && _catchGame.gameCardShape === 'circle') {
+                _preStatic.style.borderRadius = '50%';
+            } else if (_preStatic && _catchGame.gameCardShape && _catchGame.gameCardShape !== 'square') {
+                // Custom shape with width/height
+                var _preW = _catchGame.gameCardShapeW || 60;
+                var _preH = _catchGame.gameCardShapeH || 60;
+                var _preBase = 140; // static card height from CSS
+                var _preRatio = _preBase / _preH;
+                _preStatic.style.width = Math.round(_preW * _preRatio) + 'px';
+                if (_catchGame.gameCardCornerR >= 0) {
+                    _preStatic.style.borderRadius = _catchGame.gameCardCornerR + '%';
+                }
+            } else if (_preStatic && _catchGame.gameCardCornerR > 0) {
+                _preStatic.style.borderRadius = _catchGame.gameCardCornerR + '%';
+            }
+            setTimeout(function() {
+                if (_catchGame && _catchGame.numPlayers === 2) _catch2pStartRound();
+                else _catchStartRound();
+            }, 600);
         }
 
         function _catchUpdateHUD() {
             if (!_catchGame) return;
-            var scoreEl = document.getElementById('catch-score');
             var livesEl = document.getElementById('catch-lives');
             var roundEl = document.getElementById('catch-round');
-            if (scoreEl) scoreEl.textContent = 'Score: ' + _catchGame.score;
             if (livesEl) {
                 var hearts = '';
                 for (var i = 0; i < _catchGame.lives; i++) hearts += '\u2764 ';
@@ -1033,6 +2510,94 @@
                 livesEl.textContent = hearts;
             }
             if (roundEl) roundEl.textContent = 'Round ' + _catchGame.round;
+            _catchRenderCoins();
+        }
+
+        function _catchRenderCoins() {
+            if (!_catchGame) return;
+            var container = document.getElementById('catch-coin-display');
+            if (!container) return;
+            var coins = _catchGame.coins;
+            var gems = _catchGame.gems;
+            var now = Date.now();
+            var newCoinCount = (now - _catchGame._coinAddedAt < 600) ? _catchGame._coinAddedCount : 0;
+            var isNewGem = (now - _catchGame._gemAddedAt < 600);
+            var isFalling = (now - _catchGame._coinFallAt < 800);
+            var html = '';
+            for (var g = 0; g < gems; g++) {
+                var gemNew = isNewGem && g === gems - 1;
+                html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">\uD83D\uDC8E</span>';
+            }
+            if (coins > 0) {
+                html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
+                var col1 = Math.min(coins, 5);
+                var col2 = Math.max(0, coins - 5);
+                html += '<div class="coin-column">';
+                for (var i = 0; i < col1; i++) {
+                    var isNew = i >= (col1 - newCoinCount) && i < col1;
+                    html += '<div class="gold-disk' + (isNew ? ' coin-appear' : '') + '"></div>';
+                }
+                html += '</div><div class="coin-column">';
+                for (var j = 0; j < col2; j++) {
+                    var isNew2 = (5 + j) >= (coins - newCoinCount) && newCoinCount > 0;
+                    html += '<div class="gold-disk' + (isNew2 ? ' coin-appear' : '') + '"></div>';
+                }
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function _catchAddCoins(amount) {
+            if (!_catchGame) return;
+            _catchGame.coins += amount;
+            _catchGame.score += amount;
+            _catchGame._coinAddedAt = Date.now();
+            _catchGame._coinAddedCount = amount;
+            if (_catchGame.coins >= 10) {
+                if (_catchGame._exchangeTimeout) clearTimeout(_catchGame._exchangeTimeout);
+                _catchGame._exchangeTimeout = setTimeout(function() {
+                    if (!_catchGame || !_catchGame.active) return;
+                    // Play glin-glin sound
+                    _catchPlayGlinGlin();
+                    _catchGame._coinFallAt = Date.now();
+                    _catchRenderCoins();
+                    setTimeout(function() {
+                        if (!_catchGame) return;
+                        while (_catchGame.coins >= 10) {
+                            _catchGame.coins -= 10;
+                            _catchGame.gems++;
+                        }
+                        _catchGame._gemAddedAt = Date.now();
+                        _catchGame._coinFallAt = 0;
+                        _catchRenderCoins();
+                    }, 800);
+                }, amount * 300 + 700);
+            }
+            _catchRenderCoins();
+        }
+
+        function _catchRemoveCoin() {
+            if (!_catchGame || _catchGame.coins <= 0) return;
+            _catchGame.coins--;
+            _catchGame.score = Math.max(0, _catchGame.score - 1);
+            _catchRenderCoins();
+        }
+
+        function _catchPlayGlinGlin() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                for (var n = 0; n < 3; n++) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = 1200 + n * 400;
+                    gain.gain.setValueAtTime(0.15, ctx.currentTime + n * 0.12);
+                    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + n * 0.12 + 0.2);
+                    osc.start(ctx.currentTime + n * 0.12);
+                    osc.stop(ctx.currentTime + n * 0.12 + 0.2);
+                }
+            } catch(e) {}
         }
 
         function _catchStartRound() {
@@ -1046,7 +2611,17 @@
             _catchGame.lastUsedValues.push(targetValue);
             if (_catchGame.lastUsedValues.length > 2) _catchGame.lastUsedValues.shift();
             var targetCards = vGroups[targetValue];
-            var staticCard = targetCards[Math.floor(Math.random() * targetCards.length)];
+            // Per-card constraint:
+            //   _freezeState === 'frozen'   → static-only (never falls)
+            //   _freezeState === 'floating' → falling-only (never static)
+            //   undefined                   → either role allowed
+            // Filter the static pool to drop floating-only cards. If every
+            // card in the value group is floating-only, fall back to the
+            // unfiltered group so the round can still proceed (graceful
+            // degradation — admin should rebalance the assignments).
+            var staticPool = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
+            if (staticPool.length === 0) staticPool = targetCards;
+            var staticCard = staticPool[Math.floor(Math.random() * staticPool.length)];
             var staticEl = document.getElementById('catch-static-card');
             if (staticEl) {
                 staticEl.innerHTML = '';
@@ -1055,14 +2630,35 @@
                 _catchApplyShape(staticEl, staticCard);
             }
             var fallingCards = [];
-            var matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
+            // Match candidate must (a) share the target value, (b) not be the
+            // static card itself, (c) not be frozen (frozen cards never fall).
+            var matchCandidates = targetCards.filter(function(c) {
+                return c.label !== staticCard.label && c._freezeState !== 'frozen';
+            });
+            // Fallback: if no candidate satisfies all three, relax the frozen
+            // filter (still excluding the static label). If even that empties,
+            // fall back to the static card itself (legacy behavior).
+            if (matchCandidates.length === 0) {
+                matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
+            }
             var matchCard = matchCandidates.length > 0 ?
                 matchCandidates[Math.floor(Math.random() * matchCandidates.length)] : staticCard;
             fallingCards.push({ card: matchCard, isMatch: true });
+            // Distractors come from other value groups; frozen cards never
+            // fall, so they're excluded from the distractor pool too.
             var distractorPool = [];
             vKeys.forEach(function(v) {
-                if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
+                if (v !== targetValue) vGroups[v].forEach(function(c) {
+                    if (c._freezeState !== 'frozen') distractorPool.push(c);
+                });
             });
+            // If every other-value card is frozen, fall back to the unfiltered
+            // pool so the round still has distractors.
+            if (distractorPool.length === 0) {
+                vKeys.forEach(function(v) {
+                    if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
+                });
+            }
             _catchShuffle(distractorPool);
             var numDistractors = _catchGame.numFalling - 1;
             for (var i = 0; i < numDistractors && i < distractorPool.length; i++) {
@@ -1075,6 +2671,7 @@
             var areaWidth = areaRect.width;
             var cardSize = 90;
             _catchGame.fallingCards = [];
+            var areaHeight = fallingAreaEl.getBoundingClientRect().height;
             fallingCards.forEach(function(fc, idx) {
                 var el = document.createElement('div');
                 el.className = 'catch-falling-card';
@@ -1087,13 +2684,15 @@
                 var x = margin + Math.random() * Math.max(maxX, 0);
                 var tilt = (Math.random() * 20 - 10);
                 var drift = (Math.random() * 30 - 15);
+                var startY = -100 - idx * 80;
                 el.style.left = x + 'px';
-                el.style.top = '-100px';
+                el.style.top = startY + 'px';
                 el.style.transform = 'rotate(' + tilt + 'deg)';
                 var cardData = {
-                    el: el, isMatch: fc.isMatch, x: x, y: -100 - idx * 80,
+                    el: el, isMatch: fc.isMatch, x: x, y: startY,
                     tilt: tilt, tiltDir: (Math.random() > 0.5 ? 1 : -1),
-                    tiltSpeed: 2 + Math.random() * 3, drift: drift, clicked: false
+                    tiltSpeed: 2 + Math.random() * 3,
+                    drift: drift, clicked: false
                 };
                 _catchGame.fallingCards.push(cardData);
                 el.onclick = (function(cd) { return function(e) {
@@ -1149,6 +2748,8 @@
                 }
                 return;
             }
+            // Round is done when every falling card has been clicked or
+            // dropped off the bottom of the area.
             var allDone = _catchGame.fallingCards.every(function(cd) { return cd.clicked; });
             if (!allDone) _catchGame.animFrameId = requestAnimationFrame(_catchAnimLoop);
         }
@@ -1159,7 +2760,7 @@
             if (cardData.isMatch) {
                 cardData.el.classList.add('catch-correct');
                 _catchGame.roundActive = false;
-                _catchGame.score++;
+                _catchAddCoins(1);
                 _catchUpdateHUD();
                 _catchPlayCorrectSound();
                 if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
@@ -1171,9 +2772,13 @@
                 cardData.el.classList.add('catch-wrong');
                 _catchPlayWrongSound();
                 _catchShowFlash('Wrong!', 'catch-wrong-flash');
-                if (_catchGame.score >= 10) {
+                if (_catchGame.coins > 0) {
+                    _catchRemoveCoin();
+                } else if (_catchGame.gems > 0) {
+                    _catchGame.gems--;
+                    _catchGame.coins += 9;
                     _catchGame.score = Math.max(0, _catchGame.score - 1);
-                    _catchUpdateHUD();
+                    _catchRenderCoins();
                 }
                 setTimeout(function() {
                     cardData.el.classList.remove('catch-wrong');
@@ -1200,19 +2805,91 @@
             if (!area) return;
             var go = document.createElement('div');
             go.className = 'catch-gameover';
+            var finalDisplay = '';
+            for (var fg = 0; fg < _catchGame.gems; fg++) finalDisplay += '<span class="gem-icon">\uD83D\uDC8E</span>';
+            if (_catchGame.coins > 0) {
+                finalDisplay += '<div class="coin-columns" style="display:inline-flex;vertical-align:middle;">';
+                var fc1 = Math.min(_catchGame.coins, 5);
+                var fc2 = Math.max(0, _catchGame.coins - 5);
+                finalDisplay += '<div class="coin-column">';
+                for (var fi = 0; fi < fc1; fi++) finalDisplay += '<div class="gold-disk"></div>';
+                finalDisplay += '</div><div class="coin-column">';
+                for (var fj = 0; fj < fc2; fj++) finalDisplay += '<div class="gold-disk"></div>';
+                finalDisplay += '</div></div>';
+            }
             go.innerHTML = '<h2>Game Over</h2>' +
-                '<div class="catch-gameover-score">Final Score: ' + _catchGame.score + '</div>' +
+                '<div class="catch-gameover-score">' + finalDisplay + '</div>' +
                 '<div><button class="catch-gameover-btn" id="catch-play-again">Play Again</button>' +
                 '<button class="catch-gameover-btn catch-exit-btn" id="catch-exit">Exit</button></div>';
             area.appendChild(go);
-            document.getElementById('catch-play-again').onclick = function() {
-                var idx = _catchGame.catchIndex;
-                _catchCleanup();
-                openCatchPlayModal(idx);
+            var playAgainBtn = document.getElementById('catch-play-again');
+            var exitBtn = document.getElementById('catch-exit');
+            var idx = _catchGame.catchIndex;
+            var doRestart = function() { _catchCleanup(); openCatchPlayModal(idx); };
+            playAgainBtn.onclick = function() {
+                _stopCatchNonstopCountdown();
+                doRestart();
             };
-            document.getElementById('catch-exit').onclick = function() {
+            exitBtn.onclick = function() {
+                _stopCatchNonstopCountdown();
                 _catchCleanup();
             };
+            // Non-stop: count the Play Again button down 3 → 0, then auto-restart.
+            // Tap the button to skip ahead. Idle for 60 s cancels the countdown.
+            if (window._currentTypeBehavior === 'nonstop') {
+                _startCatchNonstopCountdown(playAgainBtn, doRestart);
+            }
+        }
+
+        var _catchNonstopState = null;
+        function _startCatchNonstopCountdown(btn, fireFn) {
+            if (!btn) return;
+            _stopCatchNonstopCountdown();
+            var TOTAL = 3, IDLE_LIMIT = 60000;
+            var remaining = TOTAL;
+            btn.classList.add('nonstop-countdown');
+            btn.textContent = '⏵ ' + remaining;
+            var st = { btn: btn, fireFn: fireFn, lastActivity: Date.now(), wasPaused: false };
+            st.activityHandler = function() { st.lastActivity = Date.now(); };
+            ['pointerdown','keydown','touchstart'].forEach(function(ev){ document.addEventListener(ev, st.activityHandler, true); });
+            st.tick = function() {
+                if (Date.now() - st.lastActivity > IDLE_LIMIT) {
+                    _stopCatchNonstopCountdown();
+                    if (btn) btn.textContent = 'Play Again';
+                    return;
+                }
+                remaining -= 1;
+                if (remaining <= 0) {
+                    _stopCatchNonstopCountdown();
+                    fireFn();
+                    return;
+                }
+                btn.textContent = '⏵ ' + remaining;
+            };
+            st.timer = setInterval(st.tick, 1000);
+            st.visHandler = function() {
+                if (document.visibilityState === 'hidden') {
+                    st.wasPaused = true;
+                    clearInterval(st.timer); st.timer = null;
+                } else if (st.wasPaused && st.btn) {
+                    st.wasPaused = false;
+                    st.lastActivity = Date.now();
+                    st.timer = setInterval(st.tick, 1000);
+                }
+            };
+            document.addEventListener('visibilitychange', st.visHandler);
+            _catchNonstopState = st;
+        }
+        function _stopCatchNonstopCountdown() {
+            var st = _catchNonstopState;
+            if (!st) return;
+            if (st.timer) clearInterval(st.timer);
+            if (st.activityHandler) {
+                ['pointerdown','keydown','touchstart'].forEach(function(ev){ document.removeEventListener(ev, st.activityHandler, true); });
+            }
+            if (st.visHandler) document.removeEventListener('visibilitychange', st.visHandler);
+            if (st.btn) st.btn.classList.remove('nonstop-countdown');
+            _catchNonstopState = null;
         }
 
         function _catchCleanup() {
@@ -1220,20 +2897,412 @@
             _catchGame = null;
             var overlay = document.getElementById('catch-game-overlay');
             if (overlay) overlay.remove();
+            document.body.classList.remove('catch-active');
+        }
+
+        // Catch pause: freeze the round in place and show a tap-to-continue
+        // overlay. Per spec, resume does NOT continue the same round — any
+        // tap on the overlay clears the current falling cards and starts a
+        // fresh round (single-player or 2-player as appropriate). Lives /
+        // score / round counter are preserved across the pause, so it acts
+        // like a momentary "skip this drop and serve a new one" rather than
+        // a full quit.
+        function _catchPause() {
+            if (!_catchGame || _catchGame.paused) return;
+            _catchGame.paused = true;
+            // Stop the round: cancel the animation frame and disable click
+            // routing so falling cards don't accept input while paused.
+            if (_catchGame.animFrameId) {
+                cancelAnimationFrame(_catchGame.animFrameId);
+                _catchGame.animFrameId = null;
+            }
+            _catchGame.roundActive = false;
+            var host = document.getElementById('catch-game-overlay');
+            if (!host) return;
+            // Build the pause overlay if it isn't already there.
+            var pauseEl = document.getElementById('catch-pause-overlay');
+            if (!pauseEl) {
+                pauseEl = document.createElement('div');
+                pauseEl.id = 'catch-pause-overlay';
+                pauseEl.className = 'catch-pause-overlay';
+                pauseEl.innerHTML =
+                    '<div class="catch-pause-card">' +
+                      '<div class="catch-pause-title">Paused</div>' +
+                      '<div class="catch-pause-sub">Tap anywhere to continue with a new task</div>' +
+                    '</div>';
+                pauseEl.addEventListener('click', _catchResume);
+                host.appendChild(pauseEl);
+            }
+        }
+
+        function _catchResume() {
+            if (!_catchGame || !_catchGame.paused) return;
+            _catchGame.paused = false;
+            var pauseEl = document.getElementById('catch-pause-overlay');
+            if (pauseEl) pauseEl.remove();
+            // Wipe whatever was mid-fall and serve a fresh round. The next
+            // round picks a (possibly different) target value via the same
+            // logic the regular round-end path uses, so 'tap to continue'
+            // really does feel like a new task rather than a resume.
+            if (_catchGame.numPlayers === 2) {
+                if (typeof _catch2pClearFalling === 'function') _catch2pClearFalling();
+                if (typeof _catch2pStartRound === 'function') _catch2pStartRound();
+            } else {
+                _catchClearFalling();
+                _catchStartRound();
+            }
+        }
+
+        // =====================================================================
+        // 2-player touch Catch mode (shared target card in the middle, two
+        // independent play zones, per-player lives + coins, winner decided
+        // when first player reaches 0 lives). Runs in parallel to the 1P path
+        // above; _catchGame.numPlayers === 2 controls which code runs.
+        // =====================================================================
+        function _catch2pBuildLayout() {
+            // Replace single .catch-game-area contents with 3-column layout:
+            //   [zone P1] [middle: target] [zone P2]
+            var overlay = document.getElementById('catch-game-overlay');
+            var ga = overlay && overlay.querySelector('.catch-game-area');
+            if (!ga) return;
+            ga.innerHTML = '';
+            ga.classList.add('catch-2p');
+            // Hide the single-player top HUD; we use per-player HUDs instead
+            var topHud = overlay.querySelector('.catch-hud');
+            if (topHud) {
+                // keep the close button, hide round/lives/coin (unused in 2P)
+                var r = topHud.querySelector('#catch-round'); if (r) r.style.display = 'none';
+                var l = topHud.querySelector('#catch-lives'); if (l) l.style.display = 'none';
+                var cc = topHud.querySelector('#catch-coin-display'); if (cc) cc.style.display = 'none';
+            }
+            function makeZone(idx) {
+                var col = document.createElement('div');
+                col.className = 'catch-2p-col';
+                col.dataset.player = String(idx + 1);
+                var label = document.createElement('div');
+                label.className = 'catch-2p-label';
+                label.textContent = 'Player ' + (idx + 1);
+                col.appendChild(label);
+                var hud = document.createElement('div');
+                hud.className = 'catch-2p-hud';
+                hud.innerHTML = '<span class="catch-2p-lives" id="catch-2p-lives-' + idx + '"></span>' +
+                                '<span class="catch-2p-coins" id="catch-2p-coins-' + idx + '"></span>';
+                col.appendChild(hud);
+                var zone = document.createElement('div');
+                zone.className = 'catch-2p-zone';
+                zone.id = 'catch-2p-zone-' + idx;
+                col.appendChild(zone);
+                return col;
+            }
+            var p1 = makeZone(0);
+            var middle = document.createElement('div');
+            middle.className = 'catch-2p-middle';
+            middle.innerHTML = '<div class="catch-2p-target-label">Find this card</div>' +
+                               '<div class="catch-2p-target-card" id="catch-2p-target"></div>' +
+                               '<div class="catch-2p-round" id="catch-2p-round">Round 1</div>';
+            // Pause button lives in the top HUD (kept visible in 2P) — no
+            // need for a duplicate here.
+            var p2 = makeZone(1);
+            ga.appendChild(p1);
+            ga.appendChild(middle);
+            ga.appendChild(p2);
+            _catch2pUpdateHUD();
+        }
+
+        function _catch2pUpdateHUD() {
+            if (!_catchGame || _catchGame.numPlayers !== 2) return;
+            for (var i = 0; i < 2; i++) {
+                var lEl = document.getElementById('catch-2p-lives-' + i);
+                var cEl = document.getElementById('catch-2p-coins-' + i);
+                if (lEl) {
+                    var h = '', p = _catchGame.players[i];
+                    for (var k = 0; k < p.lives; k++) h += '❤';
+                    for (var k2 = p.lives; k2 < 3; k2++) h += '♡';
+                    lEl.textContent = h;
+                }
+                if (cEl) cEl.textContent = '🟡 ' + _catchGame.players[i].coins;
+            }
+            var rEl = document.getElementById('catch-2p-round');
+            if (rEl) rEl.textContent = 'Round ' + _catchGame.round;
+        }
+
+        // Pick a target card, then for each player pick a match card. When the
+        // row has 3+ cards the two players get DIFFERENT "other" cards; when
+        // the row has only 2 cards they both get the same match (the warning
+        // pill in the Game Creator flags this scenario).
+        function _catch2pStartRound() {
+            if (!_catchGame || !_catchGame.active) return;
+            _catchGame.roundActive = true;
+            var vGroups = _catchGame.valueGroups;
+            var vKeys = _catchGame.valueKeys;
+            var available = vKeys.filter(function(v) { return _catchGame.lastUsedValues.indexOf(v) < 0; });
+            if (available.length === 0) available = vKeys.slice();
+            var targetValue = available[Math.floor(Math.random() * available.length)];
+            _catchGame.lastUsedValues.push(targetValue);
+            if (_catchGame.lastUsedValues.length > 2) _catchGame.lastUsedValues.shift();
+            var targetCards = vGroups[targetValue];
+            // Same per-card constraint as single-player:
+            //   _freezeState === 'frozen'   → static-only
+            //   _freezeState === 'floating' → falling-only
+            //   undefined                   → either role
+            var staticPool2p = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
+            if (staticPool2p.length === 0) staticPool2p = targetCards;
+            var staticCard = staticPool2p[Math.floor(Math.random() * staticPool2p.length)];
+            var staticEl = document.getElementById('catch-2p-target');
+            if (staticEl) {
+                staticEl.innerHTML = '';
+                var svg = _catchBuildCardSVG(staticCard);
+                if (svg) staticEl.appendChild(svg);
+                _catchApplyShape(staticEl, staticCard);
+            }
+            // Matches for each player: non-static, non-frozen cards from the
+            // same value group. Fallback ladder: drop the frozen filter, then
+            // (last resort) re-use the static card.
+            var matchCandidates = targetCards.filter(function(c) {
+                return c.label !== staticCard.label && c._freezeState !== 'frozen';
+            });
+            if (matchCandidates.length === 0) {
+                matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
+            }
+            _catchShuffle(matchCandidates);
+            var match1 = matchCandidates[0] || staticCard;
+            var match2 = (matchCandidates.length > 1) ? matchCandidates[1] : match1;
+            // Distractor pool: other-value cards, frozen excluded (frozen
+            // cards never fall). Fall back to the unfiltered pool if every
+            // other-value card is frozen.
+            var distractorPool = [];
+            vKeys.forEach(function(v) {
+                if (v !== targetValue) vGroups[v].forEach(function(c) {
+                    if (c._freezeState !== 'frozen') distractorPool.push(c);
+                });
+            });
+            if (distractorPool.length === 0) {
+                vKeys.forEach(function(v) {
+                    if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
+                });
+            }
+            var numDistractors = Math.max(1, _catchGame.numFalling - 1);
+            // Spawn into each player's zone independently
+            for (var pi = 0; pi < 2; pi++) {
+                var zone = document.getElementById('catch-2p-zone-' + pi);
+                if (!zone) continue;
+                _catchGame.players[pi].fallingCards = [];
+                var pool = distractorPool.slice();
+                _catchShuffle(pool);
+                var cards = [{ card: (pi === 0) ? match1 : match2, isMatch: true }];
+                for (var d = 0; d < numDistractors && d < pool.length; d++) {
+                    cards.push({ card: pool[d], isMatch: false });
+                }
+                _catchShuffle(cards);
+                _catch2pSpawnInto(zone, cards, pi);
+            }
+            _catchGame._lastTime = null;
+            _catchGame.animFrameId = requestAnimationFrame(_catch2pAnimLoop);
+        }
+
+        function _catch2pSpawnInto(zone, cards, playerIdx) {
+            var rect = zone.getBoundingClientRect();
+            var areaWidth = rect.width;
+            var cardSize = 90;
+            cards.forEach(function(fc, idx) {
+                var el = document.createElement('div');
+                el.className = 'catch-falling-card';
+                var svg = _catchBuildCardSVG(fc.card);
+                if (svg) el.appendChild(svg);
+                _catchApplyShape(el, fc.card);
+                var margin = 14;
+                var elW = parseFloat(el.style.width) || cardSize;
+                var maxX = Math.max(0, areaWidth - elW - margin * 2);
+                var x = margin + Math.random() * maxX;
+                var startY = -100 - idx * 80;
+                var tilt = (Math.random() * 20 - 10);
+                var drift = (Math.random() * 30 - 15);
+                el.style.left = x + 'px';
+                el.style.top = startY + 'px';
+                el.style.transform = 'rotate(' + tilt + 'deg)';
+                var cd = {
+                    el: el, isMatch: fc.isMatch, x: x, y: startY,
+                    tilt: tilt, tiltDir: (Math.random() > 0.5 ? 1 : -1),
+                    tiltSpeed: 2 + Math.random() * 3,
+                    drift: drift, clicked: false,
+                    player: playerIdx
+                };
+                _catchGame.players[playerIdx].fallingCards.push(cd);
+                el.onclick = (function(cdata) { return function(e) {
+                    e.stopPropagation();
+                    _catch2pCardClicked(cdata);
+                }; })(cd);
+                zone.appendChild(el);
+            });
+        }
+
+        function _catch2pAnimLoop(timestamp) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive) return;
+            if (!_catchGame._lastTime) _catchGame._lastTime = timestamp;
+            var dt = (timestamp - _catchGame._lastTime) / 1000;
+            _catchGame._lastTime = timestamp;
+            var cardSize = 90;
+            var missedThisFrame = []; // playerIdx values that missed a match
+            for (var pi = 0; pi < 2; pi++) {
+                var zone = document.getElementById('catch-2p-zone-' + pi);
+                if (!zone) continue;
+                var areaH = zone.getBoundingClientRect().height;
+                var areaW = zone.getBoundingClientRect().width;
+                var speed = areaH / _catchGame.fallDuration;
+                var list = _catchGame.players[pi].fallingCards;
+                for (var ci = 0; ci < list.length; ci++) {
+                    var cd = list[ci];
+                    if (cd.clicked) continue;
+                    cd.y += speed * dt;
+                    cd.x += cd.drift * dt;
+                    cd.tilt += cd.tiltDir * cd.tiltSpeed * dt;
+                    if (cd.x < 5) { cd.x = 5; cd.drift = Math.abs(cd.drift); }
+                    if (cd.x > areaW - cardSize - 5) { cd.x = areaW - cardSize - 5; cd.drift = -Math.abs(cd.drift); }
+                    if (cd.tilt > 10) cd.tiltDir = -1;
+                    if (cd.tilt < -10) cd.tiltDir = 1;
+                    cd.el.style.left = cd.x + 'px';
+                    cd.el.style.top = cd.y + 'px';
+                    cd.el.style.transform = 'rotate(' + cd.tilt.toFixed(1) + 'deg)';
+                    if (cd.y >= areaH + cardSize) {
+                        cd.clicked = true;
+                        cd.el.style.display = 'none';
+                        if (cd.isMatch && missedThisFrame.indexOf(pi) < 0) missedThisFrame.push(pi);
+                    }
+                }
+            }
+            if (missedThisFrame.length > 0) {
+                // Every player whose match fell off this frame loses a life.
+                // Round ends for both so we can restart synchronously.
+                _catchGame.roundActive = false;
+                missedThisFrame.forEach(function(mpi) {
+                    _catchGame.players[mpi].lives = Math.max(0, _catchGame.players[mpi].lives - 1);
+                });
+                _catch2pUpdateHUD();
+                if (typeof _catchPlayWrongSound === 'function') _catchPlayWrongSound();
+                var anyZero = missedThisFrame.some(function(mpi) { return _catchGame.players[mpi].lives <= 0; });
+                if (anyZero) {
+                    setTimeout(function() { _catch2pGameOver(); }, 800);
+                } else {
+                    setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 1200);
+                }
+                return;
+            }
+            // Round ends once BOTH players have clicked their match card
+            // (misses are caught above via anyMatchMissed).
+            var matchesResolved = [0, 1].every(function(pi) {
+                return _catchGame.players[pi].fallingCards.some(function(cd) { return cd.isMatch && cd.clicked; });
+            });
+            if (matchesResolved) {
+                _catchGame.roundActive = false;
+                _catchGame.round++;
+                if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
+                if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 700);
+                return;
+            }
+            _catchGame.animFrameId = requestAnimationFrame(_catch2pAnimLoop);
+        }
+
+        function _catch2pCardClicked(cd) {
+            if (!_catchGame || !_catchGame.active || !_catchGame.roundActive || cd.clicked) return;
+            cd.clicked = true;
+            var pi = cd.player;
+            if (cd.isMatch) {
+                cd.el.classList.add('catch-correct');
+                _catchGame.players[pi].coins++;
+                _catch2pUpdateHUD();
+                if (typeof _catchPlayCorrectSound === 'function') _catchPlayCorrectSound();
+            } else {
+                cd.el.classList.add('catch-wrong');
+                if (typeof _catchPlayWrongSound === 'function') _catchPlayWrongSound();
+                if (_catchGame.players[pi].coins > 0) {
+                    _catchGame.players[pi].coins--;
+                    _catch2pUpdateHUD();
+                }
+                setTimeout(function() {
+                    cd.el.classList.remove('catch-wrong');
+                    cd.clicked = false;
+                }, 500);
+            }
+        }
+
+        function _catch2pClearFalling() {
+            for (var i = 0; i < 2; i++) {
+                var z = document.getElementById('catch-2p-zone-' + i);
+                if (z) z.querySelectorAll('.catch-falling-card').forEach(function(e) { e.remove(); });
+                if (_catchGame && _catchGame.players) _catchGame.players[i].fallingCards = [];
+            }
+        }
+
+        function _catch2pGameOver() {
+            if (!_catchGame) return;
+            _catchGame.active = false;
+            if (_catchGame.animFrameId) cancelAnimationFrame(_catchGame.animFrameId);
+            if (typeof _catchPlayLossSound === 'function') _catchPlayLossSound();
+            var overlay = document.getElementById('catch-game-overlay');
+            if (!overlay) return;
+            var ga = overlay.querySelector('.catch-game-area');
+            var p0 = _catchGame.players[0].coins;
+            var p1 = _catchGame.players[1].coins;
+            var msg;
+            if (p0 > p1) msg = 'Player 1 wins! (' + p0 + ' vs ' + p1 + ')';
+            else if (p1 > p0) msg = 'Player 2 wins! (' + p1 + ' vs ' + p0 + ')';
+            else msg = 'Tie! Both players scored ' + p0;
+            var go = document.createElement('div');
+            go.className = 'catch-gameover';
+            go.innerHTML = '<h2>Game Over</h2>' +
+                           '<div class="catch-gameover-msg">' + msg + '</div>' +
+                           '<button id="catch-2p-play-again">Play Again</button>' +
+                           '<button id="catch-2p-close">Close</button>';
+            ga.innerHTML = '';
+            ga.appendChild(go);
+            document.getElementById('catch-2p-play-again').onclick = function() {
+                var idx = _catchGame.catchIndex;
+                _catchCleanup();
+                _catchNumPlayers = 2;
+                openCatchPlayModal(idx);
+            };
+            document.getElementById('catch-2p-close').onclick = function() { _catchCleanup(); };
         }
 
         function _catchBuildCardSVG(cardInfo) {
-            if (cardInfo.svgMarkup !== undefined) {
-                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('viewBox', '0 0 60 60');
-                svg.innerHTML = cardInfo.svgMarkup || '';
-                if (cardInfo.isVariation && cardInfo.transform) {
-                    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                    g.setAttribute('transform', cardInfo.transform);
-                    while (svg.firstChild) g.appendChild(svg.firstChild);
-                    svg.appendChild(g);
+            // PRIMARY: resolve by stableId against card-set storage so the
+            // round renders the LIVE card content, not a stale svgMarkup
+            // snapshot frozen onto the game record. Without this, a card's
+            // snapshot that was overwritten in the past (e.g. cross-game
+            // contamination from Multiply-by-4 into Match-0-4) keeps showing
+            // up forever even after Studio's repair pass binds the stableId
+            // to the correct home-set card. Mirrors Studio's _catchBuildCardSVG
+            // (pm-studio-DrV.html ~17027) and the cards-library overlay logic.
+            if (cardInfo.stableId && typeof _gpResolveBySid === 'function') {
+                var stored = _gpResolveBySid(cardInfo.stableId);
+                if (stored && typeof stored.svgContent === 'string') {
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('viewBox', '0 0 60 60');
+                    svg.innerHTML = stored.svgContent;
+                    if (cardInfo.isVariation && cardInfo.transform) {
+                        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        g.setAttribute('transform', cardInfo.transform);
+                        while (svg.firstChild) g.appendChild(svg.firstChild);
+                        svg.appendChild(g);
+                    }
+                    return svg;
                 }
-                return svg;
+            }
+            // FALLBACK: snapshot on the game record. Used only when the
+            // stableId can't be resolved (e.g. card storage missing the
+            // entry, or card has no stableId at all).
+            if (cardInfo.svgMarkup !== undefined) {
+                var svg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg2.setAttribute('viewBox', '0 0 60 60');
+                svg2.innerHTML = cardInfo.svgMarkup || '';
+                if (cardInfo.isVariation && cardInfo.transform) {
+                    var g2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g2.setAttribute('transform', cardInfo.transform);
+                    while (svg2.firstChild) g2.appendChild(svg2.firstChild);
+                    svg2.appendChild(g2);
+                }
+                return svg2;
             }
             var fallback = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             fallback.setAttribute('viewBox', '0 0 60 60');
@@ -1254,16 +3323,36 @@
 
         function _catchApplyShape(el, cardInfo) {
             if (!el || !cardInfo) return;
-            var shape = cardInfo.cardShape;
-            if (!shape || shape === 'square') return;
-            var w = cardInfo.cardShapeW || 60;
-            var h = cardInfo.cardShapeH || 60;
-            var isRound = (shape === 'circle' || shape === 'oval');
-            var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
-            var scaleRatio = baseSize / h;
-            var pixelW = Math.round(w * scaleRatio);
-            el.style.width = pixelW + 'px';
-            if (isRound) el.style.borderRadius = '50%';
+            // Use game-level shape override if available, else per-card shape
+            var g = _catchGame || {};
+            var shape = g.gameCardShape || cardInfo.cardShape;
+            var cornerR = (g.gameCardShape && g.gameCardCornerR != null) ? g.gameCardCornerR : (cardInfo.cardCornerR != null ? parseFloat(cardInfo.cardCornerR) : -1);
+            if (isNaN(cornerR)) cornerR = -1;
+            var picScale = (g.gameCardShape && g.gameCardScale) ? (g.gameCardScale / 100) : 1;
+
+            if (!shape || shape === 'square') {
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
+            } else if (shape === 'circle') {
+                el.style.borderRadius = '50%';
+                el.style.overflow = 'hidden';
+            } else {
+                var w = (g.gameCardShape ? g.gameCardShapeW : cardInfo.cardShapeW) || 60;
+                var h = (g.gameCardShape ? g.gameCardShapeH : cardInfo.cardShapeH) || 60;
+                var baseSize = parseFloat(el.style.height) || el.offsetHeight || 90;
+                var scaleRatio = baseSize / h;
+                var pixelW = Math.round(w * scaleRatio);
+                el.style.width = pixelW + 'px';
+                if (cornerR >= 0) { el.style.borderRadius = cornerR + '%'; el.style.overflow = 'hidden'; }
+            }
+
+            // Apply picture scale
+            if (picScale !== 1) {
+                var svg = el.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = 'scale(' + picScale + ')';
+                    svg.style.transformOrigin = 'center center';
+                }
+            }
         }
 
         function _catchShuffle(arr) {
@@ -1339,6 +3428,51 @@
         populateIntroGames();
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
+    <script src="js/voice.js?v=v1"></script>
     <script src="js/game.js?v=xeno-tweaks-1"></script>
+    <script>
+        // After game.js loads, intercept Start Game for catch mode
+        (function() {
+            var origStartBtn = document.getElementById('start-game-btn');
+            if (!origStartBtn) return;
+            origStartBtn.addEventListener('click', function(e) {
+                if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                    e.stopImmediatePropagation();
+                    // Respect the setup page's player-count selection for touch
+                    // Catch games (the "2 Players" button in GPt Ct Setup maps
+                    // to the new 2-player Catch mode). Mouse mode stays 1P.
+                    _catchNumPlayers = 1;
+                    if ((_catchInputMode || 'touch') === 'touch') {
+                        var selPlayer = document.querySelector('.player-btn.selected');
+                        if (selPlayer) {
+                            var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
+                            if (pp === 2) _catchNumPlayers = 2;
+                        }
+                    }
+                    document.getElementById('start-screen').style.display = 'none';
+                    openCatchPlayModal(_pendingCatchGameIndex);
+                    _pendingCatchGameIndex = -1;
+                }
+            }, true); // capture phase to fire before game.js handler
+        })();
+    </script>
+
+    <!-- Pause overlay — full-screen translucent backdrop with a centered
+         "Game paused" message. Shown when the kid has tapped pause, hidden
+         otherwise. Tap anywhere on the overlay to resume. While visible,
+         all game input is blocked (the overlay sits above and consumes
+         taps; game.js's input handlers also early-return on _isPaused). -->
+    <div id="game-pause-overlay" class="game-pause-overlay" style="display:none;">
+        <div class="game-pause-card">
+            <div class="game-pause-icon">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="11" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,0.05)"/>
+                    <polygon points="9,8 9,16 17,12" fill="white"/>
+                </svg>
+            </div>
+            <div class="game-pause-title" id="game-pause-title">Game paused</div>
+            <div class="game-pause-sub" id="game-pause-sub">Tap anywhere to continue</div>
+        </div>
+    </div>
 </body>
 </html>

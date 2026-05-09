@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Pre-commit hook: auto-bump the TRIAL banner whenever a commit touches
+# index.html or pm-studio-DrV.html, so the deployed banner always
+# reflects actual commit time.
+#
+# Enable for this repo (one-time):
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+STAGED=$(git diff --cached --name-only)
+
+# Only act if the commit is going to ship deployable HTML. Pure docs /
+# script / CSS commits don't need the banner bumped (it'd cause noisy
+# diffs on every `MEMORY.md` tweak).
+if echo "$STAGED" | grep -qE '^(index\.html|pm-studio-DrV\.html)$'; then
+    bash "$REPO_ROOT/scripts/bump-trial.sh"
+    git add -- index.html pm-studio-DrV.html >/dev/null 2>&1 || true
+fi

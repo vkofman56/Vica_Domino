@@ -188,14 +188,86 @@ class VicaDominoGame {
         // Back arrow button (game screen)
         document.getElementById('back-arrow-btn').addEventListener('click', () => this.resetToSetup());
 
-        // Back arrow button (player names/icon selection screen)
-        document.getElementById('back-to-setup-btn').addEventListener('click', () => this.backToGameSetup());
+        // Back arrow button (player names/icon selection screen) - kept for compat
+        var _btsBtn = document.getElementById('back-to-setup-btn');
+        if (_btsBtn) _btsBtn.addEventListener('click', () => this.backToGameSetup());
 
-        // Back arrow button (start screen -> intro screen)
+        // Helper: restore a page-name-label from localStorage
+        var _restoreLabel = function(el) {
+            if (!el) return;
+            var saved = JSON.parse(localStorage.getItem('pageNameLabels_gp2') || '{}');
+            var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
+            if (saved[id]) el.textContent = saved[id];
+        };
+
+        // Helper: show GP Setup label, hide GP S label
+        var _showSetupLabel = function() {
+            var lbl1 = document.getElementById('setup-page-label');
+            var lbl2 = document.getElementById('setup2-page-label');
+            if (lbl1) {
+                lbl1.style.display = '';
+                // For catch games, set the correct label instead of restoring from localStorage
+                if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                    var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
+                    lbl1.textContent = _cim === 'mouse' ? 'GPm Cm Setup' : 'GPt Ct Setup';
+                } else {
+                    _restoreLabel(lbl1);
+                }
+            }
+            if (lbl2) lbl2.style.display = 'none';
+        };
+
+        // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
+            var pn = document.getElementById('player-names');
+            // For mouse-mode catch: player-names is shown on setup page, so back goes to intro
+            var isCatchMouse = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0 &&
+                                typeof _catchInputMode !== 'undefined' && _catchInputMode === 'mouse');
+            if (isCatchMouse) {
+                _pendingCatchGameIndex = -1;
+                this.backToGameSetup();
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                resetIntroScreen();
+                this._cleanupVoiceUI();
+            } else if (pn && pn.style.display !== 'none') {
+                this.backToGameSetup();
+                _showSetupLabel();
+            } else {
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                resetIntroScreen();
+                this._cleanupVoiceUI();
+            }
+        });
+
+        // Home buttons — always go to GP 0 (intro/welcome)
+        var _goHome = () => {
             document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'none';
             document.getElementById('intro-screen').style.display = 'flex';
             resetIntroScreen();
+            _showSetupLabel();
+            this._cleanupVoiceUI();
+        };
+        var _homeSetup = document.getElementById('home-btn-setup');
+        if (_homeSetup) _homeSetup.addEventListener('click', _goHome);
+        var _homeGame = document.getElementById('home-btn-game');
+        if (_homeGame) _homeGame.addEventListener('click', _goHome);
+
+        // Pause button (top-right of game-screen, visible only during a
+        // sun-level round) and overlay (tap-anywhere-to-resume).
+        var _pauseBtn = document.getElementById('game-pause-btn');
+        if (_pauseBtn) _pauseBtn.addEventListener('click', () => this._pauseGame());
+        var _pauseOverlay = document.getElementById('game-pause-overlay');
+        if (_pauseOverlay) _pauseOverlay.addEventListener('click', () => this._resumeGame());
+        // Tab-hidden mid-round → auto-pause. On return we stay paused so the
+        // kid (who may have left the page distracted) explicitly taps to
+        // resume rather than waking up to a running timer.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && this._canPause()) {
+                this._pauseGame();
+            }
         });
 
         // Back from create-edit screen (admin only)
@@ -559,18 +631,27 @@ class VicaDominoGame {
         selectedRow.innerHTML = '';
         selectedRow.style.display = 'flex';
 
-        // Clone the selected level button wrapper
-        const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
-        selectedLevelWrapper.style.display = 'flex';
-        selectedRow.appendChild(selectedLevelWrapper);
+        // Clone the selected level button wrapper — but only if there's
+        // actually a visible level option to represent. When admin disables
+        // every level in Game Settings, the entire .setup-left column is
+        // already hidden upstream (in _applyGameSetupToPlayerScreen). The
+        // selected-options-row should follow suit and not flash a stale
+        // domino icon for `this.selectedLevel`.
+        const _anyVisibleLevel = Array.prototype.some.call(
+            document.querySelectorAll('#start-screen .level-btn-wrapper'),
+            function(w) { return w.style.display !== 'none'; }
+        );
+        if (_anyVisibleLevel) {
+            const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
+            selectedLevelWrapper.style.display = 'flex';
+            selectedRow.appendChild(selectedLevelWrapper);
+        }
 
-        // Clone the selected player button
-        const selectedPlayerBtn = e.target.cloneNode(true);
-        selectedPlayerBtn.style.display = 'inline-block';
-        selectedPlayerBtn.style.marginTop = '-35pt';
-        selectedPlayerBtn.style.paddingTop = 'calc(15px - 1pt)';
-        selectedPlayerBtn.style.paddingBottom = 'calc(15px - 1pt)';
-        selectedRow.appendChild(selectedPlayerBtn);
+        // No cloned player-btn chip at the top of the selected-options
+        // row for any variant. Per the user's explicit pass: 1-player
+        // (with or without timer), 2 players (± timer), and 3 players
+        // (± timer) all suppress the title — the player-name inputs
+        // below are self-evident.
 
         // Preserve start button if it was moved into name-inputs (from Xeno row)
         const startBtn = document.getElementById('start-game-btn');
@@ -610,10 +691,16 @@ class VicaDominoGame {
             // Create name input
             const input = document.createElement('input');
             input.type = 'text';
-            // No number prefix for single-with-Xeno or 2-player games
-            const isSingleWithXeno = (count === 1 && includeXeno);
-            const noPrefix = isSingleWithXeno || count === 2;
-            const placeholderName = isSingleWithXeno ? "Player's Name" : `Player ${i + 1}`;
+            // Single-player variants (with or without Xeno) → use the
+            // unprefixed "Player's Name" placeholder so the box reads
+            // the same way regardless of which 1-player option the
+            // admin enabled. 2-player drops the "1. ... name" prefix
+            // but keeps the per-player "Player N" tag. 3-player keeps
+            // the prefixed "1. Player 1 name" form so the inputs are
+            // distinguishable from each other.
+            const isSinglePlayer = (count === 1);
+            const noPrefix = isSinglePlayer || count === 2;
+            const placeholderName = isSinglePlayer ? "Player's Name" : `Player ${i + 1}`;
             input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
             input.value = '';
             input.dataset.playerIndex = i;
@@ -840,6 +927,16 @@ class VicaDominoGame {
         document.getElementById('start-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
+        // Update board page name based on choices
+        var _boardLbl = document.getElementById('board-page-label');
+        if (_boardLbl) {
+            var _gt = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) ? 'C' : 'F';
+            var _d = this.selectedLevel === 'circle' ? '2' : this.selectedLevel === 'triangle' ? '3' : '4';
+            var _p = (this.players.length === 1 && this.includeXeno) ? '1' :
+                     (this.players.length === 2 && !this.includeXeno) ? '2' : '3';
+            _boardLbl.textContent = 'GP ' + _gt + _d + _p + ' Board';
+        }
+
         // Show current game name temporarily next to title
         this.showGameName();
 
@@ -877,6 +974,12 @@ class VicaDominoGame {
     startSunLevelGame() {
         this._gameRound = (this._gameRound || 0) + 1;
         this.gamePhase = 'sunLevel';
+        // Mark the round as actively running. CSS uses this to show the
+        // pause button. We add it here (the universal round-start entry
+        // point) rather than inside startSunLevelTimer because that
+        // timer is only set up when the player options include Xeno;
+        // pause should be available for every round, timer or not.
+        document.body.classList.add('game-round-running');
         this.sunLevelTimer = null;
         this.sunLevelTimeLeft = this.currentTimerDuration;
         this.sunLevelDuration = this.currentTimerDuration;
@@ -908,7 +1011,12 @@ class VicaDominoGame {
 
         // Update status
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
-            this.updateStatus('🌞 Select double by pressing it', 'highlight');
+            // Voice mode on? Tell the player they can speak the position.
+            if (window._currentVoiceInput) {
+                this.updateStatus('🌞 Press or say "first" / "second" / "third" / "fourth"', 'highlight');
+            } else {
+                this.updateStatus('🌞 Select double by pressing it', 'highlight');
+            }
         } else if (this.includeXeno) {
             this.updateStatus('🌞 Find the DOUBLE before time runs out! Click on it!', 'highlight');
         } else {
@@ -954,6 +1062,394 @@ class VicaDominoGame {
             // Hide timer box if no Xeno
             document.getElementById('xeno-timer-box').style.display = 'none';
         }
+
+        // Voice input: start the recognizer for this round if the active Type
+        // has voiceInput enabled. 1-player only for v1.
+        this._startVoiceForRound();
+        // Sand-timer: start the hourglass if conditions are met (non-stop
+        // type, no Xeno, sandTimer > 0). Internally guarded so non-matching
+        // games are no-ops.
+        this._startSandTimer();
+    }
+
+    // === Voice input (Find the Doubles, 1-player) ===
+    // Stand-alone VoiceInput module (js/voice.js) emits position events;
+    // we route them through the same handler a click would.
+    _startVoiceForRound() {
+        // Voice off for this type / 1-player only / browser unsupported:
+        // make sure no leftover mic indicator is visible from a previous
+        // (voice-on) round before bailing.
+        var voiceOn = !!window._currentVoiceInput &&
+                      this.players && this.players.length === 1 &&
+                      typeof VoiceInput !== 'undefined' &&
+                      VoiceInput.isSupported();
+        if (!voiceOn) {
+            // Stop any prior recognizer and remove the indicator entirely
+            // so non-voice rounds don't carry the badge over from a
+            // previous voice-enabled session.
+            if (this._voice) this._voice.stop();
+            var stale = document.getElementById('voice-mic-indicator');
+            if (stale) stale.remove();
+            // Surface the unsupported notice if voice was wanted but
+            // unavailable. Skip if 2+ players (1-player-only is by design,
+            // not a browser limit, so no toast).
+            if (window._currentVoiceInput && this.players && this.players.length === 1 &&
+                typeof VoiceInput !== 'undefined' && !VoiceInput.isSupported()) {
+                this._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+            }
+            return;
+        }
+        var maxPos = (this.players[0].hand || []).length;
+        if (maxPos < 2) maxPos = 2;
+        var self = this;
+        if (!this._voice) {
+            this._voice = new VoiceInput({
+                language: window._currentVoiceLang || 'en',
+                maxPosition: maxPos,
+                synonyms: window._currentVoiceSynonyms || null,
+                onPhrase: function(ev) { self._onVoicePhrase(ev); },
+                onHeard: function(ev) {
+                    // Show what the recognizer heard, matched or not — gives
+                    // the user feedback that the mic is alive when nothing
+                    // in their phrase matches the synonym table.
+                    var prefix = ev.matched ? '' : '? ';
+                    self._showLastHeard(prefix + (ev.raw || ''));
+                },
+                onStatus: function(ev) {
+                    // Surface recognizer events (start/end/error/result) into
+                    // the indicator so the user can diagnose without DevTools.
+                    if (ev.kind === 'start') {
+                        self._setVoiceStatus('listening (' + (ev.langCode || ev.language || '?') + ')');
+                    } else if (ev.kind === 'end') {
+                        self._setVoiceStatus('end → restart');
+                    } else if (ev.kind === 'error') {
+                        self._setVoiceStatus('err: ' + (ev.detail || 'unknown'));
+                    } else if (ev.kind === 'result') {
+                        // Any audio reaching the engine — show the live
+                        // transcript preview here so the user sees whether
+                        // the recognizer is receiving sound at all.
+                        self._setVoiceStatus('hearing: ' + (ev.preview || '(empty)'));
+                    }
+                },
+                onError: function(err) {
+                    if (err.kind === 'permission') {
+                        self._showVoiceNotice('Microphone permission denied. Tap to play.');
+                    } else if (err.kind === 'unsupported') {
+                        self._showVoiceNotice('Voice mode unavailable on this browser. Tap to play.');
+                    }
+                    self._setMicIndicator('error');
+                },
+                onListeningChange: function(on) { self._setMicIndicator(on ? 'listening' : 'idle'); }
+            });
+        } else {
+            this._voice.setLanguage(window._currentVoiceLang || 'en');
+            this._voice.setMaxPosition(maxPos);
+            // setSynonyms takes effect on the next utterance — no recognizer
+            // restart needed.
+            if (typeof this._voice.setSynonyms === 'function') {
+                this._voice.setSynonyms(window._currentVoiceSynonyms || null);
+            }
+        }
+        this._ensureMicIndicator();
+        this._voice.start();
+    }
+
+    _stopVoice() {
+        if (this._voice) this._voice.stop();
+        this._setMicIndicator('idle');
+        // Hide the indicator entirely between rounds — it should only show
+        // while voice listening is actively wanted. _ensureMicIndicator
+        // re-adds the class on the next round-start.
+        document.body.classList.remove('voice-round-active');
+    }
+
+    // Full voice teardown — used when navigating away from gameplay (Home,
+    // Back-to-intro). Stops any active recognizer, removes the corner mic
+    // indicator div, and closes any open mic-check diagnostic panel so
+    // they don't carry over into GP setup or the intro screen.
+    _cleanupVoiceUI() {
+        this._stopVoice();
+        this._stopNonstopCountdown && this._stopNonstopCountdown();
+        document.body.classList.remove('voice-round-active');
+        // Defensive sweep — handles any orphaned indicator div even if it
+        // somehow lost its id, and any leftover mic-check panels.
+        document.querySelectorAll('.voice-mic-indicator').forEach(function(el) { el.remove(); });
+        var diag = document.getElementById('voice-mic-check');
+        if (diag) diag.remove();
+        if (window.VoiceInput && VoiceInput.closeMicCheck) {
+            try { VoiceInput.closeMicCheck(); } catch(_){ }
+        }
+        // Pause is round-scoped; navigating away kills it.
+        document.body.classList.remove('game-round-running', 'game-paused');
+        this._isPaused = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
+        // Kill the active round's timer + suppress any pending time-up
+        // callback. Without this, navigating away (Home / back-to-intro)
+        // leaves the sunLevelTimer ticking; it eventually fires
+        // sunLevelTimeUp() and the kid hears the loss sound from the
+        // intro/setup screen. Same for the catch falling-cards loop and
+        // the post-win dim setTimeout.
+        if (this.sunLevelTimer) {
+            clearInterval(this.sunLevelTimer);
+            this.sunLevelTimer = null;
+        }
+        if (this.playAreaDimTimeout) {
+            clearTimeout(this.playAreaDimTimeout);
+            this.playAreaDimTimeout = null;
+        }
+        // Sand-timer: navigate-away kills it.
+        this._stopSandTimer();
+        this._sandWasRunning = false;
+        // Mark the round as no longer in-progress so any in-flight
+        // callback that escaped a clear can early-return on phase check.
+        if (this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon') {
+            this.gamePhase = 'navigatedAway';
+        }
+    }
+
+    // === Pause / Resume — kid-friendly freeze so a 6-8 year old can step
+    // away (bathroom, snack) without losing progress.
+    //
+    // What "freeze everything" means:
+    //   - Stop the Xeno timer at its current value; resume from the same
+    //     remaining seconds.
+    //   - Stop the voice recognizer (kid's "I'm leaving" mustn't fire a
+    //     wrong-answer); restart on resume if voice was on.
+    //   - Stop the non-stop countdown if running; resume from saved value.
+    //   - body.game-paused class freezes CSS animations under #game-screen.
+    //   - Click/touch handlers on dominos early-return on this._isPaused.
+    //   - Show a full-screen overlay; tap anywhere to resume.
+    //   - Tab-hidden mid-round auto-pauses; on visible we stay paused so
+    //     the kid explicitly taps to resume.
+    //
+    // What we don't pause (v1 simplifications):
+    //   - Web Audio fire-and-forget oscillator sounds (lost wah-wah,
+    //     celebration jingle) — they're <1 s each and will play out before
+    //     the kid is back. Pausing each AudioContext mid-flight isn't worth
+    //     the complexity right now.
+    //   - The 10 s sun-level dim animation — already a brief locked-in
+    //     cinematic and pausing it complicates the win-flow.
+    //
+    // Persistence: in-session only. A page reload loses paused state.
+    // Future: restore on reload once player names / scores are persisted.
+    _canPause() {
+        // Pause is meaningful both during an active sun-level round (freezes
+        // the timer + voice + animations) and during the post-round
+        // celebration / end-game-buttons window (freezes the celebration
+        // animation and cancels any non-stop auto-restart countdown so the
+        // kid can step away without the next round firing on its own).
+        if (this._isPaused) return false;
+        return this.gamePhase === 'sunLevel' || this.gamePhase === 'sunLevelWon';
+    }
+
+    _pauseGame(reason) {
+        if (!this._canPause()) return;
+        this._isPaused = true;
+        this._pauseReason = (reason === 'sand') ? 'sand' : 'manual';
+        // Save the timer's remaining seconds so resume restarts cleanly.
+        // sunLevelTimeLeft is updated inside startSunLevelTimer's interval
+        // and is the freshest read; fall back to sunLevelDuration if absent.
+        if (this.sunLevelTimer) {
+            // The interval re-reads elapsed time from a private startTime
+            // closure, so we compute remaining from the displayed value.
+            var disp = parseInt(document.getElementById('timer-display').textContent, 10);
+            this._pausedTimerSeconds = isNaN(disp) ? this.sunLevelDuration : disp;
+            this.stopSunLevelTimer();
+        }
+        // Voice: remember whether it was on so we can restart on resume.
+        this._pausedVoiceWasOn = !!(this._voice && this._voice._wantOn);
+        if (this._voice) this._voice.stop();
+        document.body.classList.remove('voice-round-active');
+        // Non-stop countdown: should never fire during a round (it only
+        // fires between rounds), but pause it defensively in case the
+        // user pauses while a celebration overlay is up after a win.
+        if (this._stopNonstopCountdown) this._stopNonstopCountdown();
+        // Sand-timer: stop it but remember it was running so we can
+        // restart fresh on resume (per design — full reset, not continue).
+        this._sandWasRunning = !!this._sandStartedAt;
+        this._stopSandTimer();
+        document.body.classList.add('game-paused');
+        // Swap overlay text based on reason.
+        var titleEl = document.getElementById('game-pause-title');
+        var subEl = document.getElementById('game-pause-sub');
+        if (this._pauseReason === 'sand') {
+            if (titleEl) titleEl.textContent = 'Are you still there?';
+            if (subEl) subEl.textContent = 'Tap anywhere to continue';
+        } else {
+            if (titleEl) titleEl.textContent = 'Game paused';
+            if (subEl) subEl.textContent = 'Tap anywhere to continue';
+        }
+        var overlay = document.getElementById('game-pause-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+
+    _resumeGame() {
+        if (!this._isPaused) return;
+        this._isPaused = false;
+        document.body.classList.remove('game-paused');
+        var overlay = document.getElementById('game-pause-overlay');
+        if (overlay) overlay.style.display = 'none';
+        // Restart the timer from saved remaining seconds. Update the
+        // current duration so the interval recomputes correctly.
+        if (typeof this._pausedTimerSeconds === 'number' && this.gamePhase === 'sunLevel') {
+            this.sunLevelTimeLeft = this._pausedTimerSeconds;
+            this.sunLevelDuration = this._pausedTimerSeconds;
+            this.currentTimerDuration = this._pausedTimerSeconds;
+            // Re-display the saved value before the next tick so the player
+            // sees the correct number even before 100 ms has elapsed.
+            var disp = document.getElementById('timer-display');
+            if (disp) disp.textContent = this._pausedTimerSeconds;
+            this.startSunLevelTimer();
+        }
+        this._pausedTimerSeconds = null;
+        // Voice: restart if it was on before pause.
+        if (this._pausedVoiceWasOn && window._currentVoiceInput) {
+            this._startVoiceForRound();
+        }
+        this._pausedVoiceWasOn = false;
+        // Sand-timer: always re-evaluate on resume. _startSandTimer is a
+        // no-op when conditions aren't met (e.g. round ended), and the
+        // expiry path stops the timer before pausing, which would have
+        // cleared a was-running flag — so simpler to just restart fresh
+        // any time we resume into an active round.
+        this._sandWasRunning = false;
+        this._startSandTimer();
+    }
+
+    // === Sand-timer (hourglass) — auto-pause for non-stop games without
+    // the Xeno timer. Resets on any user input (click / touch / key /
+    // voice). Expiry triggers _pauseGame('sand') which shows the
+    // "Are you still there? Tap to continue" overlay. Single source of
+    // truth for "any input" — a capture-phase listener on #game-screen
+    // catches clicks and touches before the per-domino handlers do, so
+    // the timer resets even on inputs the kid lands outside a domino.
+    _shouldRunSandTimer() {
+        if (window._currentTypeBehavior !== 'nonstop') return false;
+        if (this.includeXeno) return false;
+        var seconds = window._currentGameSetupSandTimer;
+        if (typeof seconds !== 'number' || seconds <= 0) return false;
+        return this.gamePhase === 'sunLevel';
+    }
+    _startSandTimer() {
+        this._stopSandTimer();
+        if (!this._shouldRunSandTimer()) return;
+        var seconds = window._currentGameSetupSandTimer;
+        this._sandSeconds = seconds;
+        this._sandStartedAt = Date.now();
+        document.body.classList.add('sand-timer-active');
+        this._sandSetProgress(0);
+        // Bind the input listener once per game instance; the handler
+        // checks _sandStartedAt so it's a no-op when the timer isn't up.
+        if (!this._sandInputBound) {
+            this._sandInputHandler = () => {
+                if (!this._sandStartedAt || this._isPaused) return;
+                this._resetSandTimer();
+            };
+            var screen = document.getElementById('game-screen');
+            if (screen) {
+                screen.addEventListener('pointerdown', this._sandInputHandler, true);
+                screen.addEventListener('keydown', this._sandInputHandler, true);
+            }
+            this._sandInputBound = true;
+        }
+        var self = this;
+        this._sandTickTimer = setInterval(function() {
+            if (self._isPaused) return; // shouldn't tick — we stop on pause — but defensive
+            // Round ended (won/lost/navigated): stop quietly. The expiry
+            // pause should only fire while a round is actively in progress.
+            if (self.gamePhase !== 'sunLevel') { self._stopSandTimer(); return; }
+            var elapsed = (Date.now() - self._sandStartedAt) / 1000;
+            var progress = elapsed / self._sandSeconds;
+            if (progress >= 1) {
+                self._sandSetProgress(1);
+                self._stopSandTimer();
+                self._pauseGame('sand');
+                return;
+            }
+            self._sandSetProgress(progress);
+        }, 250);
+    }
+    _stopSandTimer() {
+        if (this._sandTickTimer) {
+            clearInterval(this._sandTickTimer);
+            this._sandTickTimer = null;
+        }
+        this._sandStartedAt = null;
+        document.body.classList.remove('sand-timer-active');
+    }
+    _resetSandTimer() {
+        if (!this._sandStartedAt) return;
+        this._sandStartedAt = Date.now();
+        this._sandSetProgress(0);
+    }
+    _sandSetProgress(p) {
+        var hg = document.querySelector('#game-sand-timer .sand-hourglass');
+        if (hg) hg.style.setProperty('--sand-progress', String(Math.max(0, Math.min(1, p))));
+    }
+
+    _onVoicePhrase(ev) {
+        if (this._isPaused) return;
+        if (this.gamePhase !== 'sunLevel') return; // ignore during celebration / setup
+        var idx = (ev.position || 0) - 1;
+        var player = this.players && this.players[0];
+        if (!player || !player.hand || idx < 0 || idx >= player.hand.length) return;
+        this._showLastHeard(ev.raw);
+        // Voice input counts as user activity for the sand-timer.
+        this._resetSandTimer();
+        this.handleSunLevelCardClick(player.hand[idx], 0, idx);
+    }
+
+    _ensureMicIndicator() {
+        document.body.classList.add('voice-round-active');
+        if (document.getElementById('voice-mic-indicator')) return;
+        var box = document.createElement('div');
+        box.id = 'voice-mic-indicator';
+        box.className = 'voice-mic-indicator idle';
+        box.title = 'Tap for mic check';
+        box.innerHTML = '<span class="voice-mic-icon">🎤</span>' +
+                        '<span class="voice-mic-status"></span>' +
+                        '<span class="voice-mic-heard"></span>';
+        // Tap the indicator to open the diagnostic panel. Useful when the
+        // recognizer sits in 'listening' but no transcripts ever fire.
+        box.addEventListener('click', function() {
+            if (window.VoiceInput && VoiceInput.openMicCheck) VoiceInput.openMicCheck();
+        });
+        document.body.appendChild(box);
+    }
+    _setMicIndicator(state) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        box.classList.remove('listening', 'idle', 'error');
+        box.classList.add(state || 'idle');
+    }
+    _showLastHeard(text) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        var span = box.querySelector('.voice-mic-heard');
+        if (!span) return;
+        span.textContent = text || '';
+        clearTimeout(this._lastHeardTimer);
+        this._lastHeardTimer = setTimeout(function() { span.textContent = ''; }, 2200);
+    }
+    _setVoiceStatus(text) {
+        var box = document.getElementById('voice-mic-indicator');
+        if (!box) return;
+        var span = box.querySelector('.voice-mic-status');
+        if (!span) return;
+        span.textContent = text || '';
+    }
+    _showVoiceNotice(msg) {
+        // Shown once per session — the unsupported-browser notice keeps
+        // popping up on every round otherwise.
+        if (this._voiceNoticeShown) return;
+        this._voiceNoticeShown = true;
+        var n = document.createElement('div');
+        n.className = 'voice-notice';
+        n.textContent = msg;
+        n.addEventListener('click', function() { n.remove(); });
+        document.body.appendChild(n);
+        setTimeout(function() { if (n.parentNode) n.remove(); }, 6000);
     }
 
     dealSunLevelCards() {
@@ -1172,6 +1668,12 @@ class VicaDominoGame {
             clearInterval(this.sunLevelTimer);
             this.sunLevelTimer = null;
         }
+        // body.game-round-running is intentionally NOT removed here. The
+        // class tracks "round in progress" broadly (including the post-
+        // round celebration window). It's set once in startSunLevelGame
+        // and removed only when the user navigates away (resetToSetup /
+        // _cleanupVoiceUI). That way the pause button stays visible
+        // through "You WON" so the kid can pause the auto-restart.
     }
 
     sunLevelTimeUp() {
@@ -1371,6 +1873,7 @@ class VicaDominoGame {
     }
 
     handleSunLevelCardClick(card, playerIndex, cardIndex) {
+        if (this._isPaused) return; // pause: ignore stray taps from siblings or the kid coming back
         if (this.gamePhase !== 'sunLevel') return;
 
         const player = this.players[playerIndex];
@@ -2032,6 +2535,20 @@ class VicaDominoGame {
             this.playAreaDimTimeout = null;
         }
         this.stopSunLevelTimer();
+        // Sand-timer is round-scoped; tear it down on every reset path so
+        // navigate-away (back-arrow → setup) doesn't leave the hourglass
+        // ticking — without this, the sand-expiry pause overlay can fire
+        // while the player is sitting on the GP setup page.
+        this._stopSandTimer();
+        // If we were sitting in a paused state when the round was reset
+        // (e.g. kid hit back-arrow while the "Are you still there?" overlay
+        // was up), clear the pause UI too. The overlay is fixed-position
+        // and would otherwise stay on top of every screen.
+        document.body.classList.remove('game-paused', 'game-round-running');
+        this._isPaused = false;
+        this._sandWasRunning = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
         document.getElementById('xeno-timer-box').style.display = 'none';
         document.getElementById('celebration-area').style.display = 'none';
         document.querySelector('.bank-area').style.display = '';
@@ -2053,6 +2570,10 @@ class VicaDominoGame {
     // Play again with same settings (same players, same level)
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
+
+        // If a Non-stop countdown is running, cancel it cleanly so this
+        // restart isn't followed by the timer firing again.
+        this._stopNonstopCountdown();
 
         // Flush any pending coin→gem exchanges before checking progression
         this._flushPendingExchanges();
@@ -2132,7 +2653,24 @@ class VicaDominoGame {
         } else {
             playAgainBtn.textContent = 'Play Again';
         }
-        playAgainBtn.addEventListener('click', () => this.playAgain());
+        playAgainBtn.addEventListener('click', () => {
+            // In Non-stop the same button doubles as Stop / skip-ahead:
+            //   - if the auto-restart countdown is running, fire playAgain now
+            //   - the playAgain itself clears the countdown via _stopNonstopCountdown
+            this._stopNonstopCountdown();
+            this.playAgain();
+        });
+
+        // If the active Type is Non-stop, hijack the Play Again button into a
+        // 3-second countdown. After the count, playAgain fires automatically.
+        // Tapping the button at any point (including during the celebration
+        // or "lost" sound that plays out underneath) skips to the next round.
+        // Idle for 60 s with no input cancels the countdown — user is left on
+        // the end-game screen as if it were a normal manual round.
+        if (window._currentTypeBehavior === 'nonstop' &&
+            !(this.combinedGame && (this.combinedGame.pendingCelebration || this.combinedGame.pendingAdvance))) {
+            this._startNonstopCountdown(playAgainBtn);
+        }
 
         const newGameBtn = document.createElement('button');
         newGameBtn.className = 'btn btn-secondary end-game-btn';
@@ -2150,9 +2688,103 @@ class VicaDominoGame {
             playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
         }
     }
+
+    // === Non-stop type-of-game support ===
+    // Replaces the Play Again button text with a 3 → 2 → 1 countdown.
+    // When the count hits 0, playAgain fires automatically. Tapping the
+    // button (handler set by showEndGameButtons) cancels the countdown via
+    // _stopNonstopCountdown and starts the next round immediately.
+    _startNonstopCountdown(btn) {
+        if (!btn) return;
+        this._stopNonstopCountdown(); // make sure no previous one lingers
+        const NONSTOP_TOTAL = 3;       // seconds of countdown
+        const IDLE_LIMIT_MS = 60000;   // 1 minute with no input → cancel
+        let remaining = NONSTOP_TOTAL;
+        this._nonstopBtn = btn;
+        this._nonstopOriginalText = btn.textContent;
+        btn.classList.add('nonstop-countdown');
+        btn.textContent = '⏵ ' + remaining;
+
+        // Track latest activity for idle auto-cancel.
+        this._nonstopLastActivity = Date.now();
+        this._nonstopActivityHandler = () => { this._nonstopLastActivity = Date.now(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
+            document.addEventListener(ev, this._nonstopActivityHandler, true);
+        });
+        // Pause / resume on tab-hide so the round doesn't fire when the user
+        // isn't looking at the page.
+        this._nonstopVisHandler = () => {
+            if (document.visibilityState === 'hidden') {
+                this._nonstopWasPaused = true;
+                clearInterval(this._nonstopTimer);
+                this._nonstopTimer = null;
+            } else if (this._nonstopWasPaused && this._nonstopBtn) {
+                this._nonstopWasPaused = false;
+                // Reset activity stamp so the user gets a fresh idle window.
+                this._nonstopLastActivity = Date.now();
+                this._nonstopTimer = setInterval(tick, 1000);
+            }
+        };
+        document.addEventListener('visibilitychange', this._nonstopVisHandler);
+
+        const tick = () => {
+            // Idle timeout: stay on the end-game screen, like manual mode.
+            if (Date.now() - this._nonstopLastActivity > IDLE_LIMIT_MS) {
+                this._stopNonstopCountdown();
+                if (this._nonstopBtn) {
+                    // already cleared, but keep a graceful label for the user.
+                    btn.textContent = 'Play Again';
+                }
+                return;
+            }
+            remaining -= 1;
+            if (remaining <= 0) {
+                this._stopNonstopCountdown();
+                this.playAgain();
+                return;
+            }
+            btn.textContent = '⏵ ' + remaining;
+        };
+        this._nonstopTimer = setInterval(tick, 1000);
+    }
+
+    _stopNonstopCountdown() {
+        if (this._nonstopTimer) { clearInterval(this._nonstopTimer); this._nonstopTimer = null; }
+        if (this._nonstopActivityHandler) {
+            ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => {
+                document.removeEventListener(ev, this._nonstopActivityHandler, true);
+            });
+            this._nonstopActivityHandler = null;
+        }
+        if (this._nonstopVisHandler) {
+            document.removeEventListener('visibilitychange', this._nonstopVisHandler);
+            this._nonstopVisHandler = null;
+        }
+        if (this._nonstopBtn) {
+            this._nonstopBtn.classList.remove('nonstop-countdown');
+            // Don't revert label here — caller (playAgain or idle handler)
+            // sets the next state.
+        }
+        this._nonstopBtn = null;
+        this._nonstopWasPaused = false;
+    }
+
     // Dim the playing area over 10 seconds, show buttons immediately
     startPlayAreaDim() {
         this.gamePhase = 'sunLevelWon';
+        // Round is over — stop the voice recognizer so the celebration / lost
+        // sound and any "Play Again" tap aren't picked up as a position word.
+        this._stopVoice();
+        // Keep body.game-round-running ON through the celebration + end-game
+        // buttons phase so the pause button stays visible. The kid might
+        // want to step away during "You WON" so the next round (in non-stop)
+        // doesn't auto-start while they're gone. The class is removed when
+        // the user navigates away (resetToSetup / _cleanupVoiceUI) or when
+        // the next round's startSunLevelTimer re-asserts it.
+        document.body.classList.remove('game-paused');
+        this._isPaused = false;
+        var ov = document.getElementById('game-pause-overlay');
+        if (ov) ov.style.display = 'none';
 
         // Build winner status with icons
         this.updateWinnerStatus();
@@ -2956,6 +3588,16 @@ class VicaDominoGame {
         // Hide selected options row
         const selectedRow = document.getElementById('selected-options-row');
         if (selectedRow) selectedRow.style.display = 'none';
+
+        // The blanket "show all h3" + show-flex resets above clobber per-
+        // axis hide rules (e.g., the types title that should be hidden when
+        // admin enabled exactly one Type, or any axisLabel that admin
+        // erased). Re-run admin's saved setup for the current game so
+        // those rules are honored on the way back, otherwise navigating
+        // C33 → Ct Setup reveals headings that should stay hidden.
+        if (typeof window._reapplyCurrentSetup === 'function') {
+            window._reapplyCurrentSetup();
+        }
     }
 
     showCreateEdit() {
@@ -2977,6 +3619,10 @@ class VicaDominoGame {
     }
 
     hideCardLibrary() {
+        // Reset Edit button when leaving Library
+        var _editBtn = document.getElementById('edit-card-set-btn');
+        if (_editBtn) _editBtn.style.display = 'none';
+        if (typeof previewedCardSet !== 'undefined') previewedCardSet = null;
         // Go back to intro screen directly
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('intro-screen').style.display = 'flex';
@@ -2984,6 +3630,10 @@ class VicaDominoGame {
     }
 
     showLibrarySet() {
+        // Reset Edit button when leaving Library
+        var _editBtn = document.getElementById('edit-card-set-btn');
+        if (_editBtn) _editBtn.style.display = 'none';
+        if (typeof previewedCardSet !== 'undefined') previewedCardSet = null;
         openLibrarySet();
         document.getElementById('card-library-screen').style.display = 'none';
         document.getElementById('library-set-screen').style.display = 'block';
@@ -3322,6 +3972,19 @@ class VicaDominoGame {
     }
 
     resetToSetup() {
+        // Cancel any running Non-stop countdown so it doesn't auto-start
+        // a new round after the user has explicitly returned to setup.
+        this._stopNonstopCountdown();
+        // Stop voice and remove its UI when the user quits to the setup screen.
+        this._stopVoice();
+        var ind = document.getElementById('voice-mic-indicator');
+        if (ind) ind.remove();
+        // Clear pause state — kid hit Home / back during a paused round; the
+        // pause was about THIS round, returning to setup ends it.
+        document.body.classList.remove('game-round-running', 'game-paused');
+        this._isPaused = false;
+        var pauseOv = document.getElementById('game-pause-overlay');
+        if (pauseOv) pauseOv.style.display = 'none';
         // Clean up combined game
         this.combinedGame = null;
         this.playerCoins = {};

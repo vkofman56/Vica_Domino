@@ -6,6 +6,134 @@
 
 ---
 
+## May 5, 2026 — Catch round-trip + cards-library overlay + bump-trial
+
+Closed the Studio→Player loop for Catch: the Match-0-4 board was
+rendering 4×6 / 2×14 stragglers from Multiply-by-4 because the only
+Catch path still using stale `svgMarkup` snapshots was the live
+gameplay renderer. Mirrored Studio's `stableId → live storage`
+resolution into the Player. Plus a per-game eye button on the GP
+intro screen that gives the user a verification surface, the
+freeze/float semantics wired correctly, the × close button replaced
+with a real pause, Copy Game added to the Catch Game Creator, the
+Player Setup level box now reflects admin's choices, and the trial
+banner is now stamped automatically by a pre-commit hook reading the
+system clock so it always matches actual deploy time.
+
+Stable triple-push throughout: `master` + `claude/general-session-yVBQq`
++ `claude/review-project-docs-JOOeh`, all at `cc9d0ef` on real GitHub.
+
+### Commits (chronological, this session)
+
+- `03deb40` Catch player: fill level-button bubbles with MPP card pictures
+- `5b9b980` Merge claude/catch-bubble-pictograms-fix into master
+- `c44c134` GP intro: per-game eye button opens cards-library overlay
+- `a50578f` Auto-bump trial banner via scripts/bump-trial.sh
+- `dc69dfe` Cards library: show empty cards as blank tiles, not as their label
+- `5d1cf04` Catch player runtime: resolve cards by stableId, not snapshot
+- `fe462a3` Cards-library overlay: rows by value, M-badges in-row (match Studio)
+- `18e1bd1` Cards-library: M-group as border color, drop badges
+- `989ad1c` Cards-library: left-edge dot-line for freeze/float per card
+- `224e4f6` Catch player: undo wrong freeze-spawn behavior
+- `d5dc91c` Catch player: honor _freezeState — frozen=static-only, floating=fall-only
+- `69a59cc` Catch: replace × with ⏸ pause; tap-to-continue starts a fresh round
+- `836372f` Catch 2P: drop redundant middle-column pause button
+- `a21e198` Catch: hide Find pause button while a Catch overlay is open
+- `2c5845d` Catch Game Creator: add Copy Game button, mirror Find behavior
+- `cc9d0ef` GP setup: hide level box when 0 enabled; warn on reduced choices
+
+### What ships in the live Player
+
+- **Eye button** on every game tile in the intro screen → modal
+  with rows-by-value, mGroup-colored borders, left-edge red/green
+  dotted strip for freeze/float, blank tiles for intentionally
+  empty cards. The visible cards are exactly what GP picks at
+  runtime.
+- **Catch ⏸ pause** in the round HUD. Click → freeze-in-place +
+  "Tap anywhere to continue with a new task" overlay. Resume wipes
+  current falling cards and starts a fresh round (lives / score /
+  round counter preserved).
+- **Find pause button suppressed** during Catch via
+  `body.catch-active`, so 1P never sees two pause buttons.
+- **Frozen / Floating** behave per spec: frozen cards are eligible
+  only as the LEFT static target, floating only as falling tiles,
+  unmarked cards play either role.
+- **Catch Game Creator Copy Game** button next to Delete Game,
+  same UX as Find's. Carries every Catch field including
+  `_freezeState`, `mGroups`, `freezeEnabled`, `mainPageDominos`,
+  `setup`, shape overrides; drops `sourceName` lineage.
+- **Player Setup level box** hides entirely when admin disables
+  all levels; auto-selects first visible when admin disables the
+  default-selected one. Save shows "You reduced the number of
+  choices…" alert when an axis lost enabled options.
+
+### Operational
+
+- `scripts/bump-trial.sh` writes the current PDT time into all 5
+  banner occurrences. `.githooks/pre-commit` calls it on every
+  commit that touches `index.html` or `pm-studio-DrV.html`, then
+  re-stages. Activate per clone:
+  `git config core.hooksPath .githooks`.
+- The temp diagnostic alert from `153230f` (`CATCH LAUNCH
+  DIAGNOSTIC` in `pm-studio-DrV.html:16541-16553`) is still in
+  place — its commit message tagged it for removal once Match-0-4
+  was verified. With the chain now consistent, it can be dropped
+  in the next session.
+
+### Heads-up
+
+Existing Catch games whose `levels` axis is at the legacy
+all-off-with-blank-labels default will hide the level box on the
+Player Setup page until admin enables specific levels in Game
+Settings → Levels. No automatic migration shipped because games
+where the admin had legitimately disabled all levels would
+otherwise be silently re-enabled.
+
+---
+
+## May 1, 2026 — Sand-timer (hourglass) for non-stop games
+
+A new soft-pause for non-stop rounds with no Xeno timer: if neither
+player taps / speaks for the admin-configured duration, the game
+auto-pauses with a kid-friendly "Are you still there?" overlay.
+
+- **Admin**: Game Settings → "Sand-timer (s):" row (default 60, 0
+  disables). Stored at `game.setup.sandTimer` peer of the existing
+  `timer` field.
+- **Visible**: small white-frame hourglass (top-right, below the
+  timer panel) that drains from full to empty over `sandTimer` seconds.
+  Hidden unless `body.sand-timer-active`.
+- **Resets on**: any pointerdown / keydown / voice phrase (capture-phase
+  listener on `#game-screen`) — kid pokes the screen, sand resets.
+- **Expires**: triggers `_pauseGame('sand')` which reuses the existing
+  pause overlay. Title swaps to "Are you still there?" while the
+  manual pause keeps "Game paused". Sub-text is "Tap anywhere to
+  continue" in both cases.
+- **Resume from sand-pause**: restarts sand-timer from full
+  (per design — fresh restart, not a continue-from-partial).
+- **Manual pause during sand-timer**: sand-timer suspends; on resume
+  it restarts from full.
+
+**Files touched**:
+- `pm-studio-DrV.html`: new `gs-sand-timer` admin row, default 60 in
+  `_defaultGameSetup`, schema repair in `_getGameSetup`, capture/render
+  plumbing in `_gsCaptureForm` / `_gsRenderForm`. Hourglass markup +
+  overlay title/sub IDs in the game screen.
+- `index.html`: hourglass markup + overlay IDs; apply-setup writes
+  `window._currentGameSetupSandTimer`.
+- `css/style.css`: `.game-sand-timer` + `.sand-hourglass` with
+  CSS-variable-driven scaleY transforms; gated by
+  `body.sand-timer-active`.
+- `js/game.js`: `_startSandTimer / _stopSandTimer / _resetSandTimer
+  / _shouldRunSandTimer / _sandSetProgress` near `_resumeGame`;
+  start hook in `startSunLevelGame`; reset hook in `_onVoicePhrase`;
+  navigate-away hook in `_cleanupVoiceUI`; pause-reason text swap
+  and `_sandWasRunning` save/restore in `_pauseGame`/`_resumeGame`.
+  Tick auto-stops if `gamePhase !== 'sunLevel'` to handle round-end
+  cleanly.
+
+---
+
 ## Project Overview
 
 **Vica Domino** is an educational math game built as a single-page web app under the **Pinky Math Gaming** brand. The primary game is **"Find the Double"** — a domino-based game where players must identify the double card from a dealt hand before time runs out. It supports 1-2 human players plus an optional AI opponent ("Xeno"), custom card creation, and multi-stage game progression.
@@ -171,6 +299,31 @@ Vica_Domino/
 - [x] Variations disappearing on reload for ABC and custom card sets
 - [x] Built-in Numbers and Dots cards accidentally removed and restored
 - [x] Custom card set data wiped when previewing in Library
+- [x] Game-view × delete didn't visually remove the card (typo: `openCustomGameView` → `openGameView`)
+- [x] Copying a card in Catch view created a square tile and wasn't persisted to `savedCatchGames`
+- [x] Deleting one of two same-labeled copies removed both (label-only fallback fired because tile dataset lacked `stableId`)
+- [x] GP rendered stale math-expression SVGs for cards edited in Card Maker after add (now resolves freshest svgContent by `stableId`)
+- [x] GP domino count and pairings differed from Studio (GP now honors `mGroups`)
+- [x] GP intro buttons could load the wrong game when localStorage changed in another tab (`populateIntroGames` re-runs on home click)
+- [x] Cmd+Z / Ctrl+Z covers game-view edits (delete, copy, shape, M-card group) in both Find and Catch — re-renders the open game view after applying snapshot
+- [x] "Add Cards to Game" — set-blind label match no longer hides cross-set cards (label match now scoped by `(label, cardSet)`)
+- [x] `getCardsFromStorage` — custom set named "ABC" no longer aliases to the built-in `customDrawnCards_abc` key
+- [x] **Non-stop Type of Game (Find)** — admin sets behavior per Type option in Game Settings; player picks Type on level-pick screen; round-end auto-restarts after a 3 s countdown unless user taps the button (skip-ahead) or stays idle for 60 s. `visibilitychange` pauses the countdown when the tab is hidden.
+- [x] **Non-stop Type of Game (Catch)** — Type picker rendered as a vertical radio list in the right column of GP Cm/Ct Setup, replacing the "Choose domino style" panel when the active Catch game has 1+ Type options. `_catchGameOver` honors `_currentTypeBehavior` with the same 3 s countdown / idle-cancel / visibility-pause behavior as Find.
+- [x] **Find Type picker unified with Catch** — `_renderTypesPicker` no longer branches by game type; both Find and Catch render the same right-column radio list ("Choose the game type:") and hide the domino-style SVGs. Legacy top-of-panel `#setup-types-row` left in DOM but always hidden.
+- [x] **Type axis mirrors across touch+mouse on save** — `_gsCaptureForm` now copies the captured types axis to the other mode immediately, so admin can edit either tab and the player picker shows up regardless of input mode.
+- [x] **"🚧 Under construction" badge removed** from the Type axis section in Game Settings — picker exists, runtime honors behavior, badge claim was stale.
+- [x] **Voice input v1 (Find, 1-player, EN/ES/RU)** — admin enables `voiceInput` per Type option in Game Settings (🎤 checkbox + language dropdown). New stand-alone `js/voice.js` (Web Speech API wrapper, continuous + interim, Safari auto-restart, per-language synonym tables). Player rounds with voice on listen continuously; saying "the first / second / third / fourth" routes through `handleSunLevelCardClick` exactly like a tap. Corner mic indicator pulses red while listening, toast on browser-unsupported / permission-denied. Decoupled audio-source layer so 2-player extension only swaps the source, not the routing.
+- [x] **Voice v1.1 — per-Type editable synonym tables.** New `option.voiceSynonyms` field. Game Settings option-row gains a `✎ words` button that opens an inline 3-column EN/ES/RU editor: 4 rows per language (1st/2nd/3rd/4th positions), comma-separated text inputs, "↺" reset-to-defaults per language. Admin authority is total — empty list = no trigger for that position. Matcher in `js/voice.js` extended with substring match for multi-word entries (e.g., "the first") plus the existing token match for single-word entries. `voiceSynonyms` defaults to `null` = use built-in `VoiceInput.DEFAULT_SYNONYMS`; rollback to v1 (commit `3f2d799`) is a clean `git revert` since the field is additive.
+- [x] **Voice diagnostic indicator** — corner mic shows `listening (en-US)`, `hearing: <transcript>`, `end → restart`, `err: <code>` so the user can diagnose silent failures without DevTools. Bottom line shows the matched/unmatched transcript with a `?` prefix when no synonym matched.
+- [x] **Mic-check panel** — accessible from a "🔧 Test mic" button on GP Setup (only visible when the selected type has voice on) or from tapping the corner mic indicator. Shows browser permission state via `navigator.permissions.query({ name: 'microphone' })`, names the active default mic, lists all mic devices with the system default flagged, and runs a live audio level meter. Click any non-default device to preview its level (only changes the meter, not what the speech engine listens to).
+- [x] **Voice recognizer lifecycle race** — round 1's `onend` could fire async during round 2's startup, overriding the new listening indicator and attempting to auto-restart the dead recognizer alongside the new one. Fixed by adding `_isCurrent()` guards on every event handler in `_make()` and making `start()` always recreate the recognizer instead of reusing it across rounds. User verified 4 rounds clean.
+- [x] **Voice UX polish** — `continuous: false` (avoids the "first first" transcript-batching that made the first attempt feel unresponsive); mic indicator removed entirely between non-voice rounds; "Test mic" button visibility now tracks the live type selection rather than "any enabled type has voice".
+- [x] **Mic-check panel shows the active synonym table** — when an admin adds a custom word in the per-Type editor, the player can open the mic-check panel and verify whether that word actually reached the runtime. Annotates "custom (from Game Settings)" or "default (no per-Type override)". Useful for catching the common gotcha of editing the inline editor but closing Game Settings without clicking its main Save.
+- [x] **Voice indicator leak fixed** — listening box was carrying over into the GP setup screen after returning from a voice round. Fixed across four commits: cleanup on Home / Back-to-intro / Catch-overlay-home navigation; cleanup on every setup screen render; CSS-level visibility gated on `body.voice-round-active`; cleanup on every type-line click. Tapping any type now immediately wipes the indicator; it only reappears when a real voice round actually starts.
+- [x] **Pause / Resume v1** — kid-friendly mid-round freeze for 6-8 year olds who suddenly need to step away. Pause button bottom-right of the game screen during any active round (all game types — not gated on non-stop). Tap → frozen overlay covers everything; tap overlay anywhere to resume. Freezes the Xeno timer (resumes from the same remaining seconds), the voice recognizer, and CSS animations under #game-screen. Strict input blocking — sibling pokes at dominos do nothing while paused. Tab-hidden auto-pauses; on return stays paused (kid taps to resume). Pause stays visible through the post-win celebration so the kid can cancel a non-stop auto-restart. In-session only for v1; future upgrade to persist across reloads once player names / scores are stored.
+- [x] **Round properly stops on navigate-away** — Home / Back-to-intro / Catch-overlay-home no longer leaves the timer ticking in the background. `_cleanupVoiceUI` clears `sunLevelTimer`, `playAreaDimTimeout`, and marks `gamePhase = 'navigatedAway'` so escaped callbacks early-return. No more loss sounds from the intro page after the kid quit a round mid-game.
+- [x] **Pause / Resume v1** — kid-friendly mid-round freeze for 6-8 year olds who suddenly need to step away. Pause button top-right of the game screen during any active round (all game types — not gated on non-stop). Tap → frozen overlay covers everything; tap overlay anywhere to resume. Freezes the Xeno timer (resumes from the same remaining seconds), the voice recognizer, and CSS animations under #game-screen. Strict input blocking — sibling pokes at dominos do nothing while paused. Tab-hidden auto-pauses; on return stays paused (kid taps to resume). In-session only for v1; future upgrade to persist across reloads once player names / scores are stored.
 
 ---
 
@@ -235,6 +388,11 @@ Vica_Domino/
     - No hosting/deployment pipeline
     - No PWA support (offline capability, installable)
     - No service worker for caching
+
+13. **Recovery / undo gaps (deferred from April 26 session)**
+    - `_undoStack` is in-memory only — page refresh wipes Cmd+Z history. Persisting it to localStorage was discussed (item "c") and deferred.
+    - "Restore Cards from Cloud" only covers `customDrawnCards_*`, not `savedCustomGames` / `savedCatchGames`. A catch-game corruption can't be rolled back from cloud. Extending `_pushCardBackup` was discussed (item "d") and deferred.
+    - Game-view mutations still NOT undoable: `confirmAddCards` (the + overlay), game rename / description, drag-reorder via `saveGameViewOrder`, combine games, clone-to-catch, delete entire game, copy game, plus ~22 direct `localStorage.setItem('savedCustomGames', …)` callers and ~10 direct `saveCatchGames(…)` callers. Audit-and-wire pass deferred. Easiest path: add the snapshot push inside `saveCatchGames` itself and a wrapper around savedCustomGames sets, then drop the per-call snapshots from `_saveCurrentViewGames` / `_removeCardFromThisGame`.
 
 ---
 

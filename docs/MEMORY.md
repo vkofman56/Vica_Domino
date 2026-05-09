@@ -1,5 +1,185 @@
 # Vica Domino Project Memory
-**Last Updated**: May 5, 2026
+**Last Updated**: May 9, 2026
+
+## May 9, 2026 session — GP intro mode popups + GP setup polish
+
+Mostly polish on the player-facing setup flow: a TOUCH / MOUSE popup
+for Find games (mirroring the Catch one), several rounds of "click
+outside to close" tightening for those popups, and three GP Setup
+cleanups — drop the legacy "Player Options" heading + "Type N — "
+radio prefix, and inline the name/icon + Start form when admin
+enabled exactly one Player Option. Also one Studio-side cleanup so
+the Find Game Creator's "Show Dominos" preview honors per-card
+red/green placement.
+
+Master is intentionally behind: the Anthropic git proxy 403s pushes
+to master from inside the sandbox, so the user keeps three identical
+branches as the safety net (`claude/review-project-docs-JOOeh` =
+deploy source, `claude/general-session-yVBQq` = mirror,
+`claude/resume-vica-domin-UOJun` = per-session). Stop-hook complaints
+about master being behind are intentional; ignore them.
+
+### Commits (chronological, this session)
+
+- `a080804` Find Game Creator: Show Dominos honors red/green placement
+- `143a5ba` GP intro: Find games get a TOUCH/MOUSE popup like Catch
+- `23d35d7` GP intro: mode popups close on click outside
+- `d4035ec` GP intro: mode popups close on any click outside the action buttons
+- `570f9d8` GP setup: drop 'Player Options' default heading + 'Type N —' prefix
+- `5c32d42` GP setup: inline name/icon + Start when 1 Player Option enabled
+
+### 1. Find Game Creator: Show Dominos honors red/green placement (`a080804`)
+
+`rebuildGameViewDominos` previously always grabbed `effective[i].cards[0]`
+as the representative for each domino half, so the Studio "Show
+Dominos" preview never reflected the per-card freeze/float assignment
+admin set. New `_pickRepForHalf` walks the group's cards (when
+`game.freezeEnabled` is on) and prefers:
+
+- top half (left in data): cards with `_freezeState !== 'floating'`
+- bottom half (right):    cards with `_freezeState !== 'frozen'`
+
+Falls back to `cards[0]` if nothing matches the filter (e.g. a
+singleton group whose only card is the wrong polarity for that
+half). Same graceful-fallback pattern the Player runtime uses
+(d494848). `freezeEnabled === false` path is unchanged.
+
+### 2. GP intro: TOUCH/MOUSE popup for Find games (`143a5ba`)
+
+Mirrors the Catch-mode popup pattern for Find + combined games
+(combined chains Find stages). Clicking a Find tile no longer drops
+straight into setup — it anchors a popup with TOUCH / MOUSE buttons
+plus the same "no touchscreen detected" warning chrome as Catch.
+Mode pick stores in `window._findInputMode`, sets `selectedIntroGame`,
+calls `goToMainPage()`.
+
+`_applyGameSetupToPlayerScreen` now reads `_findInputMode` for Find
+(was the `_hasTouchScreen` heuristic) so the saved touch / mouse
+Game Settings tab applies to whichever input the player picked. The
+heuristic survives only as last-resort default for code paths that
+bypass the popup (e.g. ABC fallback in `goToMainPage`).
+
+Setup page label flips between `"GPt F Setup"` / `"GPm F Setup"`
+based on `_findInputMode` — same convention Catch uses. No gameplay
+changes yet; the picker just records intent + selects the Game
+Settings tab.
+
+### 3. GP intro: mode popups close on click outside (`23d35d7`, `d4035ec`)
+
+Two-step cleanup. First (`23d35d7`) added a shared helper
+`_attachPopupOutsideCloser` that installs a one-shot capture-phase
+document click listener after the popup shows (deferred via
+`setTimeout` so the open-click doesn't immediately re-fire close).
+Outside click → detach + run close helper. `_detachPopupOutsideCloser`
+is called from choose / hide helpers so picking a mode also tears
+down cleanly. Re-opening removes any stale listener first.
+
+Second (`d4035ec`) tightened the rule: the user wanted *anything*
+that's not a TOUCH/MOUSE button to close, including the popup's own
+neutral chrome (background, padding, the warning text). Handler now
+walks the popup's `<button>` descendants and skips close only if the
+click hit one of them — every other click closes.
+
+### 4. GP setup: drop "Player Options" + "Type N — " prefixes (`570f9d8`)
+
+Two cleanups on the player setup page (Find + Catch, both modes):
+
+**Players axisLabel default → empty.** `mkPlayersAxis()` ships with
+`axisLabel: ''` so brand-new games render no Players heading.
+`_getGameSetup` runs a one-time migration: existing games whose
+stored `axisLabel === 'Player Options'` (the literal old default)
+get reset to `''` on next load. Admin-customized labels survive.
+
+**Type radio buttons drop "Type N — " prefix.** `_renderTypesPicker`
+≥2-enabled branch now shows only the admin-entered text (e.g. "Slow
+Pace", "Voiced Answer 🎤"). If admin left the label empty, falls
+back to a plain `Type N` placeholder (no em dash). The 1-enabled
+branch already hid the heading + used just admin text, so its rule
+is unchanged.
+
+### 5. GP setup: inline name/icon + Start when 1 Player Option (`5c32d42`)
+
+When admin enables exactly one Player Option in Game Settings, the
+player has nothing to pick on the Players axis. New flow: replace
+the (formerly static-text) player button with the name/icon inputs
++ Start button rendered directly inline on the setup page. Levels
+and Types pickers above stay visible so the player still picks
+those before tapping Start.
+
+**`_applyGameSetupToPlayerScreen` 1-enabled branch (index.html
+~line 1414):** hide every `.player-btn`, hide `.player-select`
+container, hide the Players h3, mark the lone (hidden) button as
+`.selected` so the catch start interceptor (which reads
+`.player-btn.selected`) still resolves the chosen variant for
+2-player Catch, then call `window.game.renderInlinePlayerNames`
+with the option's `data-players` count + `data-xeno` flag.
+
+**New `Game.renderInlinePlayerNames(count, includeXeno)` in
+js/game.js:** mirrors the input-building portion of
+`selectPlayerCount` (per-player icon + name rows + optional Xeno
+row + Start move-into-Xeno) but skips the side effects that hide
+setup-columns / game-level-select / build the cloned-level chip.
+**Idempotent:** `_applyGameSetupToPlayerScreen` re-fires on input-
+mode switch, Game Settings save, back-from-setup, etc. — when the
+re-render's (count, xeno) match the existing form, the helper
+returns early so anything the player typed survives.
+
+**Back-arrow handler (game.js back-to-intro-btn):** added
+`isInlinePlayerNames` detection (`#player-names` visible +
+`.player-select` hidden, and not the existing mouse-Catch case).
+Inline mode → wipe `#name-inputs` + `playerIcons`, hide
+`#player-names`, then go straight to intro. Mirrors what
+`backToGameSetup` does on the click-to-reveal path so re-entering
+the game starts fresh.
+
+**Defensive restore at top of every players section:**
+`pselect.style.display = ''` is now applied unconditionally before
+the branch dispatch, so a 1-enabled → 2+-enabled transition (admin
+save) doesn't leave `.player-select` collapsed.
+
+**pm-studio-DrV.html: not changed for this commit.** Its
+`#start-screen` uses three hardcoded non-catalog player buttons
+(no `data-id`), and `_applyGameSetupToPlayerScreen` doesn't run
+there — so the catalog-aware filter is a no-op in studio. The
+banner stamp was the only edit.
+
+### Files touched this session
+
+- `index.html`: `_applyGameSetupToPlayerScreen` 1-enabled branch
+  rewrite, defensive `pselect.style.display` restore, find-mode
+  popup wiring (`143a5ba`), `_findInputMode` consumer wiring,
+  setup-page-label switch.
+- `js/game.js`: new `renderInlinePlayerNames` method, back-arrow
+  inline-mode branch.
+- `pm-studio-DrV.html`: `mkPlayersAxis` default + `_getGameSetup`
+  migration (570f9d8); banner stamps for the rest.
+- All five trial-banner instances bumped to `TRIAL 08:19 PM PDT`
+  on 5c32d42.
+
+### Resume notes for tomorrow
+
+- HEAD on `claude/review-project-docs-JOOeh` (and mirror branch
+  `claude/general-session-yVBQq`) is `5c32d42`. Per-session branch
+  `claude/resume-vica-domin-UOJun` is on the same commit (was
+  worked on briefly at session start before the user pulled me
+  back to `claude/review-project-docs-JOOeh`).
+- Per the user's standing instruction: develop directly on
+  `claude/review-project-docs-JOOeh`; after each commit push to
+  *both* `review-project-docs-JOOeh` and `general-session-yVBQq`
+  so they stay identical. Don't push to master. Don't mention
+  master being behind every turn.
+- The renderInlinePlayerNames helper duplicates ~150 lines from
+  `selectPlayerCount`. If we touch the input-building shape again
+  (icon size, name placeholder rules, Xeno row layout), we should
+  refactor both into a shared `_buildPlayerInputRows(count, xeno)`
+  rather than letting the duplication drift.
+- `pm-studio-DrV.html`'s `#start-screen` is still on hardcoded
+  3-button HTML with no catalog filter. If the user ever wants
+  Studio's "preview play" to honor the same admin matrix, we'd
+  need to port `_applyGameSetupToPlayerScreen` (or its core)
+  into the studio file too.
+
+---
 
 ## May 5, 2026 session — Catch round-trip fixes + cards-library overlay
 

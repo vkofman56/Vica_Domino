@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:19 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1405,6 +1405,11 @@
                     b.classList.remove('is-static-text');
                     pById[b.getAttribute('data-id')] = b;
                 });
+                // Defensively restore the player-select container's display
+                // every render. The 1-enabled branch below hides it inline,
+                // and a follow-up Game Settings save that flips to 0/2+
+                // would otherwise leave the row collapsed.
+                if (pselect) pselect.style.display = '';
                 // Pull enabled options in saved order; ids without a matching
                 // pre-rendered button are skipped (graceful for legacy /
                 // unmigrated data).
@@ -1412,17 +1417,31 @@
                     return o && o.on && pById[o.id];
                 });
                 if (enabledOpts.length === 1) {
-                    // Single option — restyle the one visible button as
-                    // plain text. Stays clickable so selectPlayerCount
-                    // still reveals the player-names form. No label → hide
-                    // everything.
+                    // Single option — there's nothing for the player to
+                    // pick on the Players axis, so we skip the clickable
+                    // button entirely and render the name/icon inputs +
+                    // Start button inline on the setup page (via
+                    // window.game.renderInlinePlayerNames). Levels/Types
+                    // pickers above stay visible so the player can still
+                    // make those picks before tapping Start.
                     pbs.forEach(function(b) { b.style.display = 'none'; });
+                    if (pselect) pselect.style.display = 'none';
+                    var _h3p = document.getElementById('setup-h3-players');
+                    if (_h3p) _h3p.style.display = 'none';
                     var only = enabledOpts[0];
-                    if (only.label) {
-                        var btn = pById[only.id];
-                        btn.textContent = only.label;
-                        btn.style.display = '';
-                        btn.classList.add('is-static-text');
+                    var btnOnly = pById[only.id];
+                    // Mark the (hidden) button as selected so the catch
+                    // start interceptor in index.html (which reads
+                    // .player-btn.selected) still resolves the chosen
+                    // variant for 2-player Catch.
+                    document.querySelectorAll('#start-screen .player-btn.selected').forEach(function(b) {
+                        b.classList.remove('selected');
+                    });
+                    btnOnly.classList.add('selected');
+                    var _count = parseInt(btnOnly.getAttribute('data-players'), 10) || 1;
+                    var _xeno  = btnOnly.getAttribute('data-xeno') === 'true';
+                    if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
+                        window.game.renderInlinePlayerNames(_count, _xeno);
                     }
                 } else {
                     // 0 or 2+ enabled — show each enabled button with its

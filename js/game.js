@@ -223,9 +223,28 @@ class VicaDominoGame {
             // For mouse-mode catch: player-names is shown on setup page, so back goes to intro
             var isCatchMouse = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0 &&
                                 typeof _catchInputMode !== 'undefined' && _catchInputMode === 'mouse');
+            // Inline 1-player-option mode: player-names is shown directly
+            // on the setup page (alongside Levels/Types) because admin
+            // enabled exactly one Player Option. .player-select is hidden
+            // as the marker; back-arrow should go straight to intro since
+            // there's no separate setup state to return to.
+            var ps = document.querySelector('#start-screen .player-select');
+            var isInlinePlayerNames = !isCatchMouse && pn && pn.style.display !== 'none' &&
+                                      ps && ps.style.display === 'none';
             if (isCatchMouse) {
                 _pendingCatchGameIndex = -1;
                 this.backToGameSetup();
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('intro-screen').style.display = 'flex';
+                resetIntroScreen();
+                this._cleanupVoiceUI();
+            } else if (isInlinePlayerNames) {
+                // Clear the inline form so re-entering the game (or any
+                // game) starts with empty name/icon inputs. Mirrors what
+                // backToGameSetup does on the click-to-reveal path.
+                pn.style.display = 'none';
+                document.getElementById('name-inputs').innerHTML = '';
+                this.playerIcons = {};
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('intro-screen').style.display = 'flex';
                 resetIntroScreen();
@@ -804,6 +823,174 @@ class VicaDominoGame {
             const startBtn = document.getElementById('start-game-btn');
             startBtn.style.margin = '0';
             xenoContentRow.appendChild(startBtn);
+
+            xenoNameSection.appendChild(xenoContentRow);
+            xenoRow.appendChild(xenoNameSection);
+            nameInputs.appendChild(xenoRow);
+        }
+    }
+
+    // Render the name/icon inputs + Start button directly on the GP Setup
+    // page, without hiding the level/type pickers above. Used by
+    // _applyGameSetupToPlayerScreen when admin enables exactly one Player
+    // Option — the player has nothing to pick on the Players axis, so the
+    // input form can replace the player button row inline.
+    //
+    // Mirrors the input-building portion of selectPlayerCount but skips
+    // the hide-setup-columns side effects + selected-options-row chip.
+    renderInlinePlayerNames(count, includeXeno) {
+        const nameInputs = document.getElementById('name-inputs');
+        const playerNamesDiv = document.getElementById('player-names');
+        if (!nameInputs || !playerNamesDiv) return;
+
+        // Idempotent: _applyGameSetupToPlayerScreen re-fires on input-mode
+        // change and back-from-setup cycles. If the form is already built
+        // for the same (count, includeXeno) combination, leave it alone so
+        // anything the player typed survives.
+        const existingPlayerRows = nameInputs.querySelectorAll('.player-input-row:not(.xeno-row)').length;
+        const existingXenoRow = !!nameInputs.querySelector('.xeno-row');
+        if (existingPlayerRows === count && existingXenoRow === !!includeXeno && existingPlayerRows > 0) {
+            playerNamesDiv.style.display = 'block';
+            return;
+        }
+
+        this.includeXeno = includeXeno;
+        this.playerIcons = {};
+
+        playerNamesDiv.style.display = 'block';
+
+        // Hide the in-card "Enter player names:" h3 — labels live next to
+        // each input row so the standalone heading is redundant.
+        const heading = playerNamesDiv.querySelector('h3');
+        if (heading) heading.style.display = 'none';
+
+        // Hide the inner back-arrow inside #player-names. We're on the
+        // setup page, so the only "back" target is intro — handled by the
+        // outer #back-to-intro-btn (which detects inline mode).
+        const innerBack = document.getElementById('back-to-setup-btn');
+        if (innerBack) innerBack.style.display = 'none';
+
+        // If a previous flow parked Start Game inside the Xeno row of
+        // #name-inputs, move it back to its native slot before we wipe
+        // and rebuild #name-inputs.
+        const startBtnPre = document.getElementById('start-game-btn');
+        if (startBtnPre && startBtnPre.closest('#name-inputs')) {
+            playerNamesDiv.appendChild(startBtnPre);
+        }
+        if (startBtnPre) startBtnPre.style.margin = '';
+
+        nameInputs.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+            const playerRow = document.createElement('div');
+            playerRow.className = 'player-input-row';
+
+            const iconSection = document.createElement('div');
+            iconSection.className = 'input-section';
+            if (i === 0 || count === 1) {
+                const iconLabel = document.createElement('div');
+                iconLabel.className = 'input-label';
+                iconLabel.textContent = 'Choose the icon';
+                iconSection.appendChild(iconLabel);
+            }
+            iconSection.appendChild(this.createIconSelector(i));
+            playerRow.appendChild(iconSection);
+
+            const nameSection = document.createElement('div');
+            nameSection.className = 'input-section name-section';
+            if (i === 0 || count === 1) {
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'input-label';
+                nameLabel.textContent = 'Type your name';
+                nameSection.appendChild(nameLabel);
+            }
+            const input = document.createElement('input');
+            input.type = 'text';
+            const isSinglePlayer = (count === 1);
+            const noPrefix = isSinglePlayer || count === 2;
+            const placeholderName = isSinglePlayer ? "Player's Name" : `Player ${i + 1}`;
+            input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
+            input.value = '';
+            input.dataset.playerIndex = i;
+            input.dataset.prefix = noPrefix ? '' : `${i + 1}.  `;
+            input.addEventListener('focus', (e) => {
+                const prefix = e.target.dataset.prefix;
+                if (e.target.value === '' || !e.target.value.startsWith(prefix)) {
+                    e.target.value = prefix;
+                }
+                setTimeout(() => { e.target.setSelectionRange(prefix.length, prefix.length); }, 0);
+            });
+            input.addEventListener('input', (e) => {
+                const prefix = e.target.dataset.prefix;
+                let value = e.target.value;
+                if (value.length > 0 && !value.startsWith(prefix)) {
+                    value = value.replace(/^\d+\.\s*/, '');
+                    e.target.value = prefix + value;
+                }
+                if (value === prefix || value.length < prefix.length) {
+                    if (value.length === 0) e.target.value = '';
+                }
+            });
+            nameSection.appendChild(input);
+            playerRow.appendChild(nameSection);
+            nameInputs.appendChild(playerRow);
+        }
+        this.updateIconAvailability();
+
+        if (includeXeno) {
+            const xenoRow = document.createElement('div');
+            xenoRow.className = 'player-input-row xeno-row';
+
+            const xenoIconSection = document.createElement('div');
+            xenoIconSection.className = 'input-section';
+            const xenoIconLabel = document.createElement('div');
+            xenoIconLabel.className = 'input-label';
+            xenoIconLabel.textContent = ' ';
+            xenoIconSection.appendChild(xenoIconLabel);
+            const xenoIconContainer = document.createElement('div');
+            xenoIconContainer.className = 'xeno-icon-container';
+            xenoIconContainer.innerHTML = XENO_ICON_SVG;
+            xenoIconSection.appendChild(xenoIconContainer);
+            xenoRow.appendChild(xenoIconSection);
+
+            const xenoNameSection = document.createElement('div');
+            xenoNameSection.className = 'input-section name-section';
+            const xenoNameLabel = document.createElement('div');
+            xenoNameLabel.className = 'input-label';
+            xenoNameLabel.textContent = ' ';
+            xenoNameSection.appendChild(xenoNameLabel);
+
+            const xenoInput = document.createElement('input');
+            xenoInput.type = 'text';
+            xenoInput.value = 'Xeno ⏳';
+            xenoInput.disabled = true;
+            xenoInput.className = 'xeno-input';
+            xenoInput.style.cssText = `
+                height: 36px;
+                min-height: 36px;
+                line-height: 36px;
+                padding: 0 20px;
+                font-size: 1rem;
+                border: 2px solid #FF69B4;
+                border-radius: 10px;
+                background: rgba(255,255,255,0.9);
+                color: #FF69B4;
+                font-weight: bold;
+                cursor: not-allowed;
+                width: calc(56% - 23pt) !important;
+                max-width: calc(56% - 23pt) !important;
+                box-sizing: border-box;
+                margin-left: 4px;
+                margin-top: -3px;
+            `;
+            const xenoContentRow = document.createElement('div');
+            xenoContentRow.style.cssText = 'display: flex; align-items: center; gap: 15px; width: 100%;';
+            xenoContentRow.appendChild(xenoInput);
+
+            const startBtn = document.getElementById('start-game-btn');
+            if (startBtn) {
+                startBtn.style.margin = '0';
+                xenoContentRow.appendChild(startBtn);
+            }
 
             xenoNameSection.appendChild(xenoContentRow);
             xenoRow.appendChild(xenoNameSection);

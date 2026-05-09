@@ -158,16 +158,25 @@ banner stamp was the only edit.
 
 ### Resume notes for tomorrow
 
-- HEAD on `claude/review-project-docs-JOOeh` (and mirror branch
-  `claude/general-session-yVBQq`) is `5c32d42`. Per-session branch
-  `claude/resume-vica-domin-UOJun` is on the same commit (was
-  worked on briefly at session start before the user pulled me
-  back to `claude/review-project-docs-JOOeh`).
-- Per the user's standing instruction: develop directly on
-  `claude/review-project-docs-JOOeh`; after each commit push to
-  *both* `review-project-docs-JOOeh` and `general-session-yVBQq`
-  so they stay identical. Don't push to master. Don't mention
-  master being behind every turn.
+- HEAD on all three branches is `b649e4d` (or whatever the latest
+  is — see `git log`). The three branches that must stay identical
+  are: `claude/review-project-docs-JOOeh` (deploy source),
+  `claude/general-session-yVBQq` (mirror), and
+  `claude/resume-vica-domin-UOJun` (per-session). I missed the
+  per-session branch on every commit through 5c32d42 and only
+  caught it after the user prompted on b649e4d — back-filled by
+  pushing HEAD straight to the per-session branch.
+- **Push rule (corrected): after each commit, push to ALL THREE
+  branches.** Use a single sequence:
+      git push -u origin claude/review-project-docs-JOOeh
+      git push    origin claude/review-project-docs-JOOeh:claude/general-session-yVBQq
+      git push    origin claude/review-project-docs-JOOeh:claude/resume-vica-domin-UOJun
+  Don't push to master. Don't mention master being behind every
+  turn — proxy 403s from the sandbox, the three branches are the
+  safety net.
+- Develop directly on `claude/review-project-docs-JOOeh`. Don't
+  switch to the per-session branch as the working branch — keep
+  it as a third mirror.
 - The renderInlinePlayerNames helper duplicates ~150 lines from
   `selectPlayerCount`. If we touch the input-building shape again
   (icon size, name placeholder rules, Xeno row layout), we should

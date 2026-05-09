@@ -62,17 +62,23 @@ branches. `claude/review-project-docs-JOOeh` is the deploy source;
 
 ### Operational
 
-- Stable triple-equivalent push: `claude/review-project-docs-JOOeh`
-  (deploy source) and `claude/general-session-yVBQq` are both at
-  `5c32d42`. Per-session branch `claude/resume-vica-domin-UOJun`
-  is on the same commit. Master is intentionally behind — the
-  proxy 403s master pushes from the sandbox, the user keeps the
-  three identical branches as the safety net, and stop-hook
-  complaints about master are intentional and to be ignored.
-- After each commit, push to *both* `review-project-docs-JOOeh`
-  and `general-session-yVBQq` (the user's explicit standing rule
-  set at session start). Don't push to master. Develop directly
-  on `review-project-docs-JOOeh`, not on the per-session branch.
+- **Three branches must stay identical:**
+  `claude/review-project-docs-JOOeh` (deploy source),
+  `claude/general-session-yVBQq` (mirror), and
+  `claude/resume-vica-domin-UOJun` (per-session). Through 5c32d42
+  I was only pushing to the first two; the user caught it on the
+  level-stack commit and asked for a back-fill. Push sequence
+  after each commit:
+      git push -u origin claude/review-project-docs-JOOeh
+      git push    origin claude/review-project-docs-JOOeh:claude/general-session-yVBQq
+      git push    origin claude/review-project-docs-JOOeh:claude/resume-vica-domin-UOJun
+- Master is intentionally behind — the proxy 403s master pushes
+  from the sandbox, the user keeps the three identical branches
+  as the safety net, and stop-hook complaints about master are
+  intentional and to be ignored.
+- Develop directly on `review-project-docs-JOOeh`. Don't switch
+  to the per-session branch as the working branch — keep it as a
+  third mirror.
 - All five trial-banner instances bumped to `TRIAL 08:19 PM PDT`
   on 5c32d42.
 

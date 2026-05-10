@@ -163,6 +163,22 @@ Stable triple-push throughout: `master` + `claude/general-session-yVBQq`
 
 ### Operational
 
+- **Cache-buster query strings (`?v=…`) on `<link>` and `<script>`
+  tags are mandatory for any CSS/JS change that affects rendered
+  output.** Without bumping them, browsers serve stale cached
+  copies and your fix never reaches the user — wasted today on
+  `90783d9` + `7ebf2d5` (level-grid JS restore-path fixes that
+  weren't visible until `b0505dc` bumped `css/style.css?v=…` and
+  `js/game.js?v=…`). Standard pattern: bump on every meaningful
+  CSS/JS edit; pick a short tag tied to the change so the diff
+  reads. Files that carry version params (audit with
+  `grep -nE '\?v=' index.html pm-studio-DrV.html`):
+      css/style.css            (in both HTML files)
+      js/firebase-config.js    (in both)
+      js/sync.js               (in both)
+      js/domino.js             (in both)
+      js/voice.js              (in both)
+      js/game.js               (in both)
 - `scripts/bump-trial.sh` writes the current PDT time into all 5
   banner occurrences. `.githooks/pre-commit` calls it on every
   commit that touches `index.html` or `pm-studio-DrV.html`, then

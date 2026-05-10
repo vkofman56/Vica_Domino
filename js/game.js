@@ -3743,7 +3743,11 @@ class VicaDominoGame {
 
         // Restore game level and player select
         document.querySelector('.setup-columns').style.display = 'flex';
-        document.querySelector('.game-level-select').style.display = 'flex';
+        // Clear the inline display so the stylesheet's `display: grid`
+        // (set on .game-level-select for the vertical icon stack) wins.
+        // Hardcoding 'flex' here would silently revert the layout to a
+        // horizontal flex row whenever this restore path runs.
+        document.querySelector('.game-level-select').style.display = '';
         document.querySelector('.player-select').style.display = 'flex';
 
         // Hide selected options row
@@ -4198,7 +4202,9 @@ class VicaDominoGame {
 
         // Restore original containers and hide selected row
         document.querySelector('.setup-columns').style.display = 'flex';
-        document.querySelector('.game-level-select').style.display = 'flex';
+        // Clear the inline display so the stylesheet's `display: grid`
+        // wins (see paired note at the other restore path above).
+        document.querySelector('.game-level-select').style.display = '';
         document.querySelector('.player-select').style.display = 'flex';
         const selectedRow = document.getElementById('selected-options-row');
         if (selectedRow) {

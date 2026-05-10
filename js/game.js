@@ -4184,9 +4184,14 @@ class VicaDominoGame {
         document.getElementById('player-names').style.display = 'none';
         document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
 
-        // Restore all level buttons visibility
+        // Restore all level buttons visibility — clear inline display so
+        // the stylesheet's `display: contents` (set on .level-btn-wrapper
+        // inside .game-level-select) wins. Forcing 'flex' here was the
+        // second cause of the horizontal level-box regression: it
+        // collapses each wrapper to a single flex box and breaks the
+        // parent grid's button/label placement in cols 1/2.
         document.querySelectorAll('.level-btn-wrapper').forEach(wrapper => {
-            wrapper.style.display = 'flex';
+            wrapper.style.display = '';
         });
 
         // Restore all player buttons visibility

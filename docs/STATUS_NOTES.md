@@ -6,6 +6,165 @@
 
 ---
 
+## May 10-11, 2026 — Levels-as-column UX + card-set bugfixes + loupe copy/paste
+
+Long single session, four threads. All three branches end at `0d1dbfb`.
+
+### Theme 1: GP Setup level picker rebuilt to mirror Game Type column
+
+Player-facing GP Setup right column has a vertical list of bordered
+Game Type rows (.setup-right-types / .setup-type-line). User wanted
+the Levels column to look identical.
+
+End state on the left column (`pm-studio-DrV.html:140-200`,
+`index.html:93-200`, `css/style.css:3520-3600`):
+- `.game-level-select` is a flex column-reverse stack with
+  highest-level-icon on top, lowest on bottom.
+- Each `.level-btn-wrapper` is a full-width bordered box (1.5px
+  /0.18α border, 10px radius, 10×14 padding) — identical values to
+  `.setup-type-line`. Icon on left, label on right.
+- Inner `.level-btn` is now transparent/borderless — wrapper carries
+  the visual box.
+- Selected state lives on `.level-btn` via JS (`initGameLevelSelector`
+  in js/game.js:384-408 toggles `.selected` on the button), then the
+  wrapper picks it up via CSS `:has(> .level-btn.selected)` for the
+  gold highlight.
+- Click handler attached to the wrapper, not the button, so the
+  whole row is clickable.
+- h3 title sits as a sibling above `.game-level-select` inside
+  `.setup-left`. `.setup-left { text-align: center }` centers it
+  above the column.
+
+Path getting there had three intermediate forms (column-reverse flex
+with labels-right at b649e4d, then a 2-col CSS grid at 8c0b20e
+trying to align the title with only the icons, then the current
+box-row form at 6bd2268). Three JS restore paths (`js/game.js:3746`,
+`js/game.js:4189`, `index.html:1266`) clobbered the grid layout by
+hardcoding `display: flex` / `'flex'` on `.game-level-select` /
+`.level-btn-wrapper`; all three now use `style.display = ''` so the
+stylesheet wins (90783d9, 7ebf2d5, fixed inline-html restore in the
+6bd2268 commit).
+
+Other axis polish on the same screen:
+- "Choose the icon" / "Type your name" labels above per-player rows
+  removed everywhere they were rendered (9ec49ad).
+- Trailing `":"` after the Type-of-Game axis label dropped (0e4f748).
+
+### Theme 2: Card-set bugfix series
+
+User reported false-positive "card is used in a game" warning when
+trying to erase a card in a copied card set. Two compounding bugs:
+
+1. `_doCopySet` (`pm-studio-DrV.html:14227`) wrote source cards
+   verbatim to the new set's localStorage key, so every card in the
+   copy inherited the source's stableId. `_geFindCardUsage`
+   (9154-9188) then matched the copy's cards against any game wired
+   to the source. **Fixed in 210d271** — per-card `.map` that
+   regenerates stableId via `generateStableId(card.label, newName)`.
+2. The same usage-check has a label-only fallback at line 9169/9181
+   that fires when a card has no stableId. User audit revealed 211
+   of 566 cards in the library lacked stableIds. With short labels
+   like `A1` appearing in 9 different sets, the fallback cross-
+   matched aggressively. Root of the 211 was 6 orphan card-set blobs
+   in localStorage (Multiply 1a, Numbers Dots 0-6, Test Set, Copy of
+   Test Set, Numbers Dots 3-10, Multiply by 3 — ~1.75 MB total) left
+   behind when sets were deleted from the UI but their
+   `customDrawnCards_*` keys weren't purged. **All 8 active sets had
+   100% proper stableIds** — only the orphans + the legacy
+   `customDrawnCards_abc` built-in seed were stableless.
+
+User ran three console-only operations (NOT in repo, one-time
+operations against their browser's localStorage):
+1. Visual HTML backup of all 6 orphans (1.75 MB) downloaded to
+   user's Downloads folder. Initial viewer rendered "(no SVG)"
+   placeholders because card `svgContent` strings are SVG fragments
+   (`<text x=… y=…>…</text>`), not full `<svg>` elements — fixed by
+   wrapping each fragment in
+   `<svg viewBox="0 0 60 80" width="100" height="...">` at view time.
+2. The 6 orphan localStorage keys deleted; ~1.7 MB freed.
+3. Cards from the backup file merged into a user-created `Extras`
+   set via a file-picker snippet running in the studio tab:
+   - Each card got a fresh stableId via
+     `generateStableId(label, 'Extras') + '_n<counter>'`.
+   - Labels suffixed with source set name (e.g.
+     `A1 (Multiply by 3)`).
+   - Empty-svgContent cards skipped.
+   - Pre-merge state of Extras stashed to
+     `_extrasPreMergeBackup_<ts>` for safety rollback.
+   Followed by a cleanup snippet that removed the 2 stableless
+   placeholder seeds `_createNamedSet` auto-injects into new sets.
+   Final state: Extras has 191 cards, all with proper stableIds,
+   no duplicates.
+
+### Theme 3: Studio "+ New card set" UX polish
+
+- **60b06df** — Placeholder count fixed. Was reading
+  `.library-set-btn` DOM nodes (over-counted because Recent + folder
+  sections double-render each set, gave "12's card set" for a user
+  with 8 sets). Now reads `loadCardSets().length + 1` and runs an
+  ordinal formatter (1st, 2nd, 3rd, 4th, … with 11th-13th carve-out).
+- **680d87f** — `createNewCardSet` toggle bug: after navigating
+  into the card maker and back, the first "+" click did nothing
+  because the `_addSetMode` module flag was stale-true while
+  `.new-set-input` had been wiped by rebuilds. Fixed by reading
+  live DOM as the source of truth (`document.querySelector
+  ('.new-set-input')` presence) instead of the flag.
+- **8da7aea** — Safe Haven excluded from the new-set ordinal count
+  via the `isSafeHaven` flag (set at line 7201 when Safe Haven is
+  first created).
+- **5c8715d / 0d1dbfb** — Defensive self-heal: every "+" click
+  removes orphan `.library-set-copy-btn` nodes before adding a fresh
+  row, so Copy buttons can no longer pile up if some prior state was
+  incomplete. Also tightened `insertBefore` to verify
+  `preview.parentNode === col`; falls back to `appendChild`. Added
+  two diagnostic console.logs during debugging, then removed once
+  the user confirmed the flow worked.
+
+### Theme 4: In-card element copy/paste in the loupe (7343c4f)
+
+New feature. Previously the loupe (card editor) let you select /
+move / transform (rotate, reflect in place) / delete an element on
+a card, but had no way to duplicate it. User has to drop two text
+elements by hand to make "5 5".
+
+- New module-level `_loupeElementClipboard` holds cloned SVG nodes
+  across loupe sessions (copy on card A, paste on card B works).
+- `loupeCopyElement` clones `getAllSelectedElements`, strips
+  selection markers, enables Paste button.
+- `loupePasteElement` clones from clipboard, strips ids, applies
+  +5,+5 SVG-unit offset on x/y/cx/cy (with transform-translate
+  fallback for paths/groups/use), appends to loupe SVG, pushes onto
+  `drawHistory` via the legacy-element pattern. Multi-element pastes
+  coalesce into one undo entry via `_coalesceLoupeHistory`.
+- New Copy / Paste buttons next to Delete in `#draw-tools-panel`.
+  Copy mirrors Delete visibility (only shown when selection exists);
+  Paste always visible but starts disabled and unlocks on first
+  copy.
+- Cmd+C / Cmd+V / Cmd+D keyboard shortcuts registered in capture
+  phase so they beat the existing card-list-level shortcuts at line
+  8061 when the loupe is open — loupe takes precedence.
+
+### Commits this session (chronological)
+
+- `b649e4d` GP setup: stack levels vertically with labels to the right
+- `e1104c3` docs: correct push-rule note — three branches, not two
+- `9ec49ad` GP setup: drop "Choose the icon" / "Type your name" labels
+- `0e4f748` GP setup: drop trailing ":" after the Type-of-Game axis label
+- `8c0b20e` GP setup: center "Game level" title above the icon column only
+- `052536e` GP setup: match level-icon outline to game-type box outline
+- `90783d9` fix: stop JS restore paths from clobbering .game-level-select grid
+- `7ebf2d5` fix: stop wrapper-restore loop from clobbering display: contents
+- `b0505dc` bump cache-buster on style.css + game.js — level grid fix wasn't reaching browsers
+- `7e40dc9` docs: spell out cache-buster requirement in STATUS_NOTES
+- `6bd2268` GP setup: levels picker now matches Game Type box-row column
+- `210d271` studio: _doCopySet regenerates stableId on every copied card
+- `7343c4f` studio: in-card element-level copy/paste in the loupe editor
+- `60b06df` studio: fix new-set placeholder count + ordinal grammar
+- `680d87f` studio: createNewCardSet uses DOM state, not stale _addSetMode flag
+- `8da7aea` studio: exclude Safe Haven from new-set ordinal count
+- `5c8715d` studio: self-heal stale Copy buttons + add diagnostic log to createNewCardSet
+- `0d1dbfb` studio: drop the createNewCardSet diagnostic console.logs
+
 ## May 9, 2026 — GP intro mode popups + GP setup polish
 
 Player-facing setup-flow polish session. Find games now get a TOUCH /

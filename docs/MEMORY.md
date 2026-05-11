@@ -1,6 +1,193 @@
 # Vica Domino Project Memory
 **Last Updated**: May 9, 2026
 
+## May 10-11, 2026 session — GP setup levels-as-column polish + card-set bugfixes
+
+Long session, two distinct themes.
+
+### Theme 1 — GP Setup level picker visual overhaul (commits b649e4d → 6bd2268)
+
+Player-facing GP Setup page got a structural rework of the Levels axis,
+driven by a series of user requests. End state mirrors the Game Type
+column on the right of the setup screen.
+
+- **b649e4d** — Switched `.game-level-select` from horizontal flex row
+  to vertical column-reverse so the 3 level icons (2/3/4 dominos)
+  stack with highest on top. Labels moved from below each icon to the
+  right of it.
+- **9ec49ad** — Removed the redundant "Choose the icon" / "Type your
+  name" labels above the per-player rows on all three rendering paths
+  (selectPlayerCount, renderInlinePlayerNames, mouse-Catch inline path
+  in index.html ~1853).
+- **0e4f748** — Dropped the hardcoded trailing `":"` after the
+  Type-of-Game axis label. Now reads admin's axisLabel verbatim like
+  Players and Levels axes already did.
+- **8c0b20e** — Title for the Levels axis was centered above the
+  whole row (icon+label combined width). User wanted it centered
+  above only the icon column. Restructured `.game-level-select` into
+  a 2-col CSS grid (col 1 fixed 85px = icon natural width, col 2
+  auto = widest label), moved the h3 inside the grid as a row-1 item
+  spanning only col 1. `.level-btn-wrapper` became `display: contents`
+  so each wrapper's button + label land directly in grid cells.
+- **052536e** — Thinned `.level-btn` outline (3px → 1.5px, radius 15
+  → 10px) to match the `.setup-type-btn` outline on the Game Type
+  pill row. Grid col-1 bumped 85 → 82 to track the new button width.
+- **90783d9 / 7ebf2d5** — Bug fixes for the grid layout. Three JS
+  restore paths were clobbering the grid by hardcoding `display: flex`
+  on `.game-level-select` and on each `.level-btn-wrapper` after a
+  game ended. All three flipped to `style.display = ''` so the
+  stylesheet's `display: grid` / `display: contents` wins.
+- **b0505dc** — User's browser was still seeing the broken horizontal
+  layout because the cache-buster query strings on css/style.css and
+  js/game.js hadn't been bumped since well before the layout work
+  started. Bumped both to `?v=level-grid-fix-1`. **Important takeaway
+  recorded in STATUS_NOTES.md Operational section: every meaningful
+  CSS/JS change MUST bump the ?v=... query param or the fix never
+  reaches users' browsers.**
+- **7e40dc9** — Documented the cache-buster requirement explicitly
+  in STATUS_NOTES.md after the b0505dc near-miss.
+- **6bd2268** — Final form: user asked for Levels column to look
+  *exactly* like Game Type column. Rebuilt `.game-level-select` as a
+  flex column-reverse of full-row bordered boxes (each
+  `.level-btn-wrapper` now carries the 1.5px/0.18α border + 10px
+  radius + 10x14 padding identical to `.setup-type-line`). Inner
+  `.level-btn` lost its own outline — wrapper carries everything.
+  Selected state lives on `.level-btn` via JS but is picked up on the
+  wrapper through CSS `:has(> .level-btn.selected)`. Click handler
+  in `initGameLevelSelector` moved from the button to the wrapper so
+  the whole row is the click target. h3 moved back out of the grid
+  to its original position as a sibling above the box stack (mirrors
+  Game Type's `#setup-right-h3` structure). Cache-buster bumped to
+  `?v=level-box-rows-1`.
+
+### Theme 2 — Card-set bugfixes + new Extras set (commits 210d271 → 0d1dbfb)
+
+User reported: copying a card set, then trying to erase a card in
+the copy, triggers a false-positive "card is used in a game"
+warning. Long investigation via console audits running in the
+user's browser.
+
+- **210d271** — Root fix: `_doCopySet` (pm-studio-DrV.html:14227) was
+  reading the source set's cards from localStorage and writing the
+  array verbatim to the new key. Every card in the copy inherited
+  the source's stableId, so `_geFindCardUsage` (9154-9188) matched
+  the copy's cards against any game wired to the source. Fix:
+  per-card `.map` that regenerates stableId via
+  `generateStableId(card.label, newName)` while preserving all other
+  fields.
+- **User console audit** revealed deeper context:
+  - 0 cross-set stableId collisions (so my first theory was
+    incomplete — the actual mechanism was the label-only fallback).
+  - 211 of 566 cards in the library had no stableId at all (37%) —
+    they fell through `_geFindCardUsage`'s label-only fallback at
+    9169/9181 and matched any game-card with the same label string
+    regardless of source set.
+  - 6 orphan card-sets (Multiply 1a, Numbers Dots 0-6, Test Set,
+    Copy of Test Set, Numbers Dots 3-10, Multiply by 3, total ~1.7
+    MB) sitting in localStorage from previous experiments — invisible
+    in the UI because they were deleted from `savedCardSets` but
+    their `customDrawnCards_*` blobs were never purged. All 211
+    stableless cards lived in those orphans (+ 15 in the legacy
+    `abc` built-in seed key); active 8 sets were 100% clean.
+- **One-time browser-console operations (user ran these themselves;
+  not committed to repo):**
+  1. Self-contained HTML backup viewer of all 6 orphans (1.75 MB)
+     downloaded to user's Downloads folder. Initial version
+     rendered "(no SVG)" placeholders because the embedded
+     `svgContent` strings are SVG *fragments* (just `<text>`
+     children), not full `<svg>` elements; a follow-up snippet
+     re-rendered in-place by wrapping each fragment in
+     `<svg viewBox="0 0 60 80" width="100" height="...">`. User
+     confirmed the cards now display properly.
+  2. Orphan localStorage keys deleted (`customDrawnCards_*` minus
+     the savedCardSets-listed and built-in keys); ~1.7 MB freed.
+  3. Cards from the backup file merged into a user-created
+     `Extras` set: each card got a fresh stableId via
+     `generateStableId(label, 'Extras') + '_n<counter>'` (counter
+     suffix as collision guard), labels suffixed with source set
+     (e.g. "A1 (Multiply by 3)"), empty-svgContent cards skipped.
+     Then a follow-up snippet dropped the 2 stableless seed cards
+     that `_createNamedSet` auto-seeds into every new set. Final
+     state: Extras has 191 cards, all with proper stableIds, no
+     duplicates.
+
+### Theme 3 — Studio "new card set" UX polish (commits 60b06df → 0d1dbfb)
+
+- **60b06df** — Placeholder in the new-set inline input read "Enter
+  the title of the 12's card set" for a user with 8 sets. Two bugs:
+  count used DOM-rendered `.library-set-btn` (over-counted because
+  Recent + folder sections double-render each set), and the format
+  used possessive `"N's"` instead of ordinal. Now reads
+  `loadCardSets().length + 1` and runs through an ordinal formatter
+  (1st, 2nd, 3rd, 4th… with teens carve-out for 11th-13th).
+- **680d87f** — `createNewCardSet` toggle bug: after navigating into
+  the card maker and back, clicking "+" did nothing on first click
+  because the `_addSetMode` module flag was stale-true while the
+  `.new-set-input` DOM element had been wiped by rebuilds. Fixed by
+  reading the live DOM (`.new-set-input` presence) as source of
+  truth instead of the in-memory flag.
+- **8da7aea** — Safe Haven was being counted in the new-set ordinal.
+  Filter on `!s.isSafeHaven` (the flag set at line 7201 when Safe
+  Haven is first created) so a user with 7 real sets + Safe Haven
+  correctly sees "8th".
+- **5c8715d** — Defensive self-heal at the top of `createNewCardSet`:
+  any orphan `.library-set-copy-btn` left from a previous activation
+  gets wiped before adding a fresh row, so Copy buttons can no
+  longer pile up on repeated "+" clicks. Also tightened
+  `insertBefore` to verify `preview.parentNode === col` before using
+  it; falls back to `appendChild`. Two `console.log` lines added for
+  diagnostics — removed in **0d1dbfb** once the user confirmed the
+  flow works.
+
+### Theme 4 — In-card element copy/paste in the loupe (commit 7343c4f)
+
+New feature, user-requested. Previously the loupe (card editor) let
+you select / move / transform (rotate, reflect in-place) / delete
+an element on a card, but had no way to duplicate it.
+
+- New module-level `_loupeElementClipboard` holds cloned SVG nodes
+  across loupe sessions.
+- `loupeCopyElement` reads `getAllSelectedElements`, deep-clones,
+  strips selection markers, enables the Paste button.
+- `loupePasteElement` clones from clipboard, strips ids to avoid
+  DOM duplicates, applies a +5,+5 SVG-unit offset on the simplest
+  available positioning attribute (x/y/cx/cy, with a transform
+  translate fallback for paths/groups/use), appends to the loupe
+  SVG, pushes onto `drawHistory` using the legacy-element pattern.
+  Multi-element pastes coalesce into a single undo entry via
+  `_coalesceLoupeHistory`.
+- New Copy / Paste buttons in `#draw-tools-panel` next to Delete.
+  Copy mirrors Delete's visibility (only shown when something is
+  selected, hooked through `_updateDrawSizeActivation`); Paste is
+  always visible but starts disabled and unlocks on first copy.
+- Cmd+C / Cmd+V / Cmd+D keyboard shortcuts registered in **capture
+  phase** so they beat the existing card-list-level Cmd+C / Cmd+V
+  shortcut at line 8061 when the loupe is open. Loupe takes
+  precedence — Cmd+C in the loupe means "copy this element", not
+  "copy this whole card".
+
+### Operational gotchas surfaced this session
+
+- **Cache-buster query strings on css/style.css and js/game.js MUST
+  be bumped on every meaningful CSS/JS change.** Two days nearly
+  wasted chasing a "fixed" bug that never reached the user's browser
+  because the `?v=...` hadn't been bumped. See STATUS_NOTES.md
+  Operational for the file list + audit grep.
+- **Three branches must stay identical**:
+  `claude/review-project-docs-JOOeh` (deploy source),
+  `claude/general-session-yVBQq` (mirror), and
+  `claude/resume-vica-domin-UOJun` (per-session). Push sequence
+  after every commit:
+      git push -u origin claude/review-project-docs-JOOeh
+      git push    origin claude/review-project-docs-JOOeh:claude/general-session-yVBQq
+      git push    origin claude/review-project-docs-JOOeh:claude/resume-vica-domin-UOJun
+- **Firestore card_backup is a 20-min snapshot, not a live mirror.**
+  Each user's localStorage holds the working data; sync just dumps
+  rolling JSON chunks to `users/<uid>/card_backups/<ts>/chunks/`,
+  keeping the last 3. Cards do not sync between devices in real
+  time. Audits and data operations have to run in the user's
+  browser; this sandbox cannot read their data directly.
+
 ## May 9, 2026 session — GP intro mode popups + GP setup polish
 
 Mostly polish on the player-facing setup flow: a TOUCH / MOUSE popup
@@ -158,16 +345,13 @@ banner stamp was the only edit.
 
 ### Resume notes for tomorrow
 
-- HEAD on all three branches is `b649e4d` (or whatever the latest
+- HEAD on all three branches is `0d1dbfb` (or whatever the latest
   is — see `git log`). The three branches that must stay identical
   are: `claude/review-project-docs-JOOeh` (deploy source),
   `claude/general-session-yVBQq` (mirror), and
-  `claude/resume-vica-domin-UOJun` (per-session). I missed the
-  per-session branch on every commit through 5c32d42 and only
-  caught it after the user prompted on b649e4d — back-filled by
-  pushing HEAD straight to the per-session branch.
-- **Push rule (corrected): after each commit, push to ALL THREE
-  branches.** Use a single sequence:
+  `claude/resume-vica-domin-UOJun` (per-session).
+- **Push rule: after each commit, push to ALL THREE branches.** Use
+  a single sequence:
       git push -u origin claude/review-project-docs-JOOeh
       git push    origin claude/review-project-docs-JOOeh:claude/general-session-yVBQq
       git push    origin claude/review-project-docs-JOOeh:claude/resume-vica-domin-UOJun
@@ -177,6 +361,37 @@ banner stamp was the only edit.
 - Develop directly on `claude/review-project-docs-JOOeh`. Don't
   switch to the per-session branch as the working branch — keep
   it as a third mirror.
+- **Bump the cache-buster `?v=...` on css/style.css and
+  js/game.js for any meaningful CSS/JS change** — otherwise the
+  fix won't reach users on a normal reload. Six files carry version
+  params (audit with `grep -nE '\?v=' index.html pm-studio-DrV.html`):
+  css/style.css, js/firebase-config.js, js/sync.js, js/domino.js,
+  js/voice.js, js/game.js. pm-studio-DrV.html's own inline-script
+  changes don't need a buster — the HTML file is the entry point
+  and a normal reload picks up the new HTML.
+
+### Open items / known issues at end of session
+
+- **2 stableless seed cards** still exist in any newly-created card
+  set: `_createNamedSet` (pm-studio-DrV.html:14287) seeds new sets
+  with `{label: 'A1', svgContent: '', desc: 'Empty'}` and
+  `{label: 'B1', ...}` — both lack stableId. User cleaned theirs up
+  in Extras manually via console option-A snippet. Future work:
+  patch `_createNamedSet` so seeds get `generateStableId(label,
+  newName)` like every other card-creation path does.
+- **15 stableless cards** still in the `customDrawnCards_abc`
+  built-in legacy seed key. They drive a small amount of label-
+  fallback noise in `_geFindCardUsage` but aren't actively hurting
+  the user. Same fix as above — seed paths should call
+  generateStableId.
+- **`_geFindCardUsage` label-only fallback** at
+  pm-studio-DrV.html:9169/9181 still exists. After the orphan
+  cleanup the surface area is tiny (only the 15 abc-seed cards plus
+  the 2-per-set placeholders), but the structural fix would be to
+  drop the fallback entirely and only match on stableId. Hold off
+  until all built-in seeds + placeholders carry stableIds (see two
+  bullets above) — otherwise legit-but-stableless cards would stop
+  matching their wired games.
 - The renderInlinePlayerNames helper duplicates ~150 lines from
   `selectPlayerCount`. If we touch the input-building shape again
   (icon size, name placeholder rules, Xeno row layout), we should

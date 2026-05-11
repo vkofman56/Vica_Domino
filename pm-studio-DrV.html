@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:46 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:30 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:46 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:30 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:46 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:30 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -697,6 +697,8 @@
                     <input type="hidden" id="draw-font-select" value="Arial, sans-serif">
                 </div>
                 <button class="draw-tool-btn draw-delete-btn" id="draw-delete-btn" onclick="drawDeleteSelected()" title="Delete selected" style="display:none;">&#10005;</button>
+                <button class="draw-tool-btn draw-copy-btn" id="draw-copy-btn" onclick="loupeCopyElement()" title="Copy selected element (Ctrl/Cmd+C)" style="display:none;">&#9112;</button>
+                <button class="draw-tool-btn draw-paste-btn" id="draw-paste-btn" onclick="loupePasteElement()" title="Paste (Ctrl/Cmd+V)" disabled>&#9113;</button>
                 <span class="draw-tool-sep">|</span>
                 <!-- Color palette -->
                 <div class="draw-color-section" id="draw-color-section">
@@ -3465,6 +3467,11 @@
             rows.forEach(function(row) {
                 row.classList.toggle('deactivated', !hasSel);
             });
+            // Copy button mirrors Delete's visibility — only meaningful when
+            // there's a selection. Paste is independent (its enablement
+            // tracks _loupeElementClipboard, set in loupeCopyElement).
+            var copyBtn = document.getElementById('draw-copy-btn');
+            if (copyBtn) copyBtn.style.display = hasSel ? '' : 'none';
         }
 
         function deselectElement() {
@@ -3917,6 +3924,87 @@
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
             _updateDrawSizeActivation();
+        }
+
+        // ===== Element-level copy/paste inside the loupe (card editor) =====
+        // Holds cloned SVG elements until next paste. Lives across loupe sessions
+        // so the user can copy on one card and paste on another.
+        var _loupeElementClipboard = [];
+
+        function loupeCopyElement() {
+            var sel = (typeof getAllSelectedElements === 'function') ? getAllSelectedElements() : [];
+            if (!sel || sel.length === 0) return;
+            _loupeElementClipboard = sel.map(function(el) {
+                var clone = el.cloneNode(true);
+                if (clone.classList) {
+                    clone.classList.remove('draw-selected');
+                    clone.classList.remove('draw-placed');
+                }
+                if (clone.querySelectorAll) {
+                    clone.querySelectorAll('.draw-selected, .draw-placed, .draw-sel-ring').forEach(function(d) {
+                        d.classList && d.classList.remove('draw-selected');
+                        d.classList && d.classList.remove('draw-placed');
+                        if (d.classList && d.classList.contains('draw-sel-ring') && d.parentNode) d.parentNode.removeChild(d);
+                    });
+                }
+                return clone;
+            });
+            var pasteBtn = document.getElementById('draw-paste-btn');
+            if (pasteBtn) pasteBtn.disabled = false;
+        }
+
+        function loupePasteElement() {
+            if (_loupeElementClipboard.length === 0) return;
+            var container = document.getElementById('loupe-card-container');
+            var svg = container && container.querySelector('svg:not(.loupe-grid)');
+            if (!svg) return;
+            // Drop current selection so the pasted element stands out.
+            if (typeof deselectElement === 'function') deselectElement();
+
+            var anchor = drawHistory.length;
+            // Small offset in SVG units (cards are ~60×80) so the paste is
+            // visibly nudged off the source rather than perfectly stacked.
+            var dx = 5, dy = 5;
+
+            _loupeElementClipboard.forEach(function(el) {
+                var fresh = el.cloneNode(true);
+                // Strip ids on the new copy and any descendants — duplicate ids
+                // would otherwise pollute the DOM and break later id-based lookups.
+                if (fresh.removeAttribute) fresh.removeAttribute('id');
+                if (fresh.querySelectorAll) {
+                    fresh.querySelectorAll('[id]').forEach(function(el2) { el2.removeAttribute('id'); });
+                }
+                if (fresh.classList) {
+                    fresh.classList.remove('draw-selected');
+                    fresh.classList.remove('draw-placed');
+                }
+                // Apply the offset on whatever positioning attributes the
+                // element actually uses; fall back to a transform translate
+                // for elements without simple x/y/cx/cy (paths, groups, use…).
+                var x  = parseFloat(fresh.getAttribute && fresh.getAttribute('x'));
+                var y  = parseFloat(fresh.getAttribute && fresh.getAttribute('y'));
+                var cx = parseFloat(fresh.getAttribute && fresh.getAttribute('cx'));
+                var cy = parseFloat(fresh.getAttribute && fresh.getAttribute('cy'));
+                var moved = false;
+                if (!isNaN(x))  { fresh.setAttribute('x',  x  + dx); moved = true; }
+                if (!isNaN(y))  { fresh.setAttribute('y',  y  + dy); moved = true; }
+                if (!isNaN(cx)) { fresh.setAttribute('cx', cx + dx); moved = true; }
+                if (!isNaN(cy)) { fresh.setAttribute('cy', cy + dy); moved = true; }
+                if (!moved) {
+                    var t = (fresh.getAttribute && fresh.getAttribute('transform')) || '';
+                    fresh.setAttribute('transform', ('translate(' + dx + ',' + dy + ') ' + t).trim());
+                }
+                svg.appendChild(fresh);
+                drawRedoStack.length = 0;
+                drawHistory.push(fresh);
+            });
+
+            // Coalesce multi-element pastes into a single undo entry so one
+            // Ctrl+Z removes the whole paste batch.
+            if (drawHistory.length > anchor + 1 && typeof _coalesceLoupeHistory === 'function') {
+                _coalesceLoupeHistory(anchor);
+            }
+            hasEditedExisting = true;
         }
 
         var drawMouseDownHandler = null;
@@ -7969,6 +8057,36 @@
             var screen = document.getElementById('domino-library-screen');
             return screen && screen.style.display !== 'none';
         }
+
+        // In-loupe element-level Cmd+C / Cmd+V / Cmd+D. Runs BEFORE the global
+        // card-list shortcut handler below so the loupe takes precedence: when
+        // the user is editing a card and presses Cmd+C, they expect the
+        // selected element on the card to be copied — not the card itself.
+        document.addEventListener('keydown', function(e) {
+            if (typeof _isLoupeOpen !== 'function' || !_isLoupeOpen()) return;
+            if (_kbInputFocused(e)) return;
+            if (!(e.ctrlKey || e.metaKey)) return;
+            var k = (e.key || '').toLowerCase();
+            var hasSel = !!selectedElement ||
+                (typeof extraSelectedElements !== 'undefined' && extraSelectedElements.length > 0);
+            if (k === 'c') {
+                if (!hasSel) return;
+                e.preventDefault();
+                e.stopPropagation();
+                loupeCopyElement();
+            } else if (k === 'v') {
+                if (_loupeElementClipboard.length === 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                loupePasteElement();
+            } else if (k === 'd') {
+                if (!hasSel) return;
+                e.preventDefault();
+                e.stopPropagation();
+                loupeCopyElement();
+                loupePasteElement();
+            }
+        }, true); // capture phase so we beat the bubble-phase global handler
 
         document.addEventListener('keydown', function(e) {
             // Ctrl+Z handled by earlier listener

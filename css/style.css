@@ -3517,52 +3517,81 @@ body.group-edit-active .library-row-letter:hover {
     color: #FFD54F;
 }
 
-/* Game Level Selector
-   Two-column grid: column 1 is a fixed 85px (matches the natural width
-   of .level-btn — 55px SVG + 12px×2 padding + 3px×2 border) so the
-   level icons stack in a tight column; column 2 auto-sizes to the
-   widest .level-label. The fixed col-1 width is what lets the title
-   row land centered above the icons rather than above the icon-plus-
-   label combined width. The whole grid shrinks to its content width
-   and is centered in .setup-left via auto margins. */
+/* Game Level Selector — vertical column of full-row boxes that mirror
+   the Game Type list (.setup-right-types / .setup-type-line) on the
+   opposite side of GP Setup. Each .level-btn-wrapper becomes one box
+   with icon-on-left, label-on-right, so the row reads the same way
+   as a "Slow Pace / Non-stop / Voiced Answer" row in Game Type.
+   flex-direction: column-reverse keeps the DOM ordering (2 dominos,
+   3, 4) while rendering highest-on-top. h3 stays as a sibling above
+   the box stack (in .setup-left) so it's centered above the entire
+   column the same way Game Type's h3 is. */
 .game-level-select {
-    display: grid;
-    /* Col 1 width: 1.5px×2 border + 12px×2 padding + 55px SVG = 82px,
-       matching the .level-btn natural width with the thinned border
-       (was 85px when .level-btn used a 3px border). */
-    grid-template-columns: 82px auto;
-    column-gap: 12px;
-    row-gap: 10px;
-    align-items: center;
-    justify-items: start;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 6px;
     width: max-content;
+    min-width: 220px;
     margin: 0 auto 25px;
 }
 
-/* Title row — h3 was moved into .game-level-select in HTML so it can
-   occupy only column 1 and sit centered above the icon stack. Out-of-
-   the-grid placement (the previous layout) made the title align with
-   the row's center, i.e. between icon and label. */
-.game-level-select > h3 {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: center;
-    margin: 0 0 8px;
-    text-align: center;
+/* Default flex column — applies to clones of .level-btn-wrapper
+   rendered in .selected-options-row (the chip shown after the legacy
+   click-to-reveal player-pick path). The .game-level-select-scoped
+   rule below overrides this for direct children of the level picker. */
+.level-btn-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
 }
 
-/* Border thinned to 1.5px / opacity 0.25 + radius 10px to match the
-   .setup-type-btn outline used on the Game Type pill row, so the
-   "line around" the level icons reads visually identical to the
-   line around the type boxes. */
-.level-btn {
-    background: rgba(255,255,255,0.15);
-    border: 1.5px solid rgba(255,255,255,0.25);
+/* Each level row is its own bordered box, copying .setup-type-line
+   exactly so visually the Levels column matches the Game Type column
+   on the right. The wrapper carries the border now; the inner
+   .level-btn loses its own outline. */
+.game-level-select > .level-btn-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
     border-radius: 10px;
-    padding: 8px 12px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: #ddd;
+    font-size: 1rem;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
-    color: rgba(255,255,255,0.7);
+}
+
+.game-level-select > .level-btn-wrapper:hover {
+    background: rgba(255,255,255,0.13);
+    color: #fff;
+}
+
+/* Selected state lives on the inner .level-btn (the click handler
+   toggles it there). :has() promotes that state up to the wrapper so
+   the whole box highlights — same gold-on-amber treatment as
+   .setup-type-line.selected. */
+.game-level-select > .level-btn-wrapper:has(> .level-btn.selected) {
+    background: rgba(255,215,0,0.25);
+    border-color: rgba(255,215,0,0.6);
+    color: #FFD700;
+    font-weight: 600;
+}
+
+/* Inner button is now visually transparent — the wrapper carries
+   the box. Keep it as a clickable hit target (cursor + pointer
+   events). The selection .selected class still gets toggled by JS
+   but is now consumed by the :has() rule above on the wrapper. */
+.level-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
 }
 
 .level-btn > svg {
@@ -3571,73 +3600,10 @@ body.group-edit-active .library-row-letter:hover {
     display: block;
 }
 
-/* Hover only lifts the background, leaving the border at its base
-   color — same pattern as .setup-type-btn:hover. */
-.level-btn:hover {
-    background: rgba(255,255,255,0.25);
-    color: white;
-}
-
-.level-btn.selected {
-    background: rgba(255,215,0,0.3);
-    border-color: #ffd700;
-    color: #ffd700;
-    box-shadow: 0 0 15px rgba(255,215,0,0.4);
-}
-
-/* Default flex column — applies to clones of .level-btn-wrapper
-   rendered in .selected-options-row (the chip shown after the legacy
-   click-to-reveal player-pick path). */
-.level-btn-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-}
-
-/* Inside the GP Setup level picker, wrappers are layout-transparent
-   (display: contents) so each wrapper's .level-btn lands in column 1
-   and .level-label lands in column 2 of the parent grid. */
-.game-level-select > .level-btn-wrapper {
-    display: contents;
-}
-
-.game-level-select > .level-btn-wrapper > .level-btn {
-    grid-column: 1;
-    justify-self: center;
-}
 .game-level-select > .level-btn-wrapper > .level-label {
-    grid-column: 2;
     text-align: left;
 }
 
-/* Vertical row order — DOM order is circle (2 dominos), triangle (3),
-   star (4). Visual top→bottom is star, triangle, circle so difficulty
-   reads bottom→top. h3 is row 1; level rows are 2/3/4. */
-.game-level-select > .level-btn-wrapper:nth-of-type(1) > .level-btn,
-.game-level-select > .level-btn-wrapper:nth-of-type(1) > .level-label {
-    grid-row: 4;
-}
-.game-level-select > .level-btn-wrapper:nth-of-type(2) > .level-btn,
-.game-level-select > .level-btn-wrapper:nth-of-type(2) > .level-label {
-    grid-row: 3;
-}
-.game-level-select > .level-btn-wrapper:nth-of-type(3) > .level-btn,
-.game-level-select > .level-btn-wrapper:nth-of-type(3) > .level-label {
-    grid-row: 2;
-}
-
-/* When admin enables exactly one Level option, hide the SVG button and
-   leave only the .level-label text visible. selectedLevel is set
-   programmatically in _applyGameSetupToPlayerScreen, so gameplay still
-   launches at the right level without any clickable element. */
-.level-btn-wrapper.is-static-text .level-btn { display: none; }
-.level-btn-wrapper.is-static-text .level-label {
-    color: rgba(255,255,255,0.92);
-    font-weight: 500;
-    font-size: 1.05rem;
-    padding: 6px 0;
-}
 /* When admin enables exactly one Level option, hide the SVG button and
    leave only the .level-label text visible. selectedLevel is set
    programmatically in _applyGameSetupToPlayerScreen, so gameplay still

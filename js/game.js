@@ -393,14 +393,17 @@ class VicaDominoGame {
             }
         });
 
-        // Add click handlers
+        // Click handler attached to the wrapper, not the inner .level-btn,
+        // so the entire row (icon + label + padding) is a click target —
+        // mirrors the Game Type box behavior where the whole bordered row
+        // is clickable. .selected still toggles on the inner button; the
+        // wrapper picks up the gold highlight via CSS :has().
         levelBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Remove selected from all
+            const wrapper = btn.parentElement;
+            if (!wrapper) return;
+            wrapper.addEventListener('click', () => {
                 levelBtns.forEach(b => b.classList.remove('selected'));
-                // Add selected to clicked
                 btn.classList.add('selected');
-                // Save selection
                 this.selectedLevel = btn.dataset.level;
                 localStorage.setItem('vicaSelectedLevel', this.selectedLevel);
             });

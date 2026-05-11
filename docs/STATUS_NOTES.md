@@ -6,6 +6,72 @@
 
 ---
 
+## May 12, 2026 morning — Remote-branch audit (action pending)
+
+User asked for a full audit of every branch on `origin`. Result: 9
+branches recommended for deletion, 2 to keep, plus the 3 live ones.
+**Nothing was deleted from origin** — user wants to read this report
+and decide. I pruned local tracking refs to keep the sandbox clean
+(remote unchanged; refetch with `git fetch --all`).
+
+### Repo topology
+
+Only `origin/master` (merge-base `570f9d8`, the PR #6 merge from
+May 9) shares history with our HEAD at `21319a4`. Every other
+branch on origin has an **independent history** (no common
+ancestor), from earlier imports/forks. That's why huge diff sizes
+(30K–50K lines) for those branches are misleading — they're not
+"missing work" we should pull in, they're parallel universes.
+
+### Branches to DELETE (9)
+
+```
+Tier A — fully merged into HEAD's history (0 ahead, 67 behind):
+  claude/catch-bubble-pictograms-fix
+
+Tier B — abandoned/superseded experiments, spot-checked clean:
+  Resizing-for-different-hardware            (2026-01-04, predates Studio)
+  find-the-double                            (2026-01-31, predates Studio; PR #1 already merged its essence to main)
+  claude/review-vica-domino-notes-vxyYf      (2026-02-07, old card art tweaks)
+  claude/review-daily-progress-4qGJy         (2026-02-14, coins/gems experiment, predates Studio)
+  claude/read-todays-notes-zfR1g             (2026-02-28, old cardArrangement / ABC infrastructure)
+  claude/review-project-docs-QNagl           (2026-03-29, features superseded; PRs #3+#4 closed)
+  claude/clarify-task-1NM0X                  (2026-04-19, draw-slider exploration, doesn't match current Studio)
+  claude/fix-card-deletion-bug-ElUcy         (2026-04-26, card-deletion code has been rewritten since)
+```
+
+### Branches to KEEP
+
+- `master` — GitHub default branch, holds PR #6 merge (May 9).
+  Canonical record. Our 21 commits since the merge are not in
+  master yet; bringing master forward would be a manual step from
+  user's laptop.
+- `main` — Has **open PR #5** (`master → main`). Until that PR is
+  closed/merged, main is the longer-term "approved" branch. Last
+  touched March 31; content stale, but the open PR keeps it
+  nominally relevant. Don't delete until the PR is resolved.
+- The three live branches: `claude/review-project-docs-JOOeh`,
+  `claude/general-session-yVBQq`, `claude/resume-vica-domin-UOJun`.
+
+### Action plan (for user, when ready)
+
+**Phase 1.** Delete the 9 Tier A + B branches via GitHub web UI
+(Settings → Branches → trash) or from user's laptop:
+`git push origin --delete <branch>`. Don't do it from this sandbox
+— branch deletions usually work but doing it from the laptop
+avoids any proxy weirdness.
+
+**Phase 2.** Resolve open PR #5 (`master → main`): either merge it
+(brings main up to master's state) or close-without-merge. Then
+decide whether `main` itself should stay — grep-check first that
+nothing external (GitHub Pages config, README links) references
+it.
+
+**Phase 3.** Once user picks `master` or `main` as the canonical
+branch, fold the deploy-source branch (`claude/review-project-
+docs-JOOeh`) into it from laptop. Shrink the three-branch dance to
+two-branch (deploy + mirror).
+
 ## May 10-11, 2026 — Levels-as-column UX + card-set bugfixes + loupe copy/paste
 
 Long single session, four threads. All three branches end at `0d1dbfb`.

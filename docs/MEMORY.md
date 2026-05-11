@@ -1,6 +1,116 @@
 # Vica Domino Project Memory
 **Last Updated**: May 9, 2026
 
+## May 12, 2026 morning — Remote-branch audit (action pending)
+
+Conducted a full audit of every branch on `origin` to decide which
+can be deleted. **Nothing was deleted from the remote** — user
+asked to keep them on origin until they read this report and
+decide. Only my local tracking refs were pruned to keep the
+sandbox clean.
+
+### Topology finding
+
+Only TWO branches share commit history with our current HEAD at
+`21319a4`:
+- `origin/master` — merge-base at `570f9d8` (PR #6 merge from
+  May 9). Master is 21 commits behind our HEAD and has 1 unique
+  commit (the merge commit itself).
+- The three live branches (`claude/review-project-docs-JOOeh`,
+  `claude/general-session-yVBQq`, `claude/resume-vica-domin-UOJun`)
+  — all identical at `21319a4`.
+
+**Every other branch has a completely independent history** (no
+common ancestor at all with our HEAD). They were imported/forked
+from different roots earlier in the project's life. So their "X
+commits ahead" numbers in `git rev-list` count *all* their commits
+(no divergence point to subtract from), and diff sizes are huge
+(30K–50K lines) simply because every file is foreign — not
+because there's that much useful unmerged work.
+
+### Branches recommended for deletion (9 total)
+
+**Tier A — fully merged, no work loss:**
+- `claude/catch-bubble-pictograms-fix` — 0 ahead, 67 behind. Tip
+  is in our HEAD's history.
+
+**Tier B — abandoned/superseded experiments. Spot-checked each:
+work is either gone or rebuilt:**
+- `Resizing-for-different-hardware` (2026-01-04) — predates
+  `pm-studio-DrV.html`; old responsive design experiment.
+- `find-the-double` (2026-01-31) — predates Studio; original game
+  files. PR #1 already merged its essence into main.
+- `claude/review-vica-domino-notes-vxyYf` (2026-02-07) — old card
+  art tweaks (D2 redraw, A3/B3/D1 sizing). PRs #1+#2 closed.
+- `claude/review-daily-progress-4qGJy` (2026-02-14) — coins/gems
+  economy + number-10 alignment. Predates Studio. Parallel design
+  exploration.
+- `claude/read-todays-notes-zfR1g` (2026-02-28) — old
+  `cardArrangement` / ABC-deletion fixes. Infrastructure has been
+  completely rewritten.
+- `claude/review-project-docs-QNagl` (2026-03-29) — empty-card
+  filters, sync error fix, admin login requirement. All present
+  (and further evolved) in HEAD. PRs #3+#4 closed in March.
+- `claude/clarify-task-1NM0X` (2026-04-19) — draw-slider labels.
+  Spot-checked: doesn't match current Studio slider markers; was
+  forked exploration. Current Studio uses a different
+  implementation (`.draw-size-row`).
+- `claude/fix-card-deletion-bug-ElUcy` (2026-04-26) — card-
+  deletion-not-persisting fix. Card-deletion code in our HEAD has
+  been substantially rewritten (the `_geFindCardUsage` flow we
+  just touched). Superseded.
+
+### Branches to KEEP
+
+- `master` — GitHub default branch. Holds PR #6 merge at `570f9d8`
+  (May 9). Our 21 commits since are not in master. Don't delete:
+  it's the canonical record + the eventual target for bringing the
+  deploy branch forward.
+- `main` — Has open PR #5 (`master → main`). Until that PR is
+  closed/merged, main is nominally the longer-term "approved"
+  branch. Last touched March 31 ("Trial 09:33"); content is stale
+  but the open PR keeps it relevant.
+- The three live branches.
+
+### Recommended action plan (when user is ready)
+
+**Phase 1.** Delete the 9 Tier A + B branches from GitHub web UI
+(Settings → Branches → trash icon) or via `git push origin
+--delete <branch>` from user's local machine (NOT this sandbox —
+proxy 403s would only affect master pushes, not arbitrary branch
+deletions, but doing it from user's laptop avoids any sandbox
+weirdness):
+
+```
+claude/catch-bubble-pictograms-fix
+Resizing-for-different-hardware
+find-the-double
+claude/review-vica-domino-notes-vxyYf
+claude/review-daily-progress-4qGJy
+claude/read-todays-notes-zfR1g
+claude/review-project-docs-QNagl
+claude/clarify-task-1NM0X
+claude/fix-card-deletion-bug-ElUcy
+```
+
+**Phase 2.** Decide what to do with PR #5 (`master → main`) — merge
+it (main catches up), or close it without merging (main stays
+stale). Then decide whether to keep `main` at all. Grep-check
+that no external system (GitHub Pages, readme links) points at
+`main` before deletion.
+
+**Phase 3.** Once user decides between `master` and `main` as the
+canonical branch, fold the deploy-source branch into it from
+laptop, and we shrink the three-branch dance to two-branch (deploy
++ mirror).
+
+### What I did to local environment
+
+After writing the report I pruned all 11 non-live tracking refs
+via `git update-ref -d refs/remotes/origin/<branch>`. The remote
+is unchanged — only my local view was simplified. To get them
+back next session: `git fetch --all`.
+
 ## May 10-11, 2026 session — GP setup levels-as-column polish + card-set bugfixes
 
 Long session, two distinct themes.

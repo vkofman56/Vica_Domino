@@ -1,6 +1,61 @@
 # Vica Domino Project Memory
 **Last Updated**: May 9, 2026
 
+## May 12, 2026 evening — Right-click multi-selection actions
+
+Building on yesterday's design plan for card-group operations
+(see "Open items" further down). Three small ships:
+
+- **f7c655d / 4e30329** — Added a `Shift+click` entry to the Card
+  Maker help map (pm-studio-DrV.html:12560) so multi-select is
+  discoverable. User originally said "Cmd+Shift" — wording trimmed
+  to plain "Shift+click" to match what the handler at line 5514
+  actually keys off (`e.shiftKey`).
+
+- **4bf956a** — Right-click → **Delete** now honors active multi-
+  selection. Previously: even with 4 cards Shift+selected, right-
+  click → Delete on one of them opened the single-card "Delete
+  permanently" dialog and only deleted that one. Now: when the
+  right-clicked card is part of a 2+ selection, the menu item
+  dispatches to `geActionErase()` instead — the same group-aware
+  path the Delete key uses, with the "Erase N cards?" confirm.
+  Single-card right-click flow unchanged.
+
+- **934b3b6** — Right-click → **Move to…** matches. New wrapper
+  `_ctxMoveCardOrSelectionToRow(card, targetRow)` at line 5683
+  loops the move across `groupEditSelected` in a single undo
+  entry, skipping cards already in the target row. Menu labels
+  also show the selection count when applicable:
+  "Delete (4)" / "Move 4 to…". Single-card right-click keeps the
+  original "Delete" / "Move to…" labels.
+
+The "Copy" item in the right-click menu is still single-card. The
+user explicitly held off on group-copy (would be (c) / (d) from
+the larger plan).
+
+### Open items / pending features from yesterday's plan
+
+Yesterday's plan (in conversation history, not in notes) had four
+group operations: (a) delete, (b) move to another set, (c) copy to
+another set, (d) copy to another line in same set. Status now:
+
+- **(a) Delete** — DONE for both keyboard (Delete key →
+  `geActionErase`, was already there) AND right-click (4bf956a).
+- **(b) Move group to another card SET** — not started. Would
+  generalize `_moveCardToSafeHaven` into `_moveCardToSet(card,
+  targetKey)`, plus a set-picker UI.
+- **(c) Copy group to another card SET** — not started. Clone of
+  (b) minus source deletion, plus fresh stableIds (per the
+  `_doCopySet` lesson from May 11).
+- **(d) Copy group to another LINE in same set** — not started
+  for COPY. The MOVE version (group move between rows) IS now
+  done via 934b3b6's right-click Move-to. So (d-copy) is the
+  natural next step: add a "Copy to row…" submenu next to
+  "Move to…" and reuse `copyCardInRow` + row-picker logic.
+- **P2 — Auto-show Group Edit toolbar on Shift-click**: still
+  worth doing per yesterday's plan; right now the user only sees
+  the toolbar after explicitly entering Gr mode. Low-cost UX win.
+
 ## May 12, 2026 morning — Remote-branch audit (action pending)
 
 Conducted a full audit of every branch on `origin` to decide which

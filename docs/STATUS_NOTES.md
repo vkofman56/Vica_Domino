@@ -6,6 +6,35 @@
 
 ---
 
+## May 12, 2026 evening — Right-click multi-selection actions
+
+Three Card Maker polish ships building on yesterday's design plan
+for card-group operations.
+
+- **f7c655d / 4e30329** — New `Shift+click` entry in the Card
+  Maker help map (`pm-studio-DrV.html:12560`) so multi-select is
+  discoverable. Wording is plain "Shift+click" — matches what the
+  handler at line 5514 keys off (`e.shiftKey`).
+
+- **4bf956a** — Right-click → **Delete** honors multi-selection.
+  When the right-clicked card is part of a 2+ Shift-selected
+  group, dispatches to `geActionErase()` instead of opening the
+  single-card "Delete permanently" dialog. Single-card right-click
+  unchanged.
+
+- **934b3b6** — Right-click → **Move to…** honors multi-selection.
+  New `_ctxMoveCardOrSelectionToRow(card, targetRow)` wrapper
+  loops the move across `groupEditSelected` in a single undo
+  entry; cards already in the target row are skipped. Menu
+  labels show the count: "Delete (4)" / "Move 4 to…" when
+  right-clicking a card that's part of the selection.
+
+The right-click menu's **Copy** item is still single-card —
+user explicitly held off on group-copy. That maps to the larger
+"copy group to another set / row" features from yesterday's plan,
+which are still pending (see MEMORY.md for the four-feature
+breakdown and current status).
+
 ## May 12, 2026 morning — Remote-branch audit (action pending)
 
 User asked for a full audit of every branch on `origin`. Result: 9

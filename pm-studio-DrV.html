@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:04 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:04 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:04 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:06 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5681,6 +5681,44 @@
             renumberRow(targetRow);
             saveVariations();
         }
+        // Same multi-selection routing pattern as the right-click Delete fix:
+        // if the right-clicked card is part of a 2+ multi-selection, move the
+        // entire selection in a single undo entry; otherwise fall back to the
+        // single-card move above. Cards already in the target row are
+        // skipped so the operation is idempotent.
+        function _ctxMoveCardOrSelectionToRow(card, targetRow) {
+            if (groupEditSelected.length < 2 || groupEditSelected.indexOf(card) === -1) {
+                _ctxMoveCardToRow(card, targetRow);
+                return;
+            }
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+            _undoSuspended = true;
+            var touchedSrcRows = [];
+            var moved = 0;
+            try {
+                groupEditSelected.slice().forEach(function(c) {
+                    if (!c || !c.parentNode) return;
+                    var srcRow = c.closest('.library-row');
+                    if (srcRow === targetRow) return;
+                    var lbl = c.querySelector('.library-label');
+                    var labelText = lbl ? lbl.textContent : '';
+                    if (srcRow && labelText) {
+                        srcRow.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) { v.remove(); });
+                    }
+                    targetRow.appendChild(c);
+                    if (srcRow && touchedSrcRows.indexOf(srcRow) === -1) touchedSrcRows.push(srcRow);
+                    moved++;
+                });
+            } finally {
+                _undoSuspended = _prevSuspended;
+            }
+            touchedSrcRows.forEach(function(r) { updateRowEmptyState(r); renumberRow(r); });
+            updateRowEmptyState(targetRow);
+            renumberRow(targetRow);
+            saveVariations();
+            if (typeof _geFlash === 'function') _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + (targetRow.dataset.rowLetter || ''));
+        }
         function _ctxShowMoveSubmenu(card, parentItem) {
             if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
             var container = _ctxGetActiveContainer();
@@ -5693,7 +5731,7 @@
             rows.forEach(function(row) {
                 if (row === srcRow) return;
                 var letter = row.dataset.rowLetter || getRowLetter(row) || '?';
-                var item = _ctxItem('', 'Row ' + letter, function() { _ctxMoveCardToRow(card, row); });
+                var item = _ctxItem('', 'Row ' + letter, function() { _ctxMoveCardOrSelectionToRow(card, row); });
                 sub.appendChild(item);
                 hasItems = true;
             });
@@ -5799,23 +5837,21 @@
                     openLoupe(card);
                     if (!drawModeActive) toggleDrawMode();
                 }));
+                // Detect "right-click on a card that's part of an active
+                // multi-selection" \u2014 when true, Delete and Move-to act on the
+                // whole selection and the labels show the count so it's
+                // obvious. Right-click on a non-selected card falls back to
+                // single-card behavior as before.
+                var _ctxIsGroup = groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1;
+                var _ctxN = groupEditSelected.length;
+
                 menu.appendChild(_ctxItem('\u29C9', 'Copy', function() { copyCardInRow(card); }));
-                // Delete respects an active multi-selection: when the
-                // right-clicked card is part of a Shift+click group, route to
-                // the group-erase path (same dialog the Delete key triggers)
-                // so the whole selection is handled. Previously this always
-                // called the single-card confirmDeleteCard path, which
-                // silently deleted only the right-clicked card and left the
-                // other selected cards behind.
-                menu.appendChild(_ctxItem('\u2717', 'Delete', function() {
-                    if (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1) {
-                        geActionErase();
-                    } else {
-                        confirmDeleteCard(card);
-                    }
+                menu.appendChild(_ctxItem('\u2717', _ctxIsGroup ? ('Delete (' + _ctxN + ')') : 'Delete', function() {
+                    if (_ctxIsGroup) geActionErase();
+                    else confirmDeleteCard(card);
                 }, 'danger'));
                 menu.appendChild(_ctxSep());
-                var moveItem = _ctxItem('\u21C5', 'Move to\u2026', null, 'has-sub');
+                var moveItem = _ctxItem('\u21C5', _ctxIsGroup ? ('Move ' + _ctxN + ' to\u2026') : 'Move to\u2026', null, 'has-sub');
                 moveItem.addEventListener('mouseenter', function() { _ctxShowMoveSubmenu(card, moveItem); });
                 moveItem.addEventListener('mouseleave', function(ev) {
                     setTimeout(function() {

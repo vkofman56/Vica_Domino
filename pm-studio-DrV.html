@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:42 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5788,46 +5788,38 @@
         // (if present in savedCardSets) gets a 🛡️ prefix and is sorted to
         // the bottom so it's distinct from regular sets.
         function _ctxShowMoveToSetSubmenu(card, parentItem) {
-            console.log('[ctxMoveToSet] hover fired');
-            try {
-                if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
-                var sets = (typeof loadCardSets === 'function') ? loadCardSets() : [];
-                var currentName = (typeof getCurrentCardSetName === 'function')
-                    ? getCurrentCardSetName()
-                    : activeCardSet;
-                console.log('[ctxMoveToSet] sets=', sets, 'currentName=', currentName);
-                var sub = document.createElement('div');
-                sub.className = 'ctx-menu-sub';
-                var sorted = sets.slice().sort(function(a, b) {
-                    if (a.isSafeHaven) return 1;
-                    if (b.isSafeHaven) return -1;
-                    return (a.name || '').localeCompare(b.name || '');
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            var sets = (typeof loadCardSets === 'function') ? loadCardSets() : [];
+            var currentName = (typeof getCurrentCardSetName === 'function')
+                ? getCurrentCardSetName()
+                : activeCardSet;
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+            var sorted = sets.slice().sort(function(a, b) {
+                if (a.isSafeHaven) return 1;
+                if (b.isSafeHaven) return -1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+            var hasItems = false;
+            sorted.forEach(function(s) {
+                if (!s || !s.name) return;
+                if (s.name === currentName) return;
+                var label = s.isSafeHaven ? '🛡️ ' + s.name : s.name;
+                var item = _ctxItem('', label, function() {
+                    _ctxMoveCardOrSelectionToSet(card, s.name);
                 });
-                var hasItems = false;
-                sorted.forEach(function(s) {
-                    if (!s || !s.name) return;
-                    if (s.name === currentName) return;
-                    var label = s.isSafeHaven ? '🛡️ ' + s.name : s.name;
-                    var item = _ctxItem('', label, function() {
-                        _ctxMoveCardOrSelectionToSet(card, s.name);
-                    });
-                    sub.appendChild(item);
-                    hasItems = true;
-                });
-                console.log('[ctxMoveToSet] hasItems=', hasItems, 'sub.children=', sub.children.length);
-                if (!hasItems) {
-                    var empty = document.createElement('div');
-                    empty.className = 'ctx-menu-item disabled';
-                    empty.textContent = 'No other sets';
-                    sub.appendChild(empty);
-                }
-                var pr = parentItem.getBoundingClientRect();
-                _ctxSub = sub;
-                _ctxPosition(sub, pr.right + 2, pr.top);
-                console.log('[ctxMoveToSet] positioned at', pr.right + 2, pr.top, 'inDom=', document.body.contains(sub));
-            } catch (err) {
-                console.error('[ctxMoveToSet] threw:', err);
+                sub.appendChild(item);
+                hasItems = true;
+            });
+            if (!hasItems) {
+                var empty = document.createElement('div');
+                empty.className = 'ctx-menu-item disabled';
+                empty.textContent = 'No other sets';
+                sub.appendChild(empty);
             }
+            var pr = parentItem.getBoundingClientRect();
+            _ctxSub = sub;
+            _ctxPosition(sub, pr.right + 2, pr.top);
         }
 
         function _ctxShowCopySubmenu(card, parentItem) {
@@ -6006,8 +5998,16 @@
                 var copyToItem = _ctxItem('\u29C9', _ctxIsGroup ? ('Copy ' + _ctxN + ' to\u2026') : 'Copy to\u2026', null, 'has-sub');
                 copyToItem.addEventListener('mouseenter', function() { _ctxShowCopySubmenu(card, copyToItem); });
                 copyToItem.addEventListener('mouseleave', function(ev) {
+                    // Capture which submenu we're guarding so a NEXT-opened
+                    // sibling submenu doesn't get killed by our delayed
+                    // cleanup. Without the === guard, this parent's 200ms
+                    // timer wakes up after a different parent has already
+                    // replaced _ctxSub and would wrongly remove that one.
+                    var guardedSub = _ctxSub;
                     setTimeout(function() {
-                        if (_ctxSub && !_ctxSub.matches(':hover')) { _ctxSub.remove(); _ctxSub = null; }
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
                     }, 200);
                 });
                 menu.appendChild(copyToItem);
@@ -6019,16 +6019,22 @@
                 var moveItem = _ctxItem('\u21C5', _ctxIsGroup ? ('Move ' + _ctxN + ' to\u2026') : 'Move to\u2026', null, 'has-sub');
                 moveItem.addEventListener('mouseenter', function() { _ctxShowMoveSubmenu(card, moveItem); });
                 moveItem.addEventListener('mouseleave', function(ev) {
+                    var guardedSub = _ctxSub;
                     setTimeout(function() {
-                        if (_ctxSub && !_ctxSub.matches(':hover')) { _ctxSub.remove(); _ctxSub = null; }
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
                     }, 200);
                 });
                 menu.appendChild(moveItem);
                 var moveSetItem = _ctxItem('⇥', _ctxIsGroup ? ('Move ' + _ctxN + ' to set…') : 'Move to set…', null, 'has-sub');
                 moveSetItem.addEventListener('mouseenter', function() { _ctxShowMoveToSetSubmenu(card, moveSetItem); });
                 moveSetItem.addEventListener('mouseleave', function(ev) {
+                    var guardedSub = _ctxSub;
                     setTimeout(function() {
-                        if (_ctxSub && !_ctxSub.matches(':hover')) { _ctxSub.remove(); _ctxSub = null; }
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
                     }, 200);
                 });
                 menu.appendChild(moveSetItem);

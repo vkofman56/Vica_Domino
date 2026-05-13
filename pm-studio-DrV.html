@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:17 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:22 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:17 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:22 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:17 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:22 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5719,6 +5719,61 @@
             saveVariations();
             if (typeof _geFlash === 'function') _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + (targetRow.dataset.rowLetter || ''));
         }
+        // Group-aware copy → target row. Mirrors _ctxMoveCardOrSelectionToRow
+        // but uses copyCardInRow (which preserves the source). Selection-gate
+        // is the same: only multi-routes when 2+ cards are selected and the
+        // right-clicked card is one of them.
+        function _ctxCopyCardOrSelectionToRow(card, targetRow) {
+            if (groupEditSelected.length < 2 || groupEditSelected.indexOf(card) === -1) {
+                copyCardInRow(card, targetRow);
+                return;
+            }
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+            _undoSuspended = true;
+            var copied = 0;
+            try {
+                groupEditSelected.slice().forEach(function(c) {
+                    if (!c || !c.parentNode) return;
+                    copyCardInRow(c, targetRow);
+                    copied++;
+                });
+            } finally {
+                _undoSuspended = _prevSuspended;
+            }
+            if (typeof _geFlash === 'function') {
+                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + (targetRow.dataset.rowLetter || ''));
+            }
+        }
+
+        // Sibling to _ctxShowMoveSubmenu — lists rows the user can copy
+        // into. Unlike Move's submenu, the source row IS included (copy to
+        // same row = duplicate in place, same as the legacy "Copy" item).
+        function _ctxShowCopySubmenu(card, parentItem) {
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            var container = _ctxGetActiveContainer();
+            if (!container) return;
+            var rows = container.querySelectorAll('.library-row');
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+            var hasItems = false;
+            rows.forEach(function(row) {
+                var letter = row.dataset.rowLetter || getRowLetter(row) || '?';
+                var item = _ctxItem('', 'Row ' + letter, function() { _ctxCopyCardOrSelectionToRow(card, row); });
+                sub.appendChild(item);
+                hasItems = true;
+            });
+            if (!hasItems) {
+                var empty = document.createElement('div');
+                empty.className = 'ctx-menu-item disabled';
+                empty.textContent = 'No rows';
+                sub.appendChild(empty);
+            }
+            var pr = parentItem.getBoundingClientRect();
+            _ctxSub = sub;
+            _ctxPosition(sub, pr.right + 2, pr.top);
+        }
+
         function _ctxShowMoveSubmenu(card, parentItem) {
             if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
             var container = _ctxGetActiveContainer();
@@ -5845,7 +5900,36 @@
                 var _ctxIsGroup = groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1;
                 var _ctxN = groupEditSelected.length;
 
-                menu.appendChild(_ctxItem('\u29C9', 'Copy', function() { copyCardInRow(card); }));
+                menu.appendChild(_ctxItem('\u29C9', _ctxIsGroup ? ('Copy (' + _ctxN + ')') : 'Copy', function() {
+                    // In-place duplicate: copy each selected card into its own
+                    // source row. Multi-aware so a 4-card selection produces
+                    // 4 duplicates in a single undo entry. Single-card / non-
+                    // selected: identical to legacy copyCardInRow behavior.
+                    if (_ctxIsGroup) {
+                        if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                        var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                        _undoSuspended = true;
+                        try {
+                            groupEditSelected.slice().forEach(function(c) {
+                                if (!c || !c.parentNode) return;
+                                copyCardInRow(c);
+                            });
+                        } finally {
+                            _undoSuspended = _prev;
+                        }
+                        if (typeof _geFlash === 'function') _geFlash('Duplicated ' + _ctxN + ' card' + (_ctxN !== 1 ? 's' : ''));
+                    } else {
+                        copyCardInRow(card);
+                    }
+                }));
+                var copyToItem = _ctxItem('\u29C9', _ctxIsGroup ? ('Copy ' + _ctxN + ' to\u2026') : 'Copy to\u2026', null, 'has-sub');
+                copyToItem.addEventListener('mouseenter', function() { _ctxShowCopySubmenu(card, copyToItem); });
+                copyToItem.addEventListener('mouseleave', function(ev) {
+                    setTimeout(function() {
+                        if (_ctxSub && !_ctxSub.matches(':hover')) { _ctxSub.remove(); _ctxSub = null; }
+                    }, 200);
+                });
+                menu.appendChild(copyToItem);
                 menu.appendChild(_ctxItem('\u2717', _ctxIsGroup ? ('Delete (' + _ctxN + ')') : 'Delete', function() {
                     if (_ctxIsGroup) geActionErase();
                     else confirmDeleteCard(card);
@@ -6811,9 +6895,15 @@
             card.appendChild(btn);
         }
 
-        function copyCardInRow(sourceCard) {
-            var row = sourceCard.closest('.library-row');
+        // Optional second arg `optTargetRow` lets callers route the copy
+        // into a different row (used by the right-click "Copy to row…"
+        // submenu). When omitted, behavior is identical to before: copy
+        // lands in the source card's own row.
+        function copyCardInRow(sourceCard, optTargetRow) {
+            var sourceRow = sourceCard.closest('.library-row');
+            var row = optTargetRow || sourceRow;
             if (!row) return;
+            var sameRow = row === sourceRow;
             var labelEl = sourceCard.querySelector('.library-label');
             var baseLabel = labelEl ? labelEl.textContent : '';
             var descEl = sourceCard.querySelector('.library-desc');
@@ -6821,8 +6911,10 @@
             var svgEl = sourceCard.querySelector('svg');
             if (!svgEl) return;
 
-            // Generate unique label
-            var letter = baseLabel.charAt(0).toUpperCase();
+            // Pick the row letter for the new label from the *target* row,
+            // not the source — so a copy of "A3" into row D becomes "D7"
+            // (next free number in D), not "A7".
+            var letter = (row.dataset.rowLetter || baseLabel.charAt(0)).toUpperCase();
             var copyLabel = letter + getNextNumber(letter);
 
             // Build the new card element
@@ -6863,19 +6955,25 @@
             newDesc.textContent = descText || 'Copy';
             card.appendChild(newDesc);
 
-            // Insert after source card and its copies/variations
-            var insertAfter = sourceCard;
-            var next = sourceCard.nextElementSibling;
-            while (next && next.classList.contains('library-card')) {
-                var nl = next.querySelector('.library-label');
-                if (nl && nl.textContent.indexOf(baseLabel) === 0) {
-                    insertAfter = next;
-                    next = next.nextElementSibling;
-                } else {
-                    break;
+            // Same-row copy: insert after the source card and any of its
+            // existing copies/variations so the new card sits next to its
+            // siblings. Cross-row copy: append to the end of the target row.
+            if (sameRow) {
+                var insertAfter = sourceCard;
+                var next = sourceCard.nextElementSibling;
+                while (next && next.classList.contains('library-card')) {
+                    var nl = next.querySelector('.library-label');
+                    if (nl && nl.textContent.indexOf(baseLabel) === 0) {
+                        insertAfter = next;
+                        next = next.nextElementSibling;
+                    } else {
+                        break;
+                    }
                 }
+                row.insertBefore(card, insertAfter.nextSibling);
+            } else {
+                row.appendChild(card);
             }
-            row.insertBefore(card, insertAfter.nextSibling);
 
             // Apply current zoom
             if (typeof libZoom !== 'undefined' && libZoom !== 1) {

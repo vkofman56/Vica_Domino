@@ -29,6 +29,24 @@ Building on yesterday's design plan for card-group operations
   "Delete (4)" / "Move 4 to…". Single-card right-click keeps the
   original "Delete" / "Move to…" labels.
 
+- **786d0f1** — Follow-up: user noticed 4bf956a regressed the
+  Safe Haven option. `geActionErase` had been using a plain
+  `confirm("Erase N cards?")` while the single-card flow used the
+  nicer three-button "Move to Safe Haven / Delete permanently /
+  Cancel" dialog. Replaced the confirm with a custom dialog
+  modeled on `_showSimpleDeleteDialog`:
+  - Green "🛡️ Move N to Safe Haven" — always available; loops
+    `_moveCardToSafeHaven` (works on game-used cards too because
+    stableIds survive the move).
+  - Red "Delete N permanently (skip M game-used)" — only shown
+    if there's a non-blocked subset.
+  - Cancel.
+  Yellow warning panel listing the game-blocked cards when any
+  are present. Label preview truncates past 10 cards.
+  All four callers benefit automatically (Gr-toolbar Erase, Group
+  Edit context-menu Delete Selected, right-click Delete multi,
+  Delete key on multi).
+
 The "Copy" item in the right-click menu is still single-card. The
 user explicitly held off on group-copy (would be (c) / (d) from
 the larger plan).

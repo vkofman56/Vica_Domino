@@ -29,6 +29,20 @@ for card-group operations.
   labels show the count: "Delete (4)" / "Move 4 to…" when
   right-clicking a card that's part of the selection.
 
+- **786d0f1** — Restored Safe Haven option on the group path.
+  4bf956a routed right-click multi-Delete to `geActionErase`,
+  which used a plain `confirm("Erase N cards?")` — the Safe
+  Haven choice from the single-card flow was no longer
+  reachable for a multi-selection. Replaced the confirm with a
+  three-button dialog: 🛡️ Move N to Safe Haven (green, always
+  available, works for game-used cards too since stableIds are
+  preserved) / Delete N permanently (red, only shown if a safe
+  subset exists, label spells out how many game-used cards
+  will be skipped) / Cancel. Yellow warning panel lists game-
+  blocked cards when present. Affects all four callers (Gr-bar
+  Erase, Group Edit ctx menu, right-click multi Delete, Delete
+  key).
+
 The right-click menu's **Copy** item is still single-card —
 user explicitly held off on group-copy. That maps to the larger
 "copy group to another set / row" features from yesterday's plan,

@@ -6,6 +6,69 @@
 
 ---
 
+## May 13, 2026 — Card-group operations complete + submenu hover fix
+
+Closes the four-feature card-group operations plan from May 11.
+After today every right-click action on a multi-selected group
+in the Card Maker behaves consistently: Delete, Copy, Copy to
+row, Move to row, Copy to set, Move to set — all loop the
+operation across `groupEditSelected` in a single undo entry, all
+show their counts in menu labels, all flash a status when the
+batch lands.
+
+### What shipped (chronological)
+
+- `1b8f54c` Right-click **Copy** (multi-aware in-place duplicate)
+  + new **Copy to…** submenu listing rows. Closes (d).
+- `17b2506` Right-click **Move to set…** submenu. Closes (b).
+  Extracted `_moveCardToSet` from `_moveCardToSafeHaven`.
+- `0a885a3` Diagnostic logs added to chase the next bug
+  (later removed in 2a148a6).
+- `2a148a6` Fixed the "sibling submenu kills the new one" race
+  by capturing `guardedSub` at each parent's mouseleave time and
+  only removing on identity match.
+- `140d5f2` Right-click **Copy to set…** submenu. Closes (c).
+  `_copyCardToSet` writes fresh-stableId copies; source DOM is
+  untouched.
+- `5b7a8cd` Cross-set move/copy batches now pack into **one new
+  row** in the target (E1, E2, E3, E4) instead of one row per
+  card. Optional `optLabel` arg on the two per-card functions,
+  wrapper precomputes the batch row letter before the loop.
+  Status flash names the destination row.
+- `b488c10` Submenu hover handoff: submenu now has its own
+  `mouseenter` that cancels the pending close timer
+  (`sub._pendingClose`), and its own `mouseleave` that
+  schedules a fresh close. Slow hovering across the gap no
+  longer kills the submenu.
+- `439e7ca` Restored an 8px gap between parent and submenu after
+  b488c10's flush positioning blocked the parent items below.
+
+### Right-click menu state (passive / non-Group-Edit mode)
+
+```
+Edit in Loupe
+Copy (N)            ← in-place duplicate
+Copy to…            → row submenu (current set)
+Copy to set…        → cross-set submenu (other sets)
+Delete (N)
+─────
+Move N to…          → row submenu (current set)
+Move N to set…      → cross-set submenu (other sets)
+Set as Reference
+Properties
+```
+
+Count in `(N)` / `N to…` only shows when right-clicking a card
+that is part of a 2+ multi-selection. Single-card right-click
+keeps the original labels.
+
+### Still open
+
+- P2 — auto-show Gr toolbar on Shift+click.
+- `_createNamedSet` seeds (A1 / B1 stableless placeholders).
+- 15 stableless cards in `customDrawnCards_abc` legacy seed.
+- 9 old branches on origin awaiting user-side deletion.
+
 ## May 12, 2026 evening — Right-click multi-selection actions
 
 Three Card Maker polish ships building on yesterday's design plan

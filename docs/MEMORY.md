@@ -1,6 +1,88 @@
 # Vica Domino Project Memory
 **Last Updated**: May 9, 2026
 
+## May 13, 2026 — Card-group operations completed + multi-aware right-click
+
+The four-feature plan from May 11 ((a) Delete, (b) Move to set,
+(c) Copy to set, (d) Copy to row) is now fully closed. Today's
+work was the four group operations plus a series of right-click
+menu polish fixes.
+
+### Commits (chronological)
+
+- **1b8f54c** — Right-click **Copy** + **Copy to row…** submenu
+  multi-aware (closes (d)). `copyCardInRow` gained an optional
+  second arg `optTargetRow` so cross-row copy reuses the existing
+  function. New `_ctxCopyCardOrSelectionToRow` wrapper + new
+  `_ctxShowCopySubmenu` builder. Existing "Copy" item now
+  duplicates each selected card in its own source row when a
+  multi-selection is active.
+
+- **17b2506** — Right-click **Move to set…** multi-aware
+  (closes (b)). Extracted `_moveCardToSet(card, targetSetName)`
+  from the legacy `_moveCardToSafeHaven` (which becomes a thin
+  wrapper). New `_ctxMoveCardOrSelectionToSet` wrapper + new
+  `_ctxShowMoveToSetSubmenu` builder. Game wirings stay intact
+  because stableId carries over.
+
+- **0a885a3 / 2a148a6** — Bug: switching between sibling submenus
+  (e.g. hovering "Move to…" then "Move to set…") sometimes killed
+  the new submenu. Root cause: the previous parent's mouseleave
+  timer woke up 200 ms later and ran `if (!_ctxSub.matches(':hover'))
+  remove` against the *new* `_ctxSub` it had no business
+  touching. Fixed by capturing `guardedSub = _ctxSub` at
+  mouseleave time and only removing on identity match.
+  Diagnostic logs added in 0a885a3 (later removed in 2a148a6).
+
+- **140d5f2** — Right-click **Copy to set…** multi-aware
+  (closes (c)). Sibling to (b): `_copyCardToSet(card,
+  targetSetName)` writes a fresh-stableId copy to the target,
+  source DOM untouched. `_ctxCopyCardOrSelectionToSet` wrapper
+  + `_ctxShowCopyToSetSubmenu` builder + menu item.
+
+- **5b7a8cd** — Cross-set move/copy batches now land in **one
+  new row** at the bottom of the target instead of one row per
+  card (E1, E2, E3, E4 instead of E1, F1, G1, H1). Added an
+  optional third arg `optLabel` to `_moveCardToSet` / `_copyCardToSet`.
+  The two cross-set wrappers precompute the batch's row letter
+  once via `_nextBottomRowLabel(targetKey)` before the loop and
+  pass `letter + seq` to each per-card call, incrementing `seq`.
+  Status flash now includes the row letter ("Moved 4 to Extras
+  row E").
+
+- **b488c10 / 439e7ca** — Submenu hover fix. User reported
+  "submenu disappears as soon as I move cursor toward it" / "I
+  can't get to Move to since the submenu covers parent items".
+  Two-part fix:
+    a. Each submenu now has its own `mouseenter` that **cancels
+       the pending close timer parked on the submenu element**
+       (`sub._pendingClose`). The parent's mouseleave stores the
+       timer ID on the submenu so the submenu can find it.
+       Slow horizontal hovering no longer races the 200 ms
+       timer — the moment the cursor lands on the submenu, the
+       close is aborted.
+    b. Submenu also gets its own `mouseleave` that schedules a
+       fresh close with 200 ms grace. The parent's mouseleave
+       timer becomes a fallback for the "cursor never reached
+       the submenu" case.
+    c. The gap between parent menu and submenu was briefly
+       removed in b488c10, then restored at 8px in 439e7ca so
+       the parent's items below the hovered one stay clearly
+       accessible (the cursor can drop straight down without
+       accidentally entering the submenu).
+
+### Open items going forward
+
+- **P2 — auto-show Gr toolbar on Shift+click** (discoverability
+  for the match-attributes / Erase actions). Still pending.
+- **`_createNamedSet` seeds** — A1/B1 placeholder cards still
+  get no stableId. Tiny fix; pattern is the same as every other
+  card-creation path.
+- **15 stableless cards** in `customDrawnCards_abc` legacy seed.
+- **Repo housekeeping** — 9 old branches from the May 12 audit
+  still on origin awaiting user-side deletion (Tier A+B list in
+  the May 12 morning section).
+
 ## May 12, 2026 evening — Right-click multi-selection actions
 
 Building on yesterday's design plan for card-group operations

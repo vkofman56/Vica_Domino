@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:26 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:26 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:18 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:26 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5822,6 +5822,66 @@
             _ctxPosition(sub, pr.right + 2, pr.top);
         }
 
+        // Group-aware "copy card(s) → another card set". Mirrors
+        // _ctxMoveCardOrSelectionToSet but uses _copyCardToSet (preserves
+        // source). No source DOM mutation, no need to call saveVariations
+        // on the active set — only the target's localStorage changes.
+        function _ctxCopyCardOrSelectionToSet(card, targetSetName) {
+            if (!targetSetName) return;
+            var isGroup = groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1;
+            var copied = 0;
+            if (isGroup) {
+                groupEditSelected.slice().forEach(function(c) {
+                    if (!c) return;
+                    if (_copyCardToSet(c, targetSetName)) copied++;
+                });
+            } else if (_copyCardToSet(card, targetSetName)) {
+                copied = 1;
+            }
+            if (copied > 0 && typeof _geFlash === 'function') {
+                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName);
+            }
+        }
+
+        // Sibling to _ctxShowMoveToSetSubmenu — same listing logic, just
+        // wires the items to the copy wrapper. Excludes the current set
+        // (in-set duplication is already covered by the row-based "Copy
+        // to…" submenu).
+        function _ctxShowCopyToSetSubmenu(card, parentItem) {
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            var sets = (typeof loadCardSets === 'function') ? loadCardSets() : [];
+            var currentName = (typeof getCurrentCardSetName === 'function')
+                ? getCurrentCardSetName()
+                : activeCardSet;
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+            var sorted = sets.slice().sort(function(a, b) {
+                if (a.isSafeHaven) return 1;
+                if (b.isSafeHaven) return -1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+            var hasItems = false;
+            sorted.forEach(function(s) {
+                if (!s || !s.name) return;
+                if (s.name === currentName) return;
+                var label = s.isSafeHaven ? '🛡️ ' + s.name : s.name;
+                var item = _ctxItem('', label, function() {
+                    _ctxCopyCardOrSelectionToSet(card, s.name);
+                });
+                sub.appendChild(item);
+                hasItems = true;
+            });
+            if (!hasItems) {
+                var empty = document.createElement('div');
+                empty.className = 'ctx-menu-item disabled';
+                empty.textContent = 'No other sets';
+                sub.appendChild(empty);
+            }
+            var pr = parentItem.getBoundingClientRect();
+            _ctxSub = sub;
+            _ctxPosition(sub, pr.right + 2, pr.top);
+        }
+
         function _ctxShowCopySubmenu(card, parentItem) {
             if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
             var container = _ctxGetActiveContainer();
@@ -6011,6 +6071,17 @@
                     }, 200);
                 });
                 menu.appendChild(copyToItem);
+                var copyToSetItem = _ctxItem('\u21e5', _ctxIsGroup ? ('Copy ' + _ctxN + ' to set\u2026') : 'Copy to set\u2026', null, 'has-sub');
+                copyToSetItem.addEventListener('mouseenter', function() { _ctxShowCopyToSetSubmenu(card, copyToSetItem); });
+                copyToSetItem.addEventListener('mouseleave', function(ev) {
+                    var guardedSub = _ctxSub;
+                    setTimeout(function() {
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
+                    }, 200);
+                });
+                menu.appendChild(copyToSetItem);
                 menu.appendChild(_ctxItem('\u2717', _ctxIsGroup ? ('Delete (' + _ctxN + ')') : 'Delete', function() {
                     if (_ctxIsGroup) geActionErase();
                     else confirmDeleteCard(card);
@@ -7539,6 +7610,47 @@
             if (_moveCardToSet(card, 'Safe Haven')) {
                 saveVariations();
             }
+        }
+
+        // Sibling of _moveCardToSet but COPY semantics: source DOM is
+        // untouched, the new card lands in the target set's localStorage
+        // with a fresh stableId + uid (per the _doCopySet lesson — copies
+        // must NOT share IDs with the source, or _geFindCardUsage would
+        // falsely report the copy as "used in a game" if the source was
+        // ever wired into one). origin = 'copy', copiedFrom = source set.
+        function _copyCardToSet(card, targetSetName) {
+            if (!targetSetName) return false;
+            if (targetSetName === 'Safe Haven') _ensureSafeHavenExists();
+            var lbl = card.querySelector('.library-label');
+            var svg = card.querySelector('svg');
+            if (!lbl || !svg) return false;
+            var targetKey = (typeof _getSetStorageKey === 'function')
+                ? _getSetStorageKey(targetSetName)
+                : ('customDrawnCards_' + targetSetName);
+            var newLabel = _nextBottomRowLabel(targetKey);
+            var cardData = {
+                label: newLabel,
+                svgContent: svg.innerHTML,
+                uid: (typeof generateCardUID === 'function') ? generateCardUID() : '',
+                desc: (card.querySelector('.library-desc') || {}).textContent || 'Card',
+                origin: 'copy',
+                copiedFrom: activeCardSet,
+                originalLabel: lbl.textContent,
+                stableId: (typeof generateStableId === 'function')
+                    ? generateStableId(newLabel, targetSetName)
+                    : ''
+            };
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                cardData.cardShape = card.dataset.cardShape;
+                cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
+                cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+            }
+            var existing = [];
+            try { var raw = localStorage.getItem(targetKey); if (raw) existing = JSON.parse(raw); } catch(e) {}
+            existing.push(cardData);
+            localStorage.setItem(targetKey, JSON.stringify(existing));
+            return true;
         }
 
         function addRestoreButton(card) {

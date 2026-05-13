@@ -116,7 +116,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -134,7 +134,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -368,7 +368,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:10 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9356,6 +9356,9 @@
 
         function geActionErase() {
             if (groupEditSelected.length === 0) return;
+            // Partition the selection by game-usage so we know which cards
+            // can be deleted permanently and which must go through Safe Haven
+            // to preserve game wirings.
             var safe = [];
             var blocked = [];
             groupEditSelected.forEach(function(card) {
@@ -9368,44 +9371,110 @@
                     safe.push({ card: card, label: labelText });
                 }
             });
-            var msg;
-            if (blocked.length === 0) {
-                msg = 'Erase ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + '?\n\n' +
-                    safe.map(function(s) { return s.label; }).join(', ');
-                if (!confirm(msg)) return;
-            } else if (safe.length === 0) {
+            var total = groupEditSelected.length;
+
+            // Custom three-choice dialog — mirrors _showSimpleDeleteDialog so
+            // the group flow gets the same Safe Haven vs. Delete permanently
+            // options the single-card flow already had (the previous
+            // confirm("Erase N cards?") path was the regression the user
+            // flagged after the right-click Delete fix in 4bf956a).
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:440px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:12px;color:#FFD700;';
+            title.textContent = 'Delete ' + total + ' card' + (total !== 1 ? 's' : '') + '?';
+            dialog.appendChild(title);
+
+            // Selection preview — truncate labels list past 10 so the dialog
+            // stays compact when a big group is selected.
+            var allLabels = safe.concat(blocked).map(function(s) { return s.label; });
+            var listText = allLabels.slice(0, 10).join(', ');
+            if (allLabels.length > 10) listText += ', … (+' + (allLabels.length - 10) + ' more)';
+            var listBlock = document.createElement('div');
+            listBlock.style.cssText = 'margin-bottom:14px;padding:8px 12px;background:rgba(255,255,255,0.08);border-radius:6px;font-size:12px;color:#ccc;line-height:1.4;word-break:break-word;';
+            listBlock.textContent = listText;
+            dialog.appendChild(listBlock);
+
+            // Game-usage warning. Permanent delete skips game-used cards;
+            // Safe Haven works on all of them because stableIds (and thus
+            // game references) survive the move.
+            if (blocked.length > 0) {
+                var warn = document.createElement('div');
+                warn.style.cssText = 'margin-bottom:14px;padding:10px 12px;background:rgba(255,180,0,0.12);border-left:3px solid #ffb74d;border-radius:4px;font-size:12px;color:#ffcc80;white-space:pre-wrap;line-height:1.5;';
                 var blockedList = blocked.map(function(b) {
-                    return b.label + ' (in: ' + b.games.join(', ') + ')';
+                    return '  • ' + b.label + ' (in: ' + b.games.join(', ') + ')';
                 }).join('\n');
-                alert('Cannot erase: all selected cards are used in games.\n\n' + blockedList);
-                return;
-            } else {
-                var safeList = safe.map(function(s) { return s.label; }).join(', ');
-                var blockedList2 = blocked.map(function(b) {
-                    return b.label + ' (in: ' + b.games.join(', ') + ')';
-                }).join('\n');
-                msg = 'Can erase ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + ' but NOT these ' +
-                    blocked.length + ' (used in games):\n\n' + blockedList2 +
-                    '\n\nErase the other ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + '? (' + safeList + ')';
-                if (!confirm(msg)) return;
+                warn.textContent = blocked.length + ' card' + (blocked.length !== 1 ? 's are' : ' is') +
+                    ' used in games and will be skipped by Delete permanently. Safe Haven preserves all selected cards (game wirings stay intact).\n\n' + blockedList;
+                dialog.appendChild(warn);
             }
-            // Perform deletion on safe cards — batch into a single undo entry
-            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
-            var _prevSuspended = _undoSuspended;
-            _undoSuspended = true;
-            try {
-                safe.forEach(function(s) {
-                    deleteCard(s.card);
-                });
-            } finally {
-                _undoSuspended = _prevSuspended;
-            }
-            // Rebuild selection list: keep only blocked cards
-            groupEditSelected = blocked.map(function(b) { return b.card; });
-            if (groupEditReference && groupEditSelected.indexOf(groupEditReference) === -1) {
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+            // Move all N to Safe Haven (safest option — first)
+            var btnSafe = document.createElement('button');
+            btnSafe.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#2e7d32;color:white;';
+            btnSafe.textContent = '🛡️ Move ' + total + ' to Safe Haven';
+            btnSafe.onclick = function() {
+                overlay.remove();
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                _undoSuspended = true;
+                try {
+                    groupEditSelected.slice().forEach(function(card) {
+                        _moveCardToSafeHaven(card);
+                    });
+                } finally {
+                    _undoSuspended = _prevSuspended;
+                }
+                groupEditSelected = [];
                 groupEditReference = null;
+                _geFlash('Moved ' + total + ' card' + (total !== 1 ? 's' : '') + ' to Safe Haven');
+            };
+            btnRow.appendChild(btnSafe);
+
+            // Delete permanently — only the safe subset. If nothing is safe,
+            // hide the button entirely (Safe Haven is the only remaining
+            // action besides Cancel).
+            if (safe.length > 0) {
+                var btnDel = document.createElement('button');
+                btnDel.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+                btnDel.textContent = 'Delete ' + safe.length + ' permanently' +
+                    (blocked.length > 0 ? ' (skip ' + blocked.length + ' game-used)' : '');
+                btnDel.onclick = function() {
+                    overlay.remove();
+                    if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                    var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                    _undoSuspended = true;
+                    try {
+                        safe.forEach(function(s) { deleteCard(s.card); });
+                    } finally {
+                        _undoSuspended = _prevSuspended;
+                    }
+                    groupEditSelected = blocked.map(function(b) { return b.card; });
+                    if (groupEditReference && groupEditSelected.indexOf(groupEditReference) === -1) {
+                        groupEditReference = null;
+                    }
+                    _geFlash('Deleted ' + safe.length + ' card' + (safe.length !== 1 ? 's' : '') + ' permanently');
+                };
+                btnRow.appendChild(btnDel);
             }
-            _geFlash('Erased ' + safe.length + ' card' + (safe.length !== 1 ? 's' : ''));
+
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
         }
 
         function _geFlash(msg) {

@@ -1,5 +1,143 @@
 # Vica Domino Project Memory
-**Last Updated**: May 9, 2026
+**Last Updated**: May 13, 2026 (evening)
+
+## May 13, 2026 evening — First local-Mac session: toolchain + 3 ships + ABC migration
+
+First-ever local session on Victoria's Mac. Previous sessions all
+ran in the Anthropic cloud sandbox. Tonight covered toolchain
+bootstrap (so future local sessions skip the friction), three
+small code ships, and a one-time browser-data fix for the legacy
+ABC stableless cards.
+
+### Toolchain stood up on the Mac
+
+- **Repo cloned** into `~/CLAUDE CODE/Domino`. Initial obstacles
+  (auto-created `.claude/` stub, Finder-dropped `.DS_Store`)
+  resolved by deleting and re-cloning. Then `.claude/` was added
+  to `.gitignore` (commit `aa6ab60`) so it doesn't keep nagging.
+- **Git identity** configured globally:
+  `Victoria Kofman <66704482+vkofman56@users.noreply.github.com>`.
+  Important privacy note: without explicit `user.email`, git
+  auto-derives from macOS account + hostname, which **exposes the
+  home IP in commit emails** on public GitHub history. Always set
+  the noreply alias on any fresh local clone.
+- **Pre-commit hook activated** (`git config core.hooksPath
+  .githooks`). Confirmed working — stamped `TRIAL 05:36 PM PDT`
+  on `41c6d35` and `TRIAL 06:56 PM PDT` on `b1efa14`.
+- **GitHub auth via `gh` CLI**: `brew install gh` (also installed
+  Homebrew first), `gh auth login` with web browser flow. Future
+  pushes from this Mac are silent.
+- **Preview-browser test pipeline**: `.claude/launch.json` was
+  added (gitignored) so the `mcp__Claude_Preview__*` tools manage
+  the local server. Pattern: edit code → `preview_eval` to drive
+  a headless Chrome → confirm DOM/localStorage state without
+  needing to ask the user to manually click through.
+
+### Commits (chronological)
+
+- **`41c6d35`** — `studio: seed A1/B1 placeholder cards with stableIds`.
+  `_createNamedSet` (pm-studio-DrV.html:14861) seeded every new
+  card set with two stableless placeholder cards, the last code
+  path violating the stableId contract. Each seed now calls
+  `generateStableId(label, name)`. 2-line change. Static-verified
+  via `curl + sed`, behaviorally verified by driving the function
+  in a preview-browser and asserting both seed cards came out with
+  IDs of the expected shape (regex `^\d{10,}_[A-Za-z0-9-]+_…`).
+
+- **`aa6ab60`** — `chore: gitignore .claude/ session config`. One-
+  line `.gitignore` add. Stops Claude Code's per-machine session
+  config (`settings.local.json`, `launch.json`) from showing up
+  as untracked on every status check.
+
+- **`b1efa14`** — `studio: auto-show Group Edit toolbar on
+  Shift+click`. **Closes P2** from the May 11 plan. New helper
+  `_updateGEToolbarVisibility()` shows the toolbar when
+  `groupEditActive || groupEditSelected.length >= 1`, else hides
+  it. Wired at three passive-selection lifecycle points:
+  Shift+click toggle (line 5527), non-shift click that clears
+  passive selection (line 5540), and Esc-key clear (line 8611).
+  Gr-mode show/hide paths remain authoritative; the helper is
+  read-only with respect to them. Verified via preview-browser
+  logic suite (7 scenarios: baseline/auto-show/auto-hide/idempotent/
+  Gr-mode-override) + user live-tested in Chrome.
+
+### Browser data fix — not a commit
+
+- **15 stableless cards in `customDrawnCards_abc`** stamped with
+  stableIds via console snippet (mirrors `buildAbcCardSet`'s
+  built-in migration at line 15634). `_scheduleGameStableIdMigration`
+  scheduled for game-side propagation. Result verified:
+  `{total: 15, withStableId: 15}`. `sync.js` will push the
+  migrated array to Firestore on its next budget window.
+
+### Insight surfaced — "stale doc item" was actually a coverage gap
+
+The handoff docs listed "15 stableless cards in customDrawnCards_abc
+legacy seed" as an open item. Surface reading: stale paperwork,
+since the migration code at `buildAbcCardSet:15634-15640` should
+have fixed them long ago. **Actually:** the migration only fires
+when the user opens the ABC tab inside the Card Maker. A fresh
+browser that hydrates from Firebase via `sync.js._pullFromServer`
+but never navigates into the ABC tab leaves the 15 cards
+stableless forever. Victoria's localhost was exactly this case
+tonight — she'd hydrated via Firebase but hadn't opened ABC.
+
+This also means the migration is "lazy": once *any* browser
+triggers it, the migrated array gets uploaded by `sync.js` and
+all subsequent browsers pull down the fixed version. So the
+self-healing path works — it just has a precondition the docs
+didn't capture.
+
+**Implication for future work:** the same lazy-migration pattern
+exists for custom sets at line 15521. Reasonably safe in
+practice (any visit to the Card Maker triggers it), but if
+similar "why are these cards still stableless" reports come up
+in the future, check whether the affected browser has ever
+opened that specific set's view.
+
+### Operational notes / gotchas
+
+- **Firestore `resource-exhausted` errors observed** during the
+  session: `Write stream exhausted maximum allowed queued
+  writes` / `Using maximum backoff delay to prevent overloading
+  the backend`. Not blocking (sync.js retries) but suggests
+  `sync.js` may be too aggressive on bulk write operations.
+  Worth keeping in mind if user reports "my recent change
+  didn't show on the other device for a while."
+- **Multiple `[Card Safety] Custom set save would reduce cards
+  from 17 to 16 — checking DOM`** log lines were present in
+  Victoria's console for the `BigNumbersDots` set. Unrelated to
+  tonight's work but possibly a separate bug worth investigating
+  in a future session (false-positive safety reduction warnings
+  on save).
+- **Right-click batch ops (Move/Copy to set/row, lines 5789+)
+  also clear `groupEditSelected`** but were NOT wired into
+  `_updateGEToolbarVisibility()` in `b1efa14`. The toolbar
+  remains briefly showing with stale state after a batch op
+  until the user's next click/Esc. Easy follow-up if it proves
+  annoying — wire the helper after each of the ~4 mutation
+  sites that end batch ops.
+
+### Open items going forward
+
+- **Repo housekeeping** — 9 old branches on origin awaiting user-
+  side deletion (May 12 morning audit, Tier A + B list). Must be
+  done from Victoria's laptop terminal, not from a Claude
+  session.
+- **Optional polish** — wire `_updateGEToolbarVisibility()` after
+  right-click batch op completions (see operational notes
+  above).
+- **`buildAbcCardSet` lazy-migration awareness** — see Insight
+  section. Probably no code action needed; just a known property
+  of the migration.
+
+### End-of-session state
+
+- HEAD on all three branches: `b1efa14` (will become whatever
+  the doc-commit hash is after this notes update lands).
+- Working tree clean.
+- Banner: `TRIAL 06:56 PM PDT`.
+- Local preview server still running under Claude management.
 
 ## May 13, 2026 — Card-group operations completed + multi-aware right-click
 

@@ -1,10 +1,95 @@
 # Vica Domino - Project Status Notes
-**Date**: March 11, 2026
-**Branch**: `claude/review-project-docs-QNagl`
+**Date**: May 13, 2026 (evening)
+**Branch**: `claude/review-project-docs-JOOeh`
 **Total Commits**: 500+
 **Codebase Size**: ~15,864 lines across 4 main files
 
 ---
+
+## May 13, 2026 evening — First local-Mac session: toolchain + 3 ships + ABC migration
+
+First-ever session running locally on Victoria's Mac instead of
+the Anthropic cloud sandbox. Toolchain bootstrap + 3 small ships
++ one browser-data fix.
+
+### What shipped (chronological)
+
+- `41c6d35` `studio: seed A1/B1 placeholder cards with stableIds`.
+  `_createNamedSet` (line 14861) now stamps a fresh stableId on
+  each of the two placeholder cards it seeds into every new
+  card set. Closes the last code path that violated the stableId
+  contract. Static + preview-browser verified.
+
+- `aa6ab60` `chore: gitignore .claude/ session config`. One-line
+  add to `.gitignore`. Stops Claude Code's per-machine session
+  config (`settings.local.json`, `launch.json`) from showing as
+  untracked.
+
+- `b1efa14` `studio: auto-show Group Edit toolbar on Shift+click`.
+  **Closes P2** from the May 11 plan. New helper
+  `_updateGEToolbarVisibility()` makes the Gr toolbar appear
+  whenever `groupEditSelected.length >= 1`, even without
+  toggling Gr mode. Wired into 3 passive-selection lifecycle
+  points (Shift+click toggle line 5527, non-shift click clear
+  line 5540, Esc clear line 8611). Logic verified via preview
+  browser; behavior verified by user in Chrome.
+
+### Browser-side data fix (no commit)
+
+- 15 stableless cards in `customDrawnCards_abc` got stableIds
+  via a console snippet that mirrors `buildAbcCardSet`'s
+  built-in migration. Game-side propagation scheduled. Result:
+  all 15 cards now carry stableIds matching shape
+  `<ts>_ABC_<label>_<rand4>`. `sync.js` will upload to
+  Firestore on its next budget window.
+
+### Toolchain set up on the Mac (one-time per machine)
+
+- Repo cloned to `~/CLAUDE CODE/Domino`. Two false starts (Claude
+  Code's auto-created `.claude/` stub, Finder's `.DS_Store`)
+  blocked the clone; resolved by deleting stubs and retrying.
+- Git identity configured globally:
+  `Victoria Kofman <66704482+vkofman56@users.noreply.github.com>`
+  — uses the GitHub noreply alias, not the auto-derived
+  `hostname@local-ip` address that would leak the home IP into
+  the public commit log.
+- Pre-commit hook activated (`git config core.hooksPath
+  .githooks`). Confirmed working — banner auto-stamped on both
+  code commits tonight.
+- GitHub auth via `gh` CLI (installed Homebrew first, then
+  `brew install gh`, then `gh auth login` web-browser flow).
+  Future pushes from this Mac are silent.
+- Preview-browser test pipeline stood up via `.claude/launch.json`
+  (gitignored). Lets Claude drive a headless Chrome via
+  `mcp__Claude_Preview__*` tools for behavioral verification
+  without asking Victoria to click through manually.
+
+### Insights surfaced
+
+- **"15 stableless cards" was a coverage gap, not stale paperwork.**
+  The migration at `buildAbcCardSet:15634` only fires when the
+  user opens the ABC tab inside the Card Maker. A fresh browser
+  that hydrates from Firebase but never navigates into ABC keeps
+  the 15 cards stableless. Once any browser triggers the
+  migration, `sync.js` uploads the fixed array and all other
+  browsers pull it down. Self-healing, but with a precondition
+  the docs hadn't captured.
+- **Firestore `resource-exhausted` errors observed in user's
+  console.** Sync.js queued more writes than its budget allowed
+  during a heavy save burst. Backed off automatically; not
+  blocking, but suggests `sync.js` may be aggressive on bulk
+  writes. Worth keeping in mind.
+
+### Still open
+
+- Repo housekeeping: 9 old branches on origin awaiting deletion
+  (May 12 audit list). User-side action via terminal — not
+  Claude.
+- Optional polish: wire `_updateGEToolbarVisibility()` after
+  right-click batch op completions (Move/Copy to set/row at
+  lines 5789+). Toolbar currently lingers briefly with stale
+  state after such ops; cheap follow-up if it proves annoying
+  in practice.
 
 ## May 13, 2026 — Card-group operations complete + submenu hover fix
 

@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:03 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 12:03 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:47 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 12:03 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2662,7 +2662,15 @@
             return '\u00d7' + r;
         }
 
-        function setOverscaleMax(max) {
+        // applyToElement defaults to true to preserve behavior for callers that
+        // change the over-scale max via UI (the popup option click); pass false
+        // from populatePropsFromElement, which only wants to mirror the slider
+        // state to a freshly-selected element WITHOUT writing back to it.
+        // Without this guard, selecting any element without a data-draw-size
+        // attribute caused applyEffectiveSize to overwrite its transform with
+        // a default-size positioning — the click-shrinks-and-jumps bug.
+        function setOverscaleMax(max, applyToElement) {
+            if (typeof applyToElement === 'undefined') applyToElement = true;
             drawOverScaleMax = max;
             var slider = document.getElementById('draw-overscale-slider');
             var maxLabel = document.getElementById('draw-overscale-max');
@@ -2676,8 +2684,8 @@
             if (drawOverScale < newMin) drawOverScale = newMin;
             slider.value = drawOverScale;
             if (maxLabel) maxLabel.textContent = formatScale(max);
-            // Apply to selected element
-            if (selectedElement) applyEffectiveSize();
+            // Apply to selected element (skipped when populating from a select)
+            if (applyToElement && selectedElement) applyEffectiveSize();
         }
 
         function resetOverscaleSlider() {
@@ -3935,8 +3943,13 @@
             var savedScale = +el.getAttribute('data-over-scale') || 1;
             var savedMax = +el.getAttribute('data-over-scale-max') || 1;
             drawOverScale = savedScale;
-            // Restore max first (sets slider range), then set value
-            setOverscaleMax(savedMax);
+            // Restore max first (sets slider range), then set value.
+            // Pass applyToElement=false: we are mirroring the slider state to a
+            // just-selected element, NOT trying to resize it. Without this
+            // guard, selecting any element with no data-draw-size attribute
+            // would trigger applyEffectiveSize which overwrites the element's
+            // transform with a default-size positioning.
+            setOverscaleMax(savedMax, false);
             drawOverScale = savedScale;
             var overscaleSlider = document.getElementById('draw-overscale-slider');
             if (overscaleSlider) overscaleSlider.value = savedScale;
@@ -6061,7 +6074,12 @@
         // single-card move above. Cards already in the target row are
         // skipped so the operation is idempotent.
         function _ctxMoveCardOrSelectionToRow(card, targetRow) {
-            if (groupEditSelected.length < 2 || groupEditSelected.indexOf(card) === -1) {
+            // In Group Edit, treat every right-click as acting on groupEditSelected
+            // even if the right-clicked card isn't part of the selection — the
+            // toolbar-style operations are always selection-scoped.
+            var _multi = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
+                      || (groupEditActive && groupEditSelected.length >= 1);
+            if (!_multi) {
                 _ctxMoveCardToRow(card, targetRow);
                 return;
             }
@@ -6098,7 +6116,9 @@
         // is the same: only multi-routes when 2+ cards are selected and the
         // right-clicked card is one of them.
         function _ctxCopyCardOrSelectionToRow(card, targetRow) {
-            if (groupEditSelected.length < 2 || groupEditSelected.indexOf(card) === -1) {
+            var _multi = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
+                      || (groupEditActive && groupEditSelected.length >= 1);
+            if (!_multi) {
                 copyCardInRow(card, targetRow);
                 return;
             }
@@ -6130,7 +6150,8 @@
         // saves the source set once at the end, and flashes a status.
         function _ctxMoveCardOrSelectionToSet(card, targetSetName) {
             if (!targetSetName) return;
-            var isGroup = groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1;
+            var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
+                       || (groupEditActive && groupEditSelected.length >= 1);
             // Pre-allocate the destination row letter ONCE per batch so all
             // moved cards land in the same new row at the bottom (E1, E2,
             // E3…), not scattered across one row per card (E1, F1, G1…).
@@ -6236,7 +6257,8 @@
         // on the active set — only the target's localStorage changes.
         function _ctxCopyCardOrSelectionToSet(card, targetSetName) {
             if (!targetSetName) return;
-            var isGroup = groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1;
+            var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
+                       || (groupEditActive && groupEditSelected.length >= 1);
             // Same batch-row-letter precompute pattern as the move flow:
             // all copied cards land in one fresh row (E1, E2, …).
             var targetKey = (typeof _getSetStorageKey === 'function')
@@ -6490,10 +6512,70 @@
                 menu.appendChild(_ctxItem('\u2610', 'Select All', function() { geSelectAll(); }));
                 menu.appendChild(_ctxSep());
                 var selCount = groupEditSelected.length;
-                menu.appendChild(_ctxItem('\u29C9', 'Copy Selected (' + selCount + ')', function() {
-                    _cardClipboard = groupEditSelected.slice();
-                    if (typeof _geFlash === 'function') _geFlash('Copied ' + _cardClipboard.length);
-                }, selCount === 0 ? 'disabled' : ''));
+                var _geDisabled = selCount === 0 ? 'disabled' : 'has-sub';
+                // Mirror shift-multi-select: same 4 submenus (Copy to row, Copy to set,
+                // Move to row, Move to set) hosted here so Group Edit users get the
+                // same destinations without a second context menu to consult.
+                var _geCopyTo = _ctxItem('\u29C9', 'Copy ' + selCount + ' to\u2026', null, _geDisabled);
+                _geCopyTo.addEventListener('mouseenter', function() {
+                    if (selCount === 0) return;
+                    _ctxShowCopySubmenu(card, _geCopyTo);
+                });
+                _geCopyTo.addEventListener('mouseleave', function() {
+                    var guardedSub = _ctxSub;
+                    if (!guardedSub) return;
+                    guardedSub._pendingClose = setTimeout(function() {
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
+                    }, 200);
+                });
+                menu.appendChild(_geCopyTo);
+                var _geCopyToSet = _ctxItem('\u21E5', 'Copy ' + selCount + ' to set\u2026', null, _geDisabled);
+                _geCopyToSet.addEventListener('mouseenter', function() {
+                    if (selCount === 0) return;
+                    _ctxShowCopyToSetSubmenu(card, _geCopyToSet);
+                });
+                _geCopyToSet.addEventListener('mouseleave', function() {
+                    var guardedSub = _ctxSub;
+                    if (!guardedSub) return;
+                    guardedSub._pendingClose = setTimeout(function() {
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
+                    }, 200);
+                });
+                menu.appendChild(_geCopyToSet);
+                var _geMoveTo = _ctxItem('\u21C5', 'Move ' + selCount + ' to\u2026', null, _geDisabled);
+                _geMoveTo.addEventListener('mouseenter', function() {
+                    if (selCount === 0) return;
+                    _ctxShowMoveSubmenu(card, _geMoveTo);
+                });
+                _geMoveTo.addEventListener('mouseleave', function() {
+                    var guardedSub = _ctxSub;
+                    if (!guardedSub) return;
+                    guardedSub._pendingClose = setTimeout(function() {
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
+                    }, 200);
+                });
+                menu.appendChild(_geMoveTo);
+                var _geMoveToSet = _ctxItem('\u21E5', 'Move ' + selCount + ' to set\u2026', null, _geDisabled);
+                _geMoveToSet.addEventListener('mouseenter', function() {
+                    if (selCount === 0) return;
+                    _ctxShowMoveToSetSubmenu(card, _geMoveToSet);
+                });
+                _geMoveToSet.addEventListener('mouseleave', function() {
+                    var guardedSub = _ctxSub;
+                    if (!guardedSub) return;
+                    guardedSub._pendingClose = setTimeout(function() {
+                        if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                            _ctxSub.remove(); _ctxSub = null;
+                        }
+                    }, 200);
+                });
+                menu.appendChild(_geMoveToSet);
                 menu.appendChild(_ctxItem('\u2717', 'Delete Selected (' + selCount + ')', function() {
                     geActionErase();
                 }, selCount === 0 ? 'disabled danger' : 'danger'));

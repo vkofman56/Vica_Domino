@@ -243,6 +243,16 @@ class VicaDominoGame {
                 // game) starts with empty name/icon inputs. Mirrors what
                 // backToGameSetup does on the click-to-reveal path.
                 pn.style.display = 'none';
+                // CRITICAL: if Start Game was moved into the xeno row
+                // (which lives inside #name-inputs), move it back to
+                // #player-names BEFORE wiping name-inputs — otherwise the
+                // innerHTML = '' below removes Start from the DOM
+                // entirely, and renderInlinePlayerNames can't find it on
+                // re-entry. This was the "Start sometimes disappears" bug.
+                const _startBtnPre = document.getElementById('start-game-btn');
+                if (_startBtnPre && _startBtnPre.closest('#name-inputs')) {
+                    document.getElementById('player-names').appendChild(_startBtnPre);
+                }
                 document.getElementById('name-inputs').innerHTML = '';
                 this.playerIcons = {};
                 document.getElementById('start-screen').style.display = 'none';

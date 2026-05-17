@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=spoken-title-1">
+    <link rel="stylesheet" href="css/style.css?v=setup-boxes-2">
 </head>
 <body>
     <div class="game-container">
@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:07 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,11 +76,16 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:07 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
             <div class="setup-panel">
+                <!-- Box 1 — developer-configured options (game types, level, domino style).
+                     Box 2 below holds the player-interactive controls (icon, player picker,
+                     name inputs, Start). The split visually separates "what the admin set up"
+                     from "what the player touches." -->
+                <div class="setup-box setup-box-1">
                 <!-- Type-of-game picker. Hidden when the active game has 0 or 1
                      enabled Type option. Populated by _applyGameSetupToPlayerScreen
                      from game.setup[mode].types.options. The selected option's
@@ -236,6 +241,16 @@
                         <div class="setup-right-types" id="setup-right-types" style="display:none;"></div>
                     </div>
                 </div>
+                </div>
+                <!-- Box 2 — player-interactive: game icon, player picker, name inputs, Start -->
+                <div class="setup-box setup-box-2">
+                <!-- Game icon — populated at runtime by _syncSetupGameIcon()
+                     which clones the live "circle" (2-dominos) Level button's
+                     SVG. This keeps the icon in sync with whatever the creator
+                     has set as the game's visual representation (numbers,
+                     symbols, custom cards) instead of duplicating a static
+                     copy that would drift out of date. -->
+                <div class="setup-game-icon" id="setup-game-icon" aria-hidden="true"></div>
 
                 <h3 id="setup-h3-players">How many players?</h3>
                 <div class="player-select">
@@ -293,6 +308,7 @@
                     <h3>Enter player names:</h3>
                     <div id="name-inputs"></div>
                     <button class="btn btn-primary" id="start-game-btn">Start Game</button>
+                </div>
                 </div>
             </div>
         </div>
@@ -2190,7 +2206,39 @@
                     for (var d = 0; d < dots.length; d++) dots[d].style.display = 'none';
                 }
             }
+            // Mirror the just-rendered "circle" (2-dominos) button into the
+            // setup-page game-icon so it always reflects the creator's
+            // current visual representation of the game.
+            _syncSetupGameIcon();
         }
+
+        // Clone the live "triangle" (3-dominos) Level button's SVG into the
+        // setup-page game-icon container. Using the 3-domino visual because
+        // Box 2 has horizontal room to spare and the 3-domino composition
+        // fills it more cleanly. Called from updateLevelDominoIcons (after
+        // the level buttons have been re-rendered with the creator's game
+        // cards) and from a one-time DOMContentLoaded fallback so the icon
+        // shows something even before the first updateLevelDominoIcons call.
+        function _syncSetupGameIcon() {
+            var iconHost = document.getElementById('setup-game-icon');
+            if (!iconHost) return;
+            var srcBtn = document.querySelector('.level-btn[data-level="triangle"]');
+            var srcSvg = srcBtn ? srcBtn.querySelector('.level-dominos-svg') : null;
+            if (!srcSvg) return;
+            var clone = srcSvg.cloneNode(true);
+            clone.setAttribute('width', '140');
+            clone.setAttribute('height', '112');
+            // Drop the .level-dominos-svg class so subsequent
+            // updateLevelDominoIcons calls don't mistakenly target the clone
+            // as a fourth level button.
+            clone.classList.remove('level-dominos-svg');
+            clone.classList.add('setup-game-icon-svg');
+            iconHost.innerHTML = '';
+            iconHost.appendChild(clone);
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            try { _syncSetupGameIcon(); } catch(e) {}
+        });
 
         function resetLevelDominoIcons() {
             document.querySelectorAll('.level-domino-img').forEach(function(img) { img.remove(); });
@@ -3443,7 +3491,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=level-box-rows-1"></script>
+    <script src="js/game.js?v=xeno-align-4"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode
         (function() {

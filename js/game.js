@@ -972,7 +972,79 @@ class VicaDominoGame {
             xenoNameSection.appendChild(xenoContentRow);
             xenoRow.appendChild(xenoNameSection);
             nameInputs.appendChild(xenoRow);
+
+            // Pixel-align the xeno row to the player row above so the Xeno
+            // button's left edge sits under the player row's SECOND icon
+            // (the cat) and the Start Game button's left edge sits under
+            // the Player's Name input. Runtime measurement keeps this
+            // robust to viewport / icon-size changes.
+            this._alignXenoRowToPlayerRow();
         }
+    }
+
+    // Measures the rendered player row's icon-2 and name-input positions,
+    // then sets xeno-input's margin-left + width and Start Game's
+    // margin-left so the two land directly under the player row's
+    // 2nd-icon and Player's Name columns respectively. Double rAF gives
+    // layout an extra frame to settle. Idempotent — safe to call after
+    // every render.
+    _alignXenoRowToPlayerRow() {
+        const apply = () => {
+            const playerRow = document.querySelector('.player-input-row:not(.xeno-row)');
+            const xenoInput = document.querySelector('.xeno-input');
+            const startBtn = document.getElementById('start-game-btn');
+            if (!playerRow || !xenoInput || !startBtn) return;
+            const iconBtns = playerRow.querySelectorAll('.icon-btn');
+            if (iconBtns.length < 2) return;
+            const nameInput = playerRow.querySelector('.name-section input');
+            if (!nameInput) return;
+
+            const rowRect = playerRow.getBoundingClientRect();
+            const cat = iconBtns[1].getBoundingClientRect();
+            const nameRect = nameInput.getBoundingClientRect();
+            const xenoRow = xenoInput.closest('.xeno-row');
+            const xenoNameSection = xenoInput.closest('.input-section.name-section');
+            if (!xenoRow || !xenoNameSection) return;
+            const xenoRowRect = xenoRow.getBoundingClientRect();
+            const xenoNameRect = xenoNameSection.getBoundingClientRect();
+
+            // Target X (relative to row's left edge — both rows share x=0)
+            const catFromRow = cat.left - rowRect.left;
+            const nameFromRow = nameRect.left - rowRect.left;
+            const xenoNameStart = xenoNameRect.left - xenoRowRect.left;
+
+            // Width of xeno-input chosen so its right edge is just before
+            // Player's Name X; Start Game then sits with explicit margin-left
+            // to land EXACTLY on Player's Name X (bypassing the flex gap so
+            // any extra padding/border on the flex parent can't drift it).
+            // Negative marginLeft IS allowed so xeno-input can sit a few px
+            // to the LEFT of name-section's natural start when the cat icon
+            // happens to be left of where xenoNameSection begins. Clamp to
+            // -30 just in case the geometry would push it absurdly off.
+            const desiredMarginLeft = Math.max(-30, catFromRow - xenoNameStart);
+            const desiredXenoWidth = Math.max(40, (nameFromRow - catFromRow) - 15);
+            const startMarginLeft = Math.max(0, nameFromRow - catFromRow - desiredXenoWidth);
+
+            // Drop the flex gap on the parent so margins do all the positioning
+            const contentRow = xenoInput.parentElement;
+            if (contentRow) contentRow.style.setProperty('gap', '0px', 'important');
+
+            // renderInlinePlayerNames set xenoInput width/max-width with
+            // !important via cssText. Use setProperty('important') so our
+            // override actually wins the cascade.
+            xenoInput.style.setProperty('margin-left', desiredMarginLeft + 'px', 'important');
+            xenoInput.style.setProperty('margin-right', '0', 'important');
+            xenoInput.style.setProperty('width', desiredXenoWidth + 'px', 'important');
+            xenoInput.style.setProperty('max-width', desiredXenoWidth + 'px', 'important');
+            xenoInput.style.setProperty('flex', '0 0 ' + desiredXenoWidth + 'px', 'important');
+
+            startBtn.style.setProperty('margin-left', startMarginLeft + 'px', 'important');
+            startBtn.style.setProperty('margin-right', '0', 'important');
+            startBtn.style.setProperty('flex', '0 0 auto', 'important');
+        };
+        // Two rAFs: first frame lets the DOM commit the new xeno row,
+        // second frame measures it after layout has settled.
+        requestAnimationFrame(() => requestAnimationFrame(apply));
     }
 
     startGame() {

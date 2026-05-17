@@ -642,13 +642,28 @@ class VicaDominoGame {
         document.querySelector('.game-level-select').style.display = 'none';
         document.querySelector('.player-select').style.display = 'none';
 
-        // Create a row with selected level icon and player button
+        // Create a row with selected level icon + label (e.g. "4 dominos").
+        // This chip belongs in BOX 1 (developer-configured: shows what level
+        // the player picked). Box 2 already has its own game-icon (the 3-
+        // dominos clone) — putting the chip in Box 2 too would render two
+        // domino icons in the player area, which is confusing. Insert into
+        // Box 1; if Box 1 isn't found (e.g. legacy single-panel layouts),
+        // fall back to inserting before #player-names as before.
         let selectedRow = document.getElementById('selected-options-row');
         if (!selectedRow) {
             selectedRow = document.createElement('div');
             selectedRow.id = 'selected-options-row';
             selectedRow.className = 'selected-options-row';
-            setupPanel.insertBefore(selectedRow, document.getElementById('player-names'));
+        }
+        const box1 = document.querySelector('.setup-box-1');
+        if (box1) {
+            if (selectedRow.parentElement !== box1) box1.appendChild(selectedRow);
+        } else if (!selectedRow.parentElement) {
+            const playerNamesEl = document.getElementById('player-names');
+            const playerNamesParent = playerNamesEl && playerNamesEl.parentElement;
+            if (playerNamesParent) {
+                playerNamesParent.insertBefore(selectedRow, playerNamesEl);
+            }
         }
         selectedRow.innerHTML = '';
         selectedRow.style.display = 'flex';

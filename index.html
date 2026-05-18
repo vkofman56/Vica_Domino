@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2092,6 +2092,56 @@
             var markupMap = {};
             var viewBoxMap = {};
             var svgElementMap = {};
+            // markupByStableId — keyed by each card's stableId. Lets MPP
+            // refer to a SPECIFIC card visual (not just the group rep) when
+            // multiple cards share a label via mGroups. Built from the full
+            // game.cards (loaded via activeCustomGameIndex) so it includes
+            // cards that aren't the effective group rep.
+            // labelToStableId — fallback for legacy MPP entries saved before
+            // the stableId field existed: look up the stableId by label so
+            // the specific-visual lookup still works.
+            var markupByStableId = {};
+            var viewBoxByStableId = {};
+            var labelToStableId = {};
+            if (activeCustomGameIndex >= 0) {
+                try {
+                    var _gamesPre = loadCustomGames();
+                    var _gamePre = _gamesPre[activeCustomGameIndex];
+                    if (_gamePre && Array.isArray(_gamePre.cards)) {
+                        _gamePre.cards.forEach(function(c) {
+                            if (!c || c.isVariation || !c.stableId) return;
+                            // Use getGameCardSVG to get the CURRENT card
+                            // markup (resolves through stableId → live card
+                            // storage), NOT the stale snapshot in
+                            // c.svgMarkup. The snapshot can be out of date
+                            // if the card art was edited after the game was
+                            // created. Same source the rest of the player
+                            // uses for markupMap.
+                            var fresh = null;
+                            try { fresh = (typeof getGameCardSVG === 'function') ? getGameCardSVG(c) : null; } catch(e) {}
+                            var markup = '';
+                            var vbox = '0 0 60 60';
+                            if (fresh && fresh.innerHTML && fresh.innerHTML.trim().length > 0) {
+                                markup = fresh.innerHTML;
+                                vbox = fresh.getAttribute('viewBox') || '0 0 60 60';
+                            } else if (c.svgMarkup && c.svgMarkup.trim().length > 0) {
+                                // Last-resort fallback when getGameCardSVG
+                                // can't resolve (e.g. card set deleted) —
+                                // use the snapshot rather than nothing.
+                                markup = c.svgMarkup;
+                            }
+                            if (markup) {
+                                markupByStableId[c.stableId] = markup;
+                                viewBoxByStableId[c.stableId] = vbox;
+                                if (c.label && !labelToStableId[c.label]) {
+                                    labelToStableId[c.label] = c.stableId;
+                                }
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }
+
             for (var i = 0; i < origCards.length; i++) {
                 var label = origCards[i].label;
                 var markup = '';
@@ -2112,15 +2162,32 @@
             var visibleCards = origCards.filter(function(c) { return !!markupMap[c.label]; });
             if (visibleCards.length === 0) return;
 
-            // Load saved Main Page Domino config
+            // Load saved Main Page Domino config + build a label-to-rep map
+            // from the game's mGroups. MPP stores whatever card label the
+            // creator clicked, but markupMap is keyed by the EFFECTIVE GROUP
+            // REPRESENTATIVE label (mGroup[0]). For grouped cards, the
+            // clicked label often isn't the rep — we'd miss the lookup and
+            // fall back to allPairs. Resolving through mGroups fixes that.
             var savedMpp = null;
+            var labelToRep = {};
             if (activeCustomGameIndex >= 0) {
                 try {
                     var games = loadCustomGames();
                     var game = games[activeCustomGameIndex];
                     if (game && game.mainPageDominos) savedMpp = game.mainPageDominos;
+                    if (game && Array.isArray(game.mGroups)) {
+                        game.mGroups.forEach(function(grp) {
+                            if (Array.isArray(grp) && grp.length > 0) {
+                                var rep = grp[0];
+                                grp.forEach(function(lbl) { labelToRep[lbl] = rep; });
+                            }
+                        });
+                    }
                 } catch(e) {}
             }
+            // Helper: resolve a label through mGroups (returns rep if grouped,
+            // else the original label unchanged).
+            function resolveLabel(lbl) { return labelToRep[lbl] || lbl; }
 
             // Fallback pairs — built in deterministic order (the inner loop
             // walks visibleCards in their natural order). We only shuffle when
@@ -2172,32 +2239,78 @@
                 if (!useSaved && allPairs.length < groups.length) continue;
 
                 for (var g = 0; g < groups.length; g++) {
-                    var topLabel, botLabel;
                     var savedSlot = useSaved ? savedLevel[g] : null;
-                    if (savedSlot && markupMap[savedSlot.top] && markupMap[savedSlot.bottom]) {
-                        // Saved + valid → use it
-                        topLabel = savedSlot.top;
-                        botLabel = savedSlot.bottom;
-                    } else if (g < allPairs.length) {
-                        // No saved slot here, or saved slot has invalid
-                        // labels — deterministic fallback (or random when
-                        // the game has no MPP at all).
-                        var pair = allPairs[g];
-                        var flip = savedMpp ? false : (Math.random() < 0.5);
-                        topLabel = flip ? pair[1] : pair[0];
-                        botLabel = flip ? pair[0] : pair[1];
-                    } else {
-                        // Nothing to render for this slot
-                        continue;
+                    // Per-half markup resolution. For each half we try, in
+                    // order:
+                    //   1. stableId match (specific visual the creator clicked)
+                    //   2. label-with-mGroup-rep match (legacy MPP w/o stableId)
+                    //   3. deterministic fallback from allPairs (or random if
+                    //      no MPP at all in the game)
+                    var halfMarkup = [null, null];
+                    var halfLabel = [null, null];
+                    var halfVbox = ['0 0 60 60', '0 0 60 60'];
+                    var savedHalves = savedSlot
+                        ? [
+                            { sid: savedSlot.topStableId, lbl: savedSlot.top },
+                            { sid: savedSlot.bottomStableId, lbl: savedSlot.bottom }
+                          ]
+                        : [null, null];
+                    var allMatched = true;
+                    for (var hi = 0; hi < 2; hi++) {
+                        var saved = savedHalves[hi];
+                        var resolvedSid = null;
+                        if (saved) {
+                            // Try direct stableId from MPP (modern save format)
+                            if (saved.sid && markupByStableId[saved.sid]) {
+                                resolvedSid = saved.sid;
+                            }
+                            // Legacy: MPP saved before stableId field existed.
+                            // Look up the stableId by label so the specific
+                            // visual still resolves correctly.
+                            else if (saved.lbl && labelToStableId[saved.lbl]) {
+                                resolvedSid = labelToStableId[saved.lbl];
+                            }
+                        }
+                        if (resolvedSid && markupByStableId[resolvedSid]) {
+                            halfMarkup[hi] = markupByStableId[resolvedSid];
+                            halfLabel[hi] = saved.lbl || '';
+                            halfVbox[hi] = viewBoxByStableId[resolvedSid] || '0 0 60 60';
+                        } else if (saved && saved.lbl) {
+                            // Final fallback: mGroup rep label
+                            var rep = resolveLabel(saved.lbl);
+                            if (rep && markupMap[rep]) {
+                                halfMarkup[hi] = markupMap[rep];
+                                halfLabel[hi] = rep;
+                                halfVbox[hi] = viewBoxMap[rep] || '0 0 60 60';
+                            } else {
+                                allMatched = false;
+                            }
+                        } else {
+                            allMatched = false;
+                        }
+                    }
+                    if (!savedSlot || !allMatched) {
+                        // Fall back to allPairs for the whole slot — keeps
+                        // both halves in sync as a paired domino.
+                        if (g < allPairs.length) {
+                            var pair = allPairs[g];
+                            var flip = savedMpp ? false : (Math.random() < 0.5);
+                            var topLbl = flip ? pair[1] : pair[0];
+                            var botLbl = flip ? pair[0] : pair[1];
+                            halfMarkup = [markupMap[topLbl], markupMap[botLbl]];
+                            halfLabel = [topLbl, botLbl];
+                            halfVbox = [viewBoxMap[topLbl] || '0 0 60 60', viewBoxMap[botLbl] || '0 0 60 60'];
+                        } else {
+                            continue;
+                        }
                     }
 
-                    var labels = [topLabel, botLabel];
                     var faces = groups[g].faces;
                     for (var f = 0; f < 2 && f < faces.length; f++) {
                         var face = faces[f];
-                        var label = labels[f];
-                        var markup = markupMap[label];
-                        var vb = viewBoxMap[label] || '0 0 60 60';
+                        var label = halfLabel[f];
+                        var markup = halfMarkup[f];
+                        var vb = halfVbox[f] || '0 0 60 60';
                         var x = parseFloat(face.getAttribute('x'));
                         var y = parseFloat(face.getAttribute('y'));
                         var sz = 24;

@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 04:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 04:23 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17146,6 +17146,7 @@
         var mppGameType = 'find'; // 'find' or 'catch'
         var mppConfig = {}; // { circle: [{top,bottom},...], triangle: [...], star: [...] }
         var mppMarkupMap = {}; // label -> svgInnerHTML (for existence checking)
+        var mppMarkupByStableId = {}; // stableId -> svgInnerHTML (for specific-visual MPP lookup)
         var mppSvgElements = {}; // label -> SVG element reference (for cloning)
         var mppActiveSelection = null; // { levelKey, dominoIdx, half } or null
         var mppCardClickHandler = null; // capture-phase click handler on game-view-cards
@@ -17219,15 +17220,87 @@
                 while (mppConfig.triangle.length < 4) mppConfig.triangle.push({ top: '' });
                 while (mppConfig.star.length < 5) mppConfig.star.push({ top: '' });
             } else {
+                // Preserve topStableId/bottomStableId when loading existing
+                // MPP — these were added so the player renderer can pick the
+                // exact card visual the creator clicked even when multiple
+                // cards share a label/value via mGroups. Old saves without
+                // them just store '' and fall back to label-based lookup.
+                var passSlot = function(d) {
+                    return {
+                        top: d.top || '',
+                        topStableId: d.topStableId || '',
+                        bottom: d.bottom || '',
+                        bottomStableId: d.bottomStableId || ''
+                    };
+                };
                 mppConfig = {
-                    circle: (saved.circle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
-                    triangle: (saved.triangle || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; }),
-                    star: (saved.star || []).map(function(d) { return { top: d.top || '', bottom: d.bottom || '' }; })
+                    circle: (saved.circle || []).map(passSlot),
+                    triangle: (saved.triangle || []).map(passSlot),
+                    star: (saved.star || []).map(passSlot)
                 };
                 // Pad to correct lengths
-                while (mppConfig.circle.length < 2) mppConfig.circle.push({ top: '', bottom: '' });
-                while (mppConfig.triangle.length < 3) mppConfig.triangle.push({ top: '', bottom: '' });
-                while (mppConfig.star.length < 4) mppConfig.star.push({ top: '', bottom: '' });
+                var emptySlot = { top: '', topStableId: '', bottom: '', bottomStableId: '' };
+                while (mppConfig.circle.length < 2) mppConfig.circle.push(Object.assign({}, emptySlot));
+                while (mppConfig.triangle.length < 3) mppConfig.triangle.push(Object.assign({}, emptySlot));
+                while (mppConfig.star.length < 4) mppConfig.star.push(Object.assign({}, emptySlot));
+
+                // Auto-migrate legacy MPP entries: if a slot has a label but
+                // no stableId (saved before stableId tracking was added),
+                // look up the stableId by label from the current game's
+                // cards. Then save the migrated config back so the upgrade
+                // persists permanently. After this, slots that were correctly
+                // configured before — but had no stableId — light up green
+                // automatically with no re-click required.
+                var mppLabelToStableId = {};
+                document.querySelectorAll('#game-view-cards .library-card').forEach(function(cardEl) {
+                    var lbl = cardEl.querySelector('.library-label');
+                    if (!lbl) return;
+                    var lblText = lbl.textContent;
+                    var sid = cardEl.dataset.stableId || '';
+                    if (lblText && sid && !mppLabelToStableId[lblText]) {
+                        mppLabelToStableId[lblText] = sid;
+                    }
+                });
+                var migrated = false;
+                ['circle', 'triangle', 'star'].forEach(function(key) {
+                    (mppConfig[key] || []).forEach(function(slot) {
+                        // TOP half
+                        if (slot.top && !mppLabelToStableId[slot.top]) {
+                            // Stale — label refers to a card that doesn't
+                            // exist in this game (likely from another
+                            // game's data via cloning or cross-write).
+                            // Clear so the slot becomes empty (yellow).
+                            slot.top = '';
+                            slot.topStableId = '';
+                            migrated = true;
+                        } else if (slot.top && !slot.topStableId && mppLabelToStableId[slot.top]) {
+                            // Legacy save — backfill the stableId
+                            slot.topStableId = mppLabelToStableId[slot.top];
+                            migrated = true;
+                        }
+                        // BOTTOM half (same logic)
+                        if (slot.bottom && !mppLabelToStableId[slot.bottom]) {
+                            slot.bottom = '';
+                            slot.bottomStableId = '';
+                            migrated = true;
+                        } else if (slot.bottom && !slot.bottomStableId && mppLabelToStableId[slot.bottom]) {
+                            slot.bottomStableId = mppLabelToStableId[slot.bottom];
+                            migrated = true;
+                        }
+                    });
+                });
+                if (migrated) {
+                    // Save back to localStorage so the migration sticks.
+                    // Same write path the explicit Save button uses below.
+                    try {
+                        game.mainPageDominos = JSON.parse(JSON.stringify(mppConfig));
+                        if (mppGameType === 'catch') {
+                            saveCatchGames(games);
+                        } else {
+                            localStorage.setItem('savedCustomGames', JSON.stringify(games));
+                        }
+                    } catch(e) { console.warn('[MPP migrate] save back failed', e); }
+                }
             }
 
             // Clone the 3 level SVGs from the start screen
@@ -17446,14 +17519,19 @@
                         var halfEl = e.target.closest('.game-view-domino-half');
                         if (halfEl) {
                             var label = halfEl.getAttribute('data-card-label');
+                            // Each visual representation of a value has its own
+                            // stableId — passing it through preserves the
+                            // exact card the creator clicked.
+                            var stableId = halfEl.getAttribute('data-stable-id') || '';
                             if (label) {
                                 var svg = halfEl.querySelector('svg');
                                 if (svg && svg.innerHTML.trim()) {
                                     mppMarkupMap[label] = svg.innerHTML;
                                     mppSvgElements[label] = svg;
+                                    if (stableId) mppMarkupByStableId[stableId] = svg.innerHTML;
                                 }
                                 if (mppMarkupMap[label]) {
-                                    mppAssignCard(label);
+                                    mppAssignCard(label, stableId);
                                 }
                             }
                         }
@@ -17468,14 +17546,16 @@
                 var lbl = card.querySelector('.library-label');
                 if (!lbl) return;
                 var label = lbl.textContent;
+                var stableId = card.dataset.stableId || '';
                 var svg = card.querySelector('svg');
                 if (svg && svg.innerHTML.trim()) {
                     mppMarkupMap[label] = svg.innerHTML;
                     mppSvgElements[label] = svg;
+                    if (stableId) mppMarkupByStableId[stableId] = svg.innerHTML;
                 }
                 if (!mppMarkupMap[label]) return;
                 e.stopPropagation();
-                mppAssignCard(label);
+                mppAssignCard(label, stableId);
             };
             gvCards.addEventListener('click', mppCardClickHandler, true);
             gvCards.classList.add('mpp-active');
@@ -17506,12 +17586,18 @@
             updateMppHint();
         }
 
-        function mppAssignCard(label) {
+        function mppAssignCard(label, stableId) {
             if (!mppActiveSelection) return;
             var sel = mppActiveSelection;
 
-            // Update config
-            mppConfig[sel.levelKey][sel.dominoIdx][sel.half === 'top' ? 'top' : 'bottom'] = label;
+            // Update config: store both label (back-compat lookup key) and
+            // stableId (specific-visual key — preserves which exact card
+            // visual the creator clicked, even when multiple cards share a
+            // label/value through mGroups).
+            var slot = mppConfig[sel.levelKey][sel.dominoIdx];
+            var key = sel.half === 'top' ? 'top' : 'bottom';
+            slot[key] = label;
+            slot[key + 'StableId'] = stableId || '';
 
             // Update the cloned SVG preview
             var svgClone = document.querySelector('.mpp-level-svg[data-mpp-level="' + sel.levelKey + '"]');
@@ -17604,6 +17690,13 @@
             }
 
             // Find: apply card images into domino halves
+            //
+            // Pre-compute a deterministic ordered list of card labels in
+            // this game so empty/stale slots can fall back to a stable
+            // placeholder card visual (with yellow/red border) instead of
+            // showing a blank tile. Sorted alphabetically so the same slot
+            // shows the same placeholder across renders / page reloads.
+            var allLabels = Object.keys(mppMarkupMap).sort();
             var groups = svgClone.querySelectorAll('g');
             var dominoIdx = 0;
             for (var gi = 0; gi < groups.length; gi++) {
@@ -17622,7 +17715,28 @@
                     var existing = grp.querySelectorAll('.mpp-card-img[data-mpp-face="' + h.dataFace + '"][data-mpp-domino="' + dominoIdx + '"]');
                     existing.forEach(function(e) { e.remove(); });
 
-                    if (!h.label || !mppMarkupMap[h.label]) {
+                    // Three cases:
+                    //   (a) Configured + valid → render the saved card
+                    //   (b) Empty (no label saved) → render a deterministic
+                    //       placeholder card from this game's pool — same
+                    //       slot always picks the same one, and this preview
+                    //       represents what the player will see at runtime
+                    //       when MPP falls back.
+                    //   (c) Stale (label saved but doesn't exist in this
+                    //       game) → render NOTHING. Blank + red border
+                    //       signals "saved data is broken, needs re-click."
+                    //       Showing a placeholder here would be misleading
+                    //       because the visual wouldn't reflect the saved
+                    //       label.
+                    var labelToUse = null;
+                    var isStale = !!(h.label && !mppMarkupMap[h.label]);
+                    if (h.label && mppMarkupMap[h.label]) {
+                        labelToUse = h.label;
+                    } else if (!h.label && allLabels.length > 0) {
+                        var placeholderIdx = (dominoIdx * 2 + (h.dataFace === '0' ? 0 : 1)) % allLabels.length;
+                        labelToUse = allLabels[placeholderIdx];
+                    }
+                    if (!labelToUse || !mppMarkupMap[labelToUse]) {
                         h.face.style.display = '';
                         return;
                     }
@@ -17642,37 +17756,51 @@
                     nested.setAttribute('data-mpp-domino', dominoIdx.toString());
                     nested.setAttribute('overflow', 'visible');
 
-                    var srcSvg = mppSvgElements[h.label];
+                    var srcSvg = mppSvgElements[labelToUse];
                     if (srcSvg) {
                         var srcClone = srcSvg.cloneNode(true);
                         while (srcClone.firstChild) {
                             nested.appendChild(srcClone.firstChild);
                         }
-                    } else if (mppMarkupMap[h.label]) {
-                        nested.innerHTML = mppMarkupMap[h.label];
+                    } else if (mppMarkupMap[labelToUse]) {
+                        nested.innerHTML = mppMarkupMap[labelToUse];
                     }
 
                     grp.insertBefore(nested, h.face);
                     h.face.style.display = 'none';
                 });
 
-                if ((cfg.top && mppMarkupMap[cfg.top]) || (cfg.bottom && mppMarkupMap[cfg.bottom])) {
-                    var dots = grp.querySelectorAll('.level-domino-dot');
-                    for (var d = 0; d < dots.length; d++) {
-                        dots[d].style.display = 'none';
-                    }
+                // Always hide the decorative dots inside the MPP panel —
+                // they're hardcoded placeholder artwork on every level
+                // button, and showing them in empty/stale MPP slots
+                // misleads the creator into thinking real data is there.
+                // Truly empty slots should look truly empty (the colored
+                // status border below tells the state).
+                var dots = grp.querySelectorAll('.level-domino-dot');
+                for (var d = 0; d < dots.length; d++) {
+                    dots[d].style.display = 'none';
                 }
 
-                // Status rect: green only when BOTH halves have valid card
-                // assignments — that's the condition under which the player
-                // renderer (updateLevelDominoIcons) actually uses MPP for
-                // this slot. Anything less = yellow = "arbitrary choice"
-                // (falls back to allPairs at runtime).
+                // Status rect — three states:
+                //   GREEN  = both halves have label + stableId + label exists
+                //            in this game's cards (fully done)
+                //   RED    = label is non-empty but doesn't match any card in
+                //            this game (stale / cross-game contamination)
+                //   YELLOW = everything else (empty, partial, or legacy
+                //            label-only that DOES match a card in this game)
                 var statusRect = grp.querySelector('.mpp-status-rect');
                 if (statusRect) {
-                    var topOk = !!(cfg.top && mppMarkupMap[cfg.top]);
-                    var botOk = !!(cfg.bottom && mppMarkupMap[cfg.bottom]);
-                    statusRect.setAttribute('stroke', (topOk && botOk) ? '#4CAF50' : '#FFC107');
+                    var topInGame = !!(cfg.top && mppMarkupMap[cfg.top]);
+                    var botInGame = !!(cfg.bottom && mppMarkupMap[cfg.bottom]);
+                    var topOk = topInGame && !!cfg.topStableId;
+                    var botOk = botInGame && !!cfg.bottomStableId;
+                    var topStale = !!cfg.top && !topInGame;
+                    var botStale = !!cfg.bottom && !botInGame;
+                    var color;
+                    if (topOk && botOk) color = '#4CAF50';          // green
+                    else if (topStale || botStale) color = '#F44336'; // red
+                    else color = '#FFC107';                          // yellow
+                    statusRect.setAttribute('stroke', color);
                 }
 
                 dominoIdx++;

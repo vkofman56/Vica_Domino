@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -834,20 +834,92 @@
 
         // Build a small Find-the-Double icon: two mini dominos with dots
         // (same visual style as the GP F Setup "2 dominos" level button, scaled down).
-        function _introFindIconSVG() {
+        function _introFindIconSVG(game) {
+            // Default dot-domino icon — used as fallback for games with no
+            // cards / no markup, or when no game is passed (e.g. combined
+            // games that chain multiple stages without a single MPP).
+            function defaultIcon() {
+                return '<svg viewBox="0 0 100 80" aria-hidden="true">' +
+                    '<g transform="translate(28,40) rotate(-3)">' +
+                      '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
+                      '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
+                      '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
+                      '<circle cx="-6" cy="11" r="3" fill="#555"/><circle cx="6" cy="11" r="3" fill="#555"/>' +
+                      '<circle cx="0" cy="18" r="3" fill="#555"/><circle cx="-6" cy="25" r="3" fill="#555"/><circle cx="6" cy="25" r="3" fill="#555"/>' +
+                    '</g>' +
+                    '<g transform="translate(72,40) rotate(3)">' +
+                      '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
+                      '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
+                      '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="0" cy="-18" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
+                      '<circle cx="0" cy="18" r="3" fill="#555"/>' +
+                    '</g>' +
+                    '</svg>';
+            }
+            if (!game || !Array.isArray(game.cards) || game.cards.length === 0) {
+                return defaultIcon();
+            }
+
+            // Build markup maps from this game's cards. Fresh markup via
+            // getGameCardSVG (same source the rest of the player uses);
+            // falls back to the c.svgMarkup snapshot when getGameCardSVG
+            // can't resolve.
+            var markupByLabel = {};
+            var markupByStableId = {};
+            game.cards.forEach(function(c) {
+                if (!c || c.isVariation) return;
+                var svg = (typeof getGameCardSVG === 'function') ? getGameCardSVG(c) : null;
+                var inner = (svg && svg.innerHTML && svg.innerHTML.trim()) ? svg.innerHTML
+                          : ((c.svgMarkup && c.svgMarkup.trim()) ? c.svgMarkup : '');
+                if (!inner) return;
+                if (c.label) markupByLabel[c.label] = inner;
+                if (c.stableId) markupByStableId[c.stableId] = inner;
+            });
+            var allLabels = Object.keys(markupByLabel).sort();
+            if (allLabels.length === 0) return defaultIcon();
+
+            // Two-domino icon = MPP "circle" level (2 slots × top + bottom).
+            // For each face, prefer MPP-saved stableId, then label, then a
+            // deterministic placeholder from this game's pool (so brand-new
+            // games without MPP still get a representative icon).
+            var mpp = (game.mainPageDominos && game.mainPageDominos.circle) || [];
+            function resolveFace(slotIdx, half) {
+                var slot = mpp[slotIdx] || {};
+                var sidKey = (half === 'top') ? 'topStableId' : 'bottomStableId';
+                var lblKey = (half === 'top') ? 'top' : 'bottom';
+                var sid = slot[sidKey];
+                if (sid && markupByStableId[sid]) return markupByStableId[sid];
+                var lbl = slot[lblKey];
+                if (lbl && markupByLabel[lbl]) return markupByLabel[lbl];
+                var idx = (slotIdx * 2 + (half === 'top' ? 0 : 1)) % allLabels.length;
+                return markupByLabel[allLabels[idx]] || '';
+            }
+            var t0 = resolveFace(0, 'top');
+            var b0 = resolveFace(0, 'bottom');
+            var t1 = resolveFace(1, 'top');
+            var b1 = resolveFace(1, 'bottom');
+
+            // Nested <svg> per face, sized to fit within each domino half.
+            // Matches the pattern used by updateLevelDominoIcons / MPP
+            // panel rendering: face centered at (0, ±18), 22-unit square.
+            var sz = 22;
+            var faceX = -11;
+            var topY = -29;  // 22-unit svg centered around y=-18
+            var botY = 7;    // 22-unit svg centered around y=18
+            function faceSvg(markup, y) {
+                if (!markup) return '';
+                return '<svg viewBox="0 0 60 60" x="' + faceX + '" y="' + y + '" width="' + sz + '" height="' + sz + '" overflow="visible">' + markup + '</svg>';
+            }
+
             return '<svg viewBox="0 0 100 80" aria-hidden="true">' +
                 '<g transform="translate(28,40) rotate(-3)">' +
                   '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
                   '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
-                  '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
-                  '<circle cx="-6" cy="11" r="3" fill="#555"/><circle cx="6" cy="11" r="3" fill="#555"/>' +
-                  '<circle cx="0" cy="18" r="3" fill="#555"/><circle cx="-6" cy="25" r="3" fill="#555"/><circle cx="6" cy="25" r="3" fill="#555"/>' +
+                  faceSvg(t0, topY) + faceSvg(b0, botY) +
                 '</g>' +
                 '<g transform="translate(72,40) rotate(3)">' +
                   '<rect x="-17" y="-36" width="34" height="72" rx="5" fill="#f5f0e0" stroke="#b0a080" stroke-width="2"/>' +
                   '<line x1="-17" y1="0" x2="17" y2="0" stroke="#b0a080" stroke-width="1.5"/>' +
-                  '<circle cx="-6" cy="-25" r="3" fill="#555"/><circle cx="0" cy="-18" r="3" fill="#555"/><circle cx="6" cy="-11" r="3" fill="#555"/>' +
-                  '<circle cx="0" cy="18" r="3" fill="#555"/>' +
+                  faceSvg(t1, topY) + faceSvg(b1, botY) +
                 '</g>' +
                 '</svg>';
         }
@@ -926,7 +998,7 @@
                 // override its click to open the find-mode popup so the
                 // player picks TOUCH / MOUSE before entering setup
                 // (mirrors the Catch pattern below).
-                var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(), null,
+                var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
                     function() { _openCardsLibrary('find', i); });
                 fbtn.onclick = function(e) { showFindModePopup('custom-' + i, fbtn, e); };
             });

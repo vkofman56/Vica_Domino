@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:46 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:46 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:46 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17988,43 +17988,29 @@
                     // Hide bubble fill/shine, show card image
                     grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
 
-                    // Approach (per Victoria): take the card's picture,
-                    // change the background (white instead of card colour),
-                    // and SCALE IT DOWN so the whole picture fits inside
-                    // the circular bubble interior with a small padding.
+                    // Recipe copied from Card Maker's round-card rendering
+                    // (the one Victoria confirmed works correctly). In
+                    // Card Maker: the round card is a 70-px DIV with
+                    // border-radius:50% + overflow:hidden; inside sits a
+                    // 60-px SVG with viewBox "0 0 60 60", centred — a 5-px
+                    // inset on each side. 1 viewBox unit renders as 1
+                    // pixel (no scaling, no viewBox arithmetic). The
+                    // DIV's circular clip cuts the SVG's empty corners
+                    // (sqrt(30²+30²)=42 > radius 35) but leaves the
+                    // typical centred glyph alone.
                     //
-                    // Steps:
-                    //   1. Lay down a white circle background at bp.r.
-                    //   2. Build a nested SVG to hold the card's content,
-                    //      clipped to the bubble's interior (radius bp.r).
-                    //   3. Insert the card's child elements, measure their
-                    //      union bbox with getBBox().
-                    //   4. Compute a scale factor so the bbox's half-
-                    //      diagonal fits inside the bubble with 2 units of
-                    //      padding. NEVER scale up — small content stays at
-                    //      its natural size.
-                    //   5. Apply the scale by setting the nested SVG's
-                    //      viewBox to a window that exposes more source
-                    //      coordinates around the bbox centre (the source
-                    //      content renders smaller inside the same display
-                    //      bounding box).
-                    //   6. Draw the colored status border on top.
-                    var sz = bp.r * 2;
+                    // For MPP bubbles we replicate the same proportion:
+                    // SVG size = bp.r * 12/7   (= bp.r * 2 * 60/70).
+                    // ClipPath circle of radius bp.r clips the SVG's
+                    // corners exactly as the DIV's border-radius does in
+                    // Card Maker. NO getBBox, no dynamic scaling, no
+                    // bubble shift, no overflow="visible". Single fixed
+                    // transformation, copied from a known-good source.
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
+                    var INSET_RATIO = 60 / 70; // Card Maker's SVG:DIV ratio
+                    var svgSize = bp.r * 2 * INSET_RATIO;
 
-                    // (1) Background circle (white) at the bubble's natural
-                    // radius.
-                    var bgCirc = document.createElementNS(ns, 'circle');
-                    bgCirc.setAttribute('cx', bp.cx);
-                    bgCirc.setAttribute('cy', bp.cy);
-                    bgCirc.setAttribute('r', bp.r);
-                    bgCirc.setAttribute('fill', 'white');
-                    bgCirc.setAttribute('class', 'mpp-bubble-card-img');
-                    grp.insertBefore(bgCirc, clickArea);
-
-                    // (2) ClipPath at the bubble's natural radius — content
-                    // is clipped to the bubble interior. No more overflow
-                    // tricks on the outer SVG.
+                    // ClipPath at the bubble's natural radius.
                     var clipEl = svgClone.querySelector('clipPath[id="' + clipId + '"]');
                     if (clipEl) {
                         var clipCircle = clipEl.querySelector('circle');
@@ -18035,21 +18021,28 @@
                         }
                     }
 
-                    // Nested SVG to hold the card's picture. ViewBox starts
-                    // as "0 0 60 60"; we rewrite it after measurement to
-                    // scale the content down to fit.
+                    // White background fills the bubble interior so corner
+                    // areas that the SVG doesn't cover stay white.
+                    var bgCirc = document.createElementNS(ns, 'circle');
+                    bgCirc.setAttribute('cx', bp.cx);
+                    bgCirc.setAttribute('cy', bp.cy);
+                    bgCirc.setAttribute('r', bp.r);
+                    bgCirc.setAttribute('fill', 'white');
+                    bgCirc.setAttribute('class', 'mpp-bubble-card-img');
+                    grp.insertBefore(bgCirc, clickArea);
+
+                    // Nested SVG inscribed inside the bubble at the
+                    // Card Maker ratio. ViewBox "0 0 60 60", no rewrites.
                     var nested = document.createElementNS(ns, 'svg');
                     nested.setAttribute('viewBox', '0 0 60 60');
-                    nested.setAttribute('x', (bp.cx - bp.r).toString());
-                    nested.setAttribute('y', (bp.cy - bp.r).toString());
-                    nested.setAttribute('width', sz.toString());
-                    nested.setAttribute('height', sz.toString());
+                    nested.setAttribute('x', (bp.cx - svgSize / 2).toString());
+                    nested.setAttribute('y', (bp.cy - svgSize / 2).toString());
+                    nested.setAttribute('width', svgSize.toString());
+                    nested.setAttribute('height', svgSize.toString());
                     nested.setAttribute('class', 'mpp-bubble-card-img');
                     nested.setAttribute('clip-path', 'url(#' + clipId + ')');
-                    nested.setAttribute('overflow', 'visible');
 
-                    // (3) Inject the card's picture (no background — we use
-                    // the white bgCirc above).
+                    // Inject the card's picture — no background, no scaling.
                     var srcSvg = mppSvgElements[labelToUse];
                     if (srcSvg) {
                         var srcClone = srcSvg.cloneNode(true);
@@ -18059,50 +18052,7 @@
                     }
                     grp.insertBefore(nested, clickArea);
 
-                    // (4) + (5) Measure the picture and scale it so it fits
-                    // the bubble with 2 units of padding — in BOTH
-                    // directions. The previous version capped scale at 1,
-                    // which is why small-content cards (single dots, narrow
-                    // glyphs) appeared as nothing in the small bubbles.
-                    //
-                    // rawScale = (bp.r - 2) / display-half-diagonal.
-                    //   rawScale > 1 → small picture, enlarge it (capped
-                    //                  at 2.5 so a tiny dot doesn't blow
-                    //                  up to fill the bubble).
-                    //   rawScale < 1 → big picture, shrink it (uncapped).
-                    try {
-                        var bbox = nested.getBBox();
-                        if (bbox && bbox.width > 0 && bbox.height > 0) {
-                            var halfW_vb = bbox.width / 2;
-                            var halfH_vb = bbox.height / 2;
-                            var halfDiag_vb = Math.sqrt(halfW_vb * halfW_vb + halfH_vb * halfH_vb);
-                            var halfDiag_disp = halfDiag_vb * sz / 60;
-                            var targetHalfDiag = bp.r - 2; // 2pt padding inside bubble
-                            var rawScale = (halfDiag_disp > 0)
-                                ? targetHalfDiag / halfDiag_disp
-                                : 1;
-                            var scale = (rawScale >= 1)
-                                ? Math.min(2.5, rawScale)  // enlarge small content, capped
-                                : rawScale;                // shrink big content, uncapped
-
-                            // Rewrite the viewBox so the picture renders at
-                            // the chosen scale and is centred on the bbox.
-                            // A viewBox window of (60/scale) source units
-                            // around the bbox centre maps to the nested
-                            // SVG's sz × sz display rectangle:
-                            //   scale > 1 → smaller window → content larger;
-                            //   scale < 1 → larger window → content smaller.
-                            var vbW = 60 / scale;
-                            var contentCX_vb = bbox.x + halfW_vb;
-                            var contentCY_vb = bbox.y + halfH_vb;
-                            var vbX = contentCX_vb - vbW / 2;
-                            var vbY = contentCY_vb - vbW / 2;
-                            nested.setAttribute('viewBox',
-                                vbX + ' ' + vbY + ' ' + vbW + ' ' + vbW);
-                        }
-                    } catch (e) { /* getBBox fails for empty SVGs — leave default viewBox */ }
-
-                    // (6) Status border — green / yellow / red per legend.
+                    // Status border — green / yellow / red per legend.
                     var border = document.createElementNS(ns, 'circle');
                     border.setAttribute('cx', bp.cx);
                     border.setAttribute('cy', bp.cy);

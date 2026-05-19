@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:24 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:24 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:16 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:24 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17988,45 +17988,28 @@
                     // Hide bubble fill/shine, show card image
                     grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
 
-                    // Card image is drawn at the bubble's natural size and
-                    // viewBox ("0 0 60 60", sz = bp.r * 2) — the glyph
-                    // displays at its original pre-fix dimensions.
-                    //
-                    // The VISIBLE bubble (clipPath + white background +
-                    // status border) is drawn 1 unit smaller than the
-                    // original (visR = bp.r - 1). A circular clip narrows
-                    // as you move away from center, so a more aggressive
-                    // shrink (bp.r - 2) clipped the top-left/top-right
-                    // shoulders of glyphs that fill most of the 60-unit
-                    // viewBox — that was the "upper part of 2 missing"
-                    // bug. A 1-unit inset leaves the glyph whole while
-                    // still pulling the colored ring inward.
-                    //
-                    // The bubble click area stays at bp.r so the tap
-                    // target keeps its original size.
+                    // Bubble visuals are all centered on (bp.cx, bp.cy)
+                    // at the bubble's natural radius bp.r. The pre-built
+                    // clipPath circle (added in openMainPagePictures at
+                    // r = bp.r - 1) is left unchanged here — the visible
+                    // padding inside the bubble is whatever the card's own
+                    // viewBox padding yields. No clip-inset, no viewBox
+                    // recentering, no glyph shift. If padding looks off,
+                    // it's coming from the card's source SVG, not from
+                    // the bubble rendering.
                     var sz = bp.r * 2;
-                    var visR = Math.max(6, bp.r - 1);
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
 
-                    // Shrink the pre-built clipPath circle to visR.
-                    var clipEl = svgClone.querySelector('clipPath[id="' + clipId + '"]');
-                    if (clipEl) {
-                        var clipCircle = clipEl.querySelector('circle');
-                        if (clipCircle) clipCircle.setAttribute('r', visR.toString());
-                    }
-
-                    // Background circle (white) at the tight radius
+                    // Background circle (white) — full bubble radius
                     var bgCirc = document.createElementNS(ns, 'circle');
                     bgCirc.setAttribute('cx', bp.cx);
                     bgCirc.setAttribute('cy', bp.cy);
-                    bgCirc.setAttribute('r', visR.toString());
+                    bgCirc.setAttribute('r', bp.r);
                     bgCirc.setAttribute('fill', 'white');
                     bgCirc.setAttribute('class', 'mpp-bubble-card-img');
                     grp.insertBefore(bgCirc, clickArea);
 
-                    // Card image at the bubble's natural bounding box; the
-                    // clipPath (now at visR) crops only the empty padding
-                    // around the glyph.
+                    // Card image — bubble-sized bounding box, default viewBox
                     var nested = document.createElementNS(ns, 'svg');
                     nested.setAttribute('viewBox', '0 0 60 60');
                     nested.setAttribute('x', (bp.cx - bp.r).toString());
@@ -18047,40 +18030,12 @@
 
                     grp.insertBefore(nested, clickArea);
 
-                    // RECENTER content in the bubble.
-                    //
-                    // Card Maker uses SVG <text> with default dominant-
-                    // baseline="alphabetic" (the y attribute is the text
-                    // baseline, not the visual center). A digit drawn at
-                    // y=30 actually sits in viewBox y=10..30, well above
-                    // the geometric viewBox centre — and Victoria's cards
-                    // commonly end up with the glyph offset DOWN from the
-                    // viewBox centre, so the bubble showed "much more
-                    // padding on top than on the bottom".
-                    //
-                    // After the content is in the DOM, getBBox() reports
-                    // the glyph's actual bounding box in the source viewBox.
-                    // Shift the nested SVG's viewBox so that bbox.center
-                    // maps to the bubble centre — symmetric padding for
-                    // any card regardless of how the user placed the text.
-                    try {
-                        var bbox = nested.getBBox();
-                        if (bbox && bbox.width > 0 && bbox.height > 0) {
-                            var contentCX = bbox.x + bbox.width / 2;
-                            var contentCY = bbox.y + bbox.height / 2;
-                            var vbX = contentCX - 30;
-                            var vbY = contentCY - 30;
-                            nested.setAttribute('viewBox', vbX + ' ' + vbY + ' 60 60');
-                        }
-                    } catch (e) { /* getBBox fails for empty SVGs — leave default */ }
-
                     // Status border — green / yellow / red per legend above.
-                    // Drawn at visR so the colored ring sits just outside
-                    // the recentered glyph with the small inset padding.
+                    // Drawn at the bubble's natural outer radius.
                     var border = document.createElementNS(ns, 'circle');
                     border.setAttribute('cx', bp.cx);
                     border.setAttribute('cy', bp.cy);
-                    border.setAttribute('r', visR.toString());
+                    border.setAttribute('r', bp.r);
                     border.setAttribute('fill', 'none');
                     border.setAttribute('stroke', statusColor);
                     border.setAttribute('stroke-width', '2');

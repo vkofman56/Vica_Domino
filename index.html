@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2076,9 +2076,21 @@
             // game.freezeEnabled toggle (the toggle just gates the assign-
             // mode UI in Studio). Groups whose cards are all unmarked have
             // identical top/bottom pools.
+            //
+            // valueTopPools / valueBottomPools are cross-mGroup pools keyed
+            // by _gameValue. They're the fallback when a single mGroup is
+            // composed entirely of one color (e.g. mGroup M3 = digit-2 cards
+            // all marked red, mGroup M9 = dot-pattern-2 cards all marked
+            // green). The bottom half of a domino in slot M3 has no green
+            // card to pick INSIDE M3, so we look across all groups with the
+            // same _gameValue ('C' here) and find the green dot-pattern in
+            // M9. Without this cross-mGroup fallback, a value-siloed deck
+            // would violate the red/green rule on cross-silo dominoes.
             var svgPools = {};
             var topPools = {};
             var bottomPools = {};
+            var valueTopPools = {};
+            var valueBottomPools = {};
             var svgMarkupPools = {};
             effective.forEach(function(eff) {
                 var allPool = [];
@@ -2094,6 +2106,11 @@
                 svgPools[eff.label] = allPool;
                 topPools[eff.label] = topPool;
                 bottomPools[eff.label] = bottomPool;
+                var vKey = eff._gameValue;
+                if (!valueTopPools[vKey])    valueTopPools[vKey]    = [];
+                if (!valueBottomPools[vKey]) valueBottomPools[vKey] = [];
+                topPool.forEach(function(s)    { valueTopPools[vKey].push(s); });
+                bottomPool.forEach(function(s) { valueBottomPools[vKey].push(s); });
                 if (eff.cards[0] && eff.cards[0].svgMarkup) {
                     svgMarkupPools[eff.label] = eff.cards[0].svgMarkup;
                 }
@@ -2103,9 +2120,12 @@
 
             // Generate domino deck — one per pair of groups (not per pair of cards).
             // Top half draws from topPools (no floating-only cards), bottom half
-            // draws from bottomPools (no frozen-only cards). Either pool falls
-            // back to svgPools when the strict filter empties it, so admin can't
-            // accidentally produce a deck that can't be rendered.
+            // draws from bottomPools (no frozen-only cards). Fallbacks, in order:
+            //   1) the group's own per-half pool (preserves mGroup identity);
+            //   2) the per-value cross-mGroup pool (honors the dot rule even
+            //      when the group is entirely red or entirely green);
+            //   3) svgPools[eff.label] (last resort — group's full pool, may
+            //      violate the dot rule but at least the domino can render).
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
@@ -2120,8 +2140,10 @@
                     var leftKey = leftEff.label + '_d' + cardId + 'L';
                     var rightKey = rightEff.label + '_d' + cardId + 'R';
                     var leftPool = topPools[leftEff.label];
+                    if (!leftPool || leftPool.length === 0) leftPool = valueTopPools[leftValue];
                     if (!leftPool || leftPool.length === 0) leftPool = svgPools[leftEff.label];
                     var rightPool = bottomPools[rightEff.label];
+                    if (!rightPool || rightPool.length === 0) rightPool = valueBottomPools[rightValue];
                     if (!rightPool || rightPool.length === 0) rightPool = svgPools[rightEff.label];
                     if (leftPool && leftPool.length > 0) svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
                     if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);

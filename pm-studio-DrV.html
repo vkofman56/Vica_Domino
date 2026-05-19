@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:55 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -12600,7 +12600,17 @@
             //   red dot   (frozen)   → can sit only on top    (left)
             //   green dot (floating) → can sit only on bottom (right)
             //   no dot               → either side allowed
-            // Falls back to cards[0] if no card in the group fits the half.
+            // Per-value cross-mGroup pool so that an mGroup of all-red digits
+            // can still surface a green dot-pattern from a sibling mGroup with
+            // the same _gameValue when we need a bottom-half card. See the
+            // matching comment in rebuildGameViewDominos() for the worked
+            // example.
+            var byValueCardsInit = {};
+            effective.forEach(function(eff) {
+                var v = eff._gameValue;
+                if (!byValueCardsInit[v]) byValueCardsInit[v] = [];
+                eff.cards.forEach(function(c) { if (c) byValueCardsInit[v].push(c); });
+            });
             function _pickGameViewRep(group, half) {
                 if (!group || !group.cards || !group.cards.length) return null;
                 for (var k = 0; k < group.cards.length; k++) {
@@ -12609,6 +12619,14 @@
                     if (half === 'top' && c._freezeState === 'floating') continue;
                     if (half === 'bottom' && c._freezeState === 'frozen') continue;
                     return c;
+                }
+                var poolI = byValueCardsInit[group._gameValue] || [];
+                for (var m = 0; m < poolI.length; m++) {
+                    var pc = poolI[m];
+                    if (!pc) continue;
+                    if (half === 'top' && pc._freezeState === 'floating') continue;
+                    if (half === 'bottom' && pc._freezeState === 'frozen') continue;
+                    return pc;
                 }
                 return group.cards[0];
             }
@@ -13059,6 +13077,24 @@
 
             var effective = buildEffectiveCards(game);
 
+            // Build a per-value pool that spans ALL mGroups: this lets the
+            // placement rule (red dot → top, green dot → bottom) survive
+            // even when an mGroup is composed entirely of one color. e.g.
+            // mGroup M3 = digit-2 cards (all red), mGroup M9 = dot-pattern-2
+            // cards (all green). Both have _gameValue = 'C'. The bottom-
+            // half of a "Value A × Value C" domino in slot M3 has no green
+            // card inside M3 to pick from, so before the fix it fell back
+            // to a red card and showed the digit on the bottom — exactly
+            // the rule violation. With this cross-mGroup pool, the picker
+            // looks in M9 next and finds a green dot-pattern, which is the
+            // visually correct bottom for value C.
+            var byValueCards = {};
+            effective.forEach(function(eff) {
+                var v = eff._gameValue;
+                if (!byValueCards[v]) byValueCards[v] = [];
+                eff.cards.forEach(function(c) { if (c) byValueCards[v].push(c); });
+            });
+
             // Pick a representative card from a group that's eligible to
             // sit on the requested half. The red/green dot is a per-card
             // contract enforced whenever _freezeState is set, regardless
@@ -13066,20 +13102,31 @@
             // assign-mode UI and visible indicators):
             //   half === 'top'    → skip floating cards (red+unmarked OK)
             //   half === 'bottom' → skip frozen cards   (green+unmarked OK)
-            // Falls back to cards[0] if no card satisfies the filter so the
-            // domino preview always renders.
+            // Priority:
+            //   1) eligible card inside this group (preserves mGroup identity);
+            //   2) eligible card from ANY group with the same _gameValue
+            //      (fixes the silo'd-mGroup case described above);
+            //   3) group.cards[0] as a last resort so the domino preview
+            //      still renders something for the user to see.
             function _pickRepForHalf(group, half) {
                 if (!group || !group.cards || !group.cards.length) return null;
-                var match = null;
                 for (var k = 0; k < group.cards.length; k++) {
                     var c = group.cards[k];
                     if (!c) continue;
                     if (half === 'top' && c._freezeState === 'floating') continue;
                     if (half === 'bottom' && c._freezeState === 'frozen') continue;
-                    match = c;
-                    break;
+                    return c;
                 }
-                return match || group.cards[0];
+                // Cross-mGroup fallback by _gameValue
+                var pool = byValueCards[group._gameValue] || [];
+                for (var m = 0; m < pool.length; m++) {
+                    var pc = pool[m];
+                    if (!pc) continue;
+                    if (half === 'top' && pc._freezeState === 'floating') continue;
+                    if (half === 'bottom' && pc._freezeState === 'frozen') continue;
+                    return pc;
+                }
+                return group.cards[0];
             }
 
             // Generate all domino pairs using effective cards. The

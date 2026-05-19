@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17988,23 +17988,56 @@
                     // Hide bubble fill/shine, show card image
                     grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
 
-                    // Card image is rendered at the layout-defined location;
-                    // the glyph itself does NOT move. Once content is in the
-                    // DOM, getBBox() tells us where the glyph actually sits
-                    // inside the 60×60 source viewBox (Card Maker uses SVG
-                    // text with baseline-y positioning, so a digit is
-                    // typically drawn in the upper half of its viewBox).
-                    // The visible bubble — clipPath circle, white
-                    // background, and colored status border — is then
-                    // shifted to center on the glyph's actual visual
-                    // centre, giving symmetric "open area" inside the
-                    // bubble around the glyph.
+                    // Approach (per Victoria): take the card's picture,
+                    // change the background (white instead of card colour),
+                    // and SCALE IT DOWN so the whole picture fits inside
+                    // the circular bubble interior with a small padding.
+                    //
+                    // Steps:
+                    //   1. Lay down a white circle background at bp.r.
+                    //   2. Build a nested SVG to hold the card's content,
+                    //      clipped to the bubble's interior (radius bp.r).
+                    //   3. Insert the card's child elements, measure their
+                    //      union bbox with getBBox().
+                    //   4. Compute a scale factor so the bbox's half-
+                    //      diagonal fits inside the bubble with 2 units of
+                    //      padding. NEVER scale up — small content stays at
+                    //      its natural size.
+                    //   5. Apply the scale by setting the nested SVG's
+                    //      viewBox to a window that exposes more source
+                    //      coordinates around the bbox centre (the source
+                    //      content renders smaller inside the same display
+                    //      bounding box).
+                    //   6. Draw the colored status border on top.
                     var sz = bp.r * 2;
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
 
-                    // Card image — bubble-sized bounding box, default viewBox.
-                    // Position is locked to the layout slot so the glyph
-                    // displays exactly where Card Maker drew it.
+                    // (1) Background circle (white) at the bubble's natural
+                    // radius.
+                    var bgCirc = document.createElementNS(ns, 'circle');
+                    bgCirc.setAttribute('cx', bp.cx);
+                    bgCirc.setAttribute('cy', bp.cy);
+                    bgCirc.setAttribute('r', bp.r);
+                    bgCirc.setAttribute('fill', 'white');
+                    bgCirc.setAttribute('class', 'mpp-bubble-card-img');
+                    grp.insertBefore(bgCirc, clickArea);
+
+                    // (2) ClipPath at the bubble's natural radius — content
+                    // is clipped to the bubble interior. No more overflow
+                    // tricks on the outer SVG.
+                    var clipEl = svgClone.querySelector('clipPath[id="' + clipId + '"]');
+                    if (clipEl) {
+                        var clipCircle = clipEl.querySelector('circle');
+                        if (clipCircle) {
+                            clipCircle.setAttribute('cx', bp.cx);
+                            clipCircle.setAttribute('cy', bp.cy);
+                            clipCircle.setAttribute('r', bp.r.toString());
+                        }
+                    }
+
+                    // Nested SVG to hold the card's picture. ViewBox starts
+                    // as "0 0 60 60"; we rewrite it after measurement to
+                    // scale the content down to fit.
                     var nested = document.createElementNS(ns, 'svg');
                     nested.setAttribute('viewBox', '0 0 60 60');
                     nested.setAttribute('x', (bp.cx - bp.r).toString());
@@ -18015,6 +18048,8 @@
                     nested.setAttribute('clip-path', 'url(#' + clipId + ')');
                     nested.setAttribute('overflow', 'visible');
 
+                    // (3) Inject the card's picture (no background — we use
+                    // the white bgCirc above).
                     var srcSvg = mppSvgElements[labelToUse];
                     if (srcSvg) {
                         var srcClone = srcSvg.cloneNode(true);
@@ -18024,84 +18059,55 @@
                     }
                     grp.insertBefore(nested, clickArea);
 
-                    // Compute a CLIP radius that includes the glyph's actual
-                    // corners. The bubble centre stays FIXED at the
-                    // layout-defined (bp.cx, bp.cy); only the clip and
-                    // white-background radii grow.
-                    //
-                    // NO cap on clipR: a digit drawn with a font-size
-                    // larger than the source viewBox can hold (so its ink
-                    // overflows source y < 0) requires a clip larger than
-                    // bp.r * sqrt(2). Adjacent bubbles' white backgrounds
-                    // may overlap as a result, but that's a better outcome
-                    // than chopping the top of the glyph off.
-                    //
-                    // svgClone is given overflow="visible" so glyph corners
-                    // past the SVG's 140×80 viewBox don't get hidden by the
-                    // SVG container.
-                    var bubbleCX = bp.cx;
-                    var bubbleCY = bp.cy;
-                    var clipR = bp.r;
+                    // (4) + (5) Measure the picture and scale it down so it
+                    // fits inside the bubble with 2 units of padding. The
+                    // bubble's interior is a circle of radius bp.r; the
+                    // largest centred bbox that fits has half-diagonal =
+                    // (bp.r - 2). The picture's current display half-
+                    // diagonal is (bbox half-diagonal in viewBox units) ×
+                    // (sz / 60). We pick the scale that makes those equal
+                    // (or 1, if the picture is already smaller).
                     try {
                         var bbox = nested.getBBox();
                         if (bbox && bbox.width > 0 && bbox.height > 0) {
-                            var bboxL = (bp.cx - bp.r) + bbox.x * sz / 60;
-                            var bboxR = (bp.cx - bp.r) + (bbox.x + bbox.width) * sz / 60;
-                            var bboxT = (bp.cy - bp.r) + bbox.y * sz / 60;
-                            var bboxB = (bp.cy - bp.r) + (bbox.y + bbox.height) * sz / 60;
-                            var corners = [
-                                [bboxL, bboxT], [bboxR, bboxT],
-                                [bboxL, bboxB], [bboxR, bboxB]
-                            ];
-                            var maxDist = 0;
-                            for (var ci = 0; ci < 4; ci++) {
-                                var dx = corners[ci][0] - bp.cx;
-                                var dy = corners[ci][1] - bp.cy;
-                                var d = Math.sqrt(dx * dx + dy * dy);
-                                if (d > maxDist) maxDist = d;
+                            var halfW_vb = bbox.width / 2;
+                            var halfH_vb = bbox.height / 2;
+                            var halfDiag_vb = Math.sqrt(halfW_vb * halfW_vb + halfH_vb * halfH_vb);
+                            var halfDiag_disp = halfDiag_vb * sz / 60;
+                            var targetHalfDiag = bp.r - 2; // 2pt padding inside bubble
+                            var scale = (halfDiag_disp > targetHalfDiag)
+                                ? targetHalfDiag / halfDiag_disp
+                                : 1;
+                            if (scale < 1) {
+                                // Rewrite the viewBox so the picture renders
+                                // smaller. A viewBox window of (60/scale)
+                                // source units around the bbox centre maps
+                                // to the nested SVG's sz × sz display
+                                // rectangle, so source content shrinks by
+                                // `scale`.
+                                var vbW = 60 / scale;
+                                var contentCX_vb = bbox.x + halfW_vb;
+                                var contentCY_vb = bbox.y + halfH_vb;
+                                var vbX = contentCX_vb - vbW / 2;
+                                var vbY = contentCY_vb - vbW / 2;
+                                nested.setAttribute('viewBox',
+                                    vbX + ' ' + vbY + ' ' + vbW + ' ' + vbW);
+                            } else {
+                                // Picture already fits — just centre it.
+                                var contentCX2_vb = bbox.x + halfW_vb;
+                                var contentCY2_vb = bbox.y + halfH_vb;
+                                var vbX2 = contentCX2_vb - 30;
+                                var vbY2 = contentCY2_vb - 30;
+                                nested.setAttribute('viewBox',
+                                    vbX2 + ' ' + vbY2 + ' 60 60');
                             }
-                            clipR = Math.max(bp.r, maxDist + 2);
                         }
-                    } catch (e) { /* getBBox fails for empty SVGs — keep defaults */ }
+                    } catch (e) { /* getBBox fails for empty SVGs — leave default viewBox */ }
 
-                    // Let the outer SVG show content that overflows its
-                    // 140×80 viewBox (otherwise glyph corners past the SVG
-                    // bounds get hidden by the SVG container).
-                    svgClone.setAttribute('overflow', 'visible');
-                    svgClone.style.overflow = 'visible';
-
-                    // Move the pre-built clipPath circle to the glyph centre
-                    // and grow it to the dynamic clipR so the glyph's
-                    // corners stay inside the clip.
-                    var clipEl = svgClone.querySelector('clipPath[id="' + clipId + '"]');
-                    if (clipEl) {
-                        var clipCircle = clipEl.querySelector('circle');
-                        if (clipCircle) {
-                            clipCircle.setAttribute('cx', bubbleCX);
-                            clipCircle.setAttribute('cy', bubbleCY);
-                            clipCircle.setAttribute('r', clipR.toString());
-                        }
-                    }
-
-                    // Background circle (white) at the glyph centre, sized
-                    // to clipR so corner content renders over white. The
-                    // colored status border still sits at bp.r so the
-                    // bubble's apparent footprint doesn't change for
-                    // adjacent layout — only the white halo is bigger.
-                    var bgCirc = document.createElementNS(ns, 'circle');
-                    bgCirc.setAttribute('cx', bubbleCX);
-                    bgCirc.setAttribute('cy', bubbleCY);
-                    bgCirc.setAttribute('r', clipR);
-                    bgCirc.setAttribute('fill', 'white');
-                    bgCirc.setAttribute('class', 'mpp-bubble-card-img');
-                    grp.insertBefore(bgCirc, nested);
-
-                    // Status border — green / yellow / red per legend above.
-                    // Drawn at the bubble's natural outer radius around the
-                    // glyph centre.
+                    // (6) Status border — green / yellow / red per legend.
                     var border = document.createElementNS(ns, 'circle');
-                    border.setAttribute('cx', bubbleCX);
-                    border.setAttribute('cy', bubbleCY);
+                    border.setAttribute('cx', bp.cx);
+                    border.setAttribute('cy', bp.cy);
                     border.setAttribute('r', bp.r);
                     border.setAttribute('fill', 'none');
                     border.setAttribute('stroke', statusColor);

@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:15 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:27 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18059,14 +18059,17 @@
                     }
                     grp.insertBefore(nested, clickArea);
 
-                    // (4) + (5) Measure the picture and scale it down so it
-                    // fits inside the bubble with 2 units of padding. The
-                    // bubble's interior is a circle of radius bp.r; the
-                    // largest centred bbox that fits has half-diagonal =
-                    // (bp.r - 2). The picture's current display half-
-                    // diagonal is (bbox half-diagonal in viewBox units) ×
-                    // (sz / 60). We pick the scale that makes those equal
-                    // (or 1, if the picture is already smaller).
+                    // (4) + (5) Measure the picture and scale it so it fits
+                    // the bubble with 2 units of padding — in BOTH
+                    // directions. The previous version capped scale at 1,
+                    // which is why small-content cards (single dots, narrow
+                    // glyphs) appeared as nothing in the small bubbles.
+                    //
+                    // rawScale = (bp.r - 2) / display-half-diagonal.
+                    //   rawScale > 1 → small picture, enlarge it (capped
+                    //                  at 2.5 so a tiny dot doesn't blow
+                    //                  up to fill the bubble).
+                    //   rawScale < 1 → big picture, shrink it (uncapped).
                     try {
                         var bbox = nested.getBBox();
                         if (bbox && bbox.width > 0 && bbox.height > 0) {
@@ -18075,32 +18078,27 @@
                             var halfDiag_vb = Math.sqrt(halfW_vb * halfW_vb + halfH_vb * halfH_vb);
                             var halfDiag_disp = halfDiag_vb * sz / 60;
                             var targetHalfDiag = bp.r - 2; // 2pt padding inside bubble
-                            var scale = (halfDiag_disp > targetHalfDiag)
+                            var rawScale = (halfDiag_disp > 0)
                                 ? targetHalfDiag / halfDiag_disp
                                 : 1;
-                            if (scale < 1) {
-                                // Rewrite the viewBox so the picture renders
-                                // smaller. A viewBox window of (60/scale)
-                                // source units around the bbox centre maps
-                                // to the nested SVG's sz × sz display
-                                // rectangle, so source content shrinks by
-                                // `scale`.
-                                var vbW = 60 / scale;
-                                var contentCX_vb = bbox.x + halfW_vb;
-                                var contentCY_vb = bbox.y + halfH_vb;
-                                var vbX = contentCX_vb - vbW / 2;
-                                var vbY = contentCY_vb - vbW / 2;
-                                nested.setAttribute('viewBox',
-                                    vbX + ' ' + vbY + ' ' + vbW + ' ' + vbW);
-                            } else {
-                                // Picture already fits — just centre it.
-                                var contentCX2_vb = bbox.x + halfW_vb;
-                                var contentCY2_vb = bbox.y + halfH_vb;
-                                var vbX2 = contentCX2_vb - 30;
-                                var vbY2 = contentCY2_vb - 30;
-                                nested.setAttribute('viewBox',
-                                    vbX2 + ' ' + vbY2 + ' 60 60');
-                            }
+                            var scale = (rawScale >= 1)
+                                ? Math.min(2.5, rawScale)  // enlarge small content, capped
+                                : rawScale;                // shrink big content, uncapped
+
+                            // Rewrite the viewBox so the picture renders at
+                            // the chosen scale and is centred on the bbox.
+                            // A viewBox window of (60/scale) source units
+                            // around the bbox centre maps to the nested
+                            // SVG's sz × sz display rectangle:
+                            //   scale > 1 → smaller window → content larger;
+                            //   scale < 1 → larger window → content smaller.
+                            var vbW = 60 / scale;
+                            var contentCX_vb = bbox.x + halfW_vb;
+                            var contentCY_vb = bbox.y + halfH_vb;
+                            var vbX = contentCX_vb - vbW / 2;
+                            var vbY = contentCY_vb - vbW / 2;
+                            nested.setAttribute('viewBox',
+                                vbX + ' ' + vbY + ' ' + vbW + ' ' + vbW);
                         }
                     } catch (e) { /* getBBox fails for empty SVGs — leave default viewBox */ }
 

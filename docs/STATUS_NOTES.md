@@ -1,8 +1,85 @@
 # Vica Domino - Project Status Notes
-**Date**: May 13, 2026 (evening)
+**Date**: May 18, 2026
 **Branch**: `claude/review-project-docs-JOOeh`
 **Total Commits**: 500+
 **Codebase Size**: ~15,864 lines across 4 main files
+
+---
+
+## May 17–18, 2026 — Game Creator: row letters, +Row, Red/Green dot rename + always-on
+
+Two short sessions back-to-back. Internal identifiers (`_freezeState`,
+`freezeEnabled`, etc.) stayed put; the changes are user-facing
+behavior + wording.
+
+### What shipped
+
+1. **Row letter chips in Game Creator** — `#game-view-screen` now
+   stamps every row with its A/B/C/+ letter span via
+   `_addRowLetterSpan`, matching Card Maker. The bottom "Added" row
+   gets a `+` chip.
+2. **+Row toolbar button** — new `addEmptyGameRow()` prompts for an
+   A–Z letter (suggests the next unused one), pushes it to
+   `game.emptyRows[]`, and renders an empty drop-target row with a
+   "(empty — drag cards here)" hint. Survives re-renders. Auto-
+   clears from `emptyRows[]` once a real card lands in it
+   (`saveGameViewOrder` prunes + syncs with the DOM).
+3. **Cross-letter drag fix** — `saveGameViewOrder` now prefers
+   `row.dataset.rowLetter` over the first card's first char, so
+   dragging an A-card into row B stores `_gameValue: 'B'` instead
+   of `'A'`. Backward compatible because all rendered rows get
+   `dataset.rowLetter` stamped at render time.
+4. **Empty / Added rows no longer auto-deleted on drag-out** —
+   guarded on `dataset.emptyRow` / `dataset.addedRow`. Placeholder
+   hint reappears when the last card leaves an explicit empty row.
+5. **Red dot / Green dot rule honored always (no enable-toggle
+   gate)** — the dot is a per-card contract. Whenever
+   `_freezeState` is set, the live game's `topPools` /
+   `bottomPools` and Studio's "Show Dominos" preview both respect
+   it. `freezeEnabled` is now purely a UI flag: it controls the
+   Studio assign-mode and visible dot indicators, nothing else.
+6. **Wording: Freeze/Float → Red dot / Green dot** — toolbar
+   tooltip, on/off button states, per-dot tooltips, and a new
+   gameview help entry now use "Red dot / Green dot" with a
+   per-game meaning line:
+   - **Find the Double**: red = TOP half forced, green = BOTTOM half
+   - **Catch**: red = static (anchored), green = falling
+   - No dot = either side / any role
+   Game-type-aware composition driven by `_currentGameViewType()`.
+7. **Live dot-click rebuild** — `handleFreezeCardClick` now triggers
+   `rebuildGameViewDominos()` when the Show Dominos panel is open
+   in Find, so dots take effect immediately in the preview without
+   re-toggling Show Dominos.
+
+### Files touched
+
+- `pm-studio-DrV.html` — Game Creator render path (row letters,
+  empty rows), `+Row` button, `addEmptyGameRow()`, dot-rename in
+  button/tooltips/help, placement helper `_pickGameViewRep`,
+  `rebuildGameViewDominos` ungated, `handleFreezeCardClick` triggers
+  rebuild, `saveGameViewOrder` letter-priority + `emptyRows[]` sync.
+- `index.html` — `startCustomGame` pool builder ungated:
+  `topPools` / `bottomPools` always filter by `_freezeState`.
+
+### Operational
+
+- Cache-busters left as-is (no `css/style.css` or `js/game.js`
+  changes; all edits were inline in the HTML files).
+- Internal identifiers (`_freezeState`, `freezeEnabled`,
+  `toggleFreezeMode`, `freeze-indicator`) intentionally NOT
+  renamed — purely user-facing rename.
+
+### Heads-up for next session
+
+- If Victoria wants Red/Green dots to mean something in **Match**
+  or other future game types, define the per-half pool logic in
+  `index.html` (the Match game uses a separate render path) and
+  branch `_currentGameViewType()` cases in the tooltip composer
+  in `updateFreezeBtnState` / `renderFreezeIndicators`.
+- `game.emptyRows` is opaque to older clients — if cloud sync
+  pushes an older game version back, the empty-row entries
+  vanish. Not a data loss issue (just visual rows), but worth
+  knowing.
 
 ---
 

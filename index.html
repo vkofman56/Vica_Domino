@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:10 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2086,11 +2086,18 @@
             // same _gameValue ('C' here) and find the green dot-pattern in
             // M9. Without this cross-mGroup fallback, a value-siloed deck
             // would violate the red/green rule on cross-silo dominoes.
+            // valueHasDot[v] = true iff any card with _gameValue=v has a
+            // _freezeState set. Used by the per-round "Swap top/bottom"
+            // flip step in game.js: dominoes touching a dot-constrained
+            // value get _lockHalves=true and skip the 50/50 flip — without
+            // this, the round-start flip would happily put red cards on
+            // the bottom even though the deck was built correctly.
             var svgPools = {};
             var topPools = {};
             var bottomPools = {};
             var valueTopPools = {};
             var valueBottomPools = {};
+            var valueHasDot = {};
             var svgMarkupPools = {};
             effective.forEach(function(eff) {
                 var allPool = [];
@@ -2102,6 +2109,7 @@
                     allPool.push(svg);
                     if (c._freezeState !== 'floating') topPool.push(svg);
                     if (c._freezeState !== 'frozen')   bottomPool.push(svg);
+                    if (c._freezeState) valueHasDot[eff._gameValue] = true;
                 });
                 svgPools[eff.label] = allPool;
                 topPools[eff.label] = topPool;
@@ -2147,7 +2155,11 @@
                     if (!rightPool || rightPool.length === 0) rightPool = svgPools[rightEff.label];
                     if (leftPool && leftPool.length > 0) svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
                     if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
-                    customDeck.push({ id: cardId++, left: leftKey, right: rightKey, leftValue: leftValue, rightValue: rightValue });
+                    // Halves are LOCKED whenever either side's value has any
+                    // dot in the game — the round-start flip in game.js must
+                    // not swap them, or red would land on the bottom.
+                    var _lockHalves = !!(valueHasDot[leftValue] || valueHasDot[rightValue]);
+                    customDeck.push({ id: cardId++, left: leftKey, right: rightKey, leftValue: leftValue, rightValue: rightValue, _lockHalves: _lockHalves });
                 }
             }
 
@@ -3741,7 +3753,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=start-btn-preserve-1"></script>
+    <script src="js/game.js?v=lock-halves-1"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode
         (function() {

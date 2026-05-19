@@ -1825,10 +1825,15 @@ class VicaDominoGame {
         }
         this.recentNonDoubles = thisRoundNonDoubles; // Only track last 1 round
 
-        // Randomly flip cards (UP/DOWN) if enabled for this custom game
+        // Randomly flip cards (UP/DOWN) if enabled for this custom game.
+        // Dominoes whose either-half value carries a red/green dot in the
+        // game are LOCKED (card._lockHalves === true): the flip would put
+        // red cards on the bottom (or green on top), violating the rule
+        // the user set in Studio. Locked dominoes pass through unchanged.
         if (window.customGameFlipEnabled) {
             this.players.forEach(player => {
                 player.hand = player.hand.map(card => {
+                    if (card._lockHalves) return card;
                     if (Math.random() < 0.5) {
                         // Flip: swap left/right
                         return {

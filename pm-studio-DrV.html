@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:59 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:59 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:59 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18000,7 +18000,6 @@
                     // centre, giving symmetric "open area" inside the
                     // bubble around the glyph.
                     var sz = bp.r * 2;
-                    var CLIP_EXTRA = 3;
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
 
                     // Card image — bubble-sized bounding box, default viewBox.
@@ -18025,10 +18024,20 @@
                     }
                     grp.insertBefore(nested, clickArea);
 
-                    // Measure glyph and compute the bubble centre so the
-                    // visible bubble wraps the glyph symmetrically.
+                    // Measure glyph and compute (a) the bubble centre so the
+                    // visible bubble wraps the glyph symmetrically, and (b)
+                    // a CLIP radius that's large enough to contain the
+                    // glyph's actual corners. For round/large glyphs (0, 8,
+                    // a hand-drawn 6) the half-diagonal of the bbox far
+                    // exceeds bp.r and a fixed CLIP_EXTRA can never cover
+                    // it. The clip is capped at bp.r * sqrt(2) which is the
+                    // half-diagonal of the bubble's natural bounding square
+                    // — the largest circle that fully covers the
+                    // inscribed-square's corners.
                     var bubbleCX = bp.cx;
                     var bubbleCY = bp.cy;
+                    var clipR = bp.r;
+                    var maxClipR = bp.r * Math.SQRT2;
                     try {
                         var bbox = nested.getBBox();
                         if (bbox && bbox.width > 0 && bbox.height > 0) {
@@ -18036,28 +18045,39 @@
                             var glyphCY_vb = bbox.y + bbox.height / 2;
                             bubbleCX = (bp.cx - bp.r) + glyphCX_vb * sz / 60;
                             bubbleCY = (bp.cy - bp.r) + glyphCY_vb * sz / 60;
+                            var halfW_disp = (bbox.width / 2) * sz / 60;
+                            var halfH_disp = (bbox.height / 2) * sz / 60;
+                            // Half-diagonal of the glyph bbox + 2 units of
+                            // breathing room. The cap (maxClipR) prevents
+                            // the clip from extending arbitrarily far for
+                            // pathological cards.
+                            var glyphHalfDiag = Math.sqrt(halfW_disp * halfW_disp + halfH_disp * halfH_disp);
+                            clipR = Math.min(maxClipR, Math.max(bp.r, glyphHalfDiag + 2));
                         }
                     } catch (e) { /* getBBox fails for empty SVGs — keep defaults */ }
 
                     // Move the pre-built clipPath circle to the glyph centre
-                    // and grow it past bp.r so corner content shows.
+                    // and grow it to the dynamic clipR so the glyph's
+                    // corners stay inside the clip.
                     var clipEl = svgClone.querySelector('clipPath[id="' + clipId + '"]');
                     if (clipEl) {
                         var clipCircle = clipEl.querySelector('circle');
                         if (clipCircle) {
                             clipCircle.setAttribute('cx', bubbleCX);
                             clipCircle.setAttribute('cy', bubbleCY);
-                            clipCircle.setAttribute('r', (bp.r + CLIP_EXTRA).toString());
+                            clipCircle.setAttribute('r', clipR.toString());
                         }
                     }
 
-                    // Background circle (white) at the glyph centre,
-                    // inserted UNDER the card image so the glyph sits on
-                    // the white interior.
+                    // Background circle (white) at the glyph centre, sized
+                    // to clipR so corner content renders over white. The
+                    // colored status border still sits at bp.r so the
+                    // bubble's apparent footprint doesn't change for
+                    // adjacent layout — only the white halo is bigger.
                     var bgCirc = document.createElementNS(ns, 'circle');
                     bgCirc.setAttribute('cx', bubbleCX);
                     bgCirc.setAttribute('cy', bubbleCY);
-                    bgCirc.setAttribute('r', bp.r);
+                    bgCirc.setAttribute('r', clipR);
                     bgCirc.setAttribute('fill', 'white');
                     bgCirc.setAttribute('class', 'mpp-bubble-card-img');
                     grp.insertBefore(bgCirc, nested);

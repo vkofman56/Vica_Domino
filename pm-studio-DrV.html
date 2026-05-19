@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:37 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17988,31 +17988,39 @@
                     // Hide bubble fill/shine, show card image
                     grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
 
-                    // Card image is rendered larger than the bubble (factor
-                    // 1.35) and the clipPath crops it to the bubble circle.
-                    // Card Maker draws content inside a 60×60 viewBox with
-                    // typical 6–10 unit padding around the edges; without
-                    // this oversize, small bubbles (r=14–18) display the
-                    // digit/letter at 40–60% of the bubble width and look
-                    // mostly empty. With this oversize the content fills
-                    // the bubble like the start-screen tiles do.
-                    var sz = bp.r * 2 * 1.35;
+                    // Card image is drawn at the bubble's natural diameter
+                    // (sz = bp.r * 2) — the glyph size matches the rest of
+                    // the panel. A 2-unit padding band sits between the
+                    // bubble's status-color ring and the card content: the
+                    // clipPath and white background are inset by PAD_INSET
+                    // (clipped circle radius = bp.r - PAD_INSET) so the
+                    // card visual occupies that smaller inner circle.
+                    var sz = bp.r * 2;
+                    var PAD_INSET = 2;
+                    var innerR = Math.max(0, bp.r - PAD_INSET);
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
 
-                    // Background circle (white)
+                    // Inset the clipPath circle by PAD_INSET so the card
+                    // image is cropped 2 units inside the bubble boundary.
+                    var existingClip = svgClone.querySelector('#' + clipId + ' > circle');
+                    if (existingClip) existingClip.setAttribute('r', innerR.toString());
+
+                    // Background circle (white), inset by PAD_INSET
                     var bgCirc = document.createElementNS(ns, 'circle');
                     bgCirc.setAttribute('cx', bp.cx);
                     bgCirc.setAttribute('cy', bp.cy);
-                    bgCirc.setAttribute('r', bp.r);
+                    bgCirc.setAttribute('r', innerR.toString());
                     bgCirc.setAttribute('fill', 'white');
                     bgCirc.setAttribute('class', 'mpp-bubble-card-img');
                     grp.insertBefore(bgCirc, clickArea);
 
-                    // Card image clipped to circle
+                    // Card image clipped to inner circle. Bounding box is
+                    // the bubble's natural rect (so the glyph keeps its
+                    // pre-fix size); clipPath does the inset cropping.
                     var nested = document.createElementNS(ns, 'svg');
                     nested.setAttribute('viewBox', '0 0 60 60');
-                    nested.setAttribute('x', (bp.cx - sz / 2).toString());
-                    nested.setAttribute('y', (bp.cy - sz / 2).toString());
+                    nested.setAttribute('x', (bp.cx - bp.r).toString());
+                    nested.setAttribute('y', (bp.cy - bp.r).toString());
                     nested.setAttribute('width', sz.toString());
                     nested.setAttribute('height', sz.toString());
                     nested.setAttribute('class', 'mpp-bubble-card-img');

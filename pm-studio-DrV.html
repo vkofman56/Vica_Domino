@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:05 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:05 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:56 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:05 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18031,49 +18031,112 @@
                     bgCirc.setAttribute('class', 'mpp-bubble-card-img');
                     grp.insertBefore(bgCirc, clickArea);
 
-                    // Read the SOURCE SVG's viewBox so non-square cards
-                    // (rect / ellipse cards have viewBox "-X 0 W 60" with
-                    // W > 60) render with their children at the correct
-                    // coordinates. The previous hard-coded "0 0 60 60"
-                    // clipped any content positioned outside that window —
-                    // which is everything for wide cards like "10+2".
                     var srcSvg = mppSvgElements[labelToUse];
-                    var srcViewBoxStr = (srcSvg && srcSvg.getAttribute('viewBox')) || '0 0 60 60';
-                    var vbParts = srcViewBoxStr.split(/[\s,]+/).map(parseFloat);
-                    var srcW = (vbParts.length === 4 && vbParts[2] > 0) ? vbParts[2] : 60;
-                    var srcH = (vbParts.length === 4 && vbParts[3] > 0) ? vbParts[3] : 60;
 
-                    // Nested SVG: width/height inscribed inside the bubble
-                    // at the Card Maker ratio (60/70), aspect-matched to
-                    // the source. For a wide source (W > H) the nested
-                    // SVG becomes wider than tall, mirroring how Card Maker
-                    // builds non-square cards in a non-square DIV.
-                    var nestedW, nestedH;
-                    if (srcW >= srcH) {
-                        nestedW = svgSize;
-                        nestedH = svgSize * srcH / srcW;
-                    } else {
-                        nestedH = svgSize;
-                        nestedW = svgSize * srcW / srcH;
-                    }
-                    var nested = document.createElementNS(ns, 'svg');
-                    nested.setAttribute('viewBox', srcViewBoxStr);
-                    nested.setAttribute('x', (bp.cx - nestedW / 2).toString());
-                    nested.setAttribute('y', (bp.cy - nestedH / 2).toString());
-                    nested.setAttribute('width', nestedW.toString());
-                    nested.setAttribute('height', nestedH.toString());
-                    nested.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                    nested.setAttribute('class', 'mpp-bubble-card-img');
-                    nested.setAttribute('clip-path', 'url(#' + clipId + ')');
-
-                    // Inject the card's picture — no background, no scaling.
+                    // FAST PATH: if the card's content is just text (one or
+                    // more <text> elements, nothing else drawn), render it
+                    // as a single <text> directly in the bubble — no nested
+                    // SVG, no viewBox arithmetic, no clipPath corner-cutting.
+                    // SVG text uses dominant-baseline="central" + text-anchor=
+                    // "middle" so the visual centre of the glyph sits at
+                    // (bp.cx, bp.cy). Font-size is chosen so the text fits
+                    // inside the bubble's inscribed circle with 2 units of
+                    // padding.
+                    //
+                    // Falls back to the SVG-nesting path below for cards
+                    // that contain shapes, dots, or imported drawings.
+                    var textOnly = false;
+                    var textContent = '';
+                    var fontFamily = 'Arial, sans-serif';
+                    var fontWeight = '500';
                     if (srcSvg) {
-                        var srcClone = srcSvg.cloneNode(true);
-                        while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
-                    } else if (mppMarkupMap[labelToUse]) {
-                        nested.innerHTML = mppMarkupMap[labelToUse];
+                        var kids = srcSvg.children;
+                        var hasNonText = false;
+                        var hasText = false;
+                        for (var ki = 0; ki < kids.length; ki++) {
+                            if (kids[ki].tagName.toLowerCase() === 'text') {
+                                hasText = true;
+                            } else {
+                                hasNonText = true; break;
+                            }
+                        }
+                        textOnly = hasText && !hasNonText;
+                        if (textOnly) {
+                            var textEls = srcSvg.querySelectorAll('text');
+                            for (var ti = 0; ti < textEls.length; ti++) {
+                                textContent += textEls[ti].textContent;
+                            }
+                            if (textEls[0]) {
+                                fontFamily = textEls[0].getAttribute('font-family') || fontFamily;
+                                fontWeight = textEls[0].getAttribute('font-weight') || fontWeight;
+                            }
+                        }
                     }
-                    grp.insertBefore(nested, clickArea);
+
+                    if (textOnly && textContent) {
+                        // Fit the text inside the bubble's inscribed circle.
+                        // Width(text) ≈ length × F × 0.55 (typical glyph
+                        // advance ratio); height ≈ F × 0.7 (cap height for
+                        // most sans-serifs).
+                        // For text rect (W × H) to inscribe in radius r:
+                        //   (W/2)² + (H/2)² ≤ r²
+                        // → F ≤ (2r) / sqrt((len×0.55)² + 0.7²)
+                        var pad = 2;
+                        var rFit = bp.r - pad;
+                        var len = Math.max(1, textContent.length);
+                        var widthFactor = len * 0.55;
+                        var heightFactor = 0.7;
+                        var fontByInscribed = (2 * rFit) /
+                            Math.sqrt(widthFactor * widthFactor + heightFactor * heightFactor);
+                        // Cap so a single character doesn't dominate the bubble.
+                        var fontSize = Math.min(fontByInscribed, bp.r * 1.5);
+
+                        var textEl = document.createElementNS(ns, 'text');
+                        textEl.setAttribute('x', bp.cx);
+                        textEl.setAttribute('y', bp.cy);
+                        textEl.setAttribute('text-anchor', 'middle');
+                        textEl.setAttribute('dominant-baseline', 'central');
+                        textEl.setAttribute('font-family', fontFamily);
+                        textEl.setAttribute('font-weight', fontWeight);
+                        textEl.setAttribute('font-size', fontSize.toFixed(2));
+                        textEl.setAttribute('fill', '#333');
+                        textEl.setAttribute('class', 'mpp-bubble-card-img');
+                        textEl.textContent = textContent;
+                        grp.insertBefore(textEl, clickArea);
+                    } else {
+                        // SVG PATH: card has drawn shapes (dots, paths,
+                        // imported images), so render via nested SVG with
+                        // the source's viewBox + aspect-match.
+                        var srcViewBoxStr = (srcSvg && srcSvg.getAttribute('viewBox')) || '0 0 60 60';
+                        var vbParts = srcViewBoxStr.split(/[\s,]+/).map(parseFloat);
+                        var srcW = (vbParts.length === 4 && vbParts[2] > 0) ? vbParts[2] : 60;
+                        var srcH = (vbParts.length === 4 && vbParts[3] > 0) ? vbParts[3] : 60;
+                        var nestedW, nestedH;
+                        if (srcW >= srcH) {
+                            nestedW = svgSize;
+                            nestedH = svgSize * srcH / srcW;
+                        } else {
+                            nestedH = svgSize;
+                            nestedW = svgSize * srcW / srcH;
+                        }
+                        var nested = document.createElementNS(ns, 'svg');
+                        nested.setAttribute('viewBox', srcViewBoxStr);
+                        nested.setAttribute('x', (bp.cx - nestedW / 2).toString());
+                        nested.setAttribute('y', (bp.cy - nestedH / 2).toString());
+                        nested.setAttribute('width', nestedW.toString());
+                        nested.setAttribute('height', nestedH.toString());
+                        nested.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                        nested.setAttribute('class', 'mpp-bubble-card-img');
+                        nested.setAttribute('clip-path', 'url(#' + clipId + ')');
+
+                        if (srcSvg) {
+                            var srcClone = srcSvg.cloneNode(true);
+                            while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
+                        } else if (mppMarkupMap[labelToUse]) {
+                            nested.innerHTML = mppMarkupMap[labelToUse];
+                        }
+                        grp.insertBefore(nested, clickArea);
+                    }
 
                     // Status border — green / yellow / red per legend.
                     var border = document.createElementNS(ns, 'circle');

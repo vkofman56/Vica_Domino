@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:27 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:27 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:10 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:27 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17473,16 +17473,57 @@
             // Load saved config
             var saved = game.mainPageDominos || {};
             if (mppGameType === 'catch') {
-                // Bubble config: each entry = {top: 'label'} (one card per bubble)
-                // circle: 1 large + 2 small = 3, triangle: 1+3 = 4, star: 1+4 = 5
-                mppConfig = {
-                    circle: (saved.circle || []).map(function(d) { return { top: d.top || '' }; }),
-                    triangle: (saved.triangle || []).map(function(d) { return { top: d.top || '' }; }),
-                    star: (saved.star || []).map(function(d) { return { top: d.top || '' }; })
+                // Bubble config: each entry = {top: 'label', topStableId: '...'}
+                // (one card per bubble). topStableId mirrors Find's per-half
+                // stableId so the green/yellow/red status border in the MPP
+                // panel can light up correctly.
+                // Slot counts: circle 3, triangle 4, star 5.
+                var passCatchSlot = function(d) {
+                    return { top: d.top || '', topStableId: d.topStableId || '' };
                 };
-                while (mppConfig.circle.length < 3) mppConfig.circle.push({ top: '' });
-                while (mppConfig.triangle.length < 4) mppConfig.triangle.push({ top: '' });
-                while (mppConfig.star.length < 5) mppConfig.star.push({ top: '' });
+                mppConfig = {
+                    circle: (saved.circle || []).map(passCatchSlot),
+                    triangle: (saved.triangle || []).map(passCatchSlot),
+                    star: (saved.star || []).map(passCatchSlot)
+                };
+                while (mppConfig.circle.length < 3) mppConfig.circle.push({ top: '', topStableId: '' });
+                while (mppConfig.triangle.length < 4) mppConfig.triangle.push({ top: '', topStableId: '' });
+                while (mppConfig.star.length < 5) mppConfig.star.push({ top: '', topStableId: '' });
+
+                // Auto-migrate Catch MPP slots — same idea as the Find branch
+                // below: backfill stableId for legacy label-only entries, and
+                // clear stale entries pointing at a card no longer in this
+                // game. After migration, slots that were correctly configured
+                // before light up green automatically.
+                var mppLabelToSidCatch = {};
+                document.querySelectorAll('#game-view-cards .library-card').forEach(function(cardEl) {
+                    var lbl = cardEl.querySelector('.library-label');
+                    if (!lbl) return;
+                    var lblText = lbl.textContent;
+                    var sid = cardEl.dataset.stableId || '';
+                    if (lblText && sid && !mppLabelToSidCatch[lblText]) {
+                        mppLabelToSidCatch[lblText] = sid;
+                    }
+                });
+                var migratedC = false;
+                ['circle', 'triangle', 'star'].forEach(function(key) {
+                    (mppConfig[key] || []).forEach(function(slot) {
+                        if (slot.top && !mppLabelToSidCatch[slot.top]) {
+                            slot.top = '';
+                            slot.topStableId = '';
+                            migratedC = true;
+                        } else if (slot.top && !slot.topStableId && mppLabelToSidCatch[slot.top]) {
+                            slot.topStableId = mppLabelToSidCatch[slot.top];
+                            migratedC = true;
+                        }
+                    });
+                });
+                if (migratedC) {
+                    try {
+                        game.mainPageDominos = JSON.parse(JSON.stringify(mppConfig));
+                        saveCatchGames(games);
+                    } catch(e) { console.warn('[MPP migrate catch] save back failed', e); }
+                }
             } else {
                 // Preserve topStableId/bottomStableId when loading existing
                 // MPP — these were added so the player renderer can pick the
@@ -17883,27 +17924,70 @@
             var isCatch = svgClone.getAttribute('data-mpp-type') === 'catch';
 
             if (isCatch) {
-                // Catch: apply card images into bubble circles
+                // Catch: apply card images into bubble circles. Three states,
+                // matching the Find MPP behavior:
+                //   GREEN  = configured + saved stableId + label still in game
+                //   RED    = configured but label no longer in the game (stale)
+                //   YELLOW = empty (fall back to a deterministic random card
+                //            from this game's pool) OR legacy label-only save
+                //            (still shows the saved card so the creator can
+                //            verify it, but with a yellow border meaning
+                //            "click to re-confirm and lock the stableId").
+                var allLabelsCatch = Object.keys(mppMarkupMap).sort();
+
                 var bubbleGroups = svgClone.querySelectorAll('.mpp-bubble-group');
                 bubbleGroups.forEach(function(grp) {
                     var bi = parseInt(grp.getAttribute('data-bubble-idx'));
                     if (bi >= config.length) return;
-                    var cardLabel = config[bi].top;
+                    var slot = config[bi] || {};
+                    var savedLabel = slot.top;
+                    var savedSid = slot.topStableId;
 
                     // Remove any previously inserted card image
                     var existing = grp.querySelectorAll('.mpp-bubble-card-img');
                     existing.forEach(function(e) { e.remove(); });
 
-                    if (!cardLabel || !mppMarkupMap[cardLabel]) {
-                        // No card assigned - show original bubble fill/shine
+                    var clickArea = grp.querySelector('.mpp-click-area');
+                    var bp = _bubblePos[levelKey][bi];
+
+                    // Status + label resolution
+                    var inGame = !!(savedLabel && mppMarkupMap[savedLabel]);
+                    var isStale = !!savedLabel && !inGame;
+                    var labelToUse = null;
+                    var statusColor = '#FFC107'; // yellow default
+                    if (inGame) {
+                        labelToUse = savedLabel;
+                        statusColor = savedSid ? '#4CAF50' : '#FFC107';
+                    } else if (isStale) {
+                        labelToUse = null;
+                        statusColor = '#F44336'; // red
+                    } else if (allLabelsCatch.length > 0) {
+                        // Empty — deterministic random fallback
+                        labelToUse = allLabelsCatch[bi % allLabelsCatch.length];
+                        statusColor = '#FFC107';
+                    }
+
+                    if (!labelToUse || !mppMarkupMap[labelToUse]) {
+                        // Show the empty bubble; if stale, draw the red ring
+                        // to flag broken data even though no card renders.
                         grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = ''; });
+                        if (isStale) {
+                            var ring = document.createElementNS(ns, 'circle');
+                            ring.setAttribute('cx', bp.cx);
+                            ring.setAttribute('cy', bp.cy);
+                            ring.setAttribute('r', bp.r);
+                            ring.setAttribute('fill', 'none');
+                            ring.setAttribute('stroke', statusColor);
+                            ring.setAttribute('stroke-width', '2');
+                            ring.setAttribute('class', 'mpp-bubble-card-img');
+                            grp.insertBefore(ring, clickArea);
+                        }
                         return;
                     }
 
                     // Hide bubble fill/shine, show card image
                     grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
 
-                    var bp = _bubblePos[levelKey][bi];
                     var sz = bp.r * 2;
                     var clipId = 'mpp-clip-' + levelKey + '-' + bi;
 
@@ -17914,8 +17998,6 @@
                     bgCirc.setAttribute('r', bp.r);
                     bgCirc.setAttribute('fill', 'white');
                     bgCirc.setAttribute('class', 'mpp-bubble-card-img');
-                    // Insert before click area
-                    var clickArea = grp.querySelector('.mpp-click-area');
                     grp.insertBefore(bgCirc, clickArea);
 
                     // Card image clipped to circle
@@ -17929,24 +18011,24 @@
                     nested.setAttribute('clip-path', 'url(#' + clipId + ')');
                     nested.setAttribute('overflow', 'visible');
 
-                    var srcSvg = mppSvgElements[cardLabel];
+                    var srcSvg = mppSvgElements[labelToUse];
                     if (srcSvg) {
                         var srcClone = srcSvg.cloneNode(true);
                         while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
-                    } else if (mppMarkupMap[cardLabel]) {
-                        nested.innerHTML = mppMarkupMap[cardLabel];
+                    } else if (mppMarkupMap[labelToUse]) {
+                        nested.innerHTML = mppMarkupMap[labelToUse];
                     }
 
                     grp.insertBefore(nested, clickArea);
 
-                    // Border circle
+                    // Status border — green / yellow / red per legend above
                     var border = document.createElementNS(ns, 'circle');
                     border.setAttribute('cx', bp.cx);
                     border.setAttribute('cy', bp.cy);
                     border.setAttribute('r', bp.r);
                     border.setAttribute('fill', 'none');
-                    border.setAttribute('stroke', bi === 0 ? '#3a9cc0' : '#c09030');
-                    border.setAttribute('stroke-width', '1.5');
+                    border.setAttribute('stroke', statusColor);
+                    border.setAttribute('stroke-width', '2');
                     border.setAttribute('class', 'mpp-bubble-card-img');
                     grp.insertBefore(border, clickArea);
                 });

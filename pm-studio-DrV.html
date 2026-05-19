@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:06 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:10 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18025,23 +18025,23 @@
                     grp.insertBefore(nested, clickArea);
 
                     // Compute a CLIP radius that includes the glyph's actual
-                    // corners while keeping the bubble centre FIXED at the
-                    // layout-defined (bp.cx, bp.cy). The previous version
-                    // shifted the bubble toward the glyph centre, but for
-                    // glyphs drawn high in the source viewBox that pushed
-                    // the bubble past the SVG's "0 0 140 80" outer viewBox
-                    // and the SVG container clipped the bubble's top.
+                    // corners. The bubble centre stays FIXED at the
+                    // layout-defined (bp.cx, bp.cy); only the clip and
+                    // white-background radii grow.
                     //
-                    // clipR = max(bp.r, max-distance-from-(bp.cx,bp.cy)-to-
-                    //              any-glyph-bbox-corner + 2), capped at
-                    //         bp.r * sqrt(2) (half-diagonal of bubble's
-                    //         natural bounding square — the largest circle
-                    //         that fully covers the inscribed-square's
-                    //         corners).
+                    // NO cap on clipR: a digit drawn with a font-size
+                    // larger than the source viewBox can hold (so its ink
+                    // overflows source y < 0) requires a clip larger than
+                    // bp.r * sqrt(2). Adjacent bubbles' white backgrounds
+                    // may overlap as a result, but that's a better outcome
+                    // than chopping the top of the glyph off.
+                    //
+                    // svgClone is given overflow="visible" so glyph corners
+                    // past the SVG's 140×80 viewBox don't get hidden by the
+                    // SVG container.
                     var bubbleCX = bp.cx;
                     var bubbleCY = bp.cy;
                     var clipR = bp.r;
-                    var maxClipR = bp.r * Math.SQRT2;
                     try {
                         var bbox = nested.getBBox();
                         if (bbox && bbox.width > 0 && bbox.height > 0) {
@@ -18060,9 +18060,15 @@
                                 var d = Math.sqrt(dx * dx + dy * dy);
                                 if (d > maxDist) maxDist = d;
                             }
-                            clipR = Math.min(maxClipR, Math.max(bp.r, maxDist + 2));
+                            clipR = Math.max(bp.r, maxDist + 2);
                         }
                     } catch (e) { /* getBBox fails for empty SVGs — keep defaults */ }
+
+                    // Let the outer SVG show content that overflows its
+                    // 140×80 viewBox (otherwise glyph corners past the SVG
+                    // bounds get hidden by the SVG container).
+                    svgClone.setAttribute('overflow', 'visible');
+                    svgClone.style.overflow = 'visible';
 
                     // Move the pre-built clipPath circle to the glyph centre
                     // and grow it to the dynamic clipR so the glyph's

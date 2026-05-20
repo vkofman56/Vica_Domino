@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-row-4">
+    <link rel="stylesheet" href="css/style.css?v=icons-p2-1">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:34 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:34 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:26 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:34 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9372,6 +9372,12 @@
                 if (ic.cardCornerR != null) card.dataset.cardCornerR = ic.cardCornerR;
             }
 
+            // Non-clipping wrapper that sizes to the preview. This lets the
+            // copy/delete buttons hang off the preview's corners without
+            // being clipped by .domino-half-preview's overflow:hidden.
+            var previewWrap = document.createElement('div');
+            previewWrap.className = 'icon-preview-wrap';
+
             var preview = document.createElement('div');
             preview.className = 'domino-half-preview';
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -9387,7 +9393,8 @@
             innerLabel.textContent = ic.label;
             preview.appendChild(innerLabel);
 
-            card.appendChild(preview);
+            previewWrap.appendChild(preview);
+            card.appendChild(previewWrap);
 
             var desc = document.createElement('div');
             desc.className = 'library-desc';
@@ -9402,7 +9409,125 @@
             if (ic.cardShape && typeof _applyShapeToPreview === 'function') {
                 _applyShapeToPreview(card);
             }
+
+            // Phase 2.1: copy button on every icon card, delete button on
+            // user icons only (templates are permanent). The buttons live in
+            // the preview wrap so they hug the bubble's corners regardless
+            // of card size.
+            _addIconCopyButton(card, previewWrap);
+            if (!ic._isTemplate) _addIconDeleteButton(card, previewWrap);
+
             return card;
+        }
+
+        // ----- Phase 2.1: icon copy / delete buttons + storage ops -----
+
+        function _addIconCopyButton(card, host) {
+            if ((host || card).querySelector(':scope > .icon-copy-btn')) return;
+            var btn = document.createElement('button');
+            btn.className = 'icon-copy-btn';
+            btn.textContent = '⧉';
+            btn.title = card.dataset.iconTemplate === 'true'
+                ? 'Copy template into a new editable icon'
+                : 'Duplicate this icon';
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _copyIcon(card);
+            });
+            (host || card).appendChild(btn);
+        }
+
+        function _addIconDeleteButton(card, host) {
+            if ((host || card).querySelector(':scope > .icon-delete-btn')) return;
+            var btn = document.createElement('button');
+            btn.className = 'icon-delete-btn';
+            btn.textContent = '✕';
+            btn.title = 'Delete this icon';
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _deleteIcon(card);
+            });
+            (host || card).appendChild(btn);
+        }
+
+        // Walk up from a DOM card element to discover which card set the
+        // icons belong to (so we know which localStorage key to read/write).
+        function _setNameFromIconCard(card) {
+            var section = card.closest('.library-icons-section');
+            if (section && section.dataset.setName) return section.dataset.setName;
+            // Fallback: look at the parent card-set container id.
+            var parent = card.closest('[id^="card-set-"]');
+            if (!parent) return null;
+            if (parent.id === 'card-set-numbers') return 'numbers';
+            if (parent.id === 'card-set-abc')     return 'abc';
+            if (parent.id === 'card-set-custom') {
+                // Use the live active card set name for custom containers.
+                return (typeof activeCardSet !== 'undefined') ? activeCardSet : null;
+            }
+            return null;
+        }
+
+        // Copy a template or user icon. The copy gets a new uid, is flagged
+        // as a non-template, and lands directly after the source in storage
+        // so the re-rendered row visually inserts it next to its original.
+        function _copyIcon(sourceCard) {
+            var setName = _setNameFromIconCard(sourceCard);
+            if (!setName) return;
+            var icons = loadIconsForSet(setName) || [];
+            var srcUid = sourceCard.dataset.uid;
+            var srcIndex = -1;
+            for (var i = 0; i < icons.length; i++) {
+                if (icons[i] && icons[i].uid === srcUid) { srcIndex = i; break; }
+            }
+            if (srcIndex < 0) return;
+            var src = icons[srcIndex];
+            var copy = Object.assign({}, src);
+            copy._isTemplate = false;
+            delete copy._templateVersion;
+            delete copy.stableId; // stableId of a template is reserved; the copy gets none for now
+            copy.uid = (typeof generateCardUID === 'function') ? generateCardUID() : ('icon-' + Math.random().toString(36).slice(2));
+            // Description: clarify that this one's editable.
+            copy.desc = 'icon';
+            // Insert directly after source so it appears next to the original.
+            icons.splice(srcIndex + 1, 0, copy);
+            saveIconsForSet(setName, icons);
+            _rerenderIconsForCard(sourceCard, setName);
+        }
+
+        // Remove a user icon from storage. Templates have no delete button so
+        // this is only reachable for non-templates.
+        function _deleteIcon(card) {
+            var setName = _setNameFromIconCard(card);
+            if (!setName) return;
+            var icons = loadIconsForSet(setName) || [];
+            var uid = card.dataset.uid;
+            var filtered = icons.filter(function(it) { return it && it.uid !== uid; });
+            if (filtered.length === icons.length) return; // nothing removed
+            saveIconsForSet(setName, filtered);
+            _rerenderIconsForCard(card, setName);
+        }
+
+        // Re-render the Icons section that contains the given card. Tries the
+        // active container first; falls back to the section's own parent.
+        function _rerenderIconsForCard(card, setName) {
+            var section = card.closest('.library-icons-section');
+            var container = section ? section.parentElement : null;
+            if (!container) {
+                // Resolve from setName
+                if (setName === 'numbers') container = document.getElementById('card-set-numbers');
+                else if (setName === 'abc') container = document.getElementById('card-set-abc');
+                else container = document.getElementById('card-set-custom');
+            }
+            if (!container) return;
+            // Preserve the open/closed state of the section across re-render.
+            var wasCollapsed = section ? section.classList.contains('collapsed') : true;
+            renderIconsRow(container, setName);
+            var newSection = container.querySelector(':scope > .library-icons-section');
+            if (newSection && !wasCollapsed) {
+                newSection.classList.remove('collapsed');
+                var t = newSection.querySelector('.library-icons-toggle');
+                if (t) t.textContent = '▾';
+            }
         }
 
         // Toolbar handler for the IC button. Toggles the collapsed state of

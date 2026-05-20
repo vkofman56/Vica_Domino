@@ -6,6 +6,47 @@
 
 ---
 
+## May 19, 2026 — Phase 2.1: Icon copy + delete
+
+Icons row is no longer read-only. Adds the first interaction layer:
+the user can spawn editable icons from templates, then remove them.
+
+### What shipped
+1. **Copy button on every icon card** — green ⧉ in the top-left of the
+   bubble; visible on hover. Calls `_copyIcon(sourceCard)` which clones
+   the source's shape/size/svgContent into a new icon (fresh uid,
+   `_isTemplate: false`, desc `icon`), inserts it directly after the
+   source in `customDrawnIcons_<setName>`, and re-renders the section.
+2. **Delete button on user icons only** — red ✕ in the top-right.
+   Templates are permanent (no button rendered); user icons can be
+   removed via `_deleteIcon(card)` which drops by uid and re-renders.
+3. **Buttons anchored to preview wrap, not card** — new
+   `.icon-preview-wrap` is a non-clipping `position:relative` shell
+   around `.domino-half-preview`. The buttons sit on the bubble's
+   corners regardless of icon size (templates are 49 px down to 20 px).
+4. **User-icon styling** — solid cyan border + cyan italic desc reading
+   "icon" instead of the dashed-gold "template" look.
+5. **Section state preserved across re-render** — `_rerenderIconsForCard`
+   remembers whether the section was open/collapsed before mutating
+   storage and restores it after, so the user doesn't lose their
+   place.
+
+### Files touched
+- `pm-studio-DrV.html` — buttons, copy/delete handlers, preview wrap.
+- `css/style.css` — `.icon-preview-wrap`, `.icon-copy-btn`,
+  `.icon-delete-btn`, user-icon colour differentiation. Cache buster
+  `?v=icons-p2-1`.
+- `index.html` — cache buster only.
+
+### Still queued
+- Icon editor / drawing (Phase 2.2): double-click a user icon to draw
+  on it. Could reuse the existing card edit machinery or open a
+  dedicated magnified editor.
+- Loupe inset preview (Phase 3).
+- Game Creator slot filter + L1→L1-only drop rule (Phase 4).
+
+---
+
 ## May 19, 2026 — Phase 1.1: Icons row (IC system) foundation
 
 After many failed attempts to make Catch MPP bubbles render arbitrary

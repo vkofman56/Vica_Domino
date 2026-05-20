@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:25 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:25 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -3909,32 +3909,30 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=lock-halves-1"></script>
+    <script src="js/game.js?v=ensure-start-1"></script>
     <script>
-        // After game.js loads, intercept Start Game for catch mode
-        (function() {
-            var origStartBtn = document.getElementById('start-game-btn');
-            if (!origStartBtn) return;
-            origStartBtn.addEventListener('click', function(e) {
-                if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
-                    e.stopImmediatePropagation();
-                    // Respect the setup page's player-count selection for touch
-                    // Catch games (the "2 Players" button in GPt Ct Setup maps
-                    // to the new 2-player Catch mode). Mouse mode stays 1P.
-                    _catchNumPlayers = 1;
-                    if ((_catchInputMode || 'touch') === 'touch') {
-                        var selPlayer = document.querySelector('.player-btn.selected');
-                        if (selPlayer) {
-                            var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
-                            if (pp === 2) _catchNumPlayers = 2;
-                        }
+        // After game.js loads, intercept Start Game for catch mode.
+        // Uses DOCUMENT-level delegation (capture phase) so it survives
+        // any re-creation of the #start-game-btn element by defensive
+        // fallback code in game.js (_ensureStartButton).
+        document.addEventListener('click', function(e) {
+            var btn = e.target && e.target.closest && e.target.closest('#start-game-btn');
+            if (!btn) return;
+            if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                e.stopImmediatePropagation();
+                _catchNumPlayers = 1;
+                if ((_catchInputMode || 'touch') === 'touch') {
+                    var selPlayer = document.querySelector('.player-btn.selected');
+                    if (selPlayer) {
+                        var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
+                        if (pp === 2) _catchNumPlayers = 2;
                     }
-                    document.getElementById('start-screen').style.display = 'none';
-                    openCatchPlayModal(_pendingCatchGameIndex);
-                    _pendingCatchGameIndex = -1;
                 }
-            }, true); // capture phase to fire before game.js handler
-        })();
+                document.getElementById('start-screen').style.display = 'none';
+                openCatchPlayModal(_pendingCatchGameIndex);
+                _pendingCatchGameIndex = -1;
+            }
+        }, true); // capture phase
     </script>
 
     <!-- Pause overlay — full-screen translucent backdrop with a centered

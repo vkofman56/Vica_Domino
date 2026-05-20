@@ -777,6 +777,12 @@ class VicaDominoGame {
         // Update icon availability after all selectors are created
         this.updateIconAvailability();
 
+        // Defensive: make sure the Start Game button exists as a direct
+        // child of #player-names. Reported bug: on some GPt Cxx pages the
+        // button was missing entirely. This catches every path that
+        // accidentally removes the button — recreating it costs nothing.
+        if (!includeXeno) this._ensureStartButton(playerNamesDiv);
+
         // Show Xeno indicator if selected
         if (includeXeno) {
             const xenoNumber = count + 1;
@@ -938,6 +944,12 @@ class VicaDominoGame {
         }
         this.updateIconAvailability();
 
+        // Defensive: make sure the Start Game button exists as a direct
+        // child of #player-names. Reported bug: on some GPt Cxx pages the
+        // button was missing entirely. This catches every path that
+        // accidentally removes the button — recreating it costs nothing.
+        if (!includeXeno) this._ensureStartButton(playerNamesDiv);
+
         if (includeXeno) {
             const xenoRow = document.createElement('div');
             xenoRow.className = 'player-input-row xeno-row';
@@ -1005,6 +1017,41 @@ class VicaDominoGame {
             // robust to viewport / icon-size changes.
             this._alignXenoRowToPlayerRow();
         }
+    }
+
+    // Defensive guarantee that the Start Game button exists as a direct
+    // child of #player-names. Reported bug: on some GPt Cxx setup pages
+    // the button vanished entirely. Most likely causes are flows that
+    // either move the button into the (now-wiped) xeno row without the
+    // move-back path firing, or DOM operations that detach the button.
+    // Easier than chasing every culprit: just check at render time and
+    // recreate the button if it's gone — it has no per-instance state
+    // (just an id + class + click handler bound at initEventListeners),
+    // and the click listener is already attached on the original node so
+    // recreating only fires when the original was removed entirely.
+    _ensureStartButton(playerNamesDiv) {
+        if (!playerNamesDiv) return;
+        let btn = document.getElementById('start-game-btn');
+        if (btn) {
+            // If the button is alive somewhere else (e.g. orphaned inside
+            // a wiped name-inputs subtree), move it back to #player-names.
+            if (btn.parentNode !== playerNamesDiv) {
+                playerNamesDiv.appendChild(btn);
+            }
+            // Clear any leftover inline margin set by a previous xeno
+            // alignment so the grid CSS rule places it cleanly.
+            btn.style.margin = '';
+            return;
+        }
+        // Truly missing — recreate. Bind the click handler directly since
+        // the initEventListeners-time listener is gone with the old node.
+        btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.id = 'start-game-btn';
+        btn.textContent = 'Start Game';
+        btn.addEventListener('click', () => this.startGame());
+        playerNamesDiv.appendChild(btn);
+        console.warn('[Setup] Start Game button was missing — recreated.');
     }
 
     // Measures the rendered player row's icon-2 and name-input positions,

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p4-5">
+    <link rel="stylesheet" href="css/style.css?v=icons-p4-6">
 </head>
 <body>
     <div class="game-container">
@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:29 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:34 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:29 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:34 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -878,12 +878,16 @@
             if (allLabels.length === 0) return defaultIcon();
 
             // Two-domino icon = MPP "circle" level (2 slots × top + bottom).
-            // For each face, prefer MPP-saved stableId, then label, then a
-            // deterministic placeholder from this game's pool (so brand-new
-            // games without MPP still get a representative icon).
+            // Preference order per face:
+            //   1. slot.iconTop / slot.iconBottom (Phase 4.3 — explicit icon)
+            //   2. MPP-saved stableId → card markup
+            //   3. MPP-saved label → card markup
+            //   4. deterministic placeholder from this game's pool
             var mpp = (game.mainPageDominos && game.mainPageDominos.circle) || [];
             function resolveFace(slotIdx, half) {
                 var slot = mpp[slotIdx] || {};
+                var iconKey = (half === 'top') ? 'iconTop' : 'iconBottom';
+                if (slot[iconKey] && slot[iconKey].svgContent) return slot[iconKey].svgContent;
                 var sidKey = (half === 'top') ? 'topStableId' : 'bottomStableId';
                 var lblKey = (half === 'top') ? 'top' : 'bottom';
                 var sid = slot[sidKey];
@@ -972,33 +976,52 @@
             if (allLabels.length === 0) return defaultIcon();
 
             // The two-bubble icon = MPP "circle" level, slots 0 and 1.
-            // For each bubble, prefer MPP-saved stableId, then label, then
-            // a deterministic placeholder from this game's pool.
+            // Preference order per bubble:
+            //   1. slot.icon.svgContent (Phase 4.3 — explicit icon assignment)
+            //   2. MPP-saved stableId → card markup
+            //   3. MPP-saved label → card markup
+            //   4. deterministic placeholder from this game's pool
             var mpp = (game.mainPageDominos && game.mainPageDominos.circle) || [];
             function resolveBubble(slotIdx) {
                 var slot = mpp[slotIdx] || {};
+                if (slot.icon && slot.icon.svgContent) {
+                    return { kind: 'icon', markup: slot.icon.svgContent };
+                }
                 if (slot.topStableId && markupByStableId[slot.topStableId]) {
-                    return markupByStableId[slot.topStableId];
+                    return { kind: 'card', markup: markupByStableId[slot.topStableId] };
                 }
                 if (slot.top && markupByLabel[slot.top]) {
-                    return markupByLabel[slot.top];
+                    return { kind: 'card', markup: markupByLabel[slot.top] };
                 }
                 var idx = slotIdx % allLabels.length;
-                return markupByLabel[allLabels[idx]] || '';
+                return { kind: 'card', markup: markupByLabel[allLabels[idx]] || '' };
             }
-            var m0 = resolveBubble(0);
-            var m1 = resolveBubble(1);
+            var r0 = resolveBubble(0);
+            var r1 = resolveBubble(1);
 
-            function filledBubble(cx, markup, clipId) {
-                // Bubble at its natural radius 22; card image at the same
-                // bounding box with default viewBox "0 0 60 60". No clip
-                // inset, no viewBox shift.
+            function filledBubble(cx, resolved, clipId) {
+                // For 'icon' content, embed a local clipPath (circle at 30,30
+                // r=30 in the icon's 0–60 viewBox space) so the clip is
+                // centered correctly — see pm-studio-DrV.html closeLoupe
+                // fix for the same coordinate-space gotcha.
                 var sz = 44;
                 var x = cx - 22;
                 var y = 18;
-                var imgPart = markup
-                    ? '<svg viewBox="0 0 60 60" x="' + x + '" y="' + y + '" width="' + sz + '" height="' + sz + '" clip-path="url(#' + clipId + ')" overflow="visible">' + markup + '</svg>'
-                    : '';
+                var imgPart;
+                if (resolved.kind === 'icon' && resolved.markup) {
+                    var localId = clipId + '-ic';
+                    imgPart =
+                        '<svg viewBox="0 0 60 60" x="' + x + '" y="' + y + '" width="' + sz + '" height="' + sz + '">' +
+                          '<defs><clipPath id="' + localId + '">' +
+                            '<circle cx="30" cy="30" r="30"/>' +
+                          '</clipPath></defs>' +
+                          '<g clip-path="url(#' + localId + ')">' + resolved.markup + '</g>' +
+                        '</svg>';
+                } else if (resolved.markup) {
+                    imgPart = '<svg viewBox="0 0 60 60" x="' + x + '" y="' + y + '" width="' + sz + '" height="' + sz + '" clip-path="url(#' + clipId + ')" overflow="visible">' + resolved.markup + '</svg>';
+                } else {
+                    imgPart = '';
+                }
                 return '<clipPath id="' + clipId + '"><circle cx="' + cx + '" cy="40" r="22"/></clipPath>' +
                        '<circle cx="' + cx + '" cy="40" r="22" fill="white"/>' +
                        imgPart +
@@ -1007,8 +1030,8 @@
 
             return '<svg viewBox="0 0 100 80" aria-hidden="true">' +
                 bubbleDefs +
-                filledBubble(32, m0, 'icbc0') +
-                filledBubble(68, m1, 'icbc1') +
+                filledBubble(32, r0, 'icbc0') +
+                filledBubble(68, r1, 'icbc1') +
                 '</svg>';
         }
 
@@ -2426,15 +2449,29 @@
                     var halfMarkup = [null, null];
                     var halfLabel = [null, null];
                     var halfVbox = ['0 0 60 60', '0 0 60 60'];
+                    // Phase 4.3: parallel array tracking whether each half is
+                    // an icon (not a card). Affects rendering below — icons
+                    // need a local 0–60 clip path, cards reuse the existing
+                    // path.
+                    var halfIsIcon = [false, false];
                     var savedHalves = savedSlot
                         ? [
-                            { sid: savedSlot.topStableId, lbl: savedSlot.top },
-                            { sid: savedSlot.bottomStableId, lbl: savedSlot.bottom }
+                            { sid: savedSlot.topStableId, lbl: savedSlot.top, icon: savedSlot.iconTop },
+                            { sid: savedSlot.bottomStableId, lbl: savedSlot.bottom, icon: savedSlot.iconBottom }
                           ]
                         : [null, null];
                     var allMatched = true;
                     for (var hi = 0; hi < 2; hi++) {
                         var saved = savedHalves[hi];
+                        // ICON PATH: if user assigned an icon to this half,
+                        // use it directly — no map lookups needed.
+                        if (saved && saved.icon && saved.icon.svgContent) {
+                            halfMarkup[hi] = saved.icon.svgContent;
+                            halfLabel[hi] = '';
+                            halfVbox[hi] = '0 0 60 60';
+                            halfIsIcon[hi] = true;
+                            continue;
+                        }
                         var resolvedSid = null;
                         if (saved) {
                             // Try direct stableId from MPP (modern save format)
@@ -2466,7 +2503,11 @@
                             allMatched = false;
                         }
                     }
-                    if (!savedSlot || !allMatched) {
+                    // Only fall back to allPairs if neither half was matched
+                    // (icons short-circuit allMatched, so an all-icons slot is
+                    // already fine — same for half-icon-half-card).
+                    var anyResolved = !!halfMarkup[0] || !!halfMarkup[1];
+                    if (!savedSlot || (!allMatched && !anyResolved)) {
                         // Fall back to allPairs for the whole slot — keeps
                         // both halves in sync as a paired domino.
                         if (g < allPairs.length) {
@@ -2477,6 +2518,7 @@
                             halfMarkup = [markupMap[topLbl], markupMap[botLbl]];
                             halfLabel = [topLbl, botLbl];
                             halfVbox = [viewBoxMap[topLbl] || '0 0 60 60', viewBoxMap[botLbl] || '0 0 60 60'];
+                            halfIsIcon = [false, false];
                         } else {
                             continue;
                         }
@@ -2487,6 +2529,7 @@
                         var face = faces[f];
                         var label = halfLabel[f];
                         var markup = halfMarkup[f];
+                        if (!markup) continue; // half left blank (partial fallback) — leave dots visible
                         var vb = halfVbox[f] || '0 0 60 60';
                         var x = parseFloat(face.getAttribute('x'));
                         var y = parseFloat(face.getAttribute('y'));
@@ -2500,12 +2543,19 @@
                         nested.setAttribute('class', 'level-domino-img');
                         nested.setAttribute('data-face', f.toString());
                         nested.setAttribute('overflow', 'visible');
-                        var srcEl = svgElementMap[label];
-                        if (srcEl) {
-                            var srcClone = srcEl.cloneNode(true);
-                            while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
-                        } else {
+                        if (halfIsIcon[f]) {
+                            // ICON PATH (Phase 4.3): write icon SVG directly.
+                            // Find icons are rounded squares — viewBox + 24px
+                            // square is enough; no clipPath needed.
                             nested.innerHTML = markup;
+                        } else {
+                            var srcEl = svgElementMap[label];
+                            if (srcEl) {
+                                var srcClone = srcEl.cloneNode(true);
+                                while (srcClone.firstChild) nested.appendChild(srcClone.firstChild);
+                            } else {
+                                nested.innerHTML = markup;
+                            }
                         }
                         groups[g].el.insertBefore(nested, face);
                         face.style.display = 'none';
@@ -2621,13 +2671,48 @@
                 });
                 var saved = Array.isArray(mpp[lvl]) ? mpp[lvl] : [];
                 bubbles.forEach(function(circ, idx) {
-                    var label = (saved[idx] && saved[idx].top) || fallbackLabels[idx % fallbackLabels.length];
-                    var markup = markupMap[label];
-                    if (!markup) return;
+                    var slot = saved[idx] || {};
                     var cx = parseFloat(circ.getAttribute('cx'));
                     var cy = parseFloat(circ.getAttribute('cy'));
                     var r = parseFloat(circ.getAttribute('r'));
                     if (!isFinite(cx) || !isFinite(cy) || !isFinite(r)) return;
+
+                    // ICON PATH (Phase 4.3): if the user explicitly assigned
+                    // an icon to this bubble in the IC panel, render the
+                    // icon's SVG content with a local 0–60 clipPath. Same
+                    // pattern as the IC panel preview to avoid the off-center
+                    // clip that crops the top of the icon.
+                    if (slot.icon && slot.icon.svgContent) {
+                        var iconClipId = 'lvl-icon-clip-' + lvl + '-' + idx;
+                        var iconNested = document.createElementNS(ns, 'svg');
+                        iconNested.setAttribute('viewBox', '0 0 60 60');
+                        iconNested.setAttribute('x', cx - r);
+                        iconNested.setAttribute('y', cy - r);
+                        iconNested.setAttribute('width', 2 * r);
+                        iconNested.setAttribute('height', 2 * r);
+                        // Inline defs + local clip so the centre lives at 30,30
+                        // in the icon's own coords (NOT the parent SVG's).
+                        var defs = document.createElementNS(ns, 'defs');
+                        var localClip = document.createElementNS(ns, 'clipPath');
+                        localClip.setAttribute('id', iconClipId);
+                        var localCirc = document.createElementNS(ns, 'circle');
+                        localCirc.setAttribute('cx', '30');
+                        localCirc.setAttribute('cy', '30');
+                        localCirc.setAttribute('r', '30');
+                        localClip.appendChild(localCirc);
+                        defs.appendChild(localClip);
+                        iconNested.appendChild(defs);
+                        var contentG = document.createElementNS(ns, 'g');
+                        contentG.setAttribute('clip-path', 'url(#' + iconClipId + ')');
+                        contentG.innerHTML = slot.icon.svgContent;
+                        iconNested.appendChild(contentG);
+                        circ.parentNode.insertBefore(iconNested, circ.nextSibling);
+                        return; // done — skip the card-based path below
+                    }
+
+                    var label = slot.top || fallbackLabels[idx % fallbackLabels.length];
+                    var markup = markupMap[label];
+                    if (!markup) return;
                     var clipId = 'lvl-bubble-clip-' + lvl + '-' + idx;
                     var clip = document.createElementNS(ns, 'clipPath');
                     clip.setAttribute('id', clipId);

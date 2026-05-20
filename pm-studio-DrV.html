@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p4-3">
+    <link rel="stylesheet" href="css/style.css?v=icons-p4-4">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:20 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18488,6 +18488,19 @@
             initMppDrag();
         }
 
+        // ===== Phase 4.2: size-class enforcement =====
+        // Each Catch bubble slot has an implicit size class derived from its
+        // position in _bubblePos. Slot 0 of each level is the BIG bubble
+        // (L1/L2/L3); slots 1+ are the small bubbles (S1/S2/S3). Find slots
+        // have no size class — they accept any icon (Find icons are all L1).
+        function _slotSizeClass(levelKey, bubbleIdx) {
+            if (mppGameType !== 'catch') return null; // Find has no enforcement
+            var BIG   = { circle: 'L1', triangle: 'L2', star: 'L3' };
+            var SMALL = { circle: 'S1', triangle: 'S2', star: 'S3' };
+            if (bubbleIdx === 0) return BIG[levelKey]   || null;
+            return                       SMALL[levelKey] || null;
+        }
+
         // ===== Phase 4.1: IC panel — icon picker support =====
         // Returns the storage-key set names that the given game actually USES,
         // derived from its cards. Avoids surfacing icons from sets the game
@@ -18551,6 +18564,16 @@
                 var bi = ORDER[b.icon.sizeClass]; if (bi == null) bi = 99;
                 return ai - bi;
             });
+            // Phase 4.2: if a slot is currently selected, derive its required
+            // size class. Icons that don't match are visually disabled and
+            // refuse clicks. Find slots return null → no enforcement.
+            var requiredSize = null;
+            if (mppActiveSelection) {
+                requiredSize = _slotSizeClass(
+                    mppActiveSelection.levelKey,
+                    mppActiveSelection.dominoIdx
+                );
+            }
             entries.forEach(function(entry) {
                 var ic = entry.icon;
                 // Map size class to a thumbnail pixel size. Uses the same
@@ -18565,7 +18588,12 @@
                 btn.dataset.setName  = entry.setName;
                 btn.dataset.gameType = ic.gameType || '';
                 btn.dataset.sizeClass = ic.sizeClass || '';
-                btn.title = (ic.sizeClass || 'icon') + ' icon (' + entry.setName + ')';
+                // Phase 4.2: enforce slot/icon size-class match.
+                var mismatched = (requiredSize && ic.sizeClass !== requiredSize);
+                if (mismatched) btn.classList.add('mpp-icon-thumb-disabled');
+                btn.title = mismatched
+                    ? 'This is a ' + ic.sizeClass + ' icon — selected slot needs ' + requiredSize
+                    : (ic.sizeClass || 'icon') + ' icon (' + entry.setName + ')';
                 btn.style.width  = thumbPx + 'px';
                 btn.style.height = thumbPx + 'px';
                 var shape = ic.cardShape || 'square';
@@ -18589,6 +18617,13 @@
                 }
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
+                    if (mismatched) {
+                        // Brief visual nudge instead of a silent no-op so the
+                        // user understands why nothing happened.
+                        btn.classList.add('mpp-icon-thumb-reject');
+                        setTimeout(function() { btn.classList.remove('mpp-icon-thumb-reject'); }, 350);
+                        return;
+                    }
                     mppAssignIcon(ic, entry.setName);
                 });
                 row.appendChild(btn);
@@ -18602,6 +18637,15 @@
         function mppAssignIcon(icon, setName) {
             if (!mppActiveSelection || !icon) return;
             var sel = mppActiveSelection;
+            // Phase 4.2: enforce size-class match for Catch slots. The UI
+            // already dims mismatching thumbnails, but this is the
+            // authoritative check — refuses any mismatched assign even if
+            // called from elsewhere.
+            var requiredSize = _slotSizeClass(sel.levelKey, sel.dominoIdx);
+            if (requiredSize && icon.sizeClass && icon.sizeClass !== requiredSize) {
+                console.warn('[IC] refusing to assign ' + icon.sizeClass + ' icon to ' + requiredSize + ' slot');
+                return;
+            }
             var slot = mppConfig[sel.levelKey][sel.dominoIdx];
             var iconDesc = {
                 uid:         icon.uid || '',
@@ -18641,6 +18685,8 @@
             var gvCards = document.getElementById('game-view-cards');
             if (gvCards) gvCards.classList.remove('mpp-pick-mode');
             updateMppHint();
+            // Phase 4.2: refresh icons row so the just-cleared filter goes away.
+            if (typeof _renderMppIconsRow === 'function') _renderMppIconsRow();
         }
 
         function mppSelectHalf(levelKey, dominoIdx, half) {
@@ -18660,6 +18706,8 @@
             if (gvCards) gvCards.classList.add('mpp-pick-mode');
 
             updateMppHint();
+            // Phase 4.2: refresh icons row so mismatching size classes dim out.
+            if (typeof _renderMppIconsRow === 'function') _renderMppIconsRow();
         }
 
         function mppAssignCard(label, stableId) {
@@ -18696,6 +18744,8 @@
             var gvCards = document.getElementById('game-view-cards');
             if (gvCards) gvCards.classList.remove('mpp-pick-mode');
             updateMppHint();
+            // Phase 4.2: refresh icons row so the just-cleared filter goes away.
+            if (typeof _renderMppIconsRow === 'function') _renderMppIconsRow();
         }
 
         function applyMppConfigToClone(svgClone, levelKey) {

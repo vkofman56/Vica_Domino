@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p4-8">
+    <link rel="stylesheet" href="css/style.css?v=icons-p4-9">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:54 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:54 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:54 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1947,6 +1947,8 @@
                     // Phase 4 polish: re-enable shape controls for the next
                     // (potentially card) edit session.
                     document.body.classList.remove('editing-icon');
+                    // Tear down the real-size preview + its MutationObserver.
+                    if (typeof _teardownRealSizePreview === 'function') _teardownRealSizePreview();
 
                     // Re-render so the row visually reflects the edit + restored size.
                     _rerenderIconsForCard(loupeSourceCard, setName);
@@ -9801,6 +9803,11 @@
             // would break size-class slot fitting. closeLoupe removes the
             // tag in the icon hook.
             document.body.classList.add('editing-icon');
+            // Real-size preview: a small floating box that shows the icon
+            // at its actual Card-Maker display size, live-updated from the
+            // loupe canvas. Built after openLoupe in a deferred tick so the
+            // loupe's SVG exists for the MutationObserver to hook into.
+            setTimeout(function() { _setupRealSizePreview(card); }, 0);
             // openLoupe accepts any element with an <svg> child — icon
             // cards qualify. Stash the icon's setName on the loupe source
             // so closeLoupe knows where to write back. (We don't add a
@@ -9835,6 +9842,122 @@
             if (typeof toggleDrawMode === 'function' && typeof drawModeActive !== 'undefined' && !drawModeActive) {
                 toggleDrawMode();
             }
+        }
+
+        // ===== Real-size preview during icon edit =====
+        // Builds a small box pinned to the loupe overlay that mirrors the
+        // loupe canvas's SVG content at the icon's actual size-class
+        // dimensions. Live-updated via MutationObserver so every brushstroke
+        // shows the user what the final tiny icon will look like.
+        var _iconRealSizeObserver = null;
+        var _iconRealSizePreview  = null;
+        function _setupRealSizePreview(card) {
+            _teardownRealSizePreview(); // safety: clear any leftover
+            var overlay = document.getElementById('loupe-overlay');
+            if (!overlay) return;
+            // Read the icon's size class to compute pixel size (same recipe
+            // as Card-Maker previews: w units × 70/60).
+            var sizeClass = card.dataset.sizeClass || 'L1';
+            var sc = ICON_SIZE_CLASSES[sizeClass];
+            var unitW = sc ? sc.w : 42;
+            var px = Math.max(20, Math.round(unitW * 70 / 60));
+            var cardShape = card.dataset.cardShape || 'square';
+
+            // Outer frame
+            var box = document.createElement('div');
+            box.className = 'icon-real-size-preview';
+            box.innerHTML =
+                '<div class="icon-real-size-label">real size · ' + sizeClass + '</div>' +
+                '<div class="icon-real-size-frame">' +
+                  '<div class="icon-real-size-card"></div>' +
+                '</div>';
+            overlay.appendChild(box);
+            _iconRealSizePreview = box;
+
+            // Style the inner "card" to match the Card-Maker preview shape.
+            var inner = box.querySelector('.icon-real-size-card');
+            inner.style.width  = px + 'px';
+            inner.style.height = px + 'px';
+            inner.style.borderRadius = (cardShape === 'circle')
+                ? '50%'
+                : ((card.dataset.cardCornerR || '15') + '%');
+
+            // Create the SVG that will mirror the loupe content.
+            var svgNS = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('viewBox', '0 0 60 60');
+            svg.setAttribute('width',  (px - 4).toString());
+            svg.setAttribute('height', (px - 4).toString());
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            // Clip to the card shape so artwork that bleeds past the
+            // visible boundary doesn't leak out.
+            var clipId = 'rsp-clip-' + Date.now();
+            var defs = document.createElementNS(svgNS, 'defs');
+            var clipPath = document.createElementNS(svgNS, 'clipPath');
+            clipPath.setAttribute('id', clipId);
+            var clipShape;
+            if (cardShape === 'circle') {
+                clipShape = document.createElementNS(svgNS, 'circle');
+                clipShape.setAttribute('cx', '30');
+                clipShape.setAttribute('cy', '30');
+                clipShape.setAttribute('r',  '30');
+            } else {
+                clipShape = document.createElementNS(svgNS, 'rect');
+                clipShape.setAttribute('x', '0');
+                clipShape.setAttribute('y', '0');
+                clipShape.setAttribute('width',  '60');
+                clipShape.setAttribute('height', '60');
+                clipShape.setAttribute('rx', '9'); // ~15% of 60
+                clipShape.setAttribute('ry', '9');
+            }
+            clipPath.appendChild(clipShape);
+            defs.appendChild(clipPath);
+            svg.appendChild(defs);
+            var contentG = document.createElementNS(svgNS, 'g');
+            contentG.setAttribute('clip-path', 'url(#' + clipId + ')');
+            contentG.setAttribute('class', 'icon-real-size-content');
+            svg.appendChild(contentG);
+            inner.appendChild(svg);
+
+            // Live-mirror: copy the loupe canvas's content into contentG
+            // whenever it mutates. Strip editor decorations (selection
+            // rings, draw-placed marks) so the preview reflects what gets
+            // saved, not the in-editor scaffolding.
+            function refresh() {
+                var loupeContainer = document.getElementById('loupe-card-container');
+                if (!loupeContainer) return;
+                var src = loupeContainer.querySelector('svg:not(.loupe-grid)');
+                if (!src) return;
+                // Clone and clean
+                var clone = src.cloneNode(true);
+                clone.querySelectorAll('.loupe-grid, .draw-sel-ring').forEach(function(n) { n.remove(); });
+                clone.querySelectorAll('.draw-placed, .draw-selected').forEach(function(n) {
+                    n.classList.remove('draw-placed');
+                    n.classList.remove('draw-selected');
+                });
+                contentG.innerHTML = clone.innerHTML;
+            }
+            refresh();
+            var loupeContainer = document.getElementById('loupe-card-container');
+            if (loupeContainer && typeof MutationObserver === 'function') {
+                _iconRealSizeObserver = new MutationObserver(refresh);
+                _iconRealSizeObserver.observe(loupeContainer, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    characterData: true
+                });
+            }
+        }
+        function _teardownRealSizePreview() {
+            if (_iconRealSizeObserver) {
+                try { _iconRealSizeObserver.disconnect(); } catch (e) {}
+                _iconRealSizeObserver = null;
+            }
+            if (_iconRealSizePreview && _iconRealSizePreview.parentNode) {
+                _iconRealSizePreview.parentNode.removeChild(_iconRealSizePreview);
+            }
+            _iconRealSizePreview = null;
         }
 
         // Re-render the Icons section that contains the given card. Tries the

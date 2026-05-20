@@ -871,6 +871,11 @@ class VicaDominoGame {
         const existingXenoRow = !!nameInputs.querySelector('.xeno-row');
         if (existingPlayerRows === count && existingXenoRow === !!includeXeno && existingPlayerRows > 0) {
             playerNamesDiv.style.display = 'block';
+            // Even on the early-return path, make sure the Start button is
+            // present. The idempotency check assumes only input fields
+            // survive; the button can still have vanished due to upstream
+            // bugs we haven't pinned down yet.
+            if (!includeXeno) this._ensureStartButton(playerNamesDiv);
             return;
         }
 
@@ -1034,17 +1039,22 @@ class VicaDominoGame {
         let btn = document.getElementById('start-game-btn');
         if (btn) {
             // If the button is alive somewhere else (e.g. orphaned inside
-            // a wiped name-inputs subtree), move it back to #player-names.
-            if (btn.parentNode !== playerNamesDiv) {
+            // a wiped name-inputs subtree, or appended to some other
+            // container by an earlier flow), move it back to #player-names
+            // as the LAST child so the .player-names > #start-game-btn
+            // grid rule places it in column 2.
+            if (btn.parentNode !== playerNamesDiv || btn !== playerNamesDiv.lastElementChild) {
                 playerNamesDiv.appendChild(btn);
             }
-            // Clear any leftover inline margin set by a previous xeno
-            // alignment so the grid CSS rule places it cleanly.
+            // Clear any leftover inline state from previous flows.
             btn.style.margin = '';
+            btn.style.display = '';
+            btn.style.visibility = '';
+            btn.removeAttribute('hidden');
             return;
         }
-        // Truly missing — recreate. Bind the click handler directly since
-        // the initEventListeners-time listener is gone with the old node.
+        // Truly missing — recreate. The Catch interceptor uses document-
+        // level delegation now, so a fresh node still gets intercepted.
         btn = document.createElement('button');
         btn.className = 'btn btn-primary';
         btn.id = 'start-game-btn';

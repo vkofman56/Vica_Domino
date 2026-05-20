@@ -6,7 +6,47 @@
 
 ---
 
-## May 19, 2026 — Phase 2.2: Icon Editor (text + stamp)
+## May 19, 2026 — Phase 2.2 revised: reuse the regular Card editor for icons
+
+The first cut of Phase 2.2 shipped a standalone modal editor for
+icons. The user pushed back — rightly — pointing out that we
+already have a perfectly capable card editor (loupe + draw mode)
+and shouldn't maintain two. This refactor deletes the modal and
+makes icon edit reuse the existing editor end-to-end.
+
+Two tiny adapters do the bridging without touching the editor's
+internals:
+
+1. **`_openIconForEdit(card)`** (~10 lines) — calls the existing
+   `openLoupe(card)` + `toggleDrawMode()`. openLoupe just queries
+   for an `<svg>` child, so icon cards qualify natively. The
+   card's setName is stashed on its dataset (`iconEditSet`) so the
+   close hook knows where to write back.
+
+2. **closeLoupe hook** — if `loupeSourceCard.dataset.icon === 'true'`,
+   sync the (already updated) svgContent to
+   `customDrawnIcons_<setName>` via `saveIconsForSet` and re-render
+   the Icons row. The existing `saveCustomCards` call inside
+   `toggleDrawMode` continues to skip icons (they don't have
+   `.library-card`), so there's no risk of icon SVG bleeding into
+   regular-card storage.
+
+Removed:
+- `_openIconEditor`, `_iconEditorTextSVG`, `_iconEditorStampSVG`,
+  `ICON_EDITOR_COLORS` (~190 lines of JS).
+- `.icon-editor-*` CSS rules (~140 lines).
+
+What this gives users:
+- Full pencil/line/stamp/text/color toolbar — the same one cards use.
+- Magnified loupe canvas instead of a 200 px modal.
+- Undo / redo, grid overlay, resize handles, ruler — all just work.
+- One editor to learn, one to maintain.
+
+Cache buster bumped to `?v=icons-p2-4`.
+
+---
+
+## May 19, 2026 — Phase 2.2: Icon Editor (text + stamp) — SUPERSEDED
 
 User icons are now authorable. Double-click any user icon (templates
 remain non-editable) to open a modal editor that replaces the icon's

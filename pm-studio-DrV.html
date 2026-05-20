@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p4-9">
+    <link rel="stylesheet" href="css/style.css?v=icons-p4-10">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:02 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9331,6 +9331,47 @@
         // (those NOT flagged _isTemplate) are preserved across the rewrite.
         var ICON_TEMPLATE_VERSION = 3;
 
+        // Per-game-per-size-class icon caps. Users can stash multiple
+        // candidates of each size class in a game's icon pool so they can
+        // swap them in/out of the IC slot to compare. The caps prevent the
+        // picker from sprawling: at most 3 of each big size (L1/L2/L3) and
+        // 4 of each small size (S1/S2/S3) — total 21 icons per game.
+        var ICON_PER_GAME_LIMITS = {
+            L1: 3, L2: 3, L3: 3,
+            S1: 4, S2: 4, S3: 4
+        };
+
+        // Count how many icons of the given sizeClass are already in this
+        // game's icon pool. Tolerates legacy refs that lack sizeClass by
+        // resolving the live icon's sizeClass from its source set.
+        function _gameIconCountBySize(game, sizeClass) {
+            if (!game || !Array.isArray(game.icons) || !sizeClass) return 0;
+            var count = 0;
+            // Cache loaded sets so repeated lookups are cheap.
+            var bySet = {};
+            game.icons.forEach(function(ref) {
+                if (!ref) return;
+                if (ref.sizeClass) {
+                    if (ref.sizeClass === sizeClass) count++;
+                    return;
+                }
+                // Legacy ref (no sizeClass) — resolve via uid lookup.
+                if (!ref.uid || !ref.setName) return;
+                if (!(ref.setName in bySet)) {
+                    bySet[ref.setName] = (typeof loadIconsForSet === 'function')
+                        ? (loadIconsForSet(ref.setName) || []) : [];
+                }
+                var pool = bySet[ref.setName];
+                for (var i = 0; i < pool.length; i++) {
+                    if (pool[i] && pool[i].uid === ref.uid) {
+                        if (pool[i].sizeClass === sizeClass) count++;
+                        return;
+                    }
+                }
+            });
+            return count;
+        }
+
         // Migration: snap every USER icon's cardShapeW/H/CornerR back to
         // its size-class dimensions. Earlier builds of the loupe-based
         // editor accidentally persisted the editor's normalized 60×60 shape
@@ -9618,19 +9659,24 @@
             // Close any other open picker first.
             document.querySelectorAll('.icon-game-picker').forEach(function(p) { p.remove(); });
 
-            var setName  = _setNameFromIconCard(iconCard);
-            var uid      = iconCard.dataset.uid || '';
-            var gameType = iconCard.dataset.gameType || '';
+            var setName   = _setNameFromIconCard(iconCard);
+            var uid       = iconCard.dataset.uid || '';
+            var gameType  = iconCard.dataset.gameType || '';
+            var sizeClass = iconCard.dataset.sizeClass || '';
             if (!setName || !uid || !gameType) return;
 
             var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var limit = sizeClass ? ICON_PER_GAME_LIMITS[sizeClass] : null;
 
             var popup = document.createElement('div');
             popup.className = 'icon-game-picker';
-            // Header
+            // Header — shows the per-game cap for this icon's size class so
+            // the user understands the count next to each game name.
             var header = document.createElement('div');
             header.className = 'icon-game-picker-header';
-            header.textContent = 'Add to ' + (gameType === 'catch' ? 'Catch' : 'Find') + ' game…';
+            header.textContent = 'Add ' + (sizeClass || 'icon') +
+                ' to ' + (gameType === 'catch' ? 'Catch' : 'Find') + ' game' +
+                (limit != null ? ' (max ' + limit + ' per game)' : '') + '…';
             popup.appendChild(header);
 
             if (!games.length) {
@@ -9645,18 +9691,32 @@
                     var alreadyIn = Array.isArray(g.icons) && g.icons.some(function(r) {
                         return r && r.uid === uid && r.setName === setName;
                     });
-                    row.disabled = alreadyIn;
-                    row.textContent = g.name + (alreadyIn ? ' ✓ already added' : '');
-                    if (!alreadyIn) {
+                    var count = sizeClass ? _gameIconCountBySize(g, sizeClass) : 0;
+                    var atCap = (limit != null && count >= limit);
+                    var disabledReason = '';
+                    if (alreadyIn) disabledReason = '✓ already added';
+                    else if (atCap) disabledReason = sizeClass + ' full';
+                    row.disabled = alreadyIn || atCap;
+                    // Build "Name · L1 2/3" label so the user sees both the
+                    // current count and the cap at a glance.
+                    var countLabel = (limit != null)
+                        ? ' · ' + sizeClass + ' ' + count + '/' + limit
+                        : '';
+                    var suffix = disabledReason ? '  ' + disabledReason : '';
+                    row.textContent = g.name + countLabel + suffix;
+                    if (!row.disabled) {
                         row.addEventListener('click', function(e) {
                             e.stopPropagation();
-                            _iconAddToGame(gameType, idx, { uid: uid, setName: setName });
+                            var result = _iconAddToGame(gameType, idx, {
+                                uid: uid, setName: setName, sizeClass: sizeClass
+                            });
                             popup.remove();
-                            // Brief visual confirmation on the icon card.
-                            iconCard.classList.add('icon-send-confirmed');
-                            setTimeout(function() {
-                                iconCard.classList.remove('icon-send-confirmed');
-                            }, 600);
+                            if (result === 'added') {
+                                iconCard.classList.add('icon-send-confirmed');
+                                setTimeout(function() {
+                                    iconCard.classList.remove('icon-send-confirmed');
+                                }, 600);
+                            }
                         });
                     }
                     popup.appendChild(row);
@@ -9689,21 +9749,38 @@
             }, 0);
         }
 
-        // Push {uid, setName} onto game.icons (idempotent — won't double-add).
-        // Persists the modified games list to the appropriate storage key.
+        // Push {uid, setName, sizeClass} onto game.icons.
+        //  - Idempotent: won't double-add the exact same icon.
+        //  - Caps per size class: refuses if the game already has the
+        //    maximum allowed of this size (ICON_PER_GAME_LIMITS).
+        // Returns one of: 'added' | 'duplicate' | 'full'. Persists on add.
         function _iconAddToGame(gameType, gameIndex, ref) {
             var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
             var game = games[gameIndex];
-            if (!game) return;
+            if (!game) return 'error';
             if (!Array.isArray(game.icons)) game.icons = [];
             var dup = game.icons.some(function(r) { return r && r.uid === ref.uid && r.setName === ref.setName; });
-            if (dup) return;
-            game.icons.push({ uid: ref.uid, setName: ref.setName });
+            if (dup) return 'duplicate';
+            // Cap check.
+            var limit = ref.sizeClass ? ICON_PER_GAME_LIMITS[ref.sizeClass] : null;
+            if (limit != null) {
+                var cur = _gameIconCountBySize(game, ref.sizeClass);
+                if (cur >= limit) {
+                    console.warn('[IC] cap reached: ' + ref.sizeClass + ' has ' + cur + '/' + limit + ' in game "' + game.name + '"');
+                    return 'full';
+                }
+            }
+            game.icons.push({
+                uid: ref.uid,
+                setName: ref.setName,
+                sizeClass: ref.sizeClass || ''
+            });
             if (gameType === 'catch') {
                 saveCatchGames(games);
             } else {
                 localStorage.setItem('savedCustomGames', JSON.stringify(games));
             }
+            return 'added';
         }
 
         // Remove a {uid, setName} reference from game.icons. Used by the

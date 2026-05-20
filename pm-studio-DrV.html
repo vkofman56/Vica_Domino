@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p4-4">
+    <link rel="stylesheet" href="css/style.css?v=icons-p4-5">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:29 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:29 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:24 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:29 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9540,6 +9540,9 @@
             // of card size.
             _addIconCopyButton(card, previewWrap);
             if (!ic._isTemplate) _addIconDeleteButton(card, previewWrap);
+            // Phase 4 migration: send button on user icons opens a game picker
+            // so the user can explicitly add the icon to a game's icon pool.
+            if (!ic._isTemplate) _addIconSendButton(card, previewWrap);
 
             // Phase 2.2: double-click a user icon to open the editor.
             // Templates are not editable (would defeat the purpose of having
@@ -9583,6 +9586,137 @@
                 _deleteIcon(card);
             });
             (host || card).appendChild(btn);
+        }
+
+        // Phase 4: 'Add to game' button on user icons. Opens a small popup
+        // that lists every game whose type matches the icon's gameType
+        // (find icons → Find games, catch icons → Catch games). Clicking a
+        // game name adds the icon's {uid, setName} reference to game.icons
+        // and persists the game list.
+        function _addIconSendButton(card, host) {
+            if ((host || card).querySelector(':scope > .icon-send-btn')) return;
+            var btn = document.createElement('button');
+            btn.className = 'icon-send-btn';
+            btn.textContent = '→G';
+            btn.title = 'Add this icon to a game';
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _openIconGamePicker(card, btn);
+            });
+            (host || card).appendChild(btn);
+        }
+
+        // Popup picker that lists eligible games (same gameType as the icon).
+        // Position is anchored to the send button. One click on a game name
+        // adds the icon and closes the popup.
+        function _openIconGamePicker(iconCard, anchorBtn) {
+            // Close any other open picker first.
+            document.querySelectorAll('.icon-game-picker').forEach(function(p) { p.remove(); });
+
+            var setName  = _setNameFromIconCard(iconCard);
+            var uid      = iconCard.dataset.uid || '';
+            var gameType = iconCard.dataset.gameType || '';
+            if (!setName || !uid || !gameType) return;
+
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+
+            var popup = document.createElement('div');
+            popup.className = 'icon-game-picker';
+            // Header
+            var header = document.createElement('div');
+            header.className = 'icon-game-picker-header';
+            header.textContent = 'Add to ' + (gameType === 'catch' ? 'Catch' : 'Find') + ' game…';
+            popup.appendChild(header);
+
+            if (!games.length) {
+                var empty = document.createElement('div');
+                empty.className = 'icon-game-picker-empty';
+                empty.textContent = 'No ' + (gameType === 'catch' ? 'Catch' : 'Find') + ' games yet.';
+                popup.appendChild(empty);
+            } else {
+                games.forEach(function(g, idx) {
+                    var row = document.createElement('button');
+                    row.className = 'icon-game-picker-row';
+                    var alreadyIn = Array.isArray(g.icons) && g.icons.some(function(r) {
+                        return r && r.uid === uid && r.setName === setName;
+                    });
+                    row.disabled = alreadyIn;
+                    row.textContent = g.name + (alreadyIn ? ' ✓ already added' : '');
+                    if (!alreadyIn) {
+                        row.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            _iconAddToGame(gameType, idx, { uid: uid, setName: setName });
+                            popup.remove();
+                            // Brief visual confirmation on the icon card.
+                            iconCard.classList.add('icon-send-confirmed');
+                            setTimeout(function() {
+                                iconCard.classList.remove('icon-send-confirmed');
+                            }, 600);
+                        });
+                    }
+                    popup.appendChild(row);
+                });
+            }
+
+            // Position anchored to the button (below + slightly right).
+            document.body.appendChild(popup);
+            var r = anchorBtn.getBoundingClientRect();
+            var px = window.scrollX + r.left;
+            var py = window.scrollY + r.bottom + 4;
+            popup.style.left = px + 'px';
+            popup.style.top  = py + 'px';
+            // Re-clamp if overflowing the viewport.
+            var pr = popup.getBoundingClientRect();
+            if (pr.right > window.innerWidth)  popup.style.left = (window.innerWidth - pr.width - 4) + 'px';
+            if (pr.bottom > window.innerHeight) popup.style.top = (window.scrollY + r.top - pr.height - 4) + 'px';
+
+            // Dismiss on outside click / Esc.
+            function dismiss(e) {
+                if (e && e.type === 'click' && popup.contains(e.target)) return;
+                if (e && e.type === 'keydown' && e.key !== 'Escape') return;
+                popup.remove();
+                document.removeEventListener('click', dismiss, true);
+                document.removeEventListener('keydown', dismiss, true);
+            }
+            setTimeout(function() {
+                document.addEventListener('click', dismiss, true);
+                document.addEventListener('keydown', dismiss, true);
+            }, 0);
+        }
+
+        // Push {uid, setName} onto game.icons (idempotent — won't double-add).
+        // Persists the modified games list to the appropriate storage key.
+        function _iconAddToGame(gameType, gameIndex, ref) {
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[gameIndex];
+            if (!game) return;
+            if (!Array.isArray(game.icons)) game.icons = [];
+            var dup = game.icons.some(function(r) { return r && r.uid === ref.uid && r.setName === ref.setName; });
+            if (dup) return;
+            game.icons.push({ uid: ref.uid, setName: ref.setName });
+            if (gameType === 'catch') {
+                saveCatchGames(games);
+            } else {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
+        }
+
+        // Remove a {uid, setName} reference from game.icons. Used by the
+        // remove (×) button on IC panel thumbnails.
+        function _iconRemoveFromGame(gameType, gameIndex, ref) {
+            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[gameIndex];
+            if (!game || !Array.isArray(game.icons)) return;
+            var before = game.icons.length;
+            game.icons = game.icons.filter(function(r) {
+                return !(r && r.uid === ref.uid && r.setName === ref.setName);
+            });
+            if (game.icons.length === before) return;
+            if (gameType === 'catch') {
+                saveCatchGames(games);
+            } else {
+                localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            }
         }
 
         // Walk up from a DOM card element to discover which card set the
@@ -18501,42 +18635,37 @@
             return                       SMALL[levelKey] || null;
         }
 
-        // ===== Phase 4.1: IC panel — icon picker support =====
-        // Returns the storage-key set names that the given game actually USES,
-        // derived from its cards. Avoids surfacing icons from sets the game
-        // has nothing to do with.
-        function _setNamesUsedByGame(game) {
-            var seen = {};
-            if (game && Array.isArray(game.cards)) {
-                game.cards.forEach(function(c) {
-                    if (!c || !c.cardSet) return;
-                    // Map the card-side cardSet label to the icons-storage key.
-                    var key;
-                    if (c.cardSet === 'Numbers and Dots' || c.cardSet === 'numbers') key = 'numbers';
-                    else if (c.cardSet === 'ABC' || c.cardSet === 'abc') key = 'abc';
-                    else key = c.cardSet;
-                    seen[key] = true;
-                });
-            }
-            return Object.keys(seen);
-        }
-
-        // Walks the card sets actually used by this game and gathers icons
-        // whose gameType matches the IC panel's current game type. Returns
-        // an array of {icon, setName} pairs. Templates are excluded — only
-        // user-authored icons can be assigned to slots.
+        // ===== Phase 4: IC panel — explicit per-game icon pool =====
+        // Icons are NOT inferred from a game's card sets anymore. Instead, the
+        // user explicitly adds icons to a game via the '→G' button on each
+        // icon in Card Maker. The game keeps a `icons` array of {uid, setName}
+        // references; this function resolves them to live icon data and
+        // silently drops references whose source icon was deleted.
         function _loadIconsForGameType(game, gameType) {
-            var setNames = _setNamesUsedByGame(game);
-            if (!setNames.length) return [];
+            var refs = (game && Array.isArray(game.icons)) ? game.icons : [];
+            if (!refs.length) return [];
+            // Cache loaded sets so we don't re-parse the same key per icon.
+            var bySet = {};
+            function getIconsFor(setName) {
+                if (!(setName in bySet)) {
+                    bySet[setName] = (typeof loadIconsForSet === 'function')
+                        ? (loadIconsForSet(setName) || [])
+                        : [];
+                }
+                return bySet[setName];
+            }
             var out = [];
-            setNames.forEach(function(setName) {
-                var icons = (typeof loadIconsForSet === 'function') ? loadIconsForSet(setName) : null;
-                if (!Array.isArray(icons)) return;
-                icons.forEach(function(ic) {
-                    if (!ic || ic._isTemplate) return;
-                    if (ic.gameType !== gameType) return;
-                    out.push({ icon: ic, setName: setName });
-                });
+            refs.forEach(function(ref) {
+                if (!ref || !ref.uid) return;
+                var pool = getIconsFor(ref.setName);
+                for (var i = 0; i < pool.length; i++) {
+                    var ic = pool[i];
+                    if (ic && ic.uid === ref.uid && !ic._isTemplate && ic.gameType === gameType) {
+                        out.push({ icon: ic, setName: ref.setName });
+                        return;
+                    }
+                }
+                // Source icon missing or wrong type — silently skip.
             });
             return out;
         }
@@ -18626,6 +18755,31 @@
                     }
                     mppAssignIcon(ic, entry.setName);
                 });
+                // Remove (×) button — drops the icon's reference from
+                // game.icons. Doesn't delete the source icon (still lives in
+                // Card Maker), just unlinks it from this game.
+                var rmBtn = document.createElement('span');
+                rmBtn.className = 'mpp-icon-thumb-remove';
+                rmBtn.textContent = '✕';
+                rmBtn.title = 'Remove from this game';
+                rmBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _iconRemoveFromGame(mppGameType, mppGameIndex, { uid: ic.uid, setName: entry.setName });
+                    // Also clear any slots currently using this exact icon
+                    // — the icon would otherwise stay on the slot even
+                    // though it's no longer in the pool.
+                    ['circle','triangle','star'].forEach(function(lk) {
+                        (mppConfig[lk] || []).forEach(function(slot) {
+                            if (slot && slot.icon && slot.icon.uid === ic.uid) slot.icon = null;
+                        });
+                    });
+                    // Re-render levels so cleared slots show empty bubble again.
+                    document.querySelectorAll('.mpp-level-svg').forEach(function(s) {
+                        applyMppConfigToClone(s, s.getAttribute('data-mpp-level'));
+                    });
+                    _renderMppIconsRow();
+                });
+                btn.appendChild(rmBtn);
                 row.appendChild(btn);
             });
         }

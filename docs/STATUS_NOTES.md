@@ -6,6 +6,44 @@
 
 ---
 
+## May 19, 2026 — Phase 2.2: Icon Editor (text + stamp)
+
+User icons are now authorable. Double-click any user icon (templates
+remain non-editable) to open a modal editor that replaces the icon's
+svgContent. Two design modes:
+
+1. **Text** — type up to 3 characters; pick font size (10–54) and
+   color; preview live at 200×200.
+2. **Stamp** — grid of the 10 existing `stampSVGs` (sun, alien, cat,
+   dog, etc.) auto-scaled from 100×100 to fit the 60×60 icon viewBox.
+
+Helpers:
+- `_iconEditorTextSVG(text, size, color)` — centred text payload with
+  baseline-offset y so the glyph sits visually centred.
+- `_iconEditorStampSVG(stampKey)` — wraps the chosen stamp in a
+  `<g transform="scale(0.6)">` to fit the icon viewBox.
+
+UX:
+- Shared color swatches (8 colors) drive both text fill and (later)
+  stamp tint.
+- Clear button empties the icon to start over.
+- Cancel / Esc / overlay-click discards without writing.
+- Save commits the new svgContent to localStorage and re-renders the
+  Icons row, preserving its open state.
+
+The editor REPLACES content rather than supporting layered freehand
+drawing. That's enough for first-pass icons; a freehand mode can
+come later if needed.
+
+### Files touched
+- `pm-studio-DrV.html` — `_openIconEditor` + helpers, dblclick wiring
+  on user icon cards.
+- `css/style.css` — `.icon-editor-*` (overlay, panel, tabs, stamp
+  grid, swatches, buttons). Cache buster `?v=icons-p2-3`.
+- `index.html` — cache buster only.
+
+---
+
 ## May 19, 2026 — Phase 2.1: Icon copy + delete
 
 Icons row is no longer read-only. Adds the first interaction layer:

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icons-p2-4">
+    <link rel="stylesheet" href="css/style.css?v=icons-p2-5">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -455,7 +455,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:00 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:05 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1889,7 +1889,9 @@
             // SVG has been updated in-place with the user's edits.
             if (drawModeActive) toggleDrawMode();
             // ICON BRIDGE: if we opened the loupe on an icon card, sync its
-            // (now-updated) svgContent back to customDrawnIcons_<setName>.
+            // (now-updated) svgContent back to customDrawnIcons_<setName>
+            // AND restore the icon's authored size class (cardShapeW/H may
+            // have been clobbered by the loupe's _saveCardShapeToCard).
             // saveCustomCards already skips icons (they aren't .library-card),
             // so this is the only path that persists icon edits.
             try {
@@ -1897,17 +1899,46 @@
                     var setName = loupeSourceCard.dataset.iconEditSet || _setNameFromIconCard(loupeSourceCard);
                     var uid     = loupeSourceCard.dataset.uid;
                     var newSvg  = loupeSourceCard.querySelector('svg');
-                    var icons   = loadIconsForSet(setName) || [];
+                    var newSvgContent = newSvg ? newSvg.innerHTML : '';
+
+                    // Restore the icon's original shape data BEFORE persisting.
+                    // The loupe normalized the icon to 60×60 for editing; the
+                    // stored icon must keep its original size class so it
+                    // still fits its IC slot.
+                    var origShape   = loupeSourceCard._origCardShape;
+                    var origW       = loupeSourceCard._origCardShapeW;
+                    var origH       = loupeSourceCard._origCardShapeH;
+                    var origCornerR = loupeSourceCard._origCardCornerR;
+                    if (origShape   != null) loupeSourceCard.dataset.cardShape   = origShape;
+                    if (origW       != null) loupeSourceCard.dataset.cardShapeW  = origW;
+                    if (origH       != null) loupeSourceCard.dataset.cardShapeH  = origH;
+                    if (origCornerR != null && origCornerR !== '') loupeSourceCard.dataset.cardCornerR = origCornerR;
+
+                    var icons = loadIconsForSet(setName) || [];
                     for (var i = 0; i < icons.length; i++) {
                         if (icons[i] && icons[i].uid === uid) {
-                            icons[i].svgContent = newSvg ? newSvg.innerHTML : '';
+                            icons[i].svgContent = newSvgContent;
+                            // Defensive: keep stored shape in sync with the
+                            // restored authored values (don't trust whatever
+                            // the loupe might have stamped).
+                            if (origShape   != null) icons[i].cardShape   = origShape;
+                            if (origW       != null) icons[i].cardShapeW  = parseFloat(origW);
+                            if (origH       != null) icons[i].cardShapeH  = parseFloat(origH);
+                            if (origCornerR != null && origCornerR !== '') icons[i].cardCornerR = parseFloat(origCornerR);
                             break;
                         }
                     }
                     saveIconsForSet(setName, icons);
-                    // Re-render so the row visually reflects the edit.
-                    _rerenderIconsForCard(loupeSourceCard, setName);
+
+                    // Clean up the scratch attributes we stashed in _openIconForEdit.
+                    delete loupeSourceCard._origCardShape;
+                    delete loupeSourceCard._origCardShapeW;
+                    delete loupeSourceCard._origCardShapeH;
+                    delete loupeSourceCard._origCardCornerR;
                     delete loupeSourceCard.dataset.iconEditSet;
+
+                    // Re-render so the row visually reflects the edit + restored size.
+                    _rerenderIconsForCard(loupeSourceCard, setName);
                 }
             } catch (e) {
                 console.warn('[Icons] failed to persist icon edit:', e);
@@ -9574,6 +9605,26 @@
             // saveCustomCards and corrupt regular-card storage.)
             var setName = _setNameFromIconCard(card);
             card.dataset.iconEditSet = setName || '';
+
+            // SHAPE NORMALIZATION for the loupe:
+            // The loupe's shape system assumes cards are always 60 units
+            // tall (regular cards only vary width). Icons vary both
+            // dimensions (L1 = 42×42, S3 = 17×17 etc.) AND their svgContent
+            // is authored on a 60×60 viewBox. So we temporarily promote the
+            // icon's cardShapeW/H to 60 for the duration of the loupe,
+            // keeping cardShape ('square' / 'circle') and cornerR intact —
+            // this gives a normal-looking editor canvas that matches the
+            // artwork's coordinate space. On close we restore the originals
+            // before persisting, so the icon keeps its authored size class.
+            card._origCardShape   = card.dataset.cardShape   || 'square';
+            card._origCardShapeW  = card.dataset.cardShapeW  || '60';
+            card._origCardShapeH  = card.dataset.cardShapeH  || '60';
+            card._origCardCornerR = card.dataset.cardCornerR || '';
+            card.dataset.cardShapeW = '60';
+            card.dataset.cardShapeH = '60';
+            // Re-apply the preview at 60x60 so the loupe reads it cleanly.
+            if (typeof _applyShapeToPreview === 'function') _applyShapeToPreview(card);
+
             openLoupe(card);
             // Auto-enter draw mode so the user lands on the toolbar they
             // need. If they prefer to inspect first, they can click the

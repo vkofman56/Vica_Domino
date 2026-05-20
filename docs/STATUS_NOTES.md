@@ -1,8 +1,61 @@
 # Vica Domino - Project Status Notes
-**Date**: May 18, 2026
+**Date**: May 19, 2026
 **Branch**: `claude/review-project-docs-JOOeh`
 **Total Commits**: 500+
 **Codebase Size**: ~15,864 lines across 4 main files
+
+---
+
+## May 19, 2026 — Phase 1.1: Icons row (IC system) foundation
+
+After many failed attempts to make Catch MPP bubbles render arbitrary
+Card-Maker cards cleanly inside a circle, we pivoted to a dedicated
+**Icons** (IC — Icons' Creator) layer: users design icons specifically
+sized for the round bubbles, instead of forcing arbitrary cards in.
+
+### What shipped (Phase 1.1)
+
+1. **Hardcoded templates** — `_defaultIconTemplates()` returns 1 Find
+   template (FT-L1, big circle) + 6 Catch templates (CT-L1/L2/L3 big
+   circle/triangle/star at r=28/26/24, plus CT-S1/S2/S3 small
+   versions at r=18/16/14). Templates are stroked dashed-yellow
+   outlines on the standard 60×60 viewBox.
+2. **Per-set icon storage** — new `customDrawnIcons_<setName>`
+   localStorage key (separate from `customDrawnCards_*`).
+   `loadIconsForSet`, `saveIconsForSet`, `ensureIconTemplates`
+   (first-load seeding) provide the storage layer.
+3. **Icons row rendered above row A** — every `buildNumbersCardSet`,
+   `buildAbcCardSet`, `buildCustomCardSet` now calls
+   `renderIconsRow(container, setName)` first. The row contains two
+   subsections (Find / Catch) and is collapsible. Default state:
+   collapsed.
+4. **Icon cards are isolated from existing card logic** — `.icon-card`
+   does **not** include `.library-card`, so every existing selector
+   that iterates `.library-card` (save, arrange, drag, copy,
+   group-edit, …) skips them automatically. Icon cards live inside
+   `.library-icons-section` rather than `.library-row`.
+5. **Toolbar** — `MPP` button in Game Creator renamed to **IC** (same
+   handler, new wording). A new **IC** button in the Card Maker
+   toolbar (between `+` and `GM`) toggles the visibility of all
+   Icons sections on the page via `toggleIconsRow()`.
+6. **CSS** — `.library-icons-section`, `.library-icons-header`,
+   `.icons-subsection[data-game-type]`, `.icon-card` (rendered at
+   `transform: scale(0.5)` with negative margins so neighbours don't
+   overlap), `.icon-size-badge` (top-left, size class), and
+   `.icon-template-badge` (top-right, "template" tag).
+
+### Files touched
+- `pm-studio-DrV.html` — IC button, MPP→IC rename, template + storage
+  layer, `renderIconsRow`, hooks in three build functions.
+- `css/style.css` — new Icons row styles (cache buster
+  `?v=icons-row-1`).
+- `index.html` — cache buster only.
+
+### Not in Phase 1.1 (deferred)
+- Drag/copy/scale of template → user icon (Phase 2)
+- Loupe inset preview for icons (Phase 3)
+- Game Creator size-class slot filter (Phase 4)
+- IC slot drag-and-drop (only L1→L1, etc.) (Phase 4)
 
 ---
 

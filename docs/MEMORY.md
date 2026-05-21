@@ -1,5 +1,124 @@
 # Vica Domino Project Memory
-**Last Updated**: May 13, 2026 (evening)
+**Last Updated**: May 20, 2026
+
+---
+
+## May 19–20, 2026 — IC (Icons' Creator) system shipped end-to-end
+
+**The big architectural pivot of this period.** Replaced the old
+"MPP" (Main Page Pictures) flow — which tried to render arbitrary
+Card-Maker cards inside Catch bubbles and kept fighting clip/viewBox
+math — with a dedicated icon authoring + assignment pipeline. See
+`docs/STATUS_NOTES.md` for the full play-by-play. Durable facts:
+
+### Storage model
+
+```
+localStorage:
+  customDrawnIcons_<setName>   ← icon pool per card set
+                                 (parallel to customDrawnCards_<setName>)
+  game.icons = [{uid, setName, sizeClass}, …]
+                                 ← explicit per-game icon pool
+                                   (capped 4 per size class → 24 total)
+
+In-game slot assignment lives on game.mainPageDominos.<level>[idx]:
+  Catch: slot.icon = {uid, setName, svgContent, sizeClass, cardShape, …}
+  Find:  slot.iconTop / slot.iconBottom (per half)
+```
+
+### Size classes (`ICON_SIZE_CLASSES`)
+
+```
+L1: 42 units (~49 px)   S1: 25 (~29 px)
+L2: 36       (~42 px)   S2: 21 (~25 px)
+L3: 30       (~35 px)   S3: 17 (~20 px)
+```
+
+Find icons are rounded squares (`cardShape:'square'`, cornerR:15).
+Catch icons are circles (cornerR = round(w/2)). `_buildIconCardElement`
+derives dimensions from `ICON_SIZE_CLASSES[sizeClass]` at render
+time — stored `cardShapeW` is fallback only. `_migrateIconSizes`
+snaps any drifted sizes back on load. Templates are versioned via
+`ICON_TEMPLATE_VERSION` (currently `3`).
+
+### Editor reuse
+
+Double-click a user icon → opens the **existing** loupe + draw-mode
+editor (NOT a separate modal — the user vetoed that). Two adapters:
+- `_openIconForEdit(card)` normalizes the icon to 60×60 for the
+  loupe, stashes the original shape on private dataset attrs.
+- `closeLoupe` icon-hook restores the icon's authored shape +
+  size class before persisting, then writes `svgContent` back to
+  `customDrawnIcons_<setName>`.
+
+Editor toolbar during icon edit:
+- `#draw-shape-row` hidden (shape locked by size class).
+- Real-size preview docked as first child of `#draw-tools-panel`,
+  live-mirrored via MutationObserver.
+
+### Icon → Game migration
+
+Explicit only. No inference from card sets. Each user icon has a
+blue `→G` button that opens a picker listing eligible games (type-
+matching). Each row shows `Game Name · L1 2/4`. `_iconAddToGame`
+returns `'added'`, `'duplicate'`, or `'full'`. Pool dedupes by uid.
+
+### Start-page rendering
+
+Four renderers in `index.html` all prefer `slot.icon` over the
+card-based path:
+- `_introCatchIconSVG` / `_introFindIconSVG` (tile previews)
+- `_fillCatchLevelBubbles` (Catch level-selection bubbles)
+- `updateLevelDominoIcons` (Find level-selection dominos)
+
+**Critical detail**: each icon-render path defines a LOCAL clipPath
+inside the nested `<svg>` (circle at 30,30 r=30 in icon's 0–60
+coords). The bubble's pre-existing clipPath uses outer-SVG user
+space; reusing it on the inner SVG re-interprets coords and
+off-centers the clip, chopping icon tops. Always local.
+
+### Safe Haven for icons
+
+Soft-delete via `_trashed=true` flag. Icon stays at the same
+`{uid, setName}` so game.icons refs keep resolving (but are
+filtered out in renders + IC panel). Safe Haven card set surfaces
+all trashed icons across all sets via `_gatherTrashedIcons()`.
+- `_restoreIcon(uid, setName)` clears the flag.
+- `_purgeIcon(uid, setName)` permanent-deletes AND strips orphan
+  game.icons refs.
+
+### Defensive Start Game guarantee (May 20 fix)
+
+`_ensureStartButton(playerNamesDiv)` in `js/game.js`. Called at:
+- end of `renderInlinePlayerNames` (non-xeno branch)
+- inside its idempotency early-return branch too
+- end of `selectPlayerCount` (non-xeno branch)
+- final safety net in `_applyGameSetupToPlayerScreen` (index.html)
+
+Helper moves the button back to #player-names + clears inline
+display/visibility/hidden; if truly gone, recreates with a fresh
+click handler. The Catch interceptor in `index.html` now uses
+DOCUMENT-LEVEL capture delegation (via `e.target.closest`) so
+button recreations don't lose it.
+
+### Decisions worth keeping
+
+1. **One editor, not two.** Trust the user's instinct when they
+   say "we already have this".
+2. **`sizeClass` is the source of truth at render time** — stored
+   `cardShapeW` is a hint that can go stale.
+3. **Inner-SVG clipPaths must use inner coords** (not outer-SVG
+   user space).
+4. **Explicit migration beats implicit inference** for cross-
+   subsystem data flow (icons → games).
+5. **Defensive guards beat hunt-the-bug** when the root cause is
+   elusive — guard every render path.
+
+### Cache busters at end of arc
+- `css/style.css?v=icons-p5-1`
+- `js/game.js?v=ensure-start-2`
+
+---
 
 ## May 13, 2026 evening — First local-Mac session: toolchain + 3 ships + ABC migration
 

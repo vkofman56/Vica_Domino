@@ -1,8 +1,224 @@
 # Vica Domino - Project Status Notes
-**Date**: May 19, 2026
+**Date**: May 20, 2026
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 500+
-**Codebase Size**: ~15,864 lines across 4 main files
+**Total Commits**: 530+
+**Codebase Size**: ~16,400 lines across 4 main files
+
+---
+
+## May 19–20, 2026 — IC (Icons' Creator) system: end-to-end, all phases ✅
+
+A multi-day arc replacing the old "MPP" (Main Page Pictures) flow
+with a dedicated icon authoring + assignment pipeline. Background:
+multiple earlier attempts to render arbitrary Card-Maker cards
+inside circular Catch bubbles kept fighting `viewBox` / `clipPath`
+math; the user got fed up and proposed a new architecture where
+icons are first-class assets purpose-built for the round bubbles,
+authored separately from regular cards.
+
+### Final architecture
+
+**Storage**
+- Icons live in `customDrawnIcons_<setName>` per card set
+  (parallel to `customDrawnCards_*`). Each icon is a card-shaped
+  record `{uid, sizeClass, gameType, cardShape, cardShapeW/H,
+  cardCornerR, svgContent, …}`.
+- Games hold an explicit pool of icon refs: `game.icons =
+  [{uid, setName, sizeClass}, …]`. Per-game-per-size cap of **4**
+  for every L1/L2/L3/S1/S2/S3 → 24 icons total per game.
+- IC slot assignments live on `game.mainPageDominos.<level>[idx]`
+  alongside the card-based fields:
+  - Catch: `slot.icon = {uid, setName, svgContent, sizeClass, …}`
+  - Find:  `slot.iconTop` / `slot.iconBottom` (per half)
+
+**Size classes (`ICON_SIZE_CLASSES`, `cardShapeW` units → ~px)**
+```
+L1: 42 (~49 px)    S1: 25 (~29 px)
+L2: 36 (~42 px)    S2: 21 (~25 px)
+L3: 30 (~35 px)    S3: 17 (~20 px)
+```
+Find icons are rounded squares (`cardShape:'square'`, cornerR:15).
+Catch icons are circles (cornerR: round(w/2)). Width is the
+SOURCE OF TRUTH derived from `sizeClass` at render time — stored
+`cardShapeW` is fallback only. Migration `_migrateIconSizes` snaps
+any stale sizes back on load.
+
+**Card Maker UI (top of every card set)**
+- "Icons" row with two subsections: "Find the Double" + "Catch
+  the Bubble". Collapsible. New `IC` toolbar button toggles all
+  sections.
+- 7 seeded templates per set (1 Find + 6 Catch). Versioned via
+  `ICON_TEMPLATE_VERSION = 3`; bumps swap templates on next open
+  while preserving user icons.
+- Templates: gold dashed border + size-class pill in centre +
+  "template" caption.
+- User icons: solid cyan border + size-class caption underneath
+  + actual artwork visible (no overlay).
+- Per-card buttons (hover-reveal, hug the preview corners):
+  - Green ⧉ copy (every icon)
+  - Red ✕ delete → moves to Safe Haven (user icons only)
+  - Blue →G send-to-game (user icons only)
+  - In Safe Haven: green ↷ restore + red ✕ permanent-delete
+
+**Icon Editor** — reuses the existing loupe + draw-mode pipeline,
+NOT a separate modal (user vetoed the modal). Adapters:
+- `_openIconForEdit(card)` normalizes the icon to 60×60 for the
+  loupe, calls `openLoupe(card)` + `toggleDrawMode()`.
+- `closeLoupe` icon-hook restores the icon's authored shape +
+  size class before saving (the loupe would otherwise clobber
+  them with its working 60×60 values), then writes `svgContent`
+  back to `customDrawnIcons_<setName>`.
+- Editor toolbar customizations during icon edit:
+  - `#draw-shape-row` hidden (shape locked by size class).
+  - Real-size preview docked as first child of `#draw-tools-panel`
+    (dashed gold border, mirrors the loupe canvas live via
+    `MutationObserver`). Travels with the toolbar as one drag unit.
+
+**Icon-to-Game migration**
+- Blue →G button on user icons opens a small popup anchored to
+  the button.
+- Lists eligible games (matching gameType). Each row shows
+  `Game Name · L1 2/4` (current pool count / cap). Rows are
+  disabled with explanatory suffix when this exact icon is
+  already in the game (`✓ this exact icon already in game`) or
+  the size-class pool is full (`L1 pool is full (4/4)`).
+- Footer hint reminds the user: "Need more L1 candidates? Copy
+  the L1 template (green ⧉) to make another, then click →G again."
+
+**IC panel (Game Creator)**
+- Renamed from "Main Page Pictures" to "IC — Icons' Creator".
+- Renders `game.icons` (NOT inferred from card sets) as a row of
+  thumbnails, sized to match Card-Maker sizes (L1 49 px → S3
+  20 px), bottom-aligned, sorted L1 → S3.
+- Each thumbnail has a × remove button that strips the ref from
+  `game.icons` and clears any IC slot currently using that icon.
+- Size-class enforcement: clicking a slot dims thumbnails that
+  don't match the slot's size class (`L1` bubble → only L1 icons
+  clickable). Mismatched click → 350 ms red ring flash, no-op.
+- Slot assignment writes a self-contained icon descriptor
+  (svgContent + shape + size) so the start page can render
+  without re-resolving the source icon.
+
+**Start-page rendering** — four renderers updated in `index.html`:
+- `_introCatchIconSVG` (game tile, 2 bubbles)
+- `_introFindIconSVG` (game tile, 2 dominos × top/bottom)
+- `_fillCatchLevelBubbles` (level-selection screen, all bubbles)
+- `updateLevelDominoIcons` (Find level-selection, all dominos)
+All four prefer `slot.icon` / `slot.iconTop` / `slot.iconBottom`
+over the card-based path. Icons render with a LOCAL clipPath
+(circle at 30,30 r=30 inside the icon's own 0–60 viewBox) to
+avoid the off-center clipping bug that chopped icon tops when
+the bubble's outer-coords clipPath got reinterpreted in inner-
+SVG coords.
+
+**Safe Haven for icons**
+- Soft-delete: `_deleteIcon` flips `_trashed=true` + sets
+  `_trashedFrom`. Icon stays at the same `{uid, setName}` so
+  `game.icons` refs keep resolving (but are filtered out
+  everywhere a "live" icon would render).
+- Safe Haven card set renders a special "Icons Trash" row that
+  gathers `_trashed` icons across every set via
+  `_gatherTrashedIcons()`.
+- ↷ restore clears the flag; ✕ purge permanent-deletes AND
+  strips orphan refs from every `game.icons` array.
+
+### What was explicitly skipped
+- **Phase 3 (loupe inset preview)** — superseded by the real-size
+  preview docked in the draw toolbar during icon edit.
+- **Voice names on icons** — user said not needed.
+- **Cross-device export** — `game.icons` refs are local; a slot's
+  full descriptor on `mainPageDominos` does travel.
+
+### Decisions worth remembering
+
+1. **One editor, not two.** Earliest Phase 2.2 cut shipped a
+   standalone modal for icons. User pushed back; we deleted the
+   modal and adapted the existing loupe. Lesson: when the user's
+   intuition says "we already have a thing for this", trust it
+   and find the integration cost, even if it looks higher.
+
+2. **`sizeClass` is the source of truth at render time.** Stored
+   `cardShapeW` is a hint that can go stale (and did, multiple
+   times, across buggy save paths). `_buildIconCardElement` now
+   derives dimensions from `ICON_SIZE_CLASSES[sizeClass]` directly.
+
+3. **Inner-SVG clipPaths must use inner coords.** The bubble's
+   pre-existing clipPath uses outer-SVG user space (e.g. cx=35
+   for big circle slot 0). Applying it to a nested `<svg>` with
+   its own `0 0 60 60` viewBox re-interprets `(35, 40)` as inner
+   coords — off-center from `(30, 30)`. Always define a local
+   `<defs><clipPath>` inside the nested SVG.
+
+4. **Explicit migration > implicit inference.** First IC-panel
+   cut auto-pulled icons from every card set the game touched.
+   User: "without transferring icons from card maker to game
+   creator, the cards should not be moving here." Replaced with
+   the explicit `→G` button + `game.icons` pool.
+
+5. **Defensive guards beat hunt-the-bug.** Last task of the arc
+   was the "Start Game button missing on GPt C42" report.
+   Couldn't pinpoint the upstream culprit; instead added
+   `_ensureStartButton` to every render path of the player
+   setup, including the idempotency early-return + a final
+   safety net at the end of `_applyGameSetupToPlayerScreen`.
+   Plus moved the Catch interceptor to document-level
+   delegation so recreations don't lose the click handler.
+
+### Commit highlights (May 19–20, in order)
+
+```
+bb10bec  Game Creator: row letters + +Row button
+122393d  freeze: honor red/green dot placement always
+2bb8ad5  rename Freeze/Float to Red/Green dot
+…  (multiple MPP-rendering attempts, all rolled into the IC rewrite)
+fb60a6e  feat(card-maker): add Icons row foundation [Phase 1.1]
+7c2ad9f  fix(icons): templates shaped + sized correctly, labels readable
+560a8ce  fix(icons): force-show icon labels in compact-view
+a59f306  fix(icons): 70% size, full game names, size label inside card
+9500aaa  feat(icons): copy + delete on icon cards [Phase 2.1]
+f7c4f86  fix(icons): user icons show size class below, no overlay pill
+afe0d13  feat(icons): Icon Editor modal — text + stamp [Phase 2.2]
+6e3a22b  refactor(icons): reuse the regular Card editor (modal deleted)
+2650c0d  fix(icons): normalize to 60x60 in loupe; restore size on close
+bcb9a98  fix(icons): migrate user-icon shapes back to size-class dims
+6e4694f  fix(icons): size from sizeClass at render time
+38dc12d  fix(icons): exclude icon previews from applyLibZoom
+e6724f1  feat(ic): icons in IC panel + Catch bubble assignment [Phase 4.1]
+e615262  fix(ic): inner-local clipPath for icon-in-bubble (no top crop)
+a17d677  fix(ic): scope to game's card sets + size thumbnails by sizeClass
+b6e0c23  feat(ic): size-class enforcement [Phase 4.2]
+25247c9  feat(ic): explicit icon→game migration via send button + game.icons
+2d40103  feat(start-page): render assigned icons in real bubbles [Phase 4.3]
+b757485  fix(ic): render iconTop/iconBottom in Find panel
+55347af  feat(ic): disable shape controls during icon edit
+a2d70aa  feat(ic): real-size preview pinned to loupe during icon edit
+2ed8aef  feat(ic): per-game-per-size-class icon caps (L=3, S=4)
+0b513c9  fix(ic): caps total 24; clearer 'already added' messaging
+6ba03e9  feat(ic): dock real-size preview at top of toolbar; hide shape row
+6d242c5  feat(ic): Safe Haven for icons (soft-delete + restore + purge)
+b8a4452  fix(setup): defensive _ensureStartButton — Start Game never missing
+f2b70e6  fix(setup): ensure Start Game on every render path
+```
+
+### Cache-buster trail
+- CSS: `icons-row-1` → `icons-row-2` → `icons-row-3` → `icons-row-4`
+  → `icons-p2-1` → … → `icons-p4-12` → `icons-p5-1`
+- `js/game.js`: `lock-halves-1` → `ensure-start-1` → `ensure-start-2`
+
+### Files touched
+- `pm-studio-DrV.html` — bulk of new code: templates, storage,
+  icon row, picker popup, IC panel icons section, Safe Haven
+  rendering, `_iconAddToGame` / `_iconRestoreFromSafeHaven` /
+  `_purgeIcon` / `_gameIconCountBySize` etc.
+- `index.html` — start-page icon renderers (4 places), Catch
+  interceptor delegation, `_applyGameSetupToPlayerScreen` safety
+  net, cache busters.
+- `js/game.js` — `_ensureStartButton` + hooks in
+  `renderInlinePlayerNames` and `selectPlayerCount`.
+- `css/style.css` — entire `.icon-card`, `.icon-real-size-*`,
+  `.icon-game-picker`, `.mpp-icons-*`, `.mpp-icon-thumb-*`,
+  `.icon-send-btn`, `.icon-restore-btn`, `.icon-purge-btn`
+  blocks.
 
 ---
 

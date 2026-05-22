@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:42 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3724,26 +3724,78 @@
         // --- Selection helpers ---
         function getElementPos(el) {
             var tag = el.tagName.toLowerCase();
-            if (tag === 'circle') return { x: +el.getAttribute('cx'), y: +el.getAttribute('cy') };
-            if (tag === 'text') return { x: +el.getAttribute('x'), y: +el.getAttribute('y') };
+            if (tag === 'circle' || tag === 'ellipse') {
+                return { x: +(el.getAttribute('cx') || 0), y: +(el.getAttribute('cy') || 0) };
+            }
+            if (tag === 'text' || tag === 'rect' || tag === 'image' || tag === 'use') {
+                return { x: +(el.getAttribute('x') || 0), y: +(el.getAttribute('y') || 0) };
+            }
             if (tag === 'g') {
                 var t = el.getAttribute('transform') || '';
                 var m = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
                 if (m) return { x: +m[1], y: +m[2] };
                 return { x: 0, y: 0 };
             }
+            // path / line / polygon / polyline: position is tracked via
+            // data-pos-x/y, separate from the element's intrinsic transform
+            // (which may be a centered-scale chain we mustn't disturb).
+            var px = el.getAttribute('data-pos-x');
+            var py = el.getAttribute('data-pos-y');
+            if (px !== null && py !== null) return { x: +px, y: +py };
             return { x: 0, y: 0 };
         }
         function setElementPos(el, x, y) {
             var tag = el.tagName.toLowerCase();
-            if (tag === 'circle') { el.setAttribute('cx', x); el.setAttribute('cy', y); }
-            else if (tag === 'text') { el.setAttribute('x', x); el.setAttribute('y', y); }
-            else if (tag === 'g') {
+            if (tag === 'circle' || tag === 'ellipse') {
+                el.setAttribute('cx', x); el.setAttribute('cy', y); return;
+            }
+            if (tag === 'text' || tag === 'rect' || tag === 'image' || tag === 'use') {
+                el.setAttribute('x', x); el.setAttribute('y', y); return;
+            }
+            if (tag === 'g') {
                 var t = el.getAttribute('transform') || '';
                 var newT = t.replace(/translate\([^)]*\)/, 'translate(' + x + ',' + y + ')');
                 if (newT === t && t.indexOf('translate') < 0) newT = 'translate(' + x + ',' + y + ') ' + t;
                 el.setAttribute('transform', newT);
+                return;
             }
+            // path / line / polygon / polyline: stash the element's
+            // ORIGINAL transform once into data-base-transform (its
+            // intrinsic shape — often a centered-scale chain like
+            // "translate(0,30) scale(...) translate(0,-30)"), record the
+            // new position, then let _rebuildPathTransform compose pos +
+            // intrinsic + user-scale into the rendered transform so neither
+            // position nor scale steps on the other.
+            if (!el.hasAttribute('data-base-transform')) {
+                el.setAttribute('data-base-transform', el.getAttribute('transform') || '');
+            }
+            el.setAttribute('data-pos-x', x);
+            el.setAttribute('data-pos-y', y);
+            _rebuildPathTransform(el);
+        }
+        // Single source of truth for path/line/polygon/polyline transforms:
+        // composes position (outer translate) + intrinsic base + user scale
+        // around the captured bbox center. Called from setElementPos and
+        // applySizeToElement so the two never overwrite each other.
+        function _rebuildPathTransform(el) {
+            var base = el.getAttribute('data-base-transform') || '';
+            var posX = +(el.getAttribute('data-pos-x') || 0);
+            var posY = +(el.getAttribute('data-pos-y') || 0);
+            var s    = +(el.getAttribute('data-user-scale') || 1);
+            var scx  = +(el.getAttribute('data-scale-cx') || 0);
+            var scy  = +(el.getAttribute('data-scale-cy') || 0);
+            var parts = [];
+            if (posX !== 0 || posY !== 0) parts.push('translate(' + posX + ',' + posY + ')');
+            if (base) parts.push(base);
+            if (s !== 1) {
+                // Scale around the path's local bbox center so resizing
+                // doesn't drift the element. Applied INSIDE base so the
+                // intrinsic (centered-scale-y) chain stays a pure squeeze.
+                parts.push('translate(' + scx + ',' + scy + ')');
+                parts.push('scale(' + s + ')');
+                parts.push('translate(' + (-scx) + ',' + (-scy) + ')');
+            }
+            el.setAttribute('transform', parts.join(' '));
         }
         var selectableTags = { circle:1, text:1, line:1, ellipse:1, path:1, rect:1, polygon:1, polyline:1, image:1, use:1 };
         function isSelectableElement(el) {
@@ -3996,6 +4048,11 @@
                 drawFontFamily = ff;
                 document.getElementById('draw-font-select').value = ff;
                 updateFontButtonLabel();
+            } else if (tag === 'path' || tag === 'line' || tag === 'polygon' || tag === 'polyline') {
+                // Paths persist their slider state in data-draw-size; if
+                // never scaled (legacy content), default to 30 = the 1x
+                // baseline used by the path branch of applySizeToElement.
+                sz = +el.getAttribute('data-draw-size') || 30;
             }
             if (!sz) sz = 30;
             if (sz > 100) sz = 100;
@@ -4126,6 +4183,36 @@
                 el.setAttribute('data-draw-size', sz);
                 el.setAttribute('data-over-scale', drawOverScale);
                 el.setAttribute('data-over-scale-max', drawOverScaleMax);
+            } else if (tag === 'path' || tag === 'line' || tag === 'polygon' || tag === 'polyline') {
+                hasEditedExisting = true;
+                // Capture intrinsic state once. data-base-transform may already
+                // be set if the path was dragged before being scaled.
+                if (!el.hasAttribute('data-base-transform')) {
+                    el.setAttribute('data-base-transform', el.getAttribute('transform') || '');
+                }
+                if (!el.hasAttribute('data-scale-cx')) {
+                    // getBBox returns local d-coord bbox (pre-transform), so the
+                    // center is in the same space scale() operates in. Captured
+                    // once so resizing always pivots around the path's original
+                    // visual center rather than drifting with each adjustment.
+                    try {
+                        var b = el.getBBox();
+                        el.setAttribute('data-scale-cx', b.x + b.width / 2);
+                        el.setAttribute('data-scale-cy', b.y + b.height / 2);
+                    } catch (e) {
+                        el.setAttribute('data-scale-cx', 30);
+                        el.setAttribute('data-scale-cy', 30);
+                    }
+                }
+                // Baseline: sz=30 → 1x. Slider up scales proportionally, down
+                // shrinks. Paths have no intrinsic "size unit" so we pick a
+                // sensible neutral and let the slider drive from there.
+                var s = (sz * drawOverScale) / 30;
+                el.setAttribute('data-user-scale', s);
+                el.setAttribute('data-draw-size', sz);
+                el.setAttribute('data-over-scale', drawOverScale);
+                el.setAttribute('data-over-scale-max', drawOverScaleMax);
+                _rebuildPathTransform(el);
             }
         }
         // Apply size to all selected elements
@@ -4138,7 +4225,8 @@
                 _pushLoupeAttrHistory(all, [
                     'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2',
                     'font-size', 'stroke-width', 'transform',
-                    'data-draw-size', 'data-over-scale', 'data-over-scale-max'
+                    'data-draw-size', 'data-over-scale', 'data-over-scale-max',
+                    'data-user-scale', 'data-scale-cx', 'data-scale-cy', 'data-base-transform'
                 ]);
             }
             for (var i = 0; i < all.length; i++) {
@@ -4910,7 +4998,7 @@
                 if (!isDragging || !selectedElement) return;
                 // Undo: on first mousemove of a drag, capture pre-drag position state
                 if (_loupeStartCoalesce('drag')) {
-                    _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform']);
+                    _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform', 'data-pos-x', 'data-pos-y', 'data-base-transform']);
                 }
                 var rect = container.getBoundingClientRect();
                 var rawX = ((e.clientX - rect.left) / rect.width) * 60;
@@ -4998,7 +5086,7 @@
                 if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                     // Undo: capture pre-nudge position state once per rapid arrow-key session
                     if (_loupeStartCoalesce('arrow')) {
-                        _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform']);
+                        _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform', 'data-pos-x', 'data-pos-y', 'data-base-transform']);
                     }
                 }
                 if (e.key === 'ArrowLeft') {
@@ -6111,7 +6199,17 @@
         var _ctxMenu = null;
         var _ctxSub = null;
         function _ctxClose() {
-            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            if (_ctxSub) {
+                // Walk back through any cascading parent submenus (e.g. L3 → L2)
+                // so the whole chain tears down, not just the deepest level.
+                var cur = _ctxSub;
+                while (cur) {
+                    var next = cur._parentSub;
+                    cur.remove();
+                    cur = next;
+                }
+                _ctxSub = null;
+            }
             if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
         }
         function _ctxItem(icon, label, onClick, cls) {
@@ -6420,6 +6518,152 @@
             // as the cursor arrives, so crossing 8px of dead space no
             // longer kills the submenu.
             _ctxPosition(sub, pr.right + 8, pr.top);
+        }
+
+        // ---- Copy to icons (game type → size class, within current set) ----
+        // The destination is ALWAYS the active card set's icon row — copying
+        // a card across sets is not a flow we support here. Single-card or
+        // group: each source card becomes its own new user icon (non-template)
+        // entry in the set's icon line. No caps — the icon line is shared
+        // across multiple games of the same card set.
+        function _ctxCopyCardOrSelectionToIconSlot(card, targetSetName, gameType, sizeClass) {
+            if (!targetSetName || !gameType || !sizeClass) return;
+            var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
+                       || (groupEditActive && groupEditSelected.length >= 1);
+            var copied = 0;
+            if (isGroup) {
+                groupEditSelected.slice().forEach(function(c) {
+                    if (c && _copyCardToIconSlot(c, targetSetName, gameType, sizeClass)) copied++;
+                });
+            } else if (_copyCardToIconSlot(card, targetSetName, gameType, sizeClass)) {
+                copied = 1;
+            }
+            // If the user is looking at the target set right now, the icon
+            // row needs a re-render so the new icons appear immediately.
+            if (copied > 0 && targetSetName === activeCardSet && typeof renderIconsRow === 'function') {
+                var containerId = isCustomCardSet(activeCardSet) ? 'card-set-custom'
+                                : (activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
+                var container = document.getElementById(containerId);
+                if (container) renderIconsRow(container, targetSetName);
+            }
+            if (copied > 0 && typeof _geFlash === 'function') {
+                var gameLabel = (gameType === 'find') ? 'Find' : 'Catch';
+                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName + ' icons (' + gameLabel + ' ' + sizeClass + ')');
+            }
+        }
+
+        // Shared hover handoff for the icon-slot submenu chain: each level's
+        // mouseleave schedules a delayed close on its own submenu, and the
+        // child's mouseenter cancels it. Lifted into a helper because the
+        // 3-level chain repeats the pattern that copy-to-set inlines once.
+        function _wireIconSlotSubmenuHover(sub) {
+            sub.addEventListener('mouseenter', function() {
+                if (sub._pendingClose) { clearTimeout(sub._pendingClose); sub._pendingClose = null; }
+            });
+            sub.addEventListener('mouseleave', function() {
+                var guardedSub = sub;
+                sub._pendingClose = setTimeout(function() {
+                    if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                        _ctxSub.remove(); _ctxSub = null;
+                    }
+                }, 200);
+            });
+        }
+
+        // Resolve the menu container that holds the given item, so cascading
+        // submenus can dock against the parent CONTAINER's right edge rather
+        // than the item's right edge — which leaves a 15-25px visible gap
+        // when the menu has any horizontal padding/border.
+        function _ctxParentMenuRect(parentItem) {
+            var menuEl = parentItem.closest('.ctx-menu-sub') || parentItem.closest('.ctx-menu') || parentItem.parentNode;
+            return menuEl ? menuEl.getBoundingClientRect() : parentItem.getBoundingClientRect();
+        }
+
+        // Top-level: pick the game type (Find / Catch). The destination set
+        // is always the current activeCardSet — there is no cross-set picker.
+        // For Find we copy immediately into L1 (the only slot Find has); for
+        // Catch we open the size-class picker.
+        function _ctxShowCopyToIconSlotGameTypeSubmenu(card, parentItem, targetSetName) {
+            // CAPTURE the parent's position BEFORE removing _ctxSub — if
+            // parentItem lives inside the about-to-be-removed submenu, its
+            // bounding rect collapses to 0,0 once detached and the new
+            // submenu would render in the top-left of the screen.
+            var pr = parentItem.getBoundingClientRect();
+            var menuRect = _ctxParentMenuRect(parentItem);
+            if (_ctxSub) { _ctxSub.remove(); _ctxSub = null; }
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+
+            var findItem = _ctxItem('', 'Find the Double  (L1)', function() {
+                _ctxCopyCardOrSelectionToIconSlot(card, targetSetName, 'find', 'L1');
+            });
+            sub.appendChild(findItem);
+
+            var catchItem = _ctxItem('', 'Catch the Bubble…', null, 'has-sub');
+            catchItem.addEventListener('mouseenter', function() {
+                _ctxShowCopyToIconSlotSizeSubmenu(card, catchItem, targetSetName, 'catch');
+            });
+            catchItem.addEventListener('mouseleave', function() {
+                var guardedSub = _ctxSub;
+                if (!guardedSub) return;
+                guardedSub._pendingClose = setTimeout(function() {
+                    if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                        _ctxSub.remove(); _ctxSub = null;
+                    }
+                }, 200);
+            });
+            sub.appendChild(catchItem);
+
+            _ctxSub = sub;
+            _wireIconSlotSubmenuHover(sub);
+            // Dock against the parent menu's right edge + 2px gap.
+            _ctxPosition(sub, menuRect.right + 2, pr.top);
+        }
+
+        // Level 3: pick the size class. Only opens for Catch (Find auto-skips
+        // this level). Lists L1/L2/L3 (big circles) and S1/S2/S3 (small) in
+        // the canonical descending-size order.
+        // Unlike single-level submenus, L3 KEEPS its parent L2 visible —
+        // standard cascading-menu UX. Tracks _parentSub so close logic can
+        // walk the chain and clean L2 up when L3 closes.
+        function _ctxShowCopyToIconSlotSizeSubmenu(card, parentItem, targetSetName, gameType) {
+            var pr = parentItem.getBoundingClientRect();
+            var parentSubmenu = parentItem.closest('.ctx-menu-sub');
+            var menuRect = _ctxParentMenuRect(parentItem);
+            // Remove any OTHER submenu (e.g. a stale sibling chain), but not
+            // the L2 we're cascading from.
+            if (_ctxSub && _ctxSub !== parentSubmenu) { _ctxSub.remove(); _ctxSub = null; }
+            var sub = document.createElement('div');
+            sub.className = 'ctx-menu-sub';
+            sub._parentSub = parentSubmenu;
+            var sizes = ['L1', 'L2', 'L3', 'S1', 'S2', 'S3'];
+            sizes.forEach(function(sz) {
+                var meta = ICON_SIZE_CLASSES[sz];
+                var labelText = sz + (meta ? '  (ø ' + meta.w + ')' : '');
+                var item = _ctxItem('', labelText, function() {
+                    _ctxCopyCardOrSelectionToIconSlot(card, targetSetName, gameType, sz);
+                });
+                sub.appendChild(item);
+            });
+            _ctxSub = sub;
+            // Custom hover handoff: leaving L3 also tears down L2, unless
+            // the cursor moved back into L2 in the meantime.
+            sub.addEventListener('mouseenter', function() {
+                if (sub._pendingClose) { clearTimeout(sub._pendingClose); sub._pendingClose = null; }
+            });
+            sub.addEventListener('mouseleave', function() {
+                var guardedSub = sub;
+                sub._pendingClose = setTimeout(function() {
+                    if (_ctxSub === guardedSub && !guardedSub.matches(':hover')) {
+                        if (parentSubmenu && !parentSubmenu.matches(':hover')) {
+                            parentSubmenu.remove();
+                        }
+                        guardedSub.remove();
+                        _ctxSub = null;
+                    }
+                }, 200);
+            });
+            _ctxPosition(sub, menuRect.right + 2, pr.top);
         }
 
         function _ctxShowCopySubmenu(card, parentItem) {
@@ -6736,6 +6980,22 @@
                     }, 200);
                 });
                 menu.appendChild(copyToSetItem);
+                // Skip in Safe Haven \u2014 trashed cards don't belong to an active
+                // set's icon row, so there's nothing meaningful to copy into.
+                if (activeCardSet !== 'Safe Haven') {
+                    var copyToIconSlotItem = _ctxItem('\u25ce', _ctxIsGroup ? ('Copy ' + _ctxN + ' to icons\u2026') : 'Copy to icons\u2026', null, 'has-sub');
+                    copyToIconSlotItem.addEventListener('mouseenter', function() { _ctxShowCopyToIconSlotGameTypeSubmenu(card, copyToIconSlotItem, activeCardSet); });
+                    copyToIconSlotItem.addEventListener('mouseleave', function() {
+                        var guardedSub = _ctxSub;
+                        if (!guardedSub) return;
+                        guardedSub._pendingClose = setTimeout(function() {
+                            if (_ctxSub && _ctxSub === guardedSub && !_ctxSub.matches(':hover')) {
+                                _ctxSub.remove(); _ctxSub = null;
+                            }
+                        }, 200);
+                    });
+                    menu.appendChild(copyToIconSlotItem);
+                }
                 menu.appendChild(_ctxItem('\u2717', _ctxIsGroup ? ('Delete (' + _ctxN + ')') : 'Delete', function() {
                     if (_ctxIsGroup) geActionErase();
                     else confirmDeleteCard(card);
@@ -8321,6 +8581,48 @@
             existing.push(cardData);
             localStorage.setItem(targetKey, JSON.stringify(existing));
             return true;
+        }
+
+        // Copy a regular card into a target set's icon line as a new user
+        // icon (non-template). The target slot (gameType + sizeClass) dictates
+        // the icon's geometry; the source card's svgContent rides over verbatim.
+        // The icon renderer auto-fits via its fixed 0 0 60 60 viewBox so no
+        // SVG transformation is needed — the editor reopens the art at full
+        // 60-unit scale per _openIconForEdit's canvas promotion.
+        function _copyCardToIconSlot(card, targetSetName, gameType, sizeClass) {
+            if (!targetSetName || !gameType || !sizeClass) return false;
+            var svg = card.querySelector('svg');
+            if (!svg) return false;
+            var sc = ICON_SIZE_CLASSES[sizeClass];
+            if (!sc) return false;
+            var shape   = (gameType === 'catch') ? 'circle' : 'square';
+            var cornerR = (shape === 'circle') ? Math.round(sc.w / 2) : 15;
+            var descEl  = card.querySelector('.library-desc');
+            var srcDesc = (descEl && descEl.textContent) ? descEl.textContent : '';
+            var icons = (typeof ensureIconTemplates === 'function')
+                ? ensureIconTemplates(targetSetName)
+                : (loadIconsForSet(targetSetName) || []);
+            var newIcon = {
+                label:       sizeClass,
+                desc:        srcDesc || 'icon',
+                gameType:    gameType,
+                sizeClass:   sizeClass,
+                svgContent:  svg.innerHTML,
+                cardShape:   shape,
+                cardShapeW:  sc.w,
+                cardShapeH:  sc.w,
+                cardCornerR: cornerR,
+                uid: (typeof generateCardUID === 'function')
+                    ? generateCardUID()
+                    : ('icon-' + Math.random().toString(36).slice(2)),
+                stableId: 'icon-' + gameType + '-' + sizeClass.toLowerCase() + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+                _isIcon:     true,
+                _isTemplate: false,
+                origin:      'copy',
+                copiedFrom:  activeCardSet
+            };
+            icons.push(newIcon);
+            return saveIconsForSet(targetSetName, icons);
         }
 
         function addRestoreButton(card) {
@@ -12174,14 +12476,22 @@
             _gsCaptureForm();
             var conf = _gsWorking[_gsCurrentTab];
             if (!conf || !conf[axis]) return;
-            var n = conf[axis].options.length + 1;
-            // Per-axis suffix default for newly-added rows.
-            // Levels: empty (admin fills in). Types: "Type N" matching prefix.
-            // Players: "Option N" (legacy free-form behavior).
+            // ID = max existing numeric suffix + 1, so deletes can't cause
+            // collisions ([opt1,opt2,opt3] – delete opt2 – add → opt4, not opt3).
+            // Label still tracks length+1 so the initial admin-editable text
+            // matches the positional prefix the row renders under.
+            var maxId = 0;
+            conf[axis].options.forEach(function(o) {
+                if (!o || typeof o.id !== 'string') return;
+                var m = o.id.match(/^opt(\d+)$/);
+                if (m) { var k = parseInt(m[1], 10); if (k > maxId) maxId = k; }
+            });
+            var nextId = maxId + 1;
+            var labelN = conf[axis].options.length + 1;
             var label = '';
-            if (axis === 'players') label = 'Option ' + n;
-            else if (axis === 'types') label = 'Type ' + n;
-            var newOpt = { id: 'opt' + n, label: label, on: false };
+            if (axis === 'players') label = 'Option ' + labelN;
+            else if (axis === 'types') label = 'Type ' + labelN;
+            var newOpt = { id: 'opt' + nextId, label: label, on: false };
             if (axis === 'types') {
                 newOpt.behavior = 'manual';
                 newOpt.voiceInput = false;
@@ -12197,6 +12507,18 @@
             var conf = _gsWorking[_gsCurrentTab];
             if (!conf || !conf[axis]) return;
             if (conf[axis].options.length <= 1) return; // Keep at least 1 row.
+            // Capture-form just synced the form into _gsWorking, so the option
+            // we're about to remove has the admin's current label / voice flags.
+            var opt = conf[axis].options[idx];
+            if (!opt) return;
+            var what = (axis === 'levels') ? 'Level ' : (axis === 'types' ? 'Type ' : 'Option ');
+            var labelText = (opt.label || '').trim();
+            var msg = 'Delete ' + what + (idx + 1) + (labelText ? ' ("' + labelText + '")' : '') + '?';
+            if (axis === 'types' && opt.voiceInput) {
+                msg += '\n\nVoice input is enabled on this Type — any custom trigger words will be lost.';
+            }
+            msg += '\n\nThis cannot be undone.';
+            if (!window.confirm(msg)) return;
             conf[axis].options.splice(idx, 1);
             _gsRenderForm();
         }
@@ -12337,7 +12659,7 @@
                         editBtn.type = 'button';
                         editBtn.className = 'gs-voice-edit-btn';
                         editBtn.title = 'Edit voice trigger words for this Type';
-                        editBtn.textContent = '✎ words';
+                        editBtn.textContent = '✎';
                         editBtn.disabled = !voiceCb.checked;
                         row.appendChild(editBtn);
 

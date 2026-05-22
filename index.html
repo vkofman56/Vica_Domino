@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -76,7 +76,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:42 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:02 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1647,46 +1647,74 @@
                     });
                 }
             }
-            // Level options — admin's enable/disable per option drives both
-            // visibility and the label override. Applies to Find AND Catch
-            // (Catch's level row gets its dominos→bubbles SVG/label swap
-            // later in goToMainPage; that code reads display:none correctly
-            // and only paints visible buttons).
+            // Level options — visible count == configured count (per spec).
+            // The 3 hand-crafted wrappers in the static HTML (data-level=
+            // circle / triangle / star, with elaborate 2/3/4-domino SVGs)
+            // are cached as templates on first call, then the container is
+            // rebuilt every render to match the admin's configured count.
+            // GAMEPLAY CAVEAT: game.js currently hardcodes the three tokens
+            // circle/triangle/star → 2/3/4 dominos (e.g. line ~1252). Levels
+            // BEYOND the first 3 get unique data-level tokens (L4, L5, ...)
+            // and reuse the "star" visual as a placeholder; their gameplay
+            // mechanics fall through to the 4-domino branch until the engine
+            // is extended. Visual count matches admin setup either way.
             if (conf.levels && Array.isArray(conf.levels.options)) {
+                var container = document.querySelector('#start-screen .game-level-select');
+                if (container && !container._origLevelWrappers) {
+                    container._origLevelWrappers = Array.from(container.children).map(function(w) {
+                        return w.cloneNode(true);
+                    });
+                }
+                var origs = (container && container._origLevelWrappers) || [];
+                var allLevelOpts = conf.levels.options.filter(function(o) { return o; });
+
+                if (container) {
+                    container.innerHTML = '';
+                    allLevelOpts.forEach(function(opt, i) {
+                        var template = origs[i] || origs[origs.length - 1];
+                        if (!template) return;
+                        var w = template.cloneNode(true);
+                        var btn = w.querySelector('.level-btn');
+                        if (btn) {
+                            btn.classList.remove('selected');
+                            if (i >= origs.length) {
+                                // Slot beyond the original 3 — give it a
+                                // unique token so the click handler can tell
+                                // levels apart. game.js gameplay falls
+                                // through to the 4-domino branch for these.
+                                btn.setAttribute('data-level', 'L' + (i + 1));
+                                btn.setAttribute('title', 'Level ' + (i + 1));
+                            }
+                        }
+                        w.classList.remove('is-static-text');
+                        w.style.display = '';
+                        var lbl = w.querySelector('.level-label');
+                        if (lbl && opt.label) lbl.textContent = opt.label;
+                        container.appendChild(w);
+                    });
+                }
+
                 var lws = document.querySelectorAll('#start-screen .level-btn-wrapper');
-                // Reset any previous static-text styling and restore button
-                // visibility before re-evaluating — _applyGameSetupToPlayerScreen
-                // is called every time the user picks a different game.
-                lws.forEach(function(w) {
-                    w.classList.remove('is-static-text');
-                    var lb = w.querySelector('.level-btn');
-                    if (lb) lb.style.display = '';
-                });
-                var enabledIdxL = [];
-                lws.forEach(function(w, i) {
-                    var lopt = conf.levels.options[i];
-                    if (lopt && lopt.on) enabledIdxL.push(i);
-                });
                 var leftCol = document.querySelector('#start-screen .setup-left');
-                if (enabledIdxL.length === 1) {
-                    // Single option — no clickable button, just the admin's
-                    // text. Hide every wrapper, then rehydrate the enabled
-                    // one with .is-static-text which (via CSS) hides the SVG
-                    // button and shows the .level-label only. Game still
-                    // launches at the right level because we set .selected +
-                    // localStorage + window.game.selectedLevel.
-                    var soleIdx = enabledIdxL[0];
-                    var soleOpt = conf.levels.options[soleIdx];
-                    var soleW = lws[soleIdx];
-                    var soleBtn = soleW && soleW.querySelector('.level-btn');
-                    var soleLbl = soleW && soleW.querySelector('.level-label');
-                    lws.forEach(function(w) { w.style.display = 'none'; });
-                    if (soleOpt && soleOpt.label && soleW) {
+
+                if (lws.length === 0) {
+                    if (leftCol) leftCol.style.display = 'none';
+                } else if (lws.length === 1) {
+                    // Single option — render as static text (no clickable
+                    // button). Matches the previous behavior for the
+                    // exactly-1-enabled case.
+                    var soleOpt = allLevelOpts[0];
+                    var soleW = lws[0];
+                    var soleBtn = soleW.querySelector('.level-btn');
+                    var soleLbl = soleW.querySelector('.level-label');
+                    if (soleOpt && soleOpt.label) {
                         if (soleLbl) soleLbl.textContent = soleOpt.label;
-                        soleW.style.display = '';
                         soleW.classList.add('is-static-text');
+                        if (leftCol) leftCol.style.display = '';
+                    } else {
+                        soleW.style.display = 'none';
+                        if (leftCol) leftCol.style.display = 'none';
                     }
-                    if (leftCol) leftCol.style.display = (soleOpt && soleOpt.label) ? '' : 'none';
                     if (soleBtn) {
                         document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
                             b.classList.remove('selected');
@@ -1699,34 +1727,29 @@
                         }
                     }
                 } else {
-                    // 0 or 2+ enabled — original per-button display + the
-                    // 0-enabled hide-the-column rule. If the previously
-                    // selected button is now hidden, shift selection to the
-                    // first visible one.
-                    var enabledLevelCount = 0;
-                    var firstVisibleLevelBtn = null;
-                    var hiddenSelectedLevel = false;
-                    lws.forEach(function(w, i) {
-                        var lopt = conf.levels.options[i];
+                    // 2+ options — restore previous selection if its token
+                    // still exists in the rebuilt set; otherwise fall back
+                    // to the first wrapper. Mirrors the prior "if hidden,
+                    // shift selection" behavior, just driven by the new
+                    // dynamic wrapper list instead of fixed indices.
+                    if (leftCol) leftCol.style.display = '';
+                    var prevSel = (window.game && window.game.selectedLevel)
+                                || localStorage.getItem('vicaSelectedLevel') || '';
+                    var foundPrev = false;
+                    var firstBtn = null;
+                    lws.forEach(function(w) {
                         var btn = w.querySelector('.level-btn');
-                        if (!lopt || !lopt.on) {
-                            w.style.display = 'none';
-                            if (btn && btn.classList.contains('selected')) hiddenSelectedLevel = true;
-                            return;
+                        if (!btn) return;
+                        if (!firstBtn) firstBtn = btn;
+                        btn.classList.remove('selected');
+                        if (btn.getAttribute('data-level') === prevSel) {
+                            btn.classList.add('selected');
+                            foundPrev = true;
                         }
-                        w.style.display = '';
-                        var lbl = w.querySelector('.level-label');
-                        if (lbl && lopt.label) lbl.textContent = lopt.label;
-                        enabledLevelCount++;
-                        if (!firstVisibleLevelBtn) firstVisibleLevelBtn = btn;
                     });
-                    if (leftCol) leftCol.style.display = (enabledLevelCount === 0) ? 'none' : '';
-                    if (hiddenSelectedLevel && firstVisibleLevelBtn) {
-                        document.querySelectorAll('#start-screen .level-btn.selected').forEach(function(b) {
-                            b.classList.remove('selected');
-                        });
-                        firstVisibleLevelBtn.classList.add('selected');
-                        var newLevel = firstVisibleLevelBtn.getAttribute('data-level');
+                    if (!foundPrev && firstBtn) {
+                        firstBtn.classList.add('selected');
+                        var newLevel = firstBtn.getAttribute('data-level');
                         if (newLevel) {
                             try { localStorage.setItem('vicaSelectedLevel', newLevel); } catch(_e) {}
                             if (window.game) window.game.selectedLevel = newLevel;
@@ -1829,7 +1852,12 @@
             window._currentVoiceSynonyms = null;
 
             var types = conf && conf.types && Array.isArray(conf.types.options) ? conf.types.options : [];
-            var enabled = types.filter(function(o) { return o && o.on; });
+            // Per spec: visible count == configured count. The .on checkbox
+            // in Game Setup no longer hides Types from the player — admins
+            // remove a Type by deleting the row, not by un-checking it.
+            // (Checkbox remains in the setup UI for now; it's effectively a
+            // no-op on the player side until we redesign that affordance.)
+            var enabled = types.filter(function(o) { return o; });
             function _stashTypeChoice(opt) {
                 window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
                 window._currentTypeLabel = opt.label || '';

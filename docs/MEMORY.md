@@ -1,5 +1,199 @@
 # Vica Domino Project Memory
-**Last Updated**: May 20, 2026
+**Last Updated**: May 21, 2026
+
+---
+
+## May 21, 2026 — Setup polish + loupe path support + Card→Icon copy
+
+A grab-bag session focused on plugging UX gaps that surfaced once IC
+was live. Six independent fixes, all in `index.html` + `pm-studio-DrV.html`
+only — no JS/CSS touched, no cache-buster bump needed.
+
+### 1. Game Types / Levels delete with confirm + ID-collision fix
+`pm-studio-DrV.html` `_gsAddOption` / `_gsRemoveOption` (~12172, 12200).
+
+- `_gsRemoveOption` now `confirm()`s before splicing. Message includes
+  the row's prefix + label, and for Types with voice input enabled
+  warns that custom trigger words will be lost.
+- `_gsAddOption` previously allocated IDs as `'opt' + (length+1)`,
+  which collided after a delete (`[opt1,opt2,opt3]` → delete opt2 →
+  next add → opt3 colliding with existing opt3). Now uses
+  `max(existing numeric suffixes) + 1` so IDs are monotonic.
+- "≥1 row" floor unchanged.
+
+### 2. Voice "✎ words" button → just "✎"
+`pm-studio-DrV.html` ~12563. The setup row was wide enough that the
+`✕` delete button got pushed off-screen on the Type rows. Trimming
+the voice-editor button to its glyph alone made room. Tooltip
+("Edit voice trigger words for this Type") still explains what it
+does. Class name (`gs-voice-edit-btn`) preserved so selectors don't
+break.
+
+### 3. Card Maker "Copy to icons…" (new context-menu flow)
+`pm-studio-DrV.html` ~6425-6580 (submenus), ~8326-8367 (copy fn),
+~6890 (menu wiring).
+
+User flow: right-click a card → **"◎ Copy to icons…"** → pick
+**Find the Double** (auto-copies into the only Find slot, L1) or
+**Catch the Bubble…** → pick size class (L1/L2/L3/S1/S2/S3).
+
+Implementation:
+- Destination is **always** the active card set's icon row
+  (`customDrawnIcons_<activeCardSet>`). There is no cross-set
+  picker. Earlier draft of this had a 3-level cascade (set →
+  game type → size); user pushed back hard ("Copy to 'icon slot' —
+  what is it???") and we collapsed it to the current 2 levels.
+- `_copyCardToIconSlot(card, setName, gameType, sizeClass)` clones
+  the target template's geometry (`cardShape`, `cardShapeW`,
+  `cardShapeH`, `cardCornerR`, `gameType`, `sizeClass`), generates
+  fresh `uid` + `stableId`, sets `_isTemplate:false`, copies the
+  source card's `svgContent` **verbatim**. No SVG transformation —
+  the icon renderer already uses `viewBox="0 0 60 60"` so a
+  60-unit-authored card auto-fits the smaller slot via display
+  width/height. Verified against `_buildIconCardElement:9612` and
+  `_applyShapeToPreview:2692-2698`.
+- Editor reopens at full 60×60 thanks to `_openIconForEdit`'s
+  canvas promotion (10113-10118 comment block confirms intent).
+- **No caps.** Icon line is shared across multiple games of the
+  same card set — append freely.
+- Multi-select-aware: each selected card becomes its own appended
+  icon in the chosen slot.
+- Hidden in Safe Haven (`activeCardSet === 'Safe Haven'`).
+
+Submenu positioning gotchas resolved:
+- Bug 1: 2nd-level submenu position read `parentItem.getBoundingClientRect()`
+  AFTER removing `_ctxSub`, but parentItem lived inside the removed
+  submenu so its rect collapsed to (0,0) → submenu landed top-left.
+  Fix: capture rect before removing.
+- Bug 2: "Box for Find is a little far away, the catch box is far
+  away a lot." Two issues — `+8` offset from parent ITEM right
+  edge meant 15-25px visible gap (the menu container has padding);
+  and L3 destroyed L2 on open, leaving a wide empty corridor.
+  Fix: dock against the parent MENU's right edge with `+2` gap,
+  AND keep L2 visible when L3 opens (standard cascading-menu UX).
+  Added `sub._parentSub` chain + `_ctxClose` walks back via that
+  chain so Esc / outside-click tears down the whole cascade.
+- Helper `_ctxParentMenuRect(parentItem)` resolves the parent menu
+  container so any submenu can dock against it.
+
+### 4. Loupe drag + scale for `<path>` (and other previously-ignored shapes)
+`pm-studio-DrV.html` `getElementPos` / `setElementPos` (3725-3781),
+`applySizeToElement` path branch (4079-4179), `populatePropsFromElement`
+(4012-4039), `_pushLoupeAttrHistory` capture lists (4941, 5029).
+
+Symptom: user couldn't drag or resize a particular "3" card (D2 in
+Numbers, desc `"3" (flat top)`). Selection ring appeared but every
+move was a silent no-op.
+
+Root cause: `getElementPos` / `setElementPos` only handled
+`circle`, `text`, `g`. The `selectableTags` map at 3748 accepts
+`path`/`line`/`polygon`/`polyline`/`ellipse`/`rect`/`image`/`use`
+so selection works — but the position helpers fell through to
+nothing (`getElementPos` returned `{0,0}`, `setElementPos` was a
+no-op) so drag/arrow-keys did nothing visible. Same for the
+resize via Size slider — `applySizeToElement` had branches only
+for `circle`, `g` (fraction + stamp), `text`.
+
+Fix design:
+- **Position** for path/line/polygon/polyline tracked via a
+  separate `data-pos-x` / `data-pos-y` pair PLUS a one-time-captured
+  `data-base-transform` (the path's intrinsic transform, often a
+  centered-scale chain like `translate(0,30) scale(1,1.06623)
+  translate(0,-30)` — must not be disturbed). Rendered transform
+  is rebuilt every time as `translate(posX,posY) <base>`. This
+  composes cleanly with any intrinsic transform without breaking
+  the centered-scale idiom. `ellipse`/`rect`/`image`/`use` got
+  proper native-attribute branches (`cx/cy` or `x/y`).
+- **Scale** for path/line/polygon/polyline applied via a
+  scale-around-bbox-center chain (`translate(cx,cy) scale(s)
+  translate(-cx,-cy)`) inserted INSIDE base. Bbox center captured
+  once into `data-scale-cx`/`data-scale-cy` via `getBBox()` (local
+  d-coord space, pre-transform — same space the scale chain
+  operates in). User-scale tracked in `data-user-scale`. Baseline:
+  slider `sz = 30` → 1x. Each unit moves proportionally.
+- Single source of truth: `_rebuildPathTransform(el)` composes
+  position + base + user-scale every time. Both `setElementPos`
+  and the path branch of `applySizeToElement` set their state,
+  then call it.
+- `populatePropsFromElement` gets a matching path branch that
+  reads `data-draw-size` so re-selecting a scaled path syncs the
+  slider (default 30 if never scaled).
+- Undo capture lists extended with `data-pos-x/y`,
+  `data-base-transform`, `data-user-scale`, `data-scale-cx/cy`.
+
+Verified end-to-end with synthetic paths matching D2's shape:
+drag-only moves correctly, scale doubles/halves correctly,
+scale-around-center holds with no drift, combined drag+scale
+composes without either overwriting the other, slider syncs on
+re-select.
+
+Outstanding (intentional, not fixed):
+- The Size slider for paths uses a fixed baseline `sz=30 ↔ 1x`.
+  Paths have no intrinsic "size unit" so we picked a neutral.
+  Tweakable if a different baseline reads more natural.
+
+### 5. Read-only card audit (one-off)
+Walked every `customDrawnCards*` key (698 cards across 14 sets) via
+DOMParser + lenient HTML fallback. 8 placeholder cards with empty
+`svgContent` (intentional blanks, e.g. ABC Y1/Z1) and 2 cards with
+strict-XML parse warnings (TEST ABC F2/F3 — imported PNG stamps
+that use `xlink:href` without declaring the namespace; browser's
+own SVG renderer is lenient and they edit normally). **Zero
+genuinely broken cards.** Script not retained — invoked ad hoc in
+preview.
+
+### 6. Player-side Types/Levels: drop `.on` filter + dynamic level renderer
+`index.html` `_applyGameSetupToPlayerScreen` (1655-1764) and
+`_renderTypesPicker` (1832).
+
+User report: "x4 find game with touch has 5 Types in Setup but only
+3 visible to player." Two distinct issues:
+- **Types**: `_renderTypesPicker` was filtering by `o.on`. Renderer
+  itself is dynamic (no DOM cap). Fix = drop the filter; all
+  configured Types now appear. One line.
+- **Levels**: Was iterating `document.querySelectorAll('#start-screen
+  .level-btn-wrapper')` — the static HTML has exactly **3** of
+  these. Setup options beyond index 2 were silently ignored. Fix:
+  cache the original 3 hand-crafted wrappers as templates the first
+  time the renderer runs, then rebuild the container's children
+  every call from `conf.levels.options`. Slots beyond 3 reuse the
+  "star" (4-domino) SVG as visual placeholder and get unique
+  `data-level` tokens (`L4`, `L5`, …). The `.on` filter is also
+  dropped for parity with Types.
+
+Preserved: single-option → `is-static-text` rendering, zero-options
+→ column hidden, selection-fallback when previously-selected token
+no longer exists.
+
+**Critical gameplay caveat** (not fixed, scoped for follow-up):
+`js/game.js:1252, 1262, 1777` hardcodes `circle`/`triangle`/`star`
+→ 2/3/4 dominos. Levels beyond #3 are visually rendered but their
+gameplay falls through to the 4-domino branch. Same for Catch:
+`_fillCatchLevelBubbles:2666` iterates the same 3 hardcoded tokens
+so L4+ Catch slots won't get bubbles. Catch levels were already
+noted as Under Construction in setup.
+
+**Admin-side checkbox semantics changed**: the `.on` checkbox in
+Game Setup still exists per row but is now a no-op on the player
+side. Admin removes a Type/Level by deleting the row (the `✕`
+button), not by un-checking. Worth a UI follow-up — either remove
+the checkbox or repurpose it (e.g. "default selection").
+
+### Resume notes
+
+- Operational rules in `docs/SESSION_HANDOFF.md` Part 3 still
+  apply. Push to all three claude/* branches after every commit.
+- The path drag/scale code (item 4) is the trickiest piece. If
+  you touch `getElementPos`/`setElementPos`/`_rebuildPathTransform`,
+  preserve the invariant: **`data-base-transform` is captured
+  once and never overwritten**. Every position or scale update
+  is layered on top.
+- The Copy-to-icons flow (item 3) assumes the source card was
+  authored on a 60-unit canvas. If you ever introduce non-60
+  source cards, the auto-fit-via-viewBox math may need attention.
+- Two open UI items mentioned above: (a) the no-op `.on` checkbox
+  in Game Setup, (b) game.js level token support for L4+. Both
+  surfaced in the user's testing but weren't in scope to fix.
 
 ---
 

@@ -1,8 +1,113 @@
 # Vica Domino - Project Status Notes
-**Date**: May 20, 2026
+**Date**: May 21, 2026
 **Branch**: `claude/review-project-docs-JOOeh`
 **Total Commits**: 530+
-**Codebase Size**: ~16,400 lines across 4 main files
+**Codebase Size**: ~16,800 lines across 4 main files
+
+---
+
+## May 21, 2026 — Setup polish + loupe path support + Card→Icon copy
+
+Single session, all six fixes shipped in one commit. Files touched:
+`index.html` (148 lines changed), `pm-studio-DrV.html` (356 lines
+changed). No JS/CSS changes → no cache-buster bump needed.
+
+### Items in commit order
+
+1. **Game Types delete confirm + ID-collision fix**
+   `pm-studio-DrV.html` `_gsAddOption` / `_gsRemoveOption` (~12172,
+   12200). `confirm()` before splicing (mentions label + warns on
+   voice-input loss). Next ID = `max(existing numeric suffixes)+1`
+   instead of `length+1` (prevents post-delete collisions).
+
+2. **Voice button shrunk**: `'✎ words'` → `'✎'` in `_gsRenderForm`
+   (~12563) to make room for the per-row `✕` on Type rows.
+
+3. **"Copy to icons…" cascading menu** in Card Maker. Context-menu
+   entry `◎ Copy to icons…` at ~6890 opens a 2-level cascade
+   (`Find the Double (L1)` auto-copies; `Catch the Bubble…` opens
+   size-class picker L1-S3). Always scoped to the active card set.
+   `_copyCardToIconSlot` at ~8326 builds a fresh user icon
+   (`_isTemplate:false`, fresh uid/stableId) cloning the target
+   template's geometry + carrying the source card's svgContent
+   verbatim. No SVG transformation — the icon renderer's fixed
+   `viewBox="0 0 60 60"` handles auto-fit; the loupe's
+   `_openIconForEdit` canvas promotion restores 60-unit editing.
+   Hidden in Safe Haven. Multi-select-aware.
+
+   Two submenu positioning bugs caught + fixed mid-development:
+   (a) parent rect captured AFTER removing `_ctxSub` collapsed
+   to (0,0) — fixed by capturing first; (b) wide visible gap
+   between cascade levels because the offset was from item-right
+   (with menu padding making it 15-25px visible) AND L3 destroyed
+   L2 on open — fixed by docking against parent-menu-right with
+   +2px and keeping L2 visible via `sub._parentSub` chain that
+   `_ctxClose` walks back through.
+
+4. **Loupe `<path>` drag + scale**. Symptom: user couldn't drag/
+   resize a particular "3" card (Numbers D2). Root cause:
+   `getElementPos`/`setElementPos` (3725-3781) only handled
+   circle/text/g. Path was selectable but the position helpers
+   silently no-op'd. Same for `applySizeToElement` — no path
+   branch at all.
+
+   Fix: split into 3 element classes —
+   - `circle`/`ellipse` via `cx`/`cy`
+   - `text`/`rect`/`image`/`use` via `x`/`y`
+   - `path`/`line`/`polygon`/`polyline` via outer `translate(x,y)
+     <data-base-transform>` (intrinsic transform captured once
+     into `data-base-transform`, never overwritten)
+
+   Added scale branch for path-like via scale-around-bbox-center
+   chain (`translate(cx,cy) scale(s) translate(-cx,-cy)`) inserted
+   INSIDE base. Bbox center captured once from `getBBox()` into
+   `data-scale-cx`/`data-scale-cy`. User scale stored in
+   `data-user-scale`. Baseline: slider `sz=30` ↔ 1x.
+
+   Single source of truth: `_rebuildPathTransform(el)` composes
+   position + base + scale every call. `populatePropsFromElement`
+   got matching path branch for slider sync on re-select. Undo
+   capture extended with all new attrs (4941, 5029, plus the
+   size-history capture at ~4138).
+
+   Verified with synthetic D2-shaped paths: 2x doubles bbox,
+   0.5x halves, center holds across scales, drag-only moves by
+   exact px, drag+scale composes correctly, slider syncs to 60
+   after scale to 60.
+
+5. **Card audit (read-only, one-off)**. Walked 698 cards across
+   14 sets. Zero genuinely broken cards. 8 placeholder empties
+   (intentional). 2 strict-XML warnings (xlink namespace on PNG
+   stamps) — browser-side rendering / editing fine. Script not
+   retained.
+
+6. **Player Types/Levels visible count = configured count**.
+   `index.html` `_applyGameSetupToPlayerScreen` (1655-1764) and
+   `_renderTypesPicker` (1832).
+
+   - Types: dropped the `.on` filter (one line). Renderer was
+     already dynamic.
+   - Levels: dynamic rebuild. Original 3 hand-crafted
+     `.level-btn-wrapper` elements cached as templates the first
+     time the renderer runs; rebuilt every call from
+     `conf.levels.options`. Slots beyond 3 reuse the "star"
+     SVG + get unique `data-level` tokens (`L4`, `L5`, …).
+     Also dropped `.on` filter for parity.
+   - Preserved: single-option → static text, zero-options →
+     column hidden, selection-fallback when previous token
+     disappears from the new set.
+
+### Open follow-ups (intentionally NOT in this commit)
+
+- **Gameplay engine for L4+ levels**: `js/game.js:1252, 1262, 1777`
+  hardcodes `circle`/`triangle`/`star` → 2/3/4 dominos. Levels
+  beyond #3 visually render but mechanically fall through to the
+  4-domino branch. Same for Catch's `_fillCatchLevelBubbles:2666`.
+- **No-op `.on` checkbox**: still present per row in Game Setup
+  for Types + Levels but no longer affects the player. Either
+  remove it from admin UI or repurpose (e.g. "default selection").
+- **Path Size slider baseline**: arbitrary `sz=30 ↔ 1x`. Could
+  tune if a different reading proves more natural.
 
 ---
 

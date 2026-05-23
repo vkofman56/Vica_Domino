@@ -866,16 +866,18 @@ class VicaDominoGame {
         // Idempotent: _applyGameSetupToPlayerScreen re-fires on input-mode
         // change and back-from-setup cycles. If the form is already built
         // for the same (count, includeXeno) combination, leave it alone so
-        // anything the player typed survives.
-        const existingPlayerRows = nameInputs.querySelectorAll('.player-input-row:not(.xeno-row)').length;
-        const existingXenoRow = !!nameInputs.querySelector('.xeno-row');
-        if (existingPlayerRows === count && existingXenoRow === !!includeXeno && existingPlayerRows > 0) {
+        // anything the player typed survives. The xeno UI now lives in
+        // .setup-game-icon (top row), so we look there instead of inside
+        // #name-inputs.
+        const existingPlayerRows = nameInputs.querySelectorAll('.player-input-row').length;
+        const existingXenoBox = !!document.querySelector('.setup-game-icon .xeno-combo-box');
+        if (existingPlayerRows === count && existingXenoBox === !!includeXeno && existingPlayerRows > 0) {
             playerNamesDiv.style.display = 'block';
             // Even on the early-return path, make sure the Start button is
             // present. The idempotency check assumes only input fields
             // survive; the button can still have vanished due to upstream
             // bugs we haven't pinned down yet.
-            if (!includeXeno) this._ensureStartButton(playerNamesDiv);
+            this._ensureStartButton(playerNamesDiv);
             return;
         }
 
@@ -896,13 +898,20 @@ class VicaDominoGame {
         if (innerBack) innerBack.style.display = 'none';
 
         // If a previous flow parked Start Game inside the Xeno row of
-        // #name-inputs, move it back to its native slot before we wipe
-        // and rebuild #name-inputs.
+        // #name-inputs (legacy layout), move it back to its native slot
+        // before we wipe and rebuild #name-inputs. With the xeno-combo-box
+        // now living in .setup-game-icon, Start Game stays in its native
+        // slot regardless of includeXeno — so we never re-park it.
         const startBtnPre = document.getElementById('start-game-btn');
         if (startBtnPre && startBtnPre.closest('#name-inputs')) {
             playerNamesDiv.appendChild(startBtnPre);
         }
         if (startBtnPre) startBtnPre.style.margin = '';
+
+        // Clear any stale xeno-combo-box from the top setup-game-icon row
+        // before we re-evaluate includeXeno. Without this, toggling from
+        // "+timer" to a non-timer player variant would leave the box behind.
+        document.querySelectorAll('.setup-game-icon .xeno-combo-box').forEach(el => el.remove());
 
         nameInputs.innerHTML = '';
         for (let i = 0; i < count; i++) {
@@ -953,49 +962,40 @@ class VicaDominoGame {
         // child of #player-names. Reported bug: on some GPt Cxx pages the
         // button was missing entirely. This catches every path that
         // accidentally removes the button — recreating it costs nothing.
-        if (!includeXeno) this._ensureStartButton(playerNamesDiv);
+        // Always called now (regardless of includeXeno) because Start Game
+        // no longer lives inside the xeno UI — the combo box moved up to
+        // the .setup-game-icon row.
+        this._ensureStartButton(playerNamesDiv);
 
         if (includeXeno) {
-            // Single consolidated box: one gold-bordered rectangle holding
-            // [xeno-icon | ⏳ timer | "Xeno" text] in that order. Replaces
-            // the prior multi-element xeno row (separate icon container +
-            // disabled input with "Xeno ⏳" baked into the value). Box sits
-            // at the row's natural left edge so it lines up under the first
-            // player icon. Start Game button sits beside the box, to its
-            // right, inside the same .xeno-row flex container. The previous
-            // _alignXenoRowToPlayerRow pixel-alignment helper is NOT called
-            // — its targets (second player icon, name input column) no
-            // longer match this layout's anchors.
-            const xenoRow = document.createElement('div');
-            xenoRow.className = 'player-input-row xeno-row';
+            // Combined xeno marker box: one gold-bordered rectangle holding
+            // [xeno-icon | ⏳ timer | "Xeno" text] in that order. Appended
+            // to .setup-game-icon (the top row of the player-setup panel),
+            // sitting on the opposite end from the 3-domino game icon.
+            // CSS .setup-game-icon uses justify-content: space-between so
+            // dominos hug the left edge and this box hugs the right edge.
+            const setupIcon = document.getElementById('setup-game-icon');
+            if (setupIcon) {
+                const xenoComboBox = document.createElement('div');
+                xenoComboBox.className = 'xeno-combo-box';
 
-            const xenoComboBox = document.createElement('div');
-            xenoComboBox.className = 'xeno-combo-box';
+                const xenoIconEl = document.createElement('div');
+                xenoIconEl.className = 'xeno-combo-icon';
+                xenoIconEl.innerHTML = XENO_ICON_SVG;
+                xenoComboBox.appendChild(xenoIconEl);
 
-            const xenoIconEl = document.createElement('div');
-            xenoIconEl.className = 'xeno-combo-icon';
-            xenoIconEl.innerHTML = XENO_ICON_SVG;
-            xenoComboBox.appendChild(xenoIconEl);
+                const xenoTimerGlyph = document.createElement('span');
+                xenoTimerGlyph.className = 'xeno-combo-timer';
+                xenoTimerGlyph.textContent = '⏳';
+                xenoComboBox.appendChild(xenoTimerGlyph);
 
-            const xenoTimerGlyph = document.createElement('span');
-            xenoTimerGlyph.className = 'xeno-combo-timer';
-            xenoTimerGlyph.textContent = '⏳';
-            xenoComboBox.appendChild(xenoTimerGlyph);
+                const xenoNameText = document.createElement('span');
+                xenoNameText.className = 'xeno-combo-name';
+                xenoNameText.textContent = 'Xeno';
+                xenoComboBox.appendChild(xenoNameText);
 
-            const xenoNameText = document.createElement('span');
-            xenoNameText.className = 'xeno-combo-name';
-            xenoNameText.textContent = 'Xeno';
-            xenoComboBox.appendChild(xenoNameText);
-
-            xenoRow.appendChild(xenoComboBox);
-
-            const startBtn = document.getElementById('start-game-btn');
-            if (startBtn) {
-                startBtn.style.margin = '0';
-                xenoRow.appendChild(startBtn);
+                setupIcon.appendChild(xenoComboBox);
             }
-
-            nameInputs.appendChild(xenoRow);
         }
     }
 

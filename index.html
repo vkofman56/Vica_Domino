@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:39 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -66,23 +66,11 @@
                     </div>
                 </div>
             </div>
-            <!-- Catch game input mode popup -->
-            <div id="catch-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-                <div id="catch-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
-                <div style="display:flex;gap:10px;">
-                    <button onclick="chooseCatchMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
-                    <button onclick="chooseCatchMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
-                </div>
-            </div>
-            <!-- Find game input mode popup — same chrome as catch's, lets the
-                 player pick TOUCH or MOUSE before entering Find setup. -->
-            <div id="find-mode-popup" style="display:none;position:absolute;background:#2a2a3e;border:2px solid #00BCD4;border-radius:10px;padding:12px 16px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-                <div id="find-mode-no-touch" style="display:none;color:#FFD54F;font-size:11px;margin-bottom:8px;">&#9888; No touchscreen detected</div>
-                <div style="display:flex;gap:10px;">
-                    <button onclick="chooseFindMode('touch')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a5a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#9995; TOUCH</button>
-                    <button onclick="chooseFindMode('mouse')" style="padding:8px 18px;border-radius:6px;border:none;background:#3a3a5a;color:white;cursor:pointer;font-weight:bold;font-size:14px;">&#128433; MOUSE</button>
-                </div>
-            </div>
+            <!-- The Catch/Find input-mode popups that lived here were
+                 retired when the global TOUCH/MOUSE toggle was added at
+                 the top-left of #intro-panel. Their show/hide/choose
+                 helpers and the popup-outside-click closer have also
+                 been removed. -->
         </div>
 
         <!-- Start Screen -->
@@ -91,7 +79,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:39 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1100,12 +1088,11 @@
             findList.innerHTML = '';
             catchList.innerHTML = '';
 
-            // Tile-click bypass: the prior popup flow (showFindModePopup /
-            // showCatchModePopup → chooseFindMode / chooseCatchMode) was
-            // replaced by the global TOUCH/MOUSE toggle at the top-left of
-            // #intro-panel. Every tile click now sets selectedIntroGame and
-            // calls goToMainPage() directly. dataset.gameId is stamped so
-            // _updateIntroTileAvailability can decide which rows to dim.
+            // Tile-click bypass: the prior per-game input-mode popup flow
+            // was replaced by the global TOUCH/MOUSE toggle at the top-left
+            // of #intro-panel. Every tile click now sets selectedIntroGame
+            // and calls goToMainPage() directly. dataset.gameId is stamped
+            // so _updateIntroTileAvailability can decide which rows to dim.
             function _bypassTileClick(btn, gameId) {
                 btn.dataset.gameId = gameId;
                 btn.onclick = function() {
@@ -1360,85 +1347,20 @@
         var _hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         var _catchInputMode = 'touch'; // 'touch' or 'mouse'
         var _catchNumPlayers = 1;      // 1 or 2 (2P only supported in touch mode)
-        var _catchModePopupGameId = null;
-        // Mirror of _catchInputMode for Find games. Set via the find-mode
-        // popup before the player enters Find setup; consumed by
-        // _applyGameSetupToPlayerScreen and the page-label code so the
-        // saved touch/mouse Game Settings tab applies to the right input.
+        // Mirror of _catchInputMode for Find games. Both vars are written
+        // by the intro-screen TOUCH/MOUSE toggle (see _setInputMode below)
+        // and consumed by _applyGameSetupToPlayerScreen + the page-label
+        // code so the saved touch/mouse Game Settings tab applies to the
+        // right input. Initial 'touch' is overwritten on first paint by
+        // _setupIntroInputToggle's _hasTouchScreen-aware default.
         var _findInputMode = 'touch';
-        var _findModePopupGameId = null;
-
-        // Outside-click closer for floating popups (catch-mode / find-mode).
-        // After the popup is shown, install a one-shot capture-phase
-        // document click listener: a click whose target is inside the
-        // popup element does nothing (lets the inner button's onclick
-        // run normally); any click outside calls the popup's close
-        // helper and removes the listener. setTimeout(0) defers the
-        // attach past the click that opened the popup, so the same
-        // event doesn't immediately close it.
-        function _attachPopupOutsideCloser(popup, closeFn) {
-            if (!popup || typeof closeFn !== 'function') return;
-            // Remove any previously-installed listener for this popup —
-            // re-opening shouldn't accumulate duplicates.
-            if (popup._outsideCloser) {
-                document.removeEventListener('click', popup._outsideCloser, true);
-                popup._outsideCloser = null;
-            }
-            var handler = function(e) {
-                // Only the inner action buttons keep the popup open. Any
-                // other click — including the popup's own background /
-                // padding ("neutral area") and clicks anywhere outside the
-                // popup — closes it. Lets the user dismiss the popup
-                // without picking a mode.
-                var btns = popup.querySelectorAll('button');
-                for (var i = 0; i < btns.length; i++) {
-                    if (btns[i].contains(e.target)) return;
-                }
-                document.removeEventListener('click', handler, true);
-                popup._outsideCloser = null;
-                closeFn();
-            };
-            popup._outsideCloser = handler;
-            setTimeout(function() {
-                document.addEventListener('click', handler, true);
-            }, 0);
-        }
-        function _detachPopupOutsideCloser(popup) {
-            if (popup && popup._outsideCloser) {
-                document.removeEventListener('click', popup._outsideCloser, true);
-                popup._outsideCloser = null;
-            }
-        }
-
-        function showFindModePopup(gameId, btnEl, e) {
-            // Visually select the game button so the popup is anchored to
-            // a clear "this is the game I'm picking" affordance, same as
-            // showCatchModePopup.
-            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) { b.classList.remove('selected'); });
-            if (btnEl) btnEl.classList.add('selected');
-            _findModePopupGameId = gameId;
-            var popup = document.getElementById('find-mode-popup');
-            var rect = btnEl.getBoundingClientRect();
-            popup.style.left = (rect.right + 8) + 'px';
-            popup.style.top = rect.top + 'px';
-            popup.style.display = 'block';
-            var ntw = document.getElementById('find-mode-no-touch');
-            if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
-            _attachPopupOutsideCloser(popup, hideFindModePopup);
-        }
-        function chooseFindMode(mode) {
-            _findInputMode = mode;
-            selectedIntroGame = _findModePopupGameId;
-            var popup = document.getElementById('find-mode-popup');
-            _detachPopupOutsideCloser(popup);
-            if (popup) popup.style.display = 'none';
-            goToMainPage();
-        }
 
         // ===== Intro-screen TOUCH/MOUSE toggle =====
         // Single switch (top-left of #intro-panel) that drives both
-        // _findInputMode and _catchInputMode together. Replaces the
-        // per-game popups (those still exist as dead code for now).
+        // _findInputMode and _catchInputMode together. Replaced the
+        // prior per-game popups (their DOM, show/hide/choose helpers,
+        // and the outside-click closer were reaped together with the
+        // switch's introduction).
         // Initial value is device-aware via _hasTouchScreen so end users
         // on phones default to TOUCH and desktop users default to MOUSE;
         // their session choice wins after that. State is in-memory only —
@@ -1510,52 +1432,6 @@
                 if (row) row.classList.toggle('mode-unavailable', !ok);
             });
         }
-        function hideFindModePopup() {
-            var popup = document.getElementById('find-mode-popup');
-            _detachPopupOutsideCloser(popup);
-            if (popup) popup.style.display = 'none';
-        }
-
-        function showCatchModePopup(gameId, btnEl, e) {
-            // First select the game button visually
-            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) { b.classList.remove('selected'); });
-            if (btnEl) btnEl.classList.add('selected');
-            _catchModePopupGameId = gameId;
-
-            // Position popup near the button
-            var popup = document.getElementById('catch-mode-popup');
-            var rect = btnEl.getBoundingClientRect();
-            popup.style.left = (rect.right + 8) + 'px';
-            popup.style.top = rect.top + 'px';
-            popup.style.display = 'block';
-
-            // Show no-touch warning if needed
-            var ntw = document.getElementById('catch-mode-no-touch');
-            if (ntw) ntw.style.display = _hasTouchScreen ? 'none' : 'block';
-            _attachPopupOutsideCloser(popup, hideCatchModePopup);
-        }
-
-        function chooseCatchMode(mode) {
-            _catchInputMode = mode;
-            // Default to 1 player here; for touch mode the player count is read
-            // from the setup page's .player-btn selection when Start Game is
-            // pressed (see the 'start-game-btn' click handler below).
-            _catchNumPlayers = 1;
-            selectedIntroGame = _catchModePopupGameId;
-            // Hide popup
-            var popup = document.getElementById('catch-mode-popup');
-            _detachPopupOutsideCloser(popup);
-            if (popup) popup.style.display = 'none';
-            // Go to setup automatically
-            goToMainPage();
-        }
-
-        function hideCatchModePopup() {
-            var popup = document.getElementById('catch-mode-popup');
-            _detachPopupOutsideCloser(popup);
-            if (popup) popup.style.display = 'none';
-        }
-
         function _resetSetupPanel() {
             var sc = document.querySelector('.setup-columns');
             if (sc) sc.style.display = 'flex';
@@ -1592,8 +1468,6 @@
                     delete btn.dataset.origSvg;
                 }
             });
-            // Hide catch mode popup if visible
-            hideCatchModePopup();
             // Phase A.2 reset: restore original labels + show all options so
             // the next game's _applyGameSetupToPlayerScreen starts from a clean slate.
             _resetGameSetupLabels();

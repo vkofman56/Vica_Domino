@@ -976,9 +976,11 @@ class VicaDominoGame {
         if (!includeXeno || !isCatchSetup) this._ensureStartButton(playerNamesDiv);
 
         if (includeXeno) {
-            // Build the combined-marker box: one gold-bordered rectangle
-            // holding [xeno-icon | ⏳ timer | "Xeno" text] in that order.
-            const makeComboBox = () => {
+            // Build the combined-marker box. Find Setup shows just the
+            // xeno-icon + hourglass timer (compact, no name). Catch Setup
+            // keeps the "Xeno" text alongside since that layout has the
+            // horizontal room below the player rows.
+            const makeComboBox = (showName) => {
                 const box = document.createElement('div');
                 box.className = 'xeno-combo-box';
                 const ic = document.createElement('div');
@@ -989,10 +991,12 @@ class VicaDominoGame {
                 tm.className = 'xeno-combo-timer';
                 tm.textContent = '⏳';
                 box.appendChild(tm);
-                const nm = document.createElement('span');
-                nm.className = 'xeno-combo-name';
-                nm.textContent = 'Xeno';
-                box.appendChild(nm);
+                if (showName) {
+                    const nm = document.createElement('span');
+                    nm.className = 'xeno-combo-name';
+                    nm.textContent = 'Xeno';
+                    box.appendChild(nm);
+                }
                 return box;
             };
 
@@ -1000,9 +1004,10 @@ class VicaDominoGame {
                 // Catch layout: combo box sits in its own .xeno-row below
                 // the player rows, with Start Game as a sibling to its
                 // right (matches the prior shipped design for Catch).
+                // Keeps the "Xeno" text label.
                 const xenoRow = document.createElement('div');
                 xenoRow.className = 'player-input-row xeno-row';
-                xenoRow.appendChild(makeComboBox());
+                xenoRow.appendChild(makeComboBox(true));
                 const startBtn = document.getElementById('start-game-btn');
                 if (startBtn) {
                     startBtn.style.margin = '0';
@@ -1010,17 +1015,17 @@ class VicaDominoGame {
                 }
                 nameInputs.appendChild(xenoRow);
             } else {
-                // Find layout (GPt F Setup): combo box rides on the
-                // .setup-game-icon top row, floated to the right with
-                // inline margin-left:auto so the dominos icon stays
-                // anchored to the left edge. Start Game stays in its
-                // native slot (a direct child of #player-names, below
-                // the player rows) — _ensureStartButton above already
-                // restored it.
+                // Find layout (GPt F Setup): compact box (icon + timer
+                // only, no "Xeno" text) sits in the .setup-game-icon top
+                // row, anchored to the left immediately after the dominos
+                // icon with a small 12px gap. Start Game stays in its
+                // native slot (direct child of #player-names, below the
+                // player rows) — _ensureStartButton above already
+                // restored it there.
                 const setupIcon = document.getElementById('setup-game-icon');
                 if (setupIcon) {
-                    const box = makeComboBox();
-                    box.style.marginLeft = 'auto';
+                    const box = makeComboBox(false);
+                    box.style.marginLeft = '12px';
                     setupIcon.appendChild(box);
                 }
             }

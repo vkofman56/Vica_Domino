@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=xeno-combo-3">
+    <link rel="stylesheet" href="css/style.css?v=xeno-combo-5">
 </head>
 <body>
     <div class="game-container">
@@ -29,10 +29,25 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:39 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
+                <!-- Global TOUCH/MOUSE switch for the intro screen. Replaces
+                     the prior per-game popup. Drives both _findInputMode and
+                     _catchInputMode together. Initial value = device-aware
+                     (_hasTouchScreen ? 'touch' : 'mouse'); user's session
+                     choice wins until page reload. Pinned absolute to the
+                     panel's top-left so the centered h3 stays untouched. -->
+                <button type="button" class="intro-input-toggle"
+                        id="intro-input-toggle"
+                        role="switch" aria-checked="true"
+                        aria-label="Input mode" data-mode="touch"
+                        title="Switch to mouse mode">
+                    <span class="intro-input-toggle-icon intro-input-toggle-icon-left" aria-hidden="true">&#9995;</span>
+                    <span class="intro-input-toggle-track"><span class="intro-input-toggle-thumb"></span></span>
+                    <span class="intro-input-toggle-icon intro-input-toggle-icon-right" aria-hidden="true">&#128433;</span>
+                </button>
                 <h3>Choose the game:</h3>
                 <div class="intro-columns" id="intro-columns">
                     <div class="intro-col">
@@ -76,7 +91,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:55 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:39 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1085,27 +1100,41 @@
             findList.innerHTML = '';
             catchList.innerHTML = '';
 
+            // Tile-click bypass: the prior popup flow (showFindModePopup /
+            // showCatchModePopup → chooseFindMode / chooseCatchMode) was
+            // replaced by the global TOUCH/MOUSE toggle at the top-left of
+            // #intro-panel. Every tile click now sets selectedIntroGame and
+            // calls goToMainPage() directly. dataset.gameId is stamped so
+            // _updateIntroTileAvailability can decide which rows to dim.
+            function _bypassTileClick(btn, gameId) {
+                btn.dataset.gameId = gameId;
+                btn.onclick = function() {
+                    document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) {
+                        b.classList.remove('selected');
+                    });
+                    btn.classList.add('selected');
+                    selectedIntroGame = gameId;
+                    goToMainPage();
+                };
+            }
+
             var games = loadCustomGames();
             games.forEach(function(game, i) {
                 if (game.published === false) return;
-                // Render the game button with the eye action only, then
-                // override its click to open the find-mode popup so the
-                // player picks TOUCH / MOUSE before entering setup
-                // (mirrors the Catch pattern below).
                 var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
                     function() { _openCardsLibrary('find', i); });
-                fbtn.onclick = function(e) { showFindModePopup('custom-' + i, fbtn, e); };
+                _bypassTileClick(fbtn, 'custom-' + i);
             });
 
             // Combined games live in the column of their underlying game type
             // (first stage's type). Today all combined games chain Find stages,
-            // so they appear in the Find column and go through the same
-            // find-mode popup. No eye button — they wrap multiple stages and
-            // a single cards-library view doesn't represent that cleanly.
+            // so they appear in the Find column. No eye button — they wrap
+            // multiple stages and a single cards-library view doesn't
+            // represent that cleanly.
             var combinedGames = loadCombinedGames();
             combinedGames.forEach(function(cg, ci) {
                 var cbtn = _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), null);
-                cbtn.onclick = function(e) { showFindModePopup('combined-' + ci, cbtn, e); };
+                _bypassTileClick(cbtn, 'combined-' + ci);
             });
 
             var catchGames = loadCatchGames();
@@ -1113,8 +1142,17 @@
                 if (cg.published === false) return;
                 var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(cg), null,
                     function() { _openCardsLibrary('catch', ci); });
-                btn.onclick = function(e) { showCatchModePopup('catch-' + ci, btn, e); };
+                _bypassTileClick(btn, 'catch-' + ci);
             });
+
+            // Wire the global toggle (idempotent — only binds once) and
+            // immediately dim any tiles that don't support the current
+            // mode. _setupIntroInputToggle's first call also runs
+            // _updateIntroTileAvailability via _setInputMode, so the
+            // explicit second call below is redundant on first paint but
+            // harmless on subsequent re-paints (e.g. after a game add).
+            _setupIntroInputToggle();
+            _updateIntroTileAvailability();
         }
 
         function selectIntroGame(gameId, btnEl) {
@@ -1395,6 +1433,82 @@
             _detachPopupOutsideCloser(popup);
             if (popup) popup.style.display = 'none';
             goToMainPage();
+        }
+
+        // ===== Intro-screen TOUCH/MOUSE toggle =====
+        // Single switch (top-left of #intro-panel) that drives both
+        // _findInputMode and _catchInputMode together. Replaces the
+        // per-game popups (those still exist as dead code for now).
+        // Initial value is device-aware via _hasTouchScreen so end users
+        // on phones default to TOUCH and desktop users default to MOUSE;
+        // their session choice wins after that. State is in-memory only —
+        // page reload re-reads the device.
+        function _setupIntroInputToggle() {
+            var toggle = document.getElementById('intro-input-toggle');
+            if (!toggle || toggle._wired) return;
+            toggle._wired = true;
+            // Device-aware first paint: defaults to TOUCH on touchscreens,
+            // MOUSE on non-touch devices. The user can flip either way.
+            _setInputMode(_hasTouchScreen ? 'touch' : 'mouse');
+            toggle.addEventListener('click', function() {
+                var current = toggle.getAttribute('data-mode');
+                _setInputMode(current === 'touch' ? 'mouse' : 'touch');
+            });
+        }
+
+        function _setInputMode(mode) {
+            if (mode !== 'touch' && mode !== 'mouse') mode = 'touch';
+            _findInputMode = mode;
+            _catchInputMode = mode;
+            var toggle = document.getElementById('intro-input-toggle');
+            if (toggle) {
+                toggle.setAttribute('data-mode', mode);
+                toggle.setAttribute('aria-checked', mode === 'touch' ? 'true' : 'false');
+                toggle.setAttribute('aria-label', 'Input mode: ' + mode);
+                toggle.title = 'Switch to ' + (mode === 'touch' ? 'mouse' : 'touch') + ' mode';
+            }
+            _updateIntroTileAvailability();
+        }
+
+        // Returns true if the given game has a setup configured for the
+        // given input mode (or if we can't tell — legacy games without a
+        // .setup field are assumed to support both, so they don't dim).
+        function _gameSupportsMode(gameId, mode) {
+            if (!gameId || typeof gameId !== 'string') return true;
+            var dash = gameId.indexOf('-');
+            if (dash < 0) return true;
+            var prefix = gameId.slice(0, dash);
+            var idx = parseInt(gameId.slice(dash + 1), 10);
+            if (isNaN(idx)) return true;
+            try {
+                var games;
+                if (prefix === 'catch') {
+                    games = (typeof loadCatchGames === 'function') ? loadCatchGames() : [];
+                } else if (prefix === 'combined') {
+                    games = (typeof loadCombinedGames === 'function') ? loadCombinedGames() : [];
+                } else {
+                    games = (typeof loadCustomGames === 'function') ? loadCustomGames() : [];
+                }
+                var game = games[idx];
+                if (!game || !game.setup) return true;
+                // Defensive: a setup with NEITHER key is legacy too.
+                if (!game.setup.touch && !game.setup.mouse) return true;
+                return !!game.setup[mode];
+            } catch (e) { return true; }
+        }
+
+        // Walk every intro game tile; dim the row if its game lacks a
+        // setup for the current input mode. Called from _setInputMode
+        // (toggle flip) and from populateIntroGames (initial paint).
+        function _updateIntroTileAvailability() {
+            var mode = _findInputMode || 'touch';
+            document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(btn) {
+                var gameId = btn.dataset.gameId;
+                if (!gameId) return;
+                var ok = _gameSupportsMode(gameId, mode);
+                var row = btn.closest('.intro-game-row') || btn.parentElement;
+                if (row) row.classList.toggle('mode-unavailable', !ok);
+            });
         }
         function hideFindModePopup() {
             var popup = document.getElementById('find-mode-popup');

@@ -12,6 +12,125 @@
  * - First to empty hand wins!
  */
 
+// ===== Game-setup player-options migration =====
+// Self-healing migration that brings every stored game's
+// .setup.touch.players.options and .setup.mouse.players.options
+// in line with the canonical player-option rules:
+//
+//   Find  touch: must include at least 1-player AND 2-player options
+//   Find  mouse: same — 1-player AND 2-player
+//   Catch touch: 1-player AND 2-player
+//   Catch mouse: exactly one option enabled, and it's a 1-player option
+//
+// Plus a label-driven id migration: legacy games saved player options
+// under generic ids (opt1, opt2, opt3) that don't match the canonical
+// catalog the renderer uses (p1, p1x, p2, p2x, p3, p3x). The renderer
+// silently filters them out, so admin-intent never reached the player
+// UI. This rewrites those ids based on the option's label text.
+//
+// Implementation: wraps window.loadCustomGames / loadCombinedGames /
+// loadCatchGames so EVERY read goes through migration. We can't just
+// do a one-shot localStorage rewrite at script load — js/sync.js
+// later wipes and replaces localStorage with cloud data (~line 374),
+// undoing any prior fix. Read-side wrapping is sync-proof and
+// self-heals on every load. When migration changes something, the
+// fixed array is also written back so the next cloud push uploads
+// it (sync.js monkey-patches setItem to trigger a push).
+(function _vicaWrapGameLoadersForMigration() {
+    var PLAYER_LABELS = {
+        p1:  '1 player',
+        p1x: '1 player + timer',
+        p2:  '2 players',
+        p2x: '2 players + timer',
+        p3:  '3 players',
+        p3x: '3 players + timer'
+    };
+    function _canonicalIdFromLabel(label) {
+        if (!label || typeof label !== 'string') return null;
+        var L = label.toLowerCase();
+        var m = L.match(/\b([123])\b/);
+        if (!m) return null;
+        return 'p' + m[1] + (/timer/.test(L) ? 'x' : '');
+    }
+    function _ensureOption(arr, id, on) {
+        for (var i = 0; i < arr.length; i++) {
+            if (arr[i] && arr[i].id === id) {
+                if (on && !arr[i].on) { arr[i].on = true; return true; }
+                return false;
+            }
+        }
+        arr.push({ id: id, label: PLAYER_LABELS[id] || id, on: !!on });
+        return true;
+    }
+    function _migrateOne(game, kind) {
+        if (!game || !game.setup) return false;
+        var changed = false;
+        ['touch', 'mouse'].forEach(function(mode) {
+            var conf = game.setup[mode];
+            if (!conf || !conf.players || !Array.isArray(conf.players.options)) return;
+            // 1) Migrate stale ids → canonical
+            conf.players.options.forEach(function(o) {
+                if (!o || typeof o.id !== 'string') return;
+                if (/^p[123]x?$/.test(o.id)) return;
+                var canon = _canonicalIdFromLabel(o.label);
+                if (canon) { o.id = canon; if (!o.label) o.label = PLAYER_LABELS[canon]; changed = true; }
+            });
+            // 2) Deduplicate by id (post-migration two entries may collide).
+            var seen = {}, dedup = [];
+            conf.players.options.forEach(function(o) {
+                if (!o || !o.id) return;
+                if (seen[o.id]) { if (o.on) seen[o.id].on = true; changed = true; return; }
+                seen[o.id] = o; dedup.push(o);
+            });
+            if (dedup.length !== conf.players.options.length) {
+                conf.players.options = dedup; changed = true;
+            }
+            // 3) Ensure required options exist + enabled
+            var required = (kind === 'catch' && mode === 'mouse') ? ['p1'] : ['p1', 'p2'];
+            required.forEach(function(id) {
+                if (_ensureOption(conf.players.options, id, true)) changed = true;
+            });
+            // 4) Catch mouse: only one option enabled, and it's p1.
+            if (kind === 'catch' && mode === 'mouse') {
+                conf.players.options.forEach(function(o) {
+                    if (!o) return;
+                    if (o.id !== 'p1' && o.on) { o.on = false; changed = true; }
+                });
+            }
+        });
+        return changed;
+    }
+    // Surface for ad-hoc use / debugging.
+    window.__vicaMigrateGameSetup = _migrateOne;
+
+    function _wrapLoader(name, kind, storageKey) {
+        var orig = window[name];
+        if (typeof orig !== 'function') return;
+        // Guard against double-wrapping if the IIFE runs more than once.
+        if (orig.__vicaWrapped) return;
+        var wrapper = function() {
+            var arr = orig.apply(this, arguments);
+            if (!Array.isArray(arr)) return arr;
+            var anyChanged = false;
+            arr.forEach(function(g) { if (_migrateOne(g, kind)) anyChanged = true; });
+            if (anyChanged && storageKey) {
+                try { localStorage.setItem(storageKey, JSON.stringify(arr)); } catch (e) {}
+            }
+            return arr;
+        };
+        wrapper.__vicaWrapped = true;
+        window[name] = wrapper;
+    }
+
+    try {
+        _wrapLoader('loadCustomGames',   'find',  'savedCustomGames');
+        _wrapLoader('loadCombinedGames', 'find',  'savedCombinedGames');
+        _wrapLoader('loadCatchGames',    'catch', 'savedCatchGames');
+    } catch (e) {
+        if (window.console && console.warn) console.warn('[vica] loader wrap failed:', e);
+    }
+})();
+
 // Character icons for players (5 fun characters)
 const CHARACTER_ICONS = {
     star: {

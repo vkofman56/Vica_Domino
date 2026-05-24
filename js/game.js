@@ -566,6 +566,12 @@ class VicaDominoGame {
                 btn.classList.add('selected');
                 this.selectedLevel = btn.dataset.level;
                 localStorage.setItem('vicaSelectedLevel', this.selectedLevel);
+                // Refresh the lower-box dominos icon to match the picked
+                // level (2 / 3 / 4 dominos). _syncSetupGameIcon (defined
+                // in index.html) re-reads .level-btn.selected and re-clones.
+                if (typeof window._syncSetupGameIcon === 'function') {
+                    window._syncSetupGameIcon();
+                }
             });
         });
     }

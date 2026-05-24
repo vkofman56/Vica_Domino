@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:24 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:33 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -79,7 +79,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:24 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:33 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1837,6 +1837,12 @@
                 if (window.game && typeof window.game.initGameLevelSelector === 'function') {
                     window.game.initGameLevelSelector();
                 }
+                // Refresh the lower-box dominos icon so it matches whichever
+                // level got the .selected class on this re-render (persisted
+                // from localStorage or shifted from a hidden one). Without
+                // this, the icon could lag behind the actual selection on
+                // initial paint.
+                if (typeof _syncSetupGameIcon === 'function') _syncSetupGameIcon();
             }
             // Timer value — stashed globally for the gameplay code to pick up.
             window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
@@ -2725,17 +2731,21 @@
             _syncSetupGameIcon();
         }
 
-        // Clone the live "triangle" (3-dominos) Level button's SVG into the
-        // setup-page game-icon container. Using the 3-domino visual because
-        // Box 2 has horizontal room to spare and the 3-domino composition
-        // fills it more cleanly. Called from updateLevelDominoIcons (after
-        // the level buttons have been re-rendered with the creator's game
-        // cards) and from a one-time DOMContentLoaded fallback so the icon
-        // shows something even before the first updateLevelDominoIcons call.
+        // Clone the currently-selected level button's SVG into the
+        // setup-page game-icon container. Tracks the live picker: when
+        // the player picks "2 dominos" (circle) / "3 dominos" (triangle) /
+        // "4 dominos" (star) in the upper Levels column, the lower-box
+        // icon mirrors that choice. Falls back to "triangle" (3-dominos)
+        // when nothing is selected yet (page-load DOMContentLoaded path).
+        // Called from:
+        //   - updateLevelDominoIcons (after creator's cards re-render).
+        //   - initGameLevelSelector (game.js) on every level click.
+        //   - one-time DOMContentLoaded fallback (initial paint).
         function _syncSetupGameIcon() {
             var iconHost = document.getElementById('setup-game-icon');
             if (!iconHost) return;
-            var srcBtn = document.querySelector('.level-btn[data-level="triangle"]');
+            var selectedBtn = document.querySelector('#start-screen .level-btn.selected');
+            var srcBtn = selectedBtn || document.querySelector('.level-btn[data-level="triangle"]');
             var srcSvg = srcBtn ? srcBtn.querySelector('.level-dominos-svg') : null;
             if (!srcSvg) return;
             var clone = srcSvg.cloneNode(true);
@@ -4076,7 +4086,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=timer-switch-3"></script>
+    <script src="js/game.js?v=level-icon-sync-2"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

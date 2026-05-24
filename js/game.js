@@ -17,10 +17,11 @@
 // .setup.touch.players.options and .setup.mouse.players.options
 // in line with the canonical player-option rules:
 //
-//   Find  touch: must include at least 1-player AND 2-player options
-//   Find  mouse: same — 1-player AND 2-player
-//   Catch touch: 1-player AND 2-player
-//   Catch mouse: exactly one option enabled, and it's a 1-player option
+//   Find  touch: full standard — p1, p1x, p2, p2x all enabled
+//                (1 player, 1 player + timer, 2 players, 2 players + timer)
+//   Find  mouse: 1-player AND 2-player (p1 + p2)
+//   Catch touch: 1-player AND 2-player (p1 + p2)
+//   Catch mouse: exactly one option enabled, and it's a 1-player option (p1)
 //
 // Plus a label-driven id migration: legacy games saved player options
 // under generic ids (opt1, opt2, opt3) that don't match the canonical
@@ -85,8 +86,14 @@
             if (dedup.length !== conf.players.options.length) {
                 conf.players.options = dedup; changed = true;
             }
-            // 3) Ensure required options exist + enabled
-            var required = (kind === 'catch' && mode === 'mouse') ? ['p1'] : ['p1', 'p2'];
+            // 3) Ensure required options exist + enabled. Per-axis rules:
+            //    Find  touch: full 4-option standard (p1, p1x, p2, p2x).
+            //    Catch mouse: single-player only (p1).
+            //    Find  mouse + Catch touch: p1 + p2.
+            var required;
+            if (kind === 'find' && mode === 'touch')       required = ['p1', 'p1x', 'p2', 'p2x'];
+            else if (kind === 'catch' && mode === 'mouse') required = ['p1'];
+            else                                            required = ['p1', 'p2'];
             required.forEach(function(id) {
                 if (_ensureOption(conf.players.options, id, true)) changed = true;
             });

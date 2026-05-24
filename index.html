@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=timer-switch-5">
+    <link rel="stylesheet" href="css/style.css?v=gp0-search-1">
 </head>
 <body>
     <div class="game-container">
@@ -29,16 +29,12 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:33 AM PDT</span></h1>
-            <p class="intro-tagline"></p>
-            <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
-            <div class="intro-panel" id="intro-panel" style="display:none;">
-                <!-- Global TOUCH/MOUSE switch for the intro screen. Replaces
-                     the prior per-game popup. Drives both _findInputMode and
-                     _catchInputMode together. Initial value = device-aware
-                     (_hasTouchScreen ? 'touch' : 'mouse'); user's session
-                     choice wins until page reload. Pinned absolute to the
-                     panel's top-left so the centered h3 stays untouched. -->
+            <!-- Title row: app title on the left, global TOUCH/MOUSE toggle
+                 on its immediate right (same line). Toggle moved out of
+                 the intro panel's top-left so the panel's header can host
+                 the new game-type search input instead. -->
+            <div class="intro-title-row">
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:57 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -48,29 +44,38 @@
                     <span class="intro-input-toggle-track"><span class="intro-input-toggle-thumb"></span></span>
                     <span class="intro-input-toggle-icon intro-input-toggle-icon-right" aria-hidden="true">&#128433;</span>
                 </button>
-                <h3>Choose the game:</h3>
-                <div class="intro-columns" id="intro-columns">
-                    <div class="intro-col">
-                        <h4 class="intro-col-header">Find the doubles</h4>
-                        <div class="intro-col-list" id="intro-col-find"></div>
-                    </div>
-                    <div class="intro-col">
-                        <h4 class="intro-col-header">Catch the double</h4>
-                        <div class="intro-col-list" id="intro-col-catch"></div>
-                    </div>
-                    <div class="intro-col">
-                        <h4 class="intro-col-header">Spy games</h4>
-                        <div class="intro-col-list" id="intro-col-spy">
-                            <div class="intro-col-empty">(coming soon)</div>
-                        </div>
+            </div>
+            <p class="intro-tagline"></p>
+            <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
+            <div class="intro-panel" id="intro-panel" style="display:none;">
+                <!-- Header row: title on the left, typeahead search input on
+                     the right. Search pulls from the GAME_TYPE_CATALOG; click
+                     a match to push its id to the recency stack, which
+                     re-renders the visible columns (max 3, leftmost = most
+                     recently picked). -->
+                <div class="intro-panel-header">
+                    <h3>Choose the game:</h3>
+                    <div class="game-type-search">
+                        <input type="text"
+                               id="game-type-search-input"
+                               class="game-type-search-input"
+                               placeholder="Search game types…"
+                               autocomplete="off"
+                               aria-label="Game type search">
+                        <div class="game-type-search-dropdown" id="game-type-search-dropdown"></div>
                     </div>
                 </div>
+                <!-- intro-columns is rebuilt dynamically by
+                     _renderIntroColumns from the recency stack. Inner
+                     element ids (intro-col-find / intro-col-catch) are
+                     preserved per visible column so populateIntroGames
+                     can target them. -->
+                <div class="intro-columns" id="intro-columns"></div>
             </div>
             <!-- The Catch/Find input-mode popups that lived here were
-                 retired when the global TOUCH/MOUSE toggle was added at
-                 the top-left of #intro-panel. Their show/hide/choose
-                 helpers and the popup-outside-click closer have also
-                 been removed. -->
+                 retired when the global TOUCH/MOUSE toggle was added.
+                 Their show/hide/choose helpers and the popup-outside-click
+                 closer have also been removed. -->
         </div>
 
         <!-- Start Screen -->
@@ -79,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:33 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:57 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1097,19 +1102,149 @@
             return btn;
         }
 
+        // ===== Game-type catalog + recency-stack render =====
+        // Six game-type cards live in the panel; three are visible at
+        // any time (the recency stack). Live types build their game
+        // tiles via populateIntroGames; placeholders show "(coming soon)".
+        var GAME_TYPE_CATALOG = [
+            { id: 'find',     label: 'Find the doubles',  live: true,  listId: 'intro-col-find'  },
+            { id: 'catch',    label: 'Catch the double',  live: true,  listId: 'intro-col-catch' },
+            { id: 'spy',      label: 'Spy games',         live: false, listId: 'intro-col-spy'   },
+            { id: 'scratch',  label: 'Scratch',           live: false, listId: 'intro-col-scratch' },
+            { id: 'nameit',   label: 'Name it',           live: false, listId: 'intro-col-nameit'  },
+            { id: 'sequence', label: 'Sequence',          live: false, listId: 'intro-col-sequence'}
+        ];
+        var GAME_TYPE_RECENCY_KEY = 'vicaIntroGameTypeRecency';
+        var GAME_TYPE_RECENCY_DEFAULT = ['find', 'catch', 'sequence'];
+
+        function _getGameTypeMeta(id) {
+            for (var i = 0; i < GAME_TYPE_CATALOG.length; i++) {
+                if (GAME_TYPE_CATALOG[i].id === id) return GAME_TYPE_CATALOG[i];
+            }
+            return null;
+        }
+        function _loadGameTypeRecency() {
+            try {
+                var raw = localStorage.getItem(GAME_TYPE_RECENCY_KEY);
+                var arr = raw ? JSON.parse(raw) : null;
+                if (Array.isArray(arr) && arr.length > 0) {
+                    var known = GAME_TYPE_CATALOG.map(function(c){ return c.id; });
+                    var filtered = arr.filter(function(id){ return known.indexOf(id) >= 0; }).slice(0, 3);
+                    if (filtered.length > 0) return filtered;
+                }
+            } catch (e) {}
+            return GAME_TYPE_RECENCY_DEFAULT.slice();
+        }
+        function _saveGameTypeRecency(stack) {
+            try { localStorage.setItem(GAME_TYPE_RECENCY_KEY, JSON.stringify(stack)); } catch (e) {}
+        }
+        function _pushGameTypeRecency(id) {
+            if (!_getGameTypeMeta(id)) return;
+            var stack = _loadGameTypeRecency();
+            stack = stack.filter(function(x){ return x !== id; });
+            stack.unshift(id);
+            stack = stack.slice(0, 3);
+            _saveGameTypeRecency(stack);
+            _renderIntroColumns();
+        }
+
+        // Build .intro-col elements from the recency stack into #intro-columns,
+        // preserving the per-type list ids so populateIntroGames can target
+        // .intro-col-find / .intro-col-catch by id when those types are visible.
+        function _renderIntroColumns() {
+            var container = document.getElementById('intro-columns');
+            if (!container) return;
+            container.innerHTML = '';
+            var stack = _loadGameTypeRecency();
+            stack.forEach(function(id) {
+                var meta = _getGameTypeMeta(id);
+                if (!meta) return;
+                var col = document.createElement('div');
+                col.className = 'intro-col';
+                col.dataset.typeId = id;
+                var h = document.createElement('h4');
+                h.className = 'intro-col-header';
+                h.textContent = meta.label;
+                col.appendChild(h);
+                var list = document.createElement('div');
+                list.className = 'intro-col-list';
+                list.id = meta.listId;
+                if (!meta.live) {
+                    var empty = document.createElement('div');
+                    empty.className = 'intro-col-empty';
+                    empty.textContent = '(coming soon)';
+                    list.appendChild(empty);
+                }
+                col.appendChild(list);
+                container.appendChild(col);
+            });
+            // Populate game tiles for whichever live columns are visible.
+            populateIntroGames();
+        }
+
+        // Wire the typeahead search input. Idempotent — re-running attaches
+        // listeners only once.
+        function _wireGameTypeSearch() {
+            var input = document.getElementById('game-type-search-input');
+            var dropdown = document.getElementById('game-type-search-dropdown');
+            if (!input || !dropdown || input._wired) return;
+            input._wired = true;
+            function render(items) {
+                dropdown.innerHTML = '';
+                if (!items || items.length === 0) {
+                    var none = document.createElement('div');
+                    none.className = 'game-type-search-empty';
+                    none.textContent = 'No matches';
+                    dropdown.appendChild(none);
+                } else {
+                    items.forEach(function(c) {
+                        var div = document.createElement('div');
+                        div.className = 'game-type-search-item';
+                        div.textContent = c.label;
+                        // mousedown (not click) so it fires before blur hides the dropdown.
+                        div.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            _pushGameTypeRecency(c.id);
+                            input.value = '';
+                            dropdown.classList.remove('open');
+                            input.blur();
+                        });
+                        dropdown.appendChild(div);
+                    });
+                }
+                dropdown.classList.add('open');
+            }
+            function filterAndShow() {
+                var q = input.value.toLowerCase().trim();
+                var items = GAME_TYPE_CATALOG.filter(function(c) {
+                    return q === '' || c.label.toLowerCase().indexOf(q) >= 0;
+                });
+                render(items);
+            }
+            input.addEventListener('focus', filterAndShow);
+            input.addEventListener('input', filterAndShow);
+            input.addEventListener('blur', function() {
+                // Slight delay so mousedown on a result registers first.
+                setTimeout(function(){ dropdown.classList.remove('open'); }, 150);
+            });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') { input.value = ''; input.blur(); }
+            });
+        }
+
         function populateIntroGames() {
+            // _renderIntroColumns may have skipped find / catch if they're
+            // not in the recency stack — guard each branch independently.
             var findList = document.getElementById('intro-col-find');
             var catchList = document.getElementById('intro-col-catch');
-            // Spy column is populated elsewhere (placeholder until that type exists)
-            if (!findList || !catchList) return;
-            findList.innerHTML = '';
-            catchList.innerHTML = '';
+            if (findList) findList.innerHTML = '';
+            if (catchList) catchList.innerHTML = '';
 
             // Tile-click bypass: the prior per-game input-mode popup flow
-            // was replaced by the global TOUCH/MOUSE toggle at the top-left
-            // of #intro-panel. Every tile click now sets selectedIntroGame
-            // and calls goToMainPage() directly. dataset.gameId is stamped
-            // so _updateIntroTileAvailability can decide which rows to dim.
+            // was replaced by the global TOUCH/MOUSE toggle in the title
+            // row. Every tile click now sets selectedIntroGame and calls
+            // goToMainPage() directly. dataset.gameId is stamped so
+            // _updateIntroTileAvailability can decide which rows to dim.
             function _bypassTileClick(btn, gameId) {
                 btn.dataset.gameId = gameId;
                 btn.onclick = function() {
@@ -1122,40 +1257,41 @@
                 };
             }
 
-            var games = loadCustomGames();
-            games.forEach(function(game, i) {
-                if (game.published === false) return;
-                var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
-                    function() { _openCardsLibrary('find', i); });
-                _bypassTileClick(fbtn, 'custom-' + i);
-            });
+            if (findList) {
+                var games = loadCustomGames();
+                games.forEach(function(game, i) {
+                    if (game.published === false) return;
+                    var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
+                        function() { _openCardsLibrary('find', i); });
+                    _bypassTileClick(fbtn, 'custom-' + i);
+                });
 
-            // Combined games live in the column of their underlying game type
-            // (first stage's type). Today all combined games chain Find stages,
-            // so they appear in the Find column. No eye button — they wrap
-            // multiple stages and a single cards-library view doesn't
-            // represent that cleanly.
-            var combinedGames = loadCombinedGames();
-            combinedGames.forEach(function(cg, ci) {
-                var cbtn = _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), null);
-                _bypassTileClick(cbtn, 'combined-' + ci);
-            });
+                // Combined games live in the Find column.
+                var combinedGames = loadCombinedGames();
+                combinedGames.forEach(function(cg, ci) {
+                    var cbtn = _renderIntroGameBtn(findList, cg.name, _introFindIconSVG(), null);
+                    _bypassTileClick(cbtn, 'combined-' + ci);
+                });
+            }
 
-            var catchGames = loadCatchGames();
-            catchGames.forEach(function(cg, ci) {
-                if (cg.published === false) return;
-                var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(cg), null,
-                    function() { _openCardsLibrary('catch', ci); });
-                _bypassTileClick(btn, 'catch-' + ci);
-            });
+            if (catchList) {
+                var catchGames = loadCatchGames();
+                catchGames.forEach(function(cg, ci) {
+                    if (cg.published === false) return;
+                    var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(cg), null,
+                        function() { _openCardsLibrary('catch', ci); });
+                    _bypassTileClick(btn, 'catch-' + ci);
+                });
+            }
 
-            // Wire the global toggle (idempotent — only binds once) and
-            // immediately dim any tiles that don't support the current
-            // mode. _setupIntroInputToggle's first call also runs
-            // _updateIntroTileAvailability via _setInputMode, so the
+            // Wire the global toggle + search input (both idempotent — only
+            // bind once) and immediately dim any tiles that don't support
+            // the current mode. _setupIntroInputToggle's first call also
+            // runs _updateIntroTileAvailability via _setInputMode, so the
             // explicit second call below is redundant on first paint but
             // harmless on subsequent re-paints (e.g. after a game add).
             _setupIntroInputToggle();
+            _wireGameTypeSearch();
             _updateIntroTileAvailability();
         }
 
@@ -3052,7 +3188,8 @@
                 if (typeof resetIntroScreen === 'function') resetIntroScreen();
                 // Re-pull games so closure indices reflect any localStorage changes
                 // made in another tab (Studio) since the page loaded.
-                if (typeof populateIntroGames === 'function') populateIntroGames();
+                if (typeof _renderIntroColumns === 'function') _renderIntroColumns();
+                else if (typeof populateIntroGames === 'function') populateIntroGames();
                 if (window.game && window.game._cleanupVoiceUI) window.game._cleanupVoiceUI();
             };
             overlay.appendChild(homeBtn);
@@ -4081,8 +4218,10 @@
         function populateLibraryGames() {}
         function populateCardMakerGames() {}
 
-        // Initialize game list on page load
-        populateIntroGames();
+        // Initialize game list on page load — _renderIntroColumns builds
+        // the 3 visible columns from the recency stack (then calls
+        // populateIntroGames internally to fill any live ones).
+        _renderIntroColumns();
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>

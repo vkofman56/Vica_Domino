@@ -114,6 +114,20 @@
                     if (o.id !== 'p1' && o.on) { o.on = false; changed = true; }
                 });
             }
+            // 5) Sort into canonical id order so the player picker renders
+            //    "1 player" on the left and "2 players" on the right
+            //    (historical games often stored p2 before p1). Unknown ids
+            //    fall to the bottom in stable order.
+            var CANON_ORDER = { p1: 0, p1x: 1, p2: 2, p2x: 3, p3: 4, p3x: 5 };
+            var before = conf.players.options.slice();
+            conf.players.options.sort(function(a, b) {
+                var ai = (a && CANON_ORDER[a.id] != null) ? CANON_ORDER[a.id] : 99;
+                var bi = (b && CANON_ORDER[b.id] != null) ? CANON_ORDER[b.id] : 99;
+                return ai - bi;
+            });
+            for (var si = 0; si < before.length; si++) {
+                if (before[si] !== conf.players.options[si]) { changed = true; break; }
+            }
         });
         return changed;
     }

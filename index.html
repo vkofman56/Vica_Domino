@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=xeno-combo-5">
+    <link rel="stylesheet" href="css/style.css?v=timer-switch-1">
 </head>
 <body>
     <div class="game-container">
@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:09 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -79,7 +79,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:16 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:09 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -99,6 +99,24 @@
                     <div class="setup-types-buttons" id="setup-types-buttons"></div>
                 </div>
                 <div class="setup-columns">
+                    <!-- Timer column. Find pages only — hidden on Catch via
+                         JS in _applyGameSetupToPlayerScreen (Catch games are
+                         timed by their nature). The pill toggles whether the
+                         picked player count runs with the xeno-timer. Defaults
+                         to ON every time a Find game's setup page is opened;
+                         user's flip persists in-memory until reload or until
+                         they navigate to another game. -->
+                    <div class="setup-timer-col" id="setup-timer-col" style="display:none;">
+                        <h3>Timer</h3>
+                        <button type="button" class="timer-toggle"
+                                id="setup-timer-toggle"
+                                role="switch" aria-checked="true"
+                                aria-label="Timer ON/OFF" data-state="on"
+                                title="Timer is ON — click to turn OFF">
+                            <span class="timer-toggle-icon" aria-hidden="true">&#8987;</span>
+                            <span class="timer-toggle-track"><span class="timer-toggle-thumb"></span></span>
+                        </button>
+                    </div>
                     <div class="setup-left">
                         <h3 id="setup-h3-level">Choose your game:</h3>
                         <div class="game-level-select">
@@ -1419,6 +1437,39 @@
             } catch (e) { return true; }
         }
 
+        // ===== Timer ON/OFF switch (Find setup page only) =====
+        // Replaces the prior p1x/p2x player-button variants — timer is now
+        // a top-level setup choice rather than a per-player-count flavor.
+        // State (window._currentTimerOn) is per-game: resets to ON every
+        // time a Find game's setup page is opened. On Catch pages we hide
+        // the column and clear the state so gameplay-side reads (which OR
+        // with this flag) become no-ops there.
+        function _applyTimerSwitchForGameType(gameType) {
+            var col = document.getElementById('setup-timer-col');
+            var isFind = (gameType !== 'catch');
+            if (col) col.style.display = isFind ? '' : 'none';
+            window._currentTimerOn = !!isFind; // default ON for Find, OFF for Catch
+            _wireTimerToggleOnce();
+            _updateTimerToggleVisual();
+        }
+        function _wireTimerToggleOnce() {
+            var toggle = document.getElementById('setup-timer-toggle');
+            if (!toggle || toggle._wired) return;
+            toggle._wired = true;
+            toggle.addEventListener('click', function() {
+                window._currentTimerOn = !window._currentTimerOn;
+                _updateTimerToggleVisual();
+            });
+        }
+        function _updateTimerToggleVisual() {
+            var toggle = document.getElementById('setup-timer-toggle');
+            if (!toggle) return;
+            var on = !!window._currentTimerOn;
+            toggle.setAttribute('data-state', on ? 'on' : 'off');
+            toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+            toggle.title = 'Timer is ' + (on ? 'ON — click to turn OFF' : 'OFF — click to turn ON');
+        }
+
         // Walk every intro game tile; dim the row if its game lacks a
         // setup for the current input mode. Called from _setInputMode
         // (toggle flip) and from populateIntroGames (initial paint).
@@ -1549,6 +1600,11 @@
                 window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
                 return;
             }
+            // Timer ON/OFF switch: visible on Find pages only. Resets to
+            // ON every time we open a Find game's setup. Catch hides the
+            // column and clears _currentTimerOn so the gameplay-side OR
+            // (selectPlayerCount + inline-render branch) is a no-op there.
+            _applyTimerSwitchForGameType(gameType);
             // Axis header labels
             var h3p = document.getElementById('setup-h3-players');
             var h3l = document.getElementById('setup-h3-level');
@@ -1614,7 +1670,12 @@
                     });
                     btnOnly.classList.add('selected');
                     var _count = parseInt(btnOnly.getAttribute('data-players'), 10) || 1;
-                    var _xeno  = btnOnly.getAttribute('data-xeno') === 'true';
+                    // OR in the Timer-switch state (Find pages only —
+                    // _currentTimerOn is false on Catch, so this is a
+                    // no-op there). Lets the player pick "1 player" and
+                    // still get a timed round when the switch is ON.
+                    var _xeno  = (btnOnly.getAttribute('data-xeno') === 'true')
+                              || !!window._currentTimerOn;
                     if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
                         window.game.renderInlinePlayerNames(_count, _xeno);
                     }
@@ -3960,7 +4021,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=player-opts-migr-4"></script>
+    <script src="js/game.js?v=timer-switch-1"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

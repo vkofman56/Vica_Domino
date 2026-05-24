@@ -17,9 +17,12 @@
 // .setup.touch.players.options and .setup.mouse.players.options
 // in line with the canonical player-option rules:
 //
-//   Find  touch: full standard — p1, p1x, p2, p2x all enabled
-//                (1 player, 1 player + timer, 2 players, 2 players + timer)
-//   Find  mouse: 1-player AND 2-player (p1 + p2)
+//   Find  touch: 1-player AND 2-player (p1 + p2). Timer is no longer
+//                a player-picker variant — it moved to a dedicated
+//                Timer ON/OFF switch on the Find setup page.
+//                p1x and p2x get actively disabled on read.
+//   Find  mouse: 1-player AND 2-player (p1 + p2). Same Timer-switch
+//                model; p1x and p2x actively disabled.
 //   Catch touch: 1-player AND 2-player (p1 + p2)
 //   Catch mouse: exactly one option enabled, and it's a 1-player option (p1)
 //
@@ -87,17 +90,24 @@
                 conf.players.options = dedup; changed = true;
             }
             // 3) Ensure required options exist + enabled. Per-axis rules:
-            //    Find  touch: full 4-option standard (p1, p1x, p2, p2x).
             //    Catch mouse: single-player only (p1).
-            //    Find  mouse + Catch touch: p1 + p2.
-            var required;
-            if (kind === 'find' && mode === 'touch')       required = ['p1', 'p1x', 'p2', 'p2x'];
-            else if (kind === 'catch' && mode === 'mouse') required = ['p1'];
-            else                                            required = ['p1', 'p2'];
+            //    Everything else: p1 + p2.
+            var required = (kind === 'catch' && mode === 'mouse') ? ['p1'] : ['p1', 'p2'];
             required.forEach(function(id) {
                 if (_ensureOption(conf.players.options, id, true)) changed = true;
             });
-            // 4) Catch mouse: only one option enabled, and it's p1.
+            // 4a) Find (both modes): timer is no longer a player variant —
+            //     it's a dedicated switch on the setup page. Disable p1x/p2x
+            //     so they don't surface as player buttons.
+            if (kind === 'find') {
+                conf.players.options.forEach(function(o) {
+                    if (!o) return;
+                    if ((o.id === 'p1x' || o.id === 'p2x') && o.on) {
+                        o.on = false; changed = true;
+                    }
+                });
+            }
+            // 4b) Catch mouse: only one option enabled, and it's p1.
             if (kind === 'catch' && mode === 'mouse') {
                 conf.players.options.forEach(function(o) {
                     if (!o) return;
@@ -751,7 +761,13 @@ class VicaDominoGame {
 
     selectPlayerCount(e) {
         const count = parseInt(e.target.dataset.players);
-        const includeXeno = e.target.dataset.xeno === 'true';
+        // OR with the Find-page Timer switch state. Find player buttons
+        // no longer carry data-xeno=true (the timer variants p1x/p2x got
+        // dropped); window._currentTimerOn drives whether the picked
+        // player count runs as a timed (xeno) round. Catch pages set
+        // _currentTimerOn=false on entry, so the OR is a no-op there.
+        const includeXeno = (e.target.dataset.xeno === 'true')
+                         || !!window._currentTimerOn;
         this.includeXeno = includeXeno;
         this.playerIcons = {}; // Reset icon selections
 
@@ -1140,21 +1156,11 @@ class VicaDominoGame {
                     xenoRow.appendChild(startBtn);
                 }
                 nameInputs.appendChild(xenoRow);
-            } else {
-                // Find layout (GPt F Setup): compact box (icon + timer
-                // only, no "Xeno" text) sits in the .setup-game-icon top
-                // row, anchored to the left immediately after the dominos
-                // icon with a small 12px gap. Start Game stays in its
-                // native slot (direct child of #player-names, below the
-                // player rows) — _ensureStartButton above already
-                // restored it there.
-                const setupIcon = document.getElementById('setup-game-icon');
-                if (setupIcon) {
-                    const box = makeComboBox(false);
-                    box.style.marginLeft = '12px';
-                    setupIcon.appendChild(box);
-                }
             }
+            // Find (else branch) intentionally has NO xeno-combo-box now —
+            // the new Timer switch in the upper Levels/Type box is the
+            // sole visual + control for timed mode. Two indicators of the
+            // same state would be noisy.
         }
     }
 

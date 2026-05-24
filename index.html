@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=timer-switch-3">
+    <link rel="stylesheet" href="css/style.css?v=timer-switch-4">
 </head>
 <body>
     <div class="game-container">
@@ -29,7 +29,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="welcome-page-label">GP 0</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:21 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel" style="display:none;"></div>
             <div class="intro-panel" id="intro-panel" style="display:none;">
@@ -79,7 +79,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:09 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:21 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1472,6 +1472,23 @@
             var col = document.getElementById('setup-timer-col');
             var hg = col && col.querySelector('.timer-hg');
             if (hg) hg.setAttribute('data-state', on ? 'on' : 'off');
+            // Companion hourglass beside the dominos game-icon: present
+            // when the timer is ON, removed cleanly when OFF.
+            var setupIcon = document.getElementById('setup-game-icon');
+            if (setupIcon) {
+                var existing = setupIcon.querySelector('.setup-game-icon-hourglass');
+                if (on) {
+                    if (!existing) {
+                        var spawn = document.createElement('span');
+                        spawn.className = 'setup-game-icon-hourglass';
+                        spawn.setAttribute('aria-hidden', 'true');
+                        spawn.textContent = '⏳';
+                        setupIcon.appendChild(spawn);
+                    }
+                } else if (existing) {
+                    existing.remove();
+                }
+            }
         }
 
         // Walk every intro game tile; dim the row if its game lacks a
@@ -1837,6 +1854,40 @@
                     window.game._ensureStartButton(_pnHost);
                 }
             } catch (e) { console.warn('[Setup] _ensureStartButton safety net failed:', e); }
+            // Pixel-align the dominos game-icon so its left edge lines up
+            // with the first visible player button. Deferred to next tick
+            // so layout has flushed (button widths + center math settled).
+            setTimeout(_alignSetupGameIconToFirstPlayerBtn, 0);
+        }
+
+        // Computes the horizontal offset from .player-select's left edge
+        // to the first visible .player-btn's left edge (which can be
+        // non-zero when buttons are flex-centered) and applies it as
+        // margin-left on the dominos SVG inside #setup-game-icon. Keeps
+        // the icon visually anchored to the first player button regardless
+        // of how many buttons are visible or how the user resizes.
+        function _alignSetupGameIconToFirstPlayerBtn() {
+            var setupIcon = document.getElementById('setup-game-icon');
+            if (!setupIcon) return;
+            var svg = setupIcon.querySelector('svg.setup-game-icon-svg');
+            if (!svg) return;
+            var playerSelect = document.querySelector('#start-screen .player-select');
+            if (!playerSelect || playerSelect.style.display === 'none') {
+                svg.style.marginLeft = '';
+                return;
+            }
+            var visibleBtns = Array.prototype.filter.call(
+                playerSelect.querySelectorAll('.player-btn'),
+                function(b) { return b.offsetParent !== null && b.style.display !== 'none'; }
+            );
+            if (visibleBtns.length === 0) {
+                svg.style.marginLeft = '';
+                return;
+            }
+            var containerRect = playerSelect.getBoundingClientRect();
+            var btnRect = visibleBtns[0].getBoundingClientRect();
+            var offset = Math.max(0, Math.round(btnRect.left - containerRect.left));
+            svg.style.marginLeft = offset + 'px';
         }
 
         // Free helper — removes any visible voice UI (indicator div, mic-check
@@ -4025,7 +4076,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=timer-switch-2"></script>
+    <script src="js/game.js?v=timer-switch-3"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

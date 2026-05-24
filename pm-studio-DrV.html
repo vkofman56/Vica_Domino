@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icon-btns-always-on-1">
+    <link rel="stylesheet" href="css/style.css?v=icon-delete-flow-1">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:52 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:05 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:52 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:05 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 11:52 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 01:05 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9817,6 +9817,14 @@
         // trashed user icon across all sets, with restore + permanent
         // delete on each card.
         function _renderSafeHavenIconsRow(container) {
+            // Same structural layout as a normal card set's icon row
+            // (renderIconsRow): two subsections — "Find the Double" +
+            // "Catch the Bubble" — splitting trashed icons by their
+            // original gameType. Header title is plain "Icons" (no
+            // "Trash" word per design call) so the section reads like
+            // the icons row of every other set. Difference: no
+            // templates are seeded here — Safe Haven is a recovery
+            // surface, not a real authoring set.
             var entries = _gatherTrashedIcons();
 
             var section = document.createElement('div');
@@ -9825,7 +9833,7 @@
 
             var header = document.createElement('div');
             header.className = 'library-icons-header';
-            header.innerHTML = '<span class="library-icons-title">Icons Trash</span>'
+            header.innerHTML = '<span class="library-icons-title">Icons</span>'
                              + '<span class="library-icons-toggle" title="Show/hide trashed icons">▾</span>';
             header.addEventListener('click', function() {
                 section.classList.toggle('collapsed');
@@ -9837,26 +9845,38 @@
             var body = document.createElement('div');
             body.className = 'library-icons-body';
 
-            if (!entries.length) {
-                var empty = document.createElement('div');
-                empty.className = 'icons-trash-empty';
-                empty.textContent = 'No trashed icons. Deleted icons will appear here for recovery.';
-                body.appendChild(empty);
-            } else {
+            ['find', 'catch'].forEach(function(gameType) {
                 var sub = document.createElement('div');
                 sub.className = 'icons-subsection';
-                sub.dataset.gameType = 'trash';
+                sub.dataset.gameType = gameType;
+
+                var subHeader = document.createElement('div');
+                subHeader.className = 'icons-subsection-header';
+                subHeader.textContent = (gameType === 'find' ? 'Find the Double' : 'Catch the Bubble');
+                sub.appendChild(subHeader);
+
                 var subRow = document.createElement('div');
                 subRow.className = 'icons-subsection-row';
-                entries.forEach(function(entry) {
-                    subRow.appendChild(_buildIconCardElement(entry.icon, {
-                        inSafeHaven: true,
-                        originSetName: entry.setName
-                    }));
+
+                var filtered = entries.filter(function(entry) {
+                    return entry.icon && entry.icon.gameType === gameType;
                 });
+                if (filtered.length === 0) {
+                    var empty = document.createElement('div');
+                    empty.className = 'icons-subsection-empty';
+                    empty.textContent = '(none)';
+                    subRow.appendChild(empty);
+                } else {
+                    filtered.forEach(function(entry) {
+                        subRow.appendChild(_buildIconCardElement(entry.icon, {
+                            inSafeHaven: true,
+                            originSetName: entry.setName
+                        }));
+                    });
+                }
                 sub.appendChild(subRow);
                 body.appendChild(sub);
-            }
+            });
 
             section.appendChild(body);
             container.insertBefore(section, container.firstChild);
@@ -10007,10 +10027,13 @@
             var btn = document.createElement('button');
             btn.className = 'icon-delete-btn';
             btn.textContent = '✕';
-            btn.title = 'Move to Safe Haven (recoverable)';
+            btn.title = 'Delete icon';
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                _deleteIcon(card);
+                // Mirrors confirmDeleteCard: checks game usage and presents
+                // the appropriate dialog. Permanent purge or soft-trash
+                // happens only after the user picks.
+                confirmDeleteIcon(card);
             });
             (host || card).appendChild(btn);
         }
@@ -10272,6 +10295,214 @@
 
         // Remove a user icon from storage. Templates have no delete button so
         // this is only reachable for non-templates.
+        // ===== Icon delete flow — mirrors confirmDeleteCard (Phase: icon parity) =====
+        // Returns [{type:'find'|'catch', index, name}, …] for every game whose
+        // game.icons[] references this icon by {uid, setName}. Used so the
+        // delete dialog can tell the user where the icon is currently in use.
+        function _gamesUsingIcon(uid, setName) {
+            if (!uid) return [];
+            var hits = [];
+            try {
+                (loadCustomGames() || []).forEach(function(g, idx) {
+                    if (!g || !Array.isArray(g.icons)) return;
+                    var used = g.icons.some(function(r) {
+                        return r && r.uid === uid && (!setName || r.setName === setName);
+                    });
+                    if (used) hits.push({ type: 'find', index: idx, name: g.name || '(unnamed game)' });
+                });
+                (loadCatchGames() || []).forEach(function(g, idx) {
+                    if (!g || !Array.isArray(g.icons)) return;
+                    var used = g.icons.some(function(r) {
+                        return r && r.uid === uid && (!setName || r.setName === setName);
+                    });
+                    if (used) hits.push({ type: 'catch', index: idx, name: g.name || '(unnamed game)' });
+                });
+            } catch (e) {}
+            return hits;
+        }
+
+        // Strip every {uid, setName} reference from every game's icons[].
+        // Persists each side only if something changed. Used by the
+        // "Delete from everywhere" branch of the icon-delete dialog so
+        // games don't keep orphan refs to a purged icon.
+        function _removeIconFromAllGames(uid, setName) {
+            if (!uid) return;
+            try {
+                var customs = loadCustomGames() || [];
+                var customDirty = false;
+                customs.forEach(function(g) {
+                    if (!g || !Array.isArray(g.icons)) return;
+                    var before = g.icons.length;
+                    g.icons = g.icons.filter(function(r) {
+                        return !(r && r.uid === uid && (!setName || r.setName === setName));
+                    });
+                    if (g.icons.length !== before) customDirty = true;
+                });
+                if (customDirty) localStorage.setItem('savedCustomGames', JSON.stringify(customs));
+
+                var catches = loadCatchGames() || [];
+                var catchDirty = false;
+                catches.forEach(function(g) {
+                    if (!g || !Array.isArray(g.icons)) return;
+                    var before = g.icons.length;
+                    g.icons = g.icons.filter(function(r) {
+                        return !(r && r.uid === uid && (!setName || r.setName === setName));
+                    });
+                    if (g.icons.length !== before) catchDirty = true;
+                });
+                if (catchDirty && typeof saveCatchGames === 'function') saveCatchGames(catches);
+            } catch (e) {}
+        }
+
+        // Public entry point — replaces the prior immediate-soft-trash of
+        // _deleteIcon when the user clicks the red ✕ on a user icon.
+        // Three branches mirror confirmDeleteCard exactly:
+        //   0 games using + in Safe Haven  → plain confirm + permanent delete
+        //   0 games using + active set     → 3-button simple dialog
+        //   N games using                  → game-list dialog
+        function confirmDeleteIcon(card) {
+            var uid = card.dataset.uid || '';
+            // In Safe Haven the icon's set is its trashed-from origin, not
+            // 'Safe Haven'. iconOriginSet was stamped by _buildIconCardElement.
+            var setName = card.dataset.iconOriginSet || _setNameFromIconCard(card) || '';
+            if (!uid || !setName) return;
+            var sizeClass  = card.dataset.sizeClass || '';
+            var inSafeHaven = (typeof _isInSafeHaven === 'function' && _isInSafeHaven())
+                           || card.dataset.iconTrashed === 'true';
+            var label = (sizeClass ? sizeClass + ' icon' : 'this icon');
+            var gamesUsing = _gamesUsingIcon(uid, setName);
+
+            if (gamesUsing.length === 0) {
+                if (inSafeHaven) {
+                    if (!confirm('Permanently delete ' + label + ' from Safe Haven? This cannot be undone.')) return;
+                    if (_purgeIcon(uid, setName)) _rerenderIconsForCard(card, 'Safe Haven');
+                } else {
+                    _showSimpleDeleteIconDialog(card, label, uid, setName);
+                }
+                return;
+            }
+            _showDeleteIconDialog(card, label, uid, setName, gamesUsing, inSafeHaven);
+        }
+
+        // Simple delete dialog — icon NOT used in any game, NOT in Safe Haven.
+        // Mirrors _showSimpleDeleteDialog (cards) — green Safe Haven, red
+        // permanent delete, cancel. Same overlay + colors so the visual
+        // contract matches across cards and icons.
+        function _showSimpleDeleteIconDialog(card, label, uid, setName) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:360px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:16px;color:#FFD700;';
+            title.textContent = 'Delete ' + label + '?';
+            dialog.appendChild(title);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+            var btnSafe = document.createElement('button');
+            btnSafe.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#2e7d32;color:white;';
+            btnSafe.textContent = '\u{1F6E1}️ Move to Safe Haven';
+            btnSafe.onclick = function() {
+                overlay.remove();
+                _deleteIcon(card); // existing soft-trash path
+            };
+            btnRow.appendChild(btnSafe);
+
+            var btnDel = document.createElement('button');
+            btnDel.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+            btnDel.textContent = 'Delete permanently';
+            btnDel.onclick = function() {
+                overlay.remove();
+                if (_purgeIcon(uid, setName)) _rerenderIconsForCard(card, setName);
+            };
+            btnRow.appendChild(btnDel);
+
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+
+        // Game-list delete dialog — icon IS used in N games. Mirrors
+        // _showDeleteCardDialog exactly: header counts games, list shows
+        // each, hint explains tradeoff, buttons offer Safe Haven (green) +
+        // Delete from everywhere (red, also strips refs) + Cancel.
+        function _showDeleteIconDialog(card, label, uid, setName, gamesUsing, inSafeHaven) {
+            var gameNames = gamesUsing.map(function(g) {
+                return (g.type === 'catch' ? 'Catch: ' : 'Find: ') + g.name;
+            });
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:400px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:12px;color:#FFD700;';
+            title.textContent = label.charAt(0).toUpperCase() + label.slice(1) + ' is used in ' + gamesUsing.length + ' game' + (gamesUsing.length > 1 ? 's' : '');
+            dialog.appendChild(title);
+
+            var list = document.createElement('div');
+            list.style.cssText = 'margin-bottom:16px;padding:8px 12px;background:rgba(255,255,255,0.08);border-radius:6px;font-size:13px;';
+            gameNames.forEach(function(name) {
+                var item = document.createElement('div');
+                item.style.cssText = 'padding:3px 0;';
+                item.textContent = '• ' + name;
+                list.appendChild(item);
+            });
+            dialog.appendChild(list);
+
+            var hint = document.createElement('div');
+            hint.style.cssText = 'font-size:12px;color:#aaa;margin-bottom:16px;';
+            hint.textContent = inSafeHaven
+                ? 'Deleting from all games will permanently remove this icon from every game that uses it.'
+                : 'Move to Safe Haven to keep games working (games will skip the icon until you restore it). Deleting from all games will permanently remove the icon everywhere.';
+            dialog.appendChild(hint);
+
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+            if (!inSafeHaven) {
+                var btnSafe = document.createElement('button');
+                btnSafe.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#2e7d32;color:white;';
+                btnSafe.textContent = '\u{1F6E1}️ Move to Safe Haven';
+                btnSafe.onclick = function() {
+                    overlay.remove();
+                    _deleteIcon(card);
+                };
+                btnRow.appendChild(btnSafe);
+            }
+
+            var btnAll = document.createElement('button');
+            btnAll.style.cssText = 'padding:10px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#b71c1c;color:white;';
+            btnAll.textContent = inSafeHaven ? 'Delete from Safe Haven and all games' : 'Delete from Card Maker and all games';
+            btnAll.onclick = function() {
+                overlay.remove();
+                _removeIconFromAllGames(uid, setName);
+                _purgeIcon(uid, setName);
+                _rerenderIconsForCard(card, inSafeHaven ? 'Safe Haven' : setName);
+            };
+            btnRow.appendChild(btnAll);
+
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:10px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+
         function _deleteIcon(card) {
             var setName = _setNameFromIconCard(card);
             if (!setName) return;

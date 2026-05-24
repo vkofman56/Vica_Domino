@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icon-delete-flow-2">
+    <link rel="stylesheet" href="css/style.css?v=align-fix-1">
 </head>
 <body>
     <div class="game-container">
@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:37 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:47 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:47 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2006,19 +2006,19 @@
             _scheduleSetupIconAlignment();
         }
 
-        // Schedule alignment on the next two animation frames (layout +
-        // paint settled). Coalesces multiple calls so resize storms and
-        // back-to-back game switches don't trigger redundant work.
-        var _setupIconAlignScheduled = false;
+        // Fire alignment from MULTIPLE time anchors so at least one catches
+        // the player buttons in their visible-and-laid-out state. Earlier
+        // double-rAF + debounce flag wasn't enough — initial-paint cases
+        // sometimes scheduled before the buttons were measurable, then the
+        // debounce swallowed later attempts. _align is idempotent so
+        // re-runs are cheap and self-converge.
         function _scheduleSetupIconAlignment() {
-            if (_setupIconAlignScheduled) return;
-            _setupIconAlignScheduled = true;
             requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                    _setupIconAlignScheduled = false;
-                    _alignSetupGameIconToFirstPlayerBtn();
-                });
+                requestAnimationFrame(_alignSetupGameIconToFirstPlayerBtn);
             });
+            setTimeout(_alignSetupGameIconToFirstPlayerBtn, 50);
+            setTimeout(_alignSetupGameIconToFirstPlayerBtn, 200);
+            setTimeout(_alignSetupGameIconToFirstPlayerBtn, 500);
         }
 
         // Re-align on window resize too — viewport changes shift the
@@ -2975,9 +2975,23 @@
             // (with its margin-left:auto) stays on the right.
             var oldSvg = iconHost.querySelector('svg.setup-game-icon-svg');
             if (oldSvg) {
+                // Preserve the runtime-applied margin-left from the old
+                // SVG (set by _alignSetupGameIconToFirstPlayerBtn to push
+                // the dominos under the first player button). Otherwise
+                // every sync would wipe the alignment back to the panel's
+                // left edge.
+                var preservedMargin = oldSvg.style.marginLeft;
                 oldSvg.replaceWith(clone);
+                if (preservedMargin) clone.style.marginLeft = preservedMargin;
             } else {
                 iconHost.insertBefore(clone, iconHost.firstChild);
+            }
+            // Defensive: schedule a fresh alignment pass so any geometry
+            // change (e.g. a level-icon swap that subtly resizes the SVG)
+            // re-pins us to the first player button. _schedule…Alignment
+            // is debounced via rAF so back-to-back syncs coalesce.
+            if (typeof _scheduleSetupIconAlignment === 'function') {
+                _scheduleSetupIconAlignment();
             }
         }
         document.addEventListener('DOMContentLoaded', function() {

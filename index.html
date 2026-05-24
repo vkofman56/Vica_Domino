@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=icon-delete-flow-1">
+    <link rel="stylesheet" href="css/style.css?v=icon-delete-flow-2">
 </head>
 <body>
     <div class="game-container">
@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:05 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:37 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:05 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:37 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1997,38 +1997,86 @@
                 }
             } catch (e) { console.warn('[Setup] _ensureStartButton safety net failed:', e); }
             // Pixel-align the dominos game-icon so its left edge lines up
-            // with the first visible player button. Deferred to next tick
-            // so layout has flushed (button widths + center math settled).
-            setTimeout(_alignSetupGameIconToFirstPlayerBtn, 0);
+            // with the first visible player button (or, when only one
+            // player option is enabled and renderInlinePlayerNames is
+            // showing a single icon-section row, with that icon).
+            // Double-rAF schedules the run after layout AND paint settle,
+            // which is more reliable than setTimeout(0) for measuring
+            // freshly-shown flex children.
+            _scheduleSetupIconAlignment();
         }
 
-        // Computes the horizontal offset from .player-select's left edge
-        // to the first visible .player-btn's left edge (which can be
-        // non-zero when buttons are flex-centered) and applies it as
-        // margin-left on the dominos SVG inside #setup-game-icon. Keeps
-        // the icon visually anchored to the first player button regardless
-        // of how many buttons are visible or how the user resizes.
+        // Schedule alignment on the next two animation frames (layout +
+        // paint settled). Coalesces multiple calls so resize storms and
+        // back-to-back game switches don't trigger redundant work.
+        var _setupIconAlignScheduled = false;
+        function _scheduleSetupIconAlignment() {
+            if (_setupIconAlignScheduled) return;
+            _setupIconAlignScheduled = true;
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    _setupIconAlignScheduled = false;
+                    _alignSetupGameIconToFirstPlayerBtn();
+                });
+            });
+        }
+
+        // Re-align on window resize too — viewport changes shift the
+        // flex-centered button positions, which moves their .left in
+        // pixel space and would otherwise leave the dominos icon stuck
+        // at the previously-computed margin.
+        window.addEventListener('resize', _scheduleSetupIconAlignment);
+
+        // Computes the horizontal offset from the player row container's
+        // left edge to the first visible player target's left edge
+        // (which is non-zero when the row is flex-centered) and applies
+        // it as margin-left on the dominos SVG inside #setup-game-icon.
+        // Two render modes are handled:
+        //   - Button mode: 2+ enabled player options → .player-select
+        //     shows .player-btn buttons; first visible button = target.
+        //   - Inline mode: 1 enabled option → renderInlinePlayerNames
+        //     builds .player-input-row inside #name-inputs; first row's
+        //     .input-section = target.
+        // Returns early (and clears the margin) when no target is
+        // visible so the icon falls back to its CSS-natural position.
         function _alignSetupGameIconToFirstPlayerBtn() {
             var setupIcon = document.getElementById('setup-game-icon');
             if (!setupIcon) return;
             var svg = setupIcon.querySelector('svg.setup-game-icon-svg');
             if (!svg) return;
+
+            // Try button mode first.
+            var target = null, container = null;
             var playerSelect = document.querySelector('#start-screen .player-select');
-            if (!playerSelect || playerSelect.style.display === 'none') {
+            if (playerSelect && playerSelect.style.display !== 'none') {
+                var visibleBtns = Array.prototype.filter.call(
+                    playerSelect.querySelectorAll('.player-btn'),
+                    function(b) { return b.offsetParent !== null && b.style.display !== 'none'; }
+                );
+                if (visibleBtns.length > 0) {
+                    target = visibleBtns[0];
+                    container = playerSelect;
+                }
+            }
+            // Fall back to inline-player-names mode (single-option case).
+            if (!target) {
+                var nameInputs = document.getElementById('name-inputs');
+                if (nameInputs && nameInputs.style.display !== 'none') {
+                    var firstRow = nameInputs.querySelector('.player-input-row:not(.xeno-row) .input-section');
+                    if (firstRow && firstRow.offsetParent !== null) {
+                        target = firstRow;
+                        container = nameInputs;
+                    }
+                }
+            }
+
+            if (!target || !container) {
                 svg.style.marginLeft = '';
                 return;
             }
-            var visibleBtns = Array.prototype.filter.call(
-                playerSelect.querySelectorAll('.player-btn'),
-                function(b) { return b.offsetParent !== null && b.style.display !== 'none'; }
-            );
-            if (visibleBtns.length === 0) {
-                svg.style.marginLeft = '';
-                return;
-            }
-            var containerRect = playerSelect.getBoundingClientRect();
-            var btnRect = visibleBtns[0].getBoundingClientRect();
-            var offset = Math.max(0, Math.round(btnRect.left - containerRect.left));
+            var containerRect = container.getBoundingClientRect();
+            var targetRect = target.getBoundingClientRect();
+            var offset = Math.max(0, Math.round(targetRect.left - containerRect.left));
             svg.style.marginLeft = offset + 'px';
         }
 

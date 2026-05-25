@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=align-fix-1">
+    <link rel="stylesheet" href="css/style.css?v=clear-half-1">
     <style>
         .mcard-selected { outline: 3px solid #7c4dff !important; outline-offset: -1px; }
         /* Help popup system */
@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:47 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:46 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:47 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:46 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 01:47 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:46 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -10249,6 +10249,111 @@
             }
         }
 
+        // ===== Per-game icon removal: half-clearing helpers =====
+        // Used by the red ✕ on the IC panel to: count affected slots,
+        // confirm with the admin, clear matching half refs in the
+        // in-memory mppConfig (Find: iconTop / iconBottom; Catch: icon),
+        // set a per-half "cleared" flag so the renderer draws a dashed
+        // yellow outline on the empty half, and persist the change.
+        function _countMppSlotsUsingIcon(ref) {
+            if (!ref || !ref.uid) return 0;
+            var n = 0;
+            if (typeof mppConfig !== 'object' || !mppConfig) return 0;
+            Object.keys(mppConfig).forEach(function(lk) {
+                var slots = mppConfig[lk];
+                if (!Array.isArray(slots)) return;
+                slots.forEach(function(slot) {
+                    if (!slot) return;
+                    ['iconTop', 'iconBottom'].forEach(function(k) {
+                        var ic = slot[k];
+                        if (ic && ic.uid === ref.uid && ic.setName === ref.setName) n++;
+                    });
+                    if (slot.icon && slot.icon.uid === ref.uid && slot.icon.setName === ref.setName) n++;
+                });
+            });
+            return n;
+        }
+        function _clearMppSlotsUsingIcon(ref) {
+            if (!ref || !ref.uid) return 0;
+            var cleared = 0;
+            if (typeof mppConfig !== 'object' || !mppConfig) return 0;
+            Object.keys(mppConfig).forEach(function(lk) {
+                var slots = mppConfig[lk];
+                if (!Array.isArray(slots)) return;
+                slots.forEach(function(slot) {
+                    if (!slot) return;
+                    // Find: per-half. Set null + cleared flag so the
+                    // renderer can distinguish "explicitly cleared"
+                    // (dashed outline) from "never assigned" (placeholder
+                    // card / blank face).
+                    ['iconTop', 'iconBottom'].forEach(function(k) {
+                        var ic = slot[k];
+                        if (ic && ic.uid === ref.uid && ic.setName === ref.setName) {
+                            slot[k] = null;
+                            slot[k + 'Cleared'] = true;
+                            cleared++;
+                        }
+                    });
+                    // Catch: single icon slot.
+                    if (slot.icon && slot.icon.uid === ref.uid && slot.icon.setName === ref.setName) {
+                        slot.icon = null;
+                        slot.iconCleared = true;
+                        cleared++;
+                    }
+                });
+            });
+            return cleared;
+        }
+        function _persistMppConfigToGame() {
+            if (typeof mppGameIndex === 'undefined' || mppGameIndex < 0) return;
+            var games = (mppGameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[mppGameIndex];
+            if (!game) return;
+            game.mainPageDominos = JSON.parse(JSON.stringify(mppConfig));
+            if (mppGameType === 'catch') saveCatchGames(games);
+            else localStorage.setItem('savedCustomGames', JSON.stringify(games));
+        }
+        // Yellow-bordered confirmation dialog matching the card-delete
+        // dialog chrome. `count` is the number of affected domino halves;
+        // if 0 the dominos line is omitted. onConfirm fires only when the
+        // admin clicks "Remove + clear halves".
+        function _showRemoveIconConfirmDialog(count, onConfirm) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
+            var dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:400px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:12px;color:#FFD700;';
+            title.textContent = 'Remove this icon from the game?';
+            dialog.appendChild(title);
+            if (count > 0) {
+                var body = document.createElement('div');
+                body.style.cssText = 'font-size:13px;color:#ccc;margin-bottom:16px;line-height:1.5;';
+                body.textContent = count + ' domino' + (count > 1 ? 's use' : ' uses') +
+                    ' this icon. Removing it will clear those halves — you can pick a different icon for each cleared half.';
+                dialog.appendChild(body);
+            }
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;flex-direction:row;gap:8px;justify-content:flex-end;';
+            var btnCancel = document.createElement('button');
+            btnCancel.style.cssText = 'padding:8px 16px;border-radius:8px;border:1px solid #666;cursor:pointer;font-size:13px;background:transparent;color:#ccc;';
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = function() { overlay.remove(); };
+            btnRow.appendChild(btnCancel);
+            var btnGo = document.createElement('button');
+            btnGo.style.cssText = 'padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;background:#FFD700;color:#222;font-weight:bold;';
+            btnGo.textContent = (count > 0) ? 'Remove + clear halves' : 'Remove';
+            btnGo.onclick = function() {
+                overlay.remove();
+                if (typeof onConfirm === 'function') onConfirm();
+            };
+            btnRow.appendChild(btnGo);
+            dialog.appendChild(btnRow);
+            overlay.appendChild(dialog);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+
         // Walk up from a DOM card element to discover which card set the
         // icons belong to (so we know which localStorage key to read/write).
         function _setNameFromIconCard(card) {
@@ -19760,20 +19865,28 @@
                 rmBtn.title = 'Remove from this game';
                 rmBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    _iconRemoveFromGame(mppGameType, mppGameIndex, { uid: ic.uid, setName: entry.setName });
-                    // Also clear any slots currently using this exact icon
-                    // — the icon would otherwise stay on the slot even
-                    // though it's no longer in the pool.
-                    ['circle','triangle','star'].forEach(function(lk) {
-                        (mppConfig[lk] || []).forEach(function(slot) {
-                            if (slot && slot.icon && slot.icon.uid === ic.uid) slot.icon = null;
+                    var iconRef = { uid: ic.uid, setName: entry.setName };
+                    // Count affected halves in the in-memory mppConfig so
+                    // the dialog can tell the user what will be cleared.
+                    var affected = _countMppSlotsUsingIcon(iconRef);
+                    _showRemoveIconConfirmDialog(affected, function onConfirm() {
+                        // 1) Clear matching slot halves in mppConfig + set
+                        //    per-half "cleared" flag so the renderer draws
+                        //    a dashed yellow outline (signals "pick a new
+                        //    icon for this half").
+                        _clearMppSlotsUsingIcon(iconRef);
+                        // 2) Strip from game.icons[] in localStorage
+                        //    (existing helper — unchanged).
+                        _iconRemoveFromGame(mppGameType, mppGameIndex, iconRef);
+                        // 3) Persist the slot changes (game.mainPageDominos)
+                        //    so dangling refs aren't kept across reloads.
+                        _persistMppConfigToGame();
+                        // 4) Re-render IC panel + every level preview.
+                        document.querySelectorAll('.mpp-level-svg').forEach(function(s) {
+                            applyMppConfigToClone(s, s.getAttribute('data-mpp-level'));
                         });
+                        _renderMppIconsRow();
                     });
-                    // Re-render levels so cleared slots show empty bubble again.
-                    document.querySelectorAll('.mpp-level-svg').forEach(function(s) {
-                        applyMppConfigToClone(s, s.getAttribute('data-mpp-level'));
-                    });
-                    _renderMppIconsRow();
                 });
                 btn.appendChild(rmBtn);
                 row.appendChild(btn);
@@ -19814,6 +19927,9 @@
                 slot.icon = iconDesc;
                 slot.top = '';
                 slot.topStableId = '';
+                // Clear the "cleared" flag — re-assignment removes the
+                // dashed-outline state.
+                if (slot.iconCleared) delete slot.iconCleared;
             } else {
                 // Find: per-half. The selected half determines which key.
                 var key = sel.half === 'top' ? 'iconTop' : 'iconBottom';
@@ -19823,6 +19939,9 @@
                 } else {
                     slot.bottom = ''; slot.bottomStableId = '';
                 }
+                // Re-assignment clears the dashed-outline state for the half.
+                var clearedKey = key + 'Cleared';
+                if (slot[clearedKey]) delete slot[clearedKey];
             }
             // Refresh the slot's preview in the panel.
             var svgClone = document.querySelector('.mpp-level-svg[data-mpp-level="' + sel.levelKey + '"]');
@@ -19929,6 +20048,27 @@
 
                     var clickArea = grp.querySelector('.mpp-click-area');
                     var bp = _bubblePos[levelKey][bi];
+
+                    // CLEARED-SLOT state: slot.iconCleared is set when the
+                    // admin removed the icon via the IC panel's red ✕.
+                    // Render a dashed yellow ring on the bubble (no card,
+                    // no icon, no face) — signals "pick a new icon for
+                    // this slot". Existing .mpp-click-area click handler
+                    // opens the picker.
+                    if (slot.iconCleared) {
+                        grp.querySelectorAll('.mpp-bubble-fill, .mpp-bubble-shine').forEach(function(el) { el.style.display = 'none'; });
+                        var clearedRing = document.createElementNS(ns, 'circle');
+                        clearedRing.setAttribute('cx', bp.cx);
+                        clearedRing.setAttribute('cy', bp.cy);
+                        clearedRing.setAttribute('r', bp.r);
+                        clearedRing.setAttribute('fill', 'none');
+                        clearedRing.setAttribute('stroke', '#FFD700');
+                        clearedRing.setAttribute('stroke-width', '1.5');
+                        clearedRing.setAttribute('stroke-dasharray', '3,2');
+                        clearedRing.setAttribute('class', 'mpp-bubble-card-img mpp-cleared-outline');
+                        grp.insertBefore(clearedRing, clickArea);
+                        return;
+                    }
 
                     // ICON PATH (Phase 4.1): if the slot has an icon
                     // assignment, render the icon's SVG content inside the
@@ -20259,6 +20399,36 @@
                         iconNested.setAttribute('overflow', 'hidden');
                         iconNested.innerHTML = h.icon.svgContent;
                         grp.insertBefore(iconNested, h.face);
+                        h.face.style.display = 'none';
+                        return;
+                    }
+                    // CLEARED-HALF state: the slot's iconTop/iconBottom was
+                    // explicitly removed via the IC panel's remove button
+                    // (which sets iconTopCleared / iconBottomCleared = true).
+                    // Render a dashed yellow outline on this half (no card,
+                    // no icon, no face) so the admin sees an obvious "pick a
+                    // new icon" slot. Clicking the half is already wired —
+                    // .mpp-click-area opens the picker.
+                    var _clearedKey = (h.dataFace === '0' ? 'iconTopCleared' : 'iconBottomCleared');
+                    if (cfg && cfg[_clearedKey]) {
+                        var xc = parseFloat(h.face.getAttribute('x'));
+                        var yc = parseFloat(h.face.getAttribute('y'));
+                        var szc = 24;
+                        var clearedRect = document.createElementNS(ns, 'rect');
+                        clearedRect.setAttribute('x', (xc - szc / 2).toString());
+                        clearedRect.setAttribute('y', (yc - szc / 2).toString());
+                        clearedRect.setAttribute('width',  szc.toString());
+                        clearedRect.setAttribute('height', szc.toString());
+                        clearedRect.setAttribute('rx', '3');
+                        clearedRect.setAttribute('ry', '3');
+                        clearedRect.setAttribute('fill', 'none');
+                        clearedRect.setAttribute('stroke', '#FFD700');
+                        clearedRect.setAttribute('stroke-width', '1.5');
+                        clearedRect.setAttribute('stroke-dasharray', '3,2');
+                        clearedRect.setAttribute('class', 'mpp-card-img mpp-cleared-outline');
+                        clearedRect.setAttribute('data-mpp-face', h.dataFace);
+                        clearedRect.setAttribute('data-mpp-domino', dominoIdx.toString());
+                        grp.insertBefore(clearedRect, h.face);
                         h.face.style.display = 'none';
                         return;
                     }

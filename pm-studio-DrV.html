@@ -37,15 +37,38 @@
             padding: 4px 8px;
         }
         .gv-zones-grid .gv-row-letter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
             color: #FFD700;
             font-size: 14px;
             font-weight: bold;
-            opacity: 0.55;
-            min-width: 18px;
-            padding: 2px 6px 2px 0;
+            opacity: 0.7;
+            min-width: 22px;
+            padding: 4px 6px;
             text-align: center;
-            align-self: center;
             user-select: none;
+        }
+        /* Per-row delete: small × under the letter. Visible by default
+           (subtle), brighter on hover. Click → confirm → remove the row
+           from emptyRows and drop any cards in that row. */
+        .gv-zones-grid .gv-row-delete-btn {
+            background: transparent;
+            border: none;
+            color: #ff6b6b;
+            opacity: 0.45;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        .gv-zones-grid .gv-row-delete-btn:hover {
+            opacity: 1;
+            background: rgba(255, 107, 107, 0.18);
         }
         .gv-zones-grid .library-row.gv-zone {
             display: flex;
@@ -277,7 +300,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -295,7 +318,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 01:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -537,7 +560,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 01:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14550,6 +14573,54 @@
             });
         }
 
+        // Delete an entire row from the current game. Confirms with the
+        // user if the row contains cards (those will be dropped from the
+        // game as part of the delete). Also strips the letter from
+        // game.emptyRows so the row doesn't auto-reappear on next open.
+        function deleteGameRow(rowLetter) {
+            var isCatch = currentCatchGameViewIndex >= 0;
+            var isFind = currentGameViewIndex >= 0;
+            if (!isCatch && !isFind) return;
+            var games, game, storageKey, saveFn;
+            if (isCatch) {
+                games = loadCatchGames();
+                game = games[currentCatchGameViewIndex];
+                saveFn = function() { try { saveCatchGames(games); } catch(e) {} };
+            } else {
+                games = loadCustomGames();
+                game = games[currentGameViewIndex];
+                storageKey = 'savedCustomGames';
+                saveFn = function() { try { localStorage.setItem(storageKey, JSON.stringify(games)); } catch(e) {} };
+            }
+            if (!game) return;
+            var L = String(rowLetter || '').toUpperCase();
+            if (!L) return;
+            var cardsInRow = (game.cards || []).filter(function(c) {
+                return c && c.label && String(c.label).charAt(0).toUpperCase() === L;
+            });
+            var msg = cardsInRow.length === 0
+                ? 'Delete empty row "' + L + '"?'
+                : 'Delete row "' + L + '"?\n\nThis will also remove ' + cardsInRow.length +
+                  ' card(s) from the game (the cards remain in the Card Maker library).';
+            if (!confirm(msg)) return;
+            // Drop cards from the row
+            if (cardsInRow.length > 0) {
+                game.cards = (game.cards || []).filter(function(c) {
+                    return !(c && c.label && String(c.label).charAt(0).toUpperCase() === L);
+                });
+            }
+            // Drop the letter from emptyRows
+            if (Array.isArray(game.emptyRows)) {
+                game.emptyRows = game.emptyRows.filter(function(e) {
+                    return String(e || '').toUpperCase() !== L;
+                });
+            }
+            saveFn();
+            // Re-render
+            if (isFind && typeof openGameView === 'function') openGameView(currentGameViewIndex);
+            else if (isCatch && typeof openCatchGameView === 'function') openCatchGameView(currentCatchGameViewIndex);
+        }
+
         // === Stage 2: zone-row renderer ===
         // Emit 4 grid cells for one letter row: separator + letter + red
         // zone + no-dot zone + green zone. Cards already split by zone via
@@ -14565,7 +14636,25 @@
             letterCell.className = 'gv-row-letter';
             letterCell.dataset.rowLetter = rowLetter;
             if (opts.isEmptyRow) letterCell.dataset.emptyRow = 'true';
-            letterCell.textContent = rowLetter;
+            // Letter text on top, × delete button underneath. The "+"
+            // affordance row at the bottom uses its own letterCell built
+            // separately, so this only applies to real rows.
+            var letterText = document.createElement('span');
+            letterText.textContent = rowLetter;
+            letterCell.appendChild(letterText);
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'gv-row-delete-btn';
+            delBtn.textContent = '✕'; // ✕
+            delBtn.title = 'Delete row "' + rowLetter + '" (cards in this row are removed too).';
+            (function(L){
+                delBtn.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    deleteGameRow(L);
+                });
+            })(rowLetter);
+            letterCell.appendChild(delBtn);
             container.appendChild(letterCell);
 
             // Split cards by zone

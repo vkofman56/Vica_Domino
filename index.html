@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:09 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:04 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 11:04 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1373,17 +1373,21 @@
                 body.appendChild(empty);
             } else {
                 var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
-                // Build two lookup tables — one for uid-form identifiers
-                // ("u:<uid>", the Studio default for new groups), one for
-                // legacy bare labels. A given group entry contributes to
-                // exactly one map. Cards then look themselves up by uid
-                // first, then label, so duplicate-label cards no longer
-                // get inadvertently swept into a sibling's group.
+                // Group entries can be either:
+                //   - legacy array of idents (pre-Stage 1 saves)
+                //   - object { id, name?, probability, members: ident[] }
+                // _mgMembersGP reads either shape. Two lookup tables (uid +
+                // label) preserve duplicate-label safety.
+                function _mgMembersGP(g) {
+                    if (!g) return [];
+                    if (Array.isArray(g)) return g;
+                    if (Array.isArray(g.members)) return g.members;
+                    return [];
+                }
                 var identToGroupIdx_uid = {};
                 var identToGroupIdx_lbl = {};
                 mGroups.forEach(function(g, gi) {
-                    if (!Array.isArray(g)) return;
-                    g.forEach(function(ident) {
+                    _mgMembersGP(g).forEach(function(ident) {
                         if (typeof ident !== 'string') return;
                         if (ident.indexOf('u:') === 0) identToGroupIdx_uid[ident.slice(2)] = gi;
                         else identToGroupIdx_lbl[ident] = gi;
@@ -2496,11 +2500,18 @@
             // label is explicitly listed, not because something else with the
             // same label happens to be.
             var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
+            // Group entry shape: legacy array or Stage-1 object
+            // ({members: [...]}). _mgMembersGP reads either.
+            function _mgMembersGP(g) {
+                if (!g) return [];
+                if (Array.isArray(g)) return g;
+                if (Array.isArray(g.members)) return g.members;
+                return [];
+            }
             var identToGroupIdx_uid = {};
             var identToGroupIdx_lbl = {};
             mGroups.forEach(function(g, gi) {
-                if (!Array.isArray(g)) return;
-                g.forEach(function(ident) {
+                _mgMembersGP(g).forEach(function(ident) {
                     if (typeof ident !== 'string') return;
                     if (ident.indexOf('u:') === 0) identToGroupIdx_uid[ident.slice(2)] = gi;
                     else identToGroupIdx_lbl[ident] = gi;
@@ -2830,10 +2841,14 @@
                     var game = games[activeCustomGameIndex];
                     if (game && game.mainPageDominos) savedMpp = game.mainPageDominos;
                     if (game && Array.isArray(game.mGroups)) {
+                        // Group shape: legacy array OR Stage-1 object with
+                        // .members. Read members uniformly so MPP slot resolution
+                        // works against both formats.
                         game.mGroups.forEach(function(grp) {
-                            if (Array.isArray(grp) && grp.length > 0) {
-                                var rep = grp[0];
-                                grp.forEach(function(lbl) { labelToRep[lbl] = rep; });
+                            var members = grp ? (Array.isArray(grp) ? grp : (grp.members || [])) : [];
+                            if (members.length > 0) {
+                                var rep = members[0];
+                                members.forEach(function(lbl) { labelToRep[lbl] = rep; });
                             }
                         });
                     }

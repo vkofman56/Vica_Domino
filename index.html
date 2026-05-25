@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2468,15 +2468,21 @@
             // Phase A.2: apply admin's matrix for this find game
             _applyGameSetupToPlayerScreen(game, 'find');
 
-            // Collect original cards with svgMarkup
+            // Collect original cards with svgMarkup. Dedupe by BOTH label
+            // and stableId so a source card accidentally re-added twice
+            // (different label, same stableId) collapses into one effective
+            // entry rather than producing two visually-identical dominos.
             var origCards = [];
             var seenLabels = {};
+            var seenStableIds = {};
             game.cards.forEach(function(c) {
-                if (!c.isVariation && !seenLabels[c.label]) {
-                    if (!c.svgMarkup || !c.svgMarkup.trim()) return;
-                    seenLabels[c.label] = true;
-                    origCards.push(c);
-                }
+                if (c.isVariation) return;
+                if (seenLabels[c.label]) return;
+                if (c.stableId && seenStableIds[c.stableId]) return;
+                if (!c.svgMarkup || !c.svgMarkup.trim()) return;
+                seenLabels[c.label] = true;
+                if (c.stableId) seenStableIds[c.stableId] = true;
+                origCards.push(c);
             });
 
             // Apply mGroups (Studio "Match" groups) so multiple cards that share

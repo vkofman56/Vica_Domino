@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:14 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14051,8 +14051,10 @@
             if (!game) return;
 
             // Promote any staging-area Added cards into their natural letter
-            // rows BEFORE rendering, then persist so future opens are clean.
-            if (_autoPromoteAddedCards(game)) {
+            // rows BEFORE rendering, then normalize row order alphabetically.
+            var _cPromoted = _autoPromoteAddedCards(game);
+            var _cSorted = _sortRowsAlphabetically(game);
+            if (_cPromoted || _cSorted) {
                 try { saveCatchGames(catchGames); } catch(e) {}
             }
 
@@ -14062,7 +14064,9 @@
             var _gvl = document.getElementById('a-game-view-label');
             if (_gvl) _gvl.textContent = 'AGC-Catch';
 
-            document.getElementById('game-view-title').textContent = 'Catch the double: ' + game.name;
+            // Title row 2 shows just the game name; row 1 already carries
+            // the white-caps "CATCH THE MATCHING BUBBLE" indicator.
+            document.getElementById('game-view-title').textContent = game.name;
             // White-caps game-type indicator on the first title line.
             var _gct = document.getElementById('game-creator-type');
             if (_gct) _gct.textContent = 'CATCH THE MATCHING BUBBLE';
@@ -14311,28 +14315,85 @@
             return true;
         }
 
+        // Normalize row order alphabetically by first letter (stable within a
+        // letter). Returns true if `game.cards` was reordered. Run after
+        // `_autoPromoteAddedCards` so all cards already live in proper rows.
+        //
+        // Strategy:
+        //   1. Bucket cards by their effective row letter: prefer `_gameRow`'s
+        //      bucket — but resolve each `_gameRow` to its dominant letter so
+        //      "two separate A rows" merge into one A bucket (rare; the user
+        //      can re-split via drag).
+        //   2. Sort bucket keys alphabetically.
+        //   3. Flatten back, preserving in-bucket card order, and re-assign
+        //      `_gameRow` to the new sequential index.
+        // Also sorts `game.emptyRows` alphabetically so empty rows slot into
+        // the right position too.
+        function _sortRowsAlphabetically(game) {
+            if (!game || !Array.isArray(game.cards) || game.cards.length === 0) {
+                if (Array.isArray(game.emptyRows) && game.emptyRows.length > 1) {
+                    var sortedE = game.emptyRows.slice().sort();
+                    var changedE = sortedE.some(function(v, i) { return v !== game.emptyRows[i]; });
+                    if (changedE) { game.emptyRows = sortedE; return true; }
+                }
+                return false;
+            }
+            var buckets = {};       // letter -> [cards]
+            var letterOrder = [];   // first-seen letters (used only for stable equality check)
+            game.cards.forEach(function(c) {
+                if (!c) return;
+                var L = String(c.label || '').charAt(0).toUpperCase();
+                if (!L) L = '~'; // park letterless cards at the end
+                if (!buckets[L]) { buckets[L] = []; letterOrder.push(L); }
+                buckets[L].push(c);
+            });
+            var sortedLetters = Object.keys(buckets).slice().sort();
+            // Detect no-op: cards already in alphabetical letter order.
+            var alreadySorted = sortedLetters.length === letterOrder.length &&
+                sortedLetters.every(function(L, i) { return L === letterOrder[i]; });
+            var emptyChanged = false;
+            if (Array.isArray(game.emptyRows) && game.emptyRows.length > 1) {
+                var sortedEmpty = game.emptyRows.slice().sort();
+                emptyChanged = sortedEmpty.some(function(v, i) { return v !== game.emptyRows[i]; });
+                if (emptyChanged) game.emptyRows = sortedEmpty;
+            }
+            if (alreadySorted) return emptyChanged;
+
+            var flat = [];
+            sortedLetters.forEach(function(L, rowIdx) {
+                buckets[L].forEach(function(c) {
+                    c._gameRow = rowIdx;
+                    flat.push(c);
+                });
+            });
+            game.cards = flat;
+            return true;
+        }
+
         // Append a small "+" affordance at the bottom of the game-view cards
         // container that creates a new empty row (same as the top-bar +Row).
-        // Click → addEmptyGameRow().
+        // Click → addEmptyGameRow(). The button is positioned in the row
+        // letter column (same horizontal offset as the A/B/C... labels) so
+        // it visually continues the column below the last row.
         function _appendAddRowAffordance(container) {
             if (!container) return;
-            var wrap = document.createElement('div');
-            wrap.className = 'add-row-affordance';
-            wrap.style.cssText = 'margin:6px 0 0 40px;display:flex;align-items:center;gap:8px;';
+            // Mimic the structure of a .library-row so the button lands in
+            // the same flex slot as a .library-row-letter span.
+            var row = document.createElement('div');
+            row.className = 'library-row add-row-affordance';
+            row.style.cssText = 'margin-top:10px;align-items:center;min-height:32px;';
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = '+';
             btn.title = 'Add a new empty row (you pick the letter).';
-            btn.style.cssText = 'width:28px;height:28px;border-radius:50%;border:1.5px dashed rgba(126,255,126,0.55);background:rgba(126,255,126,0.06);color:#7eff7e;font-size:18px;font-weight:bold;line-height:1;cursor:pointer;padding:0;';
-            btn.onmouseenter = function() { btn.style.background = 'rgba(126,255,126,0.15)'; };
+            // Match the .library-row-letter footprint (min-width:14px;
+            // padding:2px 4px) so it lines up under the row letters.
+            btn.style.cssText = 'min-width:14px;padding:0;width:22px;height:22px;border-radius:50%;border:1.5px dashed rgba(126,255,126,0.55);background:rgba(126,255,126,0.06);color:#7eff7e;font-size:14px;font-weight:bold;line-height:1;cursor:pointer;flex-shrink:0;';
+            btn.onmouseenter = function() { btn.style.background = 'rgba(126,255,126,0.18)'; };
             btn.onmouseleave = function() { btn.style.background = 'rgba(126,255,126,0.06)'; };
             btn.onclick = function() { if (typeof addEmptyGameRow === 'function') addEmptyGameRow(); };
-            var hint = document.createElement('span');
-            hint.textContent = 'add a new row';
-            hint.style.cssText = 'color:#888;font-size:11px;font-style:italic;';
-            wrap.appendChild(btn);
-            wrap.appendChild(hint);
-            container.appendChild(wrap);
+            row.appendChild(btn);
+            container.appendChild(row);
         }
 
         function openGameView(gameIndex, returnScreen) {
@@ -14343,8 +14404,11 @@
             if (!game) return;
 
             // Promote any staging-area Added cards into their natural letter
-            // rows BEFORE rendering, then persist so future opens are clean.
-            if (_autoPromoteAddedCards(game)) {
+            // rows BEFORE rendering, then normalize row order alphabetically.
+            // Persist if either pass mutated, so future opens are clean.
+            var _gPromoted = _autoPromoteAddedCards(game);
+            var _gSorted = _sortRowsAlphabetically(game);
+            if (_gPromoted || _gSorted) {
                 try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
             }
 
@@ -14362,7 +14426,10 @@
             var _gvl = document.getElementById('a-game-view-label');
             if (_gvl) _gvl.textContent = 'AGC-Found';
 
-            document.getElementById('game-view-title').textContent = 'Find the doubles: ' + game.name;
+            // Title row 2 shows just the game name; the game type lives on
+            // row 1 as the white-caps "FIND THE DOUBLES" indicator, so the
+            // prefix would be redundant.
+            document.getElementById('game-view-title').textContent = game.name;
             // White-caps game-type indicator on the first title line,
             // alongside "Game Creator". Cleared when leaving (see Catch
             // open path + closeGameView for the symmetric resets).

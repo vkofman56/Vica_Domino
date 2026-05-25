@@ -1,5 +1,227 @@
 # Vica Domino Project Memory
-**Last Updated**: May 21, 2026
+**Last Updated**: May 24, 2026
+
+---
+
+## May 24, 2026 — M-card semantics overhaul + Game Creator polish
+
+Long session. Started with row/icon polish in the Game Creator, then
+pivoted into a deep rework of the M-card grouping system and the domino
+pair generator after a user-reported duplicate-domino bug exposed a
+chain of label-based identity assumptions. All commits land on
+`claude/review-project-docs-JOOeh` and are mirrored to two sibling
+branches per the project's 3-branch safety net.
+
+### 1. Times 2_ up to 7 — missing rows / +Row affordance
+
+Cards added via "Add Card" carry an `_addedToGame: true` flag that
+parked them in a single "+" staging row at the bottom of the Game
+Creator. With 18 cards spanning 5 letters in this game, the staging
+row was a dumping ground and the user couldn't see rows A, B, C, D, E
+nor create them via the top-bar +Row button ("letter already in use").
+
+Three additions, all in `pm-studio-DrV.html`:
+
+- `_autoPromoteAddedCards(game)` runs at the top of openGameView /
+  openCatchGameView. Walks game.cards, drops `_addedToGame`, splices
+  each card after the last existing keeper with the same first letter
+  (inheriting its `_gameRow`), or appends as a new row. New-letter
+  batches sort alphabetically so they appear A, B, C… instead of in
+  physical click order. Persists if anything changed.
+- `_sortRowsAlphabetically(game)` runs right after promotion. Buckets
+  cards by first letter, sorts A→Z, re-flattens, re-assigns
+  `_gameRow`. Also sorts `game.emptyRows`. Idempotent.
+- `_appendAddRowAffordance(container)` — a small dashed-green "+"
+  button rendered as a `.library-row` so it lines up under the
+  letter column (verified at left=143 = same as `.library-row-letter`
+  span). Same handler as the top-bar +Row.
+
+### 2. Game Creator title row swap
+
+`Game Creator <span.game-creator-type>FIND THE DOUBLES</span>` lived
+indented 40px while the editable game name sat flush at the row's left
+edge. User asked to flip: "Game Creator" at the left, game name under
+the white-caps indicator. Done by dropping `margin-left: 0` on the
+H1, plus `_alignGameNameToGameTypeIndicator()` — measures the indicator's
+post-layout left position inside rAF and sets a matching `margin-left`
+on the game-name H1. Robust to text-width changes ("FIND THE DOUBLES"
+vs "CATCH THE MATCHING BUBBLE").
+
+### 3. Freeze/float dot duplicate-label bug (root cause + audit)
+
+User reported: in "Match 0-4" row A she couldn't put different
+red/green dots on duplicate cards (three "0"s and two blank cards).
+Root cause: `handleFreezeCardClick` and `renderFreezeIndicators` looked
+up cards by `label` only. Three "0" cards all had label "0" → only
+the first one ever toggled.
+
+Fix: `buildGameViewCard(cardInfo, cardIdxInGame)` now accepts an index
+and tags the DOM with `data-game-card-idx`. Both view openers pass
+each card's position via a `cardInfo → index` Map. Click and render
+handlers read the idx, fall back to label for legacy DOM.
+
+Then audited every label-only card lookup. Found two more sites of
+the same bug class:
+- `saveGameViewOrder` (drag-reorder) — was looking up by label AND
+  splicing while iterating, so the first matching card's state got
+  re-associated with a different DOM position after dragging duplicates.
+  Replaced with a Set-based `_consumedIdx` tracker; re-tags surviving
+  DOM cards with fresh idx values after the save so subsequent ops
+  stay correct.
+- `deleteCard` (game-view propagation) — stableId/uid/label fallback
+  couldn't distinguish duplicates re-added from the same source.
+  Prefers `dataset.gameCardIdx` now; old fallback chain remains for
+  Card-Maker-initiated deletes. Re-tags surviving DOM cards too.
+
+Left alone: M-card grouping handler and badge rendering — addressed
+separately below.
+
+### 4. M-card UX (group/ungroup discoverability)
+
+The Ungroup button existed but only after entering M-mode and clicking
+a grouped card. User asked: "how do I ungroup? if I can do it somehow,
+it is not obvious."
+
+Made the colored M1/M2/… badge directly clickable. cursor:pointer +
+"M-group N (X cards). Click to ungroup." tooltip. Click → confirm
+dialog → ungroup → view re-renders. Works without entering M-mode.
+M button tooltip and the M-mode status text both now mention both
+paths (badge-click and in-mode + Ungroup button).
+
+### 5. M-group visual cleanup
+
+A cascade of polish in the order the user surfaced them:
+- M-group bottom border 3px → 6px (was "barely visible").
+- Palette swap. The default first entry was `#7c4dff` (purple) which
+  vanished against the purple Game Creator background. New palette:
+  `#FFD600, #FF1744, #00E676, #FF6D00, #00B0FF, #F50057, #1DE9B6,
+  #FFAB00`. Added `text-shadow: 0 0 2px rgba(0,0,0,0.85), 0 1px 0
+  rgba(0,0,0,0.6)` on the white badge text so it stays legible against
+  yellow.
+- Tried a full-card ring (box-shadow inner color + outer white). User
+  reverted: prefers the underline.
+- M-mode selection outline was `outline: 3px solid #7c4dff` — same
+  vanishing-purple issue. Replaced with `outline: 4px solid #ffffff
+  !important; outline-offset: 2px; box-shadow: 0 0 0 6px
+  rgba(0,0,0,0.35); border-radius: 9px` for a visible white ring with
+  a subtle dark glow and softly rounded corners.
+
+### 6. M-group identity: label → uid
+
+The user kept hitting cases where cards she hadn't clicked ended up in
+her group. Two contributing causes, both real bugs:
+
+- **Drag-end click guard missing on Find view.** The Catch click
+  handler had `if (_gvDragJustEnded) return;` but Find did not. A
+  drag in M-mode would silently fire as a click on the drop target.
+  Mirrored the guard. Fix in commit `423bb6c` predated this audit;
+  the explicit guard added here is the symmetric fix.
+
+- **M-group identity was label-based.** A group stored a list of
+  labels; `applyMCardBadges` matched any DOM card whose label
+  appeared in the group's label list — so duplicates with the same
+  label all got badged together even when the user only clicked one.
+
+Introduced a string identifier format `"u:<uid>"` (new, instance-precise)
+with bare-label kept as the legacy form. Helpers:
+- `_getCardIdentFromEl(cardEl)` — builds the ident from a DOM element
+- `_cardMatchesIdent(cardEl, storedIdent)` — DOM ↔ ident match
+- `_findCardByMGroupIdent(cards, ident)` — resolves an ident to a
+  single card from a list (uid match, label fallback)
+- `_isCardInMGroup(card, group)` — generic membership test
+- `_migrateMGroupsToUidForm(game)` — one-shot conversion: each legacy
+  label entry → uid of the FIRST matching card, with duplicate-label
+  siblings dropped. Runs on every open; idempotent (uid-form passes
+  through). Persists so user's saved groups auto-clean on first view.
+
+Sites updated to consume the new identity:
+- `handleMCardClick` (selection)
+- `applyMCardBadges` (badge rendering)
+- `applyCollapsedView` (1/M hide)
+- `createMCardGroup` / `ungroupMCard` (write paths)
+- `buildEffectiveCards` in pm-studio (domino preview)
+- `findGroupCards` in pm-studio (hover tooltip)
+- `_buildCardsLibraryRow` in index.html (player-side cards-library
+  overlay with `_lookupGroupIdxForCard(card)` helper)
+- `startCustomGame` mGroup resolution in index.html (`_findOrigCardByIdent`)
+
+### 7. Domino pair generator — three independent bugs
+
+User saw "two identical dominos" and "231 dominos when I expected 396",
+plus invalid red×red / green×green combinations. Three pair-builder
+bugs, each fixed independently:
+
+(a) **Identical dominos from same-source duplicates.** Two cards
+with different labels but the same `stableId` (e.g., E3 and E12 both
+pointing at the same source template) passed the label dedup but
+generated visually-identical pairs when matched with anything else.
+Added stableId-based dedup alongside the existing label dedup in
+both `buildEffectiveCards` (Studio) and `startCustomGame`'s origCards
+builder (gameplay). Caught 3 cards collapsing to 1 in user's Match 0-4
+data; also another instance in "x2 x4" with two `H8_10x4` sharing
+stableId.
+
+(b) **Invalid same-color pairs.** Pair generator emitted every
+`i<j` combination. Red = top-only, green = bottom-only — two cards
+wanting the same half can't form a domino. Added
+`_groupCanGoOnHalf(group, half)` and applied in all three pair
+builders (two in pm-studio for the Show Dominos area and the rebuild
+path; one in index.html for the gameplay deck builder). Filter:
+skip pair when neither (i top, j bottom) nor (j top, i bottom) is
+valid; swap orientation when only the mirror satisfies the constraints.
+
+(c) **M-group was collapsing the deck.** User clarified the intended
+semantics: each unique card should be its own deck slot; M-grouping is
+a visual tag + probability-weighting mechanism, NOT a deck collapse.
+Admin needs to see every red × green combination in the Game Maker
+so individual dominos can be excluded. Probability weighting comes
+naturally — a card that visually repeats generates more deck slots
+and therefore appears more often in random draws.
+
+Removed the M-group folding loop from `buildEffectiveCards` and the
+mirror in `startCustomGame`. Each origCard now becomes its own
+effective entry. Net effect for Match 0-4 (10 red + 33 unique green
++ 3 visually-repeating green):
+  - before: 22 effective × C(22,2) = 231 raw pairs
+  - after: 43 effective × valid red×green = 330 pairs
+
+The user paused here ("I now think that I should group the cards when
+they are presented as dominos - not when they are presented as cards.
+I need to think.") so the next direction is open.
+
+### Commits in this session (oldest → newest)
+
+```
+5b0fa20  fix: auto-promote Added cards into letter rows + "+" row affordance
+b1a9ef4  polish: alphabetical row sort + cleaner title + aligned +row affordance
+76ce1c1  fix: freeze/float dots support duplicate-label cards
+423bb6c  fix: drag-reorder + deletion respect per-card index (duplicate labels)
+4ea8375  ux: make M-badge click directly ungroup (discoverability)
+c8d0ef1  ux: thicken M-group bottom border from 3px to 6px
+4595e07  ux: swap M-group palette to non-purple high-contrast hues
+9a4fb02  ux: swap title row indentation in Game Creator
+d53e30a  ux: M-group ring around whole card + white outer band   (later reverted)
+b0bf249  Revert "ux: M-group ring around whole card + white outer band"
+c4819b0  ux: recolor M-mode selection outline (purple → white)
+132928e  ux: round corners on M-mode selection ring (border-radius: 10px)
+5346940  ux: reduce M-mode selection ring radius 10px → 9px
+77aff72  fix: M-group includes ONLY the cards user clicked (uid-based identity)
+0dd9622  fix: cleanup remaining M-group label resolvers + one-shot migration
+4d2e4b1  fix: dedupe domino pair builder by stableId (no more identical pairs)
+678622f  fix: skip red×red and green×green pairs in domino generator
+77300b5  fix: M-group no longer collapses the domino deck
+```
+
+### Files touched
+- `pm-studio-DrV.html` — 18 commits, M-card system + Game Creator polish
+- `index.html` — 4 commits, gameplay-side mirrors of the M-group + dedup fixes
+- No JS/CSS files modified — no cache-buster bumps required.
+
+### Open thread
+M-card semantics. The user is reconsidering whether grouping should
+happen at the domino level (currently: no collapse — each card pairs
+with each) vs the card level (previous behavior: M-group collapses to
+one deck slot, random face per draw). Decision deferred.
 
 ---
 

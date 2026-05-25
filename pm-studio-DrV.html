@@ -203,7 +203,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -221,7 +221,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -463,7 +463,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:03 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14050,6 +14050,12 @@
             var game = catchGames[catchIndex];
             if (!game) return;
 
+            // Promote any staging-area Added cards into their natural letter
+            // rows BEFORE rendering, then persist so future opens are clean.
+            if (_autoPromoteAddedCards(game)) {
+                try { saveCatchGames(catchGames); } catch(e) {}
+            }
+
             currentCatchGameViewIndex = catchIndex;
             currentGameViewIndex = -1; // not a regular game
             gameViewReturnScreen = returnScreen || 'card-library-screen';
@@ -14134,6 +14140,9 @@
                 try { saveCatchGames(catchGames); } catch(e) {}
             }
 
+            // "+" affordance under the last row (Catch parity with Find).
+            _appendAddRowAffordance(container);
+
             // Attach freeze/float click handling to Catch game view cards
             container.querySelectorAll('.library-card').forEach(function(cardEl) {
                 cardEl.addEventListener('click', function(e) {
@@ -14215,12 +14224,129 @@
             _updateCatch2PlayerWarning();
         }
 
+        // Auto-promote cards flagged `_addedToGame: true` into their natural
+        // letter rows. The flag was originally a staging-area marker for
+        // freshly-added cards (segregated into a "+" row at the bottom), but
+        // that segregation hid cards from their proper letter rows and made
+        // it impossible to "+Row" a letter that already had cards in the
+        // staging pile. After this step every card lives in the row dictated
+        // by its first letter; the "+" Added row only appears if absolutely
+        // no cards can be grouped.
+        //
+        // Behavior:
+        //   - For each Added card, clear the flag.
+        //   - If a non-Added card with the same first letter exists, splice
+        //     the Added card in right after the last one of that letter and
+        //     match its `_gameRow` so the renderer keeps them in one row.
+        //   - Otherwise (new letter), append at the end with `_gameRow` cleared
+        //     so the renderer creates a fresh row by first-letter grouping.
+        // Returns true if game.cards was mutated.
+        function _autoPromoteAddedCards(game) {
+            if (!game || !Array.isArray(game.cards)) return false;
+            var hasAdded = game.cards.some(function(c) { return c && c._addedToGame; });
+            if (!hasAdded) return false;
+
+            var keepers = [];
+            var addedByLetter = {};
+            var addedLetterOrder = [];
+            game.cards.forEach(function(c) {
+                if (!c) return;
+                if (c._addedToGame) {
+                    var L = String(c.label || '').charAt(0);
+                    if (!L) { delete c._addedToGame; keepers.push(c); return; }
+                    if (!addedByLetter[L]) { addedByLetter[L] = []; addedLetterOrder.push(L); }
+                    delete c._addedToGame;
+                    addedByLetter[L].push(c);
+                } else {
+                    keepers.push(c);
+                }
+            });
+
+            // Map letter -> last `_gameRow` seen for a keeper with that letter,
+            // so promoted Added cards inherit the same row index and the
+            // renderer keeps them grouped together.
+            var letterRowIdx = {};
+            keepers.forEach(function(c) {
+                if (!c || !c.label) return;
+                if (c._gameRow === undefined) return;
+                letterRowIdx[c.label.charAt(0)] = c._gameRow;
+            });
+
+            // Process letters in two passes so the visible row order makes
+            // sense: first, letters that match a keeper row (splice in place);
+            // then, letters with no keeper (append at end, alphabetical), so
+            // brand-new rows appear A, B, C, D... rather than in the user's
+            // physical click order.
+            var inPlaceLetters = [];
+            var newLetters = [];
+            addedLetterOrder.forEach(function(L) {
+                if (letterRowIdx[L] !== undefined) inPlaceLetters.push(L);
+                else newLetters.push(L);
+            });
+            newLetters.sort();
+
+            var result = keepers.slice();
+            inPlaceLetters.forEach(function(L) {
+                var batch = addedByLetter[L];
+                batch.forEach(function(c) { c._gameRow = letterRowIdx[L]; });
+                var lastIdx = -1;
+                for (var i = result.length - 1; i >= 0; i--) {
+                    var k = result[i];
+                    if (k && k.label && k.label.charAt(0) === L) { lastIdx = i; break; }
+                }
+                if (lastIdx >= 0) {
+                    result.splice.apply(result, [lastIdx + 1, 0].concat(batch));
+                } else {
+                    result.push.apply(result, batch);
+                }
+            });
+            newLetters.forEach(function(L) {
+                var batch = addedByLetter[L];
+                // Clear `_gameRow` so first-letter fallback builds a fresh
+                // row group for these cards.
+                batch.forEach(function(c) { if (c._gameRow !== undefined) delete c._gameRow; });
+                result.push.apply(result, batch);
+            });
+            game.cards = result;
+            return true;
+        }
+
+        // Append a small "+" affordance at the bottom of the game-view cards
+        // container that creates a new empty row (same as the top-bar +Row).
+        // Click → addEmptyGameRow().
+        function _appendAddRowAffordance(container) {
+            if (!container) return;
+            var wrap = document.createElement('div');
+            wrap.className = 'add-row-affordance';
+            wrap.style.cssText = 'margin:6px 0 0 40px;display:flex;align-items:center;gap:8px;';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = '+';
+            btn.title = 'Add a new empty row (you pick the letter).';
+            btn.style.cssText = 'width:28px;height:28px;border-radius:50%;border:1.5px dashed rgba(126,255,126,0.55);background:rgba(126,255,126,0.06);color:#7eff7e;font-size:18px;font-weight:bold;line-height:1;cursor:pointer;padding:0;';
+            btn.onmouseenter = function() { btn.style.background = 'rgba(126,255,126,0.15)'; };
+            btn.onmouseleave = function() { btn.style.background = 'rgba(126,255,126,0.06)'; };
+            btn.onclick = function() { if (typeof addEmptyGameRow === 'function') addEmptyGameRow(); };
+            var hint = document.createElement('span');
+            hint.textContent = 'add a new row';
+            hint.style.cssText = 'color:#888;font-size:11px;font-style:italic;';
+            wrap.appendChild(btn);
+            wrap.appendChild(hint);
+            container.appendChild(wrap);
+        }
+
         function openGameView(gameIndex, returnScreen) {
             // Save all card edits before leaving card maker
             if (typeof saveVariations === 'function') saveVariations();
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
+
+            // Promote any staging-area Added cards into their natural letter
+            // rows BEFORE rendering, then persist so future opens are clean.
+            if (_autoPromoteAddedCards(game)) {
+                try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
+            }
 
             currentCatchGameViewIndex = -1; // not a catch game
             currentGameViewIndex = gameIndex;
@@ -14372,6 +14498,10 @@
             if (needsSave) {
                 try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
             }
+
+            // "+" affordance under the last row — alternative to the top-bar
+            // +Row button; same handler.
+            _appendAddRowAffordance(container);
 
             // Build effective cards (m-groups collapsed)
             var effective = buildEffectiveCards(game);

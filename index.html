@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:51 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:51 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2624,13 +2624,39 @@
             //      when the group is entirely red or entirely green);
             //   3) svgPools[eff.label] (last resort — group's full pool, may
             //      violate the dot rule but at least the domino can render).
+            // Local helper: can any card in this group sit on the given half?
+            //   red dot   (frozen)   = top-only
+            //   green dot (floating) = bottom-only
+            //   no dot               = either
+            // Used to filter out red+red and green+green pairs that can't
+            // form a valid domino — by definition red sits only on top and
+            // green only on bottom.
+            function _grpCanHalf(grp, half) {
+                if (!grp || !grp.cards || !grp.cards.length) return false;
+                return grp.cards.some(function(c) {
+                    if (!c) return false;
+                    if (half === 'top' && c._freezeState === 'floating') return false;
+                    if (half === 'bottom' && c._freezeState === 'frozen') return false;
+                    return true;
+                });
+            }
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
             for (var i = 0; i < effective.length; i++) {
                 for (var j = i + 1; j < effective.length; j++) {
-                    var leftEff = effective[i];
-                    var rightEff = effective[j];
+                    // Filter invalid color-color combinations; swap the
+                    // default (i top, j bottom) orientation if only the
+                    // mirror satisfies the constraints.
+                    var iTop = _grpCanHalf(effective[i], 'top');
+                    var iBot = _grpCanHalf(effective[i], 'bottom');
+                    var jTop = _grpCanHalf(effective[j], 'top');
+                    var jBot = _grpCanHalf(effective[j], 'bottom');
+                    var iTopJBot = iTop && jBot;
+                    var jTopIBot = jTop && iBot;
+                    if (!iTopJBot && !jTopIBot) continue;
+                    var leftEff  = iTopJBot ? effective[i] : effective[j];
+                    var rightEff = iTopJBot ? effective[j] : effective[i];
                     var dominoKey = leftEff.label + ':' + rightEff.label;
                     if (excludedKeys.indexOf(dominoKey) >= 0) continue;
                     var leftValue = leftEff._gameValue;

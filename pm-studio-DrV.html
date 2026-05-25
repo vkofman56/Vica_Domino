@@ -210,7 +210,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -228,7 +228,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:00 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -470,7 +470,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:00 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 10:06 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14087,9 +14087,12 @@
 
             // Promote any staging-area Added cards into their natural letter
             // rows BEFORE rendering, then normalize row order alphabetically.
+            // Migrate any legacy label-form mGroup entries to the precise
+            // uid form so duplicate-label cards aren't auto-included.
             var _cPromoted = _autoPromoteAddedCards(game);
             var _cSorted = _sortRowsAlphabetically(game);
-            if (_cPromoted || _cSorted) {
+            var _cMGrouped = _migrateMGroupsToUidForm(game);
+            if (_cPromoted || _cSorted || _cMGrouped) {
                 try { saveCatchGames(catchGames); } catch(e) {}
             }
 
@@ -14471,10 +14474,13 @@
 
             // Promote any staging-area Added cards into their natural letter
             // rows BEFORE rendering, then normalize row order alphabetically.
-            // Persist if either pass mutated, so future opens are clean.
+            // Migrate any legacy label-form mGroup entries to the precise
+            // uid form so duplicate-label cards aren't auto-included.
+            // Persist if any pass mutated.
             var _gPromoted = _autoPromoteAddedCards(game);
             var _gSorted = _sortRowsAlphabetically(game);
-            if (_gPromoted || _gSorted) {
+            var _gMGrouped = _migrateMGroupsToUidForm(game);
+            if (_gPromoted || _gSorted || _gMGrouped) {
                 try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
             }
 
@@ -15187,23 +15193,27 @@
                 }
             });
             var mGroups = game.mGroups || [];
-            var grouped = {}; // label -> group index
-            mGroups.forEach(function(g, gi) {
-                g.forEach(function(lbl) { grouped[lbl] = gi; });
-            });
+            // Per-card lookup via uid (preferred) or label fallback, so a
+            // card is counted as a member only when it's explicitly listed
+            // — not because another card happens to share its label.
             var effective = [];
             var addedGroups = {};
+            function _gIdxForCard(c) {
+                for (var gi = 0; gi < mGroups.length; gi++) {
+                    if (_isCardInMGroup(c, mGroups[gi])) return gi;
+                }
+                return -1;
+            }
             origCards.forEach(function(c) {
-                var gi = grouped[c.label];
-                if (gi !== undefined) {
+                var gi = _gIdxForCard(c);
+                if (gi >= 0) {
                     if (addedGroups[gi]) return; // already added this group
                     addedGroups[gi] = true;
-                    // Collect all cards in this group
+                    // Collect all cards in this group via shared helper.
                     var groupCards = [];
-                    mGroups[gi].forEach(function(lbl) {
-                        for (var k = 0; k < origCards.length; k++) {
-                            if (origCards[k].label === lbl) { groupCards.push(origCards[k]); break; }
-                        }
+                    mGroups[gi].forEach(function(ident) {
+                        var resolved = _findCardByMGroupIdent(origCards, ident);
+                        if (resolved) groupCards.push(resolved);
                     });
                     // Use first card as representative
                     var rep = groupCards[0];
@@ -15548,6 +15558,86 @@
         // (see line ~13920). Older mGroups data stored as bare label
         // strings keeps working through the legacy fallback in
         // _cardMatchesIdent / consumer paths.
+
+        // Resolve a stored M-group identifier ("u:<uid>" or a bare label) to
+        // a single card from `cards`. UID match is precise; label match
+        // returns the first card with that label.
+        function _findCardByMGroupIdent(cards, ident) {
+            if (!Array.isArray(cards) || typeof ident !== 'string') return null;
+            if (ident.indexOf('u:') === 0) {
+                var uid = ident.slice(2);
+                for (var i = 0; i < cards.length; i++) {
+                    if (cards[i] && cards[i].uid === uid) return cards[i];
+                }
+                return null;
+            }
+            for (var j = 0; j < cards.length; j++) {
+                if (cards[j] && cards[j].label === ident) return cards[j];
+            }
+            return null;
+        }
+
+        // Is a card object (from game.cards) a member of this stored group?
+        function _isCardInMGroup(card, group) {
+            if (!card || !Array.isArray(group)) return false;
+            return group.some(function(ident) {
+                if (typeof ident !== 'string') return false;
+                if (ident.indexOf('u:') === 0) return card.uid === ident.slice(2);
+                return card.label === ident;
+            });
+        }
+
+        // One-time migration: convert legacy label-form mGroup entries to
+        // the precise uid-form. For each label, picks the FIRST matching
+        // card — duplicate-labeled siblings that were getting swept into a
+        // group by accident are dropped here. Returns true if mGroups was
+        // mutated. Safe to call on every game open: uid-form entries are
+        // passed through unchanged.
+        function _migrateMGroupsToUidForm(game) {
+            if (!game || !Array.isArray(game.mGroups) || game.mGroups.length === 0) return false;
+            if (!Array.isArray(game.cards)) return false;
+            var changed = false;
+            game.mGroups.forEach(function(g, gi) {
+                if (!Array.isArray(g)) return;
+                for (var i = 0; i < g.length; i++) {
+                    var entry = g[i];
+                    if (typeof entry !== 'string') continue;
+                    if (entry.indexOf('u:') === 0) continue; // already uid form
+                    // Bare label — find first matching card with a uid
+                    var match = null;
+                    for (var k = 0; k < game.cards.length; k++) {
+                        var c = game.cards[k];
+                        if (c && c.label === entry && c.uid) { match = c; break; }
+                    }
+                    if (match) {
+                        g[i] = 'u:' + match.uid;
+                        changed = true;
+                    }
+                    // If no uid match (legacy data without uids), leave as label.
+                }
+                // De-dup: if multiple uid-form entries point to the same uid
+                // (shouldn't normally happen, but defensive), keep first only.
+                var seen = {};
+                var dedup = [];
+                g.forEach(function(e) {
+                    if (typeof e !== 'string') return;
+                    if (seen[e]) return;
+                    seen[e] = true;
+                    dedup.push(e);
+                });
+                if (dedup.length !== g.length) {
+                    game.mGroups[gi] = dedup;
+                    changed = true;
+                }
+            });
+            // Drop empty groups created by removed labels
+            var pruned = game.mGroups.filter(function(g) { return Array.isArray(g) && g.length >= 1; });
+            if (pruned.length !== game.mGroups.length) {
+                game.mGroups = pruned;
+                changed = true;
+            }
+            return changed;
+        }
 
         // Build an M-group identifier for a DOM card element.
         function _getCardIdentFromEl(cardEl) {
@@ -16639,14 +16729,28 @@
             }
 
             function findGroupCards(cardLabel) {
+                // Locate the group via any member matching this label: a
+                // label-form entry matches by label; a uid-form entry matches
+                // if the corresponding card has the same label. Either way
+                // we then resolve all members back to cards via the shared
+                // helper so a uid-form group only returns the specific cards
+                // it names.
                 for (var i = 0; i < mGroups.length; i++) {
-                    if (mGroups[i].indexOf(cardLabel) >= 0) {
-                        // Return all cards in this group
+                    var group = mGroups[i];
+                    if (!Array.isArray(group)) continue;
+                    var matched = group.some(function(ident) {
+                        if (typeof ident !== 'string') return false;
+                        if (ident.indexOf('u:') === 0) {
+                            var card = _findCardByMGroupIdent(gameCards, ident);
+                            return !!card && card.label === cardLabel;
+                        }
+                        return ident === cardLabel;
+                    });
+                    if (matched) {
                         var result = [];
-                        mGroups[i].forEach(function(lbl) {
-                            for (var k = 0; k < gameCards.length; k++) {
-                                if (gameCards[k].label === lbl) { result.push(gameCards[k]); break; }
-                            }
+                        group.forEach(function(ident) {
+                            var resolved = _findCardByMGroupIdent(gameCards, ident);
+                            if (resolved) result.push(resolved);
                         });
                         return result;
                     }

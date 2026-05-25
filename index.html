@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:00 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:31 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 10:00 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1373,10 +1373,28 @@
                 body.appendChild(empty);
             } else {
                 var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
-                var labelToGroupIdx = {};
+                // Build two lookup tables — one for uid-form identifiers
+                // ("u:<uid>", the Studio default for new groups), one for
+                // legacy bare labels. A given group entry contributes to
+                // exactly one map. Cards then look themselves up by uid
+                // first, then label, so duplicate-label cards no longer
+                // get inadvertently swept into a sibling's group.
+                var identToGroupIdx_uid = {};
+                var identToGroupIdx_lbl = {};
                 mGroups.forEach(function(g, gi) {
-                    if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+                    if (!Array.isArray(g)) return;
+                    g.forEach(function(ident) {
+                        if (typeof ident !== 'string') return;
+                        if (ident.indexOf('u:') === 0) identToGroupIdx_uid[ident.slice(2)] = gi;
+                        else identToGroupIdx_lbl[ident] = gi;
+                    });
                 });
+                function _lookupGroupIdxForCard(c) {
+                    if (!c) return undefined;
+                    if (c.uid && identToGroupIdx_uid.hasOwnProperty(c.uid)) return identToGroupIdx_uid[c.uid];
+                    if (c.label && identToGroupIdx_lbl.hasOwnProperty(c.label)) return identToGroupIdx_lbl[c.label];
+                    return undefined;
+                }
                 // Match Studio's openCatchGameView / openGameView row layout:
                 // group consecutive cards by `_gameRow` (or `label.charAt(0)`
                 // as a fallback). All cards sharing a row are rendered on the
@@ -1397,7 +1415,7 @@
                     current.cards.push(c);
                 });
                 rowGroups.forEach(function(rg) {
-                    body.appendChild(_buildCardsLibraryRow(rg.cards, rg.rowKey, labelToGroupIdx));
+                    body.appendChild(_buildCardsLibraryRow(rg.cards, rg.rowKey, _lookupGroupIdxForCard));
                 });
             }
 
@@ -1411,7 +1429,7 @@
         // the equivalent card in the Studio Game Creator.
         var _CARDS_LIBRARY_M_COLORS = ['#7c4dff','#e53935','#43a047','#fb8c00','#00acc1','#8e24aa','#d81b60','#6d4c41'];
 
-        function _buildCardsLibraryRow(cards, rowKey, labelToGroupIdx) {
+        function _buildCardsLibraryRow(cards, rowKey, lookupGroupIdxForCard) {
             var row = document.createElement('div');
             row.className = 'cards-library-row';
             var tag = document.createElement('span');
@@ -1428,7 +1446,7 @@
                 // different cue once Find gets that feature too — for now,
                 // borders are reserved for the mGroup signal the user
                 // explicitly asked for.)
-                var gi = labelToGroupIdx[c.label];
+                var gi = lookupGroupIdxForCard(c);
                 if (gi !== undefined) {
                     cardEl.style.borderColor = _CARDS_LIBRARY_M_COLORS[gi % _CARDS_LIBRARY_M_COLORS.length];
                 }
@@ -2465,23 +2483,50 @@
             // the same value collapse into a single domino slot — matching what
             // Studio shows. Without this, a Match-style game generates many more
             // dominos than Studio displays, with the wrong pairings.
+            //
+            // Group entries are identifiers: "u:<uid>" (new, instance-precise)
+            // or bare label (legacy). Two lookup tables keep the duplicate-
+            // label case clean: a card is in a group only when its uid or
+            // label is explicitly listed, not because something else with the
+            // same label happens to be.
             var mGroups = Array.isArray(game.mGroups) ? game.mGroups : [];
-            var labelToGroupIdx = {};
+            var identToGroupIdx_uid = {};
+            var identToGroupIdx_lbl = {};
             mGroups.forEach(function(g, gi) {
-                if (Array.isArray(g)) g.forEach(function(lbl) { labelToGroupIdx[lbl] = gi; });
+                if (!Array.isArray(g)) return;
+                g.forEach(function(ident) {
+                    if (typeof ident !== 'string') return;
+                    if (ident.indexOf('u:') === 0) identToGroupIdx_uid[ident.slice(2)] = gi;
+                    else identToGroupIdx_lbl[ident] = gi;
+                });
             });
+            function _findOrigCardByIdent(ident) {
+                if (typeof ident !== 'string') return null;
+                if (ident.indexOf('u:') === 0) {
+                    var uid = ident.slice(2);
+                    for (var k = 0; k < origCards.length; k++) {
+                        if (origCards[k].uid === uid) return origCards[k];
+                    }
+                    return null;
+                }
+                for (var m = 0; m < origCards.length; m++) {
+                    if (origCards[m].label === ident) return origCards[m];
+                }
+                return null;
+            }
             var effective = []; // each: { label, _gameValue, cards: [...] }
             var addedGroups = {};
             origCards.forEach(function(c) {
-                var gi = labelToGroupIdx[c.label];
+                var gi;
+                if (c.uid && identToGroupIdx_uid.hasOwnProperty(c.uid)) gi = identToGroupIdx_uid[c.uid];
+                else if (c.label && identToGroupIdx_lbl.hasOwnProperty(c.label)) gi = identToGroupIdx_lbl[c.label];
                 if (gi !== undefined) {
                     if (addedGroups[gi]) return;
                     addedGroups[gi] = true;
                     var groupCards = [];
-                    mGroups[gi].forEach(function(lbl) {
-                        for (var k = 0; k < origCards.length; k++) {
-                            if (origCards[k].label === lbl) { groupCards.push(origCards[k]); break; }
-                        }
+                    mGroups[gi].forEach(function(ident) {
+                        var resolved = _findOrigCardByIdent(ident);
+                        if (resolved) groupCards.push(resolved);
                     });
                     var rep = groupCards[0] || c;
                     effective.push({

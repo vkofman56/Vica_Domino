@@ -300,7 +300,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:16 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -318,7 +318,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:16 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -560,7 +560,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:16 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14365,6 +14365,19 @@
         //   - Otherwise (new letter), append at the end with `_gameRow` cleared
         //     so the renderer creates a fresh row by first-letter grouping.
         // Returns true if game.cards was mutated.
+        // Effective row letter for a card. Prefer the user's explicit
+        // placement (_gameValue, set when the card was dropped into a row)
+        // over the source-card label's first letter. This is what keeps a
+        // card from snapping back to its label's letter row after the user
+        // drags or copies it into a different row.
+        function _effectiveRowLetter(c) {
+            if (!c) return '';
+            if (typeof c._gameValue === 'string' && c._gameValue.length > 0) {
+                return c._gameValue.charAt(0).toUpperCase();
+            }
+            return String(c.label || '').charAt(0).toUpperCase();
+        }
+
         function _autoPromoteAddedCards(game) {
             if (!game || !Array.isArray(game.cards)) return false;
             var hasAdded = game.cards.some(function(c) { return c && c._addedToGame; });
@@ -14376,7 +14389,7 @@
             game.cards.forEach(function(c) {
                 if (!c) return;
                 if (c._addedToGame) {
-                    var L = String(c.label || '').charAt(0);
+                    var L = _effectiveRowLetter(c);
                     if (!L) { delete c._addedToGame; keepers.push(c); return; }
                     if (!addedByLetter[L]) { addedByLetter[L] = []; addedLetterOrder.push(L); }
                     delete c._addedToGame;
@@ -14391,9 +14404,9 @@
             // renderer keeps them grouped together.
             var letterRowIdx = {};
             keepers.forEach(function(c) {
-                if (!c || !c.label) return;
+                if (!c) return;
                 if (c._gameRow === undefined) return;
-                letterRowIdx[c.label.charAt(0)] = c._gameRow;
+                letterRowIdx[_effectiveRowLetter(c)] = c._gameRow;
             });
 
             // Process letters in two passes so the visible row order makes
@@ -14415,8 +14428,7 @@
                 batch.forEach(function(c) { c._gameRow = letterRowIdx[L]; });
                 var lastIdx = -1;
                 for (var i = result.length - 1; i >= 0; i--) {
-                    var k = result[i];
-                    if (k && k.label && k.label.charAt(0) === L) { lastIdx = i; break; }
+                    if (_effectiveRowLetter(result[i]) === L) { lastIdx = i; break; }
                 }
                 if (lastIdx >= 0) {
                     result.splice.apply(result, [lastIdx + 1, 0].concat(batch));
@@ -14462,7 +14474,11 @@
             var letterOrder = [];   // first-seen letters (used only for stable equality check)
             game.cards.forEach(function(c) {
                 if (!c) return;
-                var L = String(c.label || '').charAt(0).toUpperCase();
+                // Use the user's explicit row placement (_gameValue) if set;
+                // otherwise fall back to the source-card label. Without this,
+                // a card copied from E and dragged to F would snap back to E
+                // here because its label still starts with "E".
+                var L = _effectiveRowLetter(c);
                 if (!L) L = '~'; // park letterless cards at the end
                 if (!buckets[L]) { buckets[L] = []; letterOrder.push(L); }
                 buckets[L].push(c);

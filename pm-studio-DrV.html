@@ -300,7 +300,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -318,7 +318,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -560,7 +560,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14122,12 +14122,17 @@
                 if (pill1) pill1.style.display = 'none';
                 return;
             }
-            // Group by row: prefer explicit _gameRow, fall back to first label char.
+            // Group by row LETTER (so the warning reads "Line F" rather than
+            // "Line 5" — _gameRow is a numeric index, not a user-visible
+            // identifier). Uses _effectiveRowLetter so a card explicitly
+            // placed in a different row gets counted against the user's
+            // intended letter, not the source label's letter.
             var rowCounts = {};
             game.cards.forEach(function(c) {
                 if (!c || c._addedToGame) return;
-                var key = (c._gameRow !== undefined) ? c._gameRow
-                        : (c.label || '').charAt(0).toUpperCase();
+                var key = (typeof _effectiveRowLetter === 'function')
+                    ? _effectiveRowLetter(c)
+                    : (c.label || '').charAt(0).toUpperCase();
                 if (!key) return;
                 rowCounts[key] = (rowCounts[key] || 0) + 1;
             });
@@ -14826,11 +14831,15 @@
             });
 
             // Explicitly-added empty rows (game.emptyRows) that aren't
-            // already represented by cards.
+            // already represented by cards. Use _effectiveRowLetter so a
+            // card explicitly placed in row F (with label like 'E2') still
+            // registers as "F is present" — otherwise the emptyRows entry
+            // for F would render a SECOND, empty F row alongside the real
+            // F that has the moved card.
             if (Array.isArray(game.emptyRows) && game.emptyRows.length > 0) {
                 var presentLetters = {};
                 rowGroups.forEach(function(rg) {
-                    var L = (rg[0].label.charAt(0) || '').toUpperCase();
+                    var L = _effectiveRowLetter(rg[0]);
                     if (L) presentLetters[L] = true;
                 });
                 game.emptyRows.forEach(function(letter) {
@@ -15293,9 +15302,14 @@
                 //   - drop letters that now have real cards (auto-populated)
                 //   - keep letters that still appear as empty rows in the DOM
                 //     (so they survive a re-open).
+                // Uses _effectiveRowLetter so a card explicitly placed in
+                // row F (with label 'E2') registers as "F has cards" and F
+                // gets dropped from emptyRows.
                 var cardLetters = {};
                 game.cards.forEach(function(c) {
-                    if (c && c.label) cardLetters[String(c.label.charAt(0)).toUpperCase()] = true;
+                    if (!c) return;
+                    var L = _effectiveRowLetter(c);
+                    if (L) cardLetters[L] = true;
                 });
                 var domEmptyLetters = {};
                 containerEl.querySelectorAll('.library-row[data-empty-row="true"]').forEach(function(r) {

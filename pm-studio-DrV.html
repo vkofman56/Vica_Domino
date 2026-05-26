@@ -300,7 +300,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -318,7 +318,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 03:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -560,7 +560,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 03:20 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:38 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14484,30 +14484,38 @@
                 buckets[L].push(c);
             });
             var sortedLetters = Object.keys(buckets).slice().sort();
-            // Detect no-op: cards already in alphabetical letter order.
-            var alreadySorted = sortedLetters.length === letterOrder.length &&
-                sortedLetters.every(function(L, i) { return L === letterOrder[i]; });
             var emptyChanged = false;
             if (Array.isArray(game.emptyRows) && game.emptyRows.length > 1) {
                 var sortedEmpty = game.emptyRows.slice().sort();
                 emptyChanged = sortedEmpty.some(function(v, i) { return v !== game.emptyRows[i]; });
                 if (emptyChanged) game.emptyRows = sortedEmpty;
             }
-            if (alreadySorted) return emptyChanged;
 
+            // ALWAYS rebuild the flat order and sync per-card _gameRow +
+            // _gameValue. An earlier "alreadySorted" optimization skipped
+            // renumbering when buckets were in alphabetical order, but it
+            // missed the case where two cards in the SAME bucket carried
+            // stale, DIFFERENT _gameRow values — the renderer groups by
+            // _gameRow and produced two rows with the same letter. Always
+            // renumbering keeps every same-bucket card in one row group.
             var flat = [];
+            var changed = false;
             sortedLetters.forEach(function(L, rowIdx) {
                 buckets[L].forEach(function(c) {
-                    c._gameRow = rowIdx;
-                    // Pin _gameValue to the bucket letter so the renderer
-                    // (which reads rowValue from the first card) shows the
-                    // user-intended letter, not the source label's letter.
-                    c._gameValue = L;
+                    if (c._gameRow !== rowIdx) { c._gameRow = rowIdx; changed = true; }
+                    if (c._gameValue !== L) { c._gameValue = L; changed = true; }
                     flat.push(c);
                 });
             });
-            game.cards = flat;
-            return true;
+            // Replace game.cards if the order itself changed.
+            var orderChanged = flat.length !== game.cards.length;
+            if (!orderChanged) {
+                for (var i = 0; i < flat.length; i++) {
+                    if (flat[i] !== game.cards[i]) { orderChanged = true; break; }
+                }
+            }
+            if (orderChanged) { game.cards = flat; changed = true; }
+            return changed || emptyChanged;
         }
 
         // Align the game-name h1 (#game-view-title) so its left edge matches

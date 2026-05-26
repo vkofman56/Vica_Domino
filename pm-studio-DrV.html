@@ -300,7 +300,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:01 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -318,7 +318,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 06:01 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -560,7 +560,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 05:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 06:01 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8309,7 +8309,37 @@
             var labelText = lbl ? lbl.textContent : '';
             var stableId = cardEl.dataset.stableId || '';
             if (!labelText && !stableId) return;
-            _showRemoveFromGameDialog(labelText, function() {
+            // Look up the card's effective row letter (= where the user
+            // placed it, NOT the label's first letter — those drift apart
+            // when a card is copied/moved between rows). Falls back to the
+            // label's letter only if we can't find the card in storage.
+            var rowLetter = '';
+            try {
+                var inCatchN = (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
+                var inFindN = !inCatchN && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
+                var gN = null;
+                if (inCatchN) gN = (loadCatchGames() || [])[currentCatchGameViewIndex];
+                else if (inFindN) gN = (loadCustomGames() || [])[currentGameViewIndex];
+                if (gN && Array.isArray(gN.cards)) {
+                    var idxStr = cardEl.dataset.gameCardIdx;
+                    var c = null;
+                    if (idxStr !== undefined && idxStr !== '') {
+                        var i = parseInt(idxStr, 10);
+                        if (!isNaN(i) && i >= 0 && i < gN.cards.length) c = gN.cards[i];
+                    }
+                    if (!c && stableId) {
+                        for (var k = 0; k < gN.cards.length; k++) {
+                            if (gN.cards[k] && gN.cards[k].stableId === stableId) { c = gN.cards[k]; break; }
+                        }
+                    }
+                    if (c) {
+                        rowLetter = (typeof _effectiveRowLetter === 'function')
+                            ? _effectiveRowLetter(c)
+                            : (c._gameValue || (c.label || '').charAt(0)).toUpperCase();
+                    }
+                }
+            } catch(e) {}
+            _showRemoveFromGameDialog(labelText, rowLetter, function() {
                 var inCatch = (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
                 var inFind = !inCatch && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
                 var filterFn = function(c) {
@@ -8343,15 +8373,46 @@
         // Stylistically matches _showSimpleDeleteDialog but offers only
         // 'Remove' and 'Cancel' — no Safe Haven option, because we aren't
         // touching the card's library existence.
-        function _showRemoveFromGameDialog(labelText, onConfirm) {
+        //
+        // labelText is the card's source-set label (e.g., "E1"). rowLetter
+        // is the row the card is CURRENTLY in (e.g., "F"). When they
+        // diverge — because the user moved the card across rows — the
+        // dialog leads with the row context to avoid the confusing
+        // "Remove E1" message when the card visibly lives in row F.
+        function _showRemoveFromGameDialog(labelText, rowLetter, onConfirm) {
+            // Back-compat: older call sites passed only (labelText, onConfirm).
+            if (typeof rowLetter === 'function') { onConfirm = rowLetter; rowLetter = ''; }
             var overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;';
             var dialog = document.createElement('div');
             dialog.style.cssText = 'background:#2a2a4a;border:2px solid #FFD700;border-radius:12px;padding:24px;max-width:360px;width:90%;color:white;font-family:Segoe UI,sans-serif;';
             var title = document.createElement('div');
             title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:8px;color:#FFD700;';
-            title.textContent = 'Remove "' + labelText + '" from this game?';
+            // Phrasing logic:
+            //   no rowLetter info       → fall back to old "Remove '<label>'"
+            //   rowLetter matches label → "Remove '<label>' from this game?"
+            //   rowLetter differs       → "Remove card from row F? (source: E1)"
+            var titleText;
+            var labelLetter = String(labelText || '').charAt(0).toUpperCase();
+            if (!rowLetter) {
+                titleText = 'Remove "' + labelText + '" from this game?';
+            } else if (rowLetter === labelLetter) {
+                titleText = 'Remove "' + labelText + '" from this game?';
+            } else {
+                titleText = 'Remove card from row ' + rowLetter + ' of this game?';
+            }
+            title.textContent = titleText;
             dialog.appendChild(title);
+            // When the row letter doesn't match the source label's letter,
+            // surface the source label so the user knows exactly which card
+            // they're removing (sometimes two cards in the same row share a
+            // display value).
+            if (rowLetter && rowLetter !== labelLetter && labelText) {
+                var src = document.createElement('div');
+                src.style.cssText = 'font-size:11px;color:#888;margin-bottom:8px;font-style:italic;';
+                src.textContent = 'Source card: ' + labelText;
+                dialog.appendChild(src);
+            }
             var note = document.createElement('div');
             note.style.cssText = 'font-size:12px;color:#bbb;margin-bottom:16px;line-height:1.4;';
             note.textContent = 'The card will stay in other games and Card Maker.';

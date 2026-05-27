@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:28 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:28 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:28 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -16784,6 +16784,10 @@
         // as "100%×1" — same weight format as a size-1 group at default.
         // Called from applyCollapsedView (both branches) and from the
         // 1/M toggle flow so the badges appear/disappear in lockstep.
+        //
+        // The percent number itself is clickable: click it to edit
+        // inline. On commit (Enter/blur) we save to the card's M-group
+        // (creating a size-1 group if the card wasn't in one yet).
         function applyMWeightBadges() {
             var container = document.getElementById('game-view-cards');
             if (!container) return;
@@ -16813,19 +16817,129 @@
                 }
                 var badge = document.createElement('div');
                 badge.className = 'mcard-weight-badge';
-                badge.textContent = prob + '%×' + count;
-                badge.title = 'Probability ' + prob + '% × ' + count + ' card' + (count === 1 ? '' : 's') + ' in this set';
+                badge.title = 'Probability ' + prob + '% × ' + count + ' card' + (count === 1 ? '' : 's') + ' in this set — click number to edit';
+                // Badge itself stays pointer-events:none so dragging the
+                // card still picks up the card under it. Only the percent
+                // number opts back in via its own pointer-events:auto.
                 badge.style.cssText =
                     'position:absolute;top:-6px;right:-2px;' +
                     'background:rgba(0,0,0,0.88);color:#fff;' +
-                    'font-size:9px;font-weight:bold;line-height:1;' +
-                    'padding:2px 4px;border-radius:3px;' +
+                    'font-size:11px;font-weight:bold;line-height:1;' +
+                    'padding:2px 5px;border-radius:3px;' +
                     'z-index:6;white-space:nowrap;pointer-events:none;' +
                     'text-shadow:0 0 1px rgba(0,0,0,0.9);' +
                     'box-shadow:0 0 0 1px rgba(255,255,255,0.25);';
+
+                var pctSpan = document.createElement('span');
+                pctSpan.className = 'mcw-pct';
+                pctSpan.textContent = String(prob);
+                pctSpan.style.cssText =
+                    'cursor:pointer;pointer-events:auto;' +
+                    'border-bottom:1px dotted rgba(255,255,255,0.6);' +
+                    'padding:0 1px;';
+                var cardIdent = _getCardIdentFromEl(cardEl);
+                pctSpan.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    _editWeightBadgePct(pctSpan, cardIdent);
+                });
+                pctSpan.addEventListener('mousedown', function(ev) {
+                    // Prevent the drag handler from grabbing this click
+                    ev.stopPropagation();
+                });
+
+                badge.appendChild(pctSpan);
+                badge.appendChild(document.createTextNode('%×' + count));
+
                 cardEl.style.position = 'relative';
                 cardEl.appendChild(badge);
             });
+        }
+
+        // Open an inline number input on top of the clicked percent span.
+        // Enter / blur → commit. Escape → revert.
+        function _editWeightBadgePct(pctSpan, cardIdent) {
+            if (!pctSpan || !pctSpan.parentNode) return;
+            var oldText = pctSpan.textContent;
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.max = '100';
+            input.step = '1';
+            input.value = oldText;
+            input.className = 'mcw-pct-input';
+            input.style.cssText =
+                'width:38px;font-size:11px;font-weight:bold;line-height:1;' +
+                'padding:0 2px;margin:0;border:1px solid #fff;border-radius:2px;' +
+                'background:#fff;color:#000;text-align:center;' +
+                'pointer-events:auto;-moz-appearance:textfield;';
+            // Guard against the card-drag handler / parent click bubbling
+            ['mousedown','click','dblclick','pointerdown'].forEach(function(evt){
+                input.addEventListener(evt, function(e){ e.stopPropagation(); });
+            });
+
+            var done = false;
+            function commit() {
+                if (done) return;
+                done = true;
+                var v = parseInt(input.value, 10);
+                if (isNaN(v) || v < 1) v = parseInt(oldText, 10) || 100;
+                if (v > 100) v = 100;
+                // Save, then rebuild the whole view so M-badges +
+                // weight badges + (later) percent overlays all refresh
+                // consistently. Same pattern the popup save uses.
+                _setCardProbability(cardIdent, v);
+                _reopenCurrentView();
+            }
+            function cancel() {
+                if (done) return;
+                done = true;
+                if (input.parentNode) input.parentNode.replaceChild(pctSpan, input);
+            }
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+            });
+            input.addEventListener('blur', commit);
+
+            pctSpan.parentNode.replaceChild(input, pctSpan);
+            try { input.focus(); input.select(); } catch(e) {}
+        }
+
+        // Set probability for the card identified by `cardIdent`. If the
+        // card is in a group, update that group's probability. Otherwise
+        // create a size-1 group carrying just this probability (same
+        // shape Stage 3's popup writes).
+        function _setCardProbability(cardIdent, newProb) {
+            if (!cardIdent) return;
+            var groups = getMCardGroups(currentGameViewIndex);
+            var foundIdx = -1;
+            for (var i = 0; i < groups.length; i++) {
+                var members = _mgMembers(groups[i]);
+                if (members.indexOf(cardIdent) >= 0) { foundIdx = i; break; }
+            }
+            if (foundIdx >= 0) {
+                var g = groups[foundIdx];
+                if (Array.isArray(g)) {
+                    // Legacy array → upgrade to object form so probability fits
+                    groups[foundIdx] = {
+                        id: 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+                        name: undefined,
+                        probability: newProb,
+                        members: g.slice()
+                    };
+                } else {
+                    g.probability = newProb;
+                }
+            } else {
+                groups.push({
+                    id: 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+                    name: undefined,
+                    probability: newProb,
+                    members: [cardIdent]
+                });
+            }
+            saveMCardGroups(currentGameViewIndex, groups);
         }
 
         // ============ Game-Level Shape & Scale ============

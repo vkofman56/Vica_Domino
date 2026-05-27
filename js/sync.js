@@ -17,7 +17,11 @@
     'use strict';
 
     // ---- Configuration ----
-    var SYNC_DEBOUNCE_MS = 2000;   // wait 2 s after last write before syncing
+    // Push debounce: short enough that small saves (drag a card, toggle a
+    // dot) don't get lost when the user immediately reloads / closes the
+    // tab, but long enough to batch a rapid burst of writes (multi-card
+    // drag, M-group create, …) into one Firestore batch.
+    var SYNC_DEBOUNCE_MS = 350;
     var META_KEY = '__sync_userId'; // localStorage key that stores the logged-in user id
     var ROLE_KEY = '__sync_userRole'; // localStorage key for the user's role
 
@@ -702,10 +706,18 @@
         setTimeout(function () { clearInterval(_fbWait); }, 30000);
     }
 
-    // Try to sync on page unload (superusers only)
+    // Try to sync on page unload (superusers only). If a debounced push
+    // is pending in _syncTimer, cancel the timer and trigger immediately
+    // — that's the window where drag-saves were being lost: user did a
+    // drag, the 350ms timer was still counting down, they reloaded, the
+    // pending push never fired, and the next pull replaced their local
+    // changes with the stale cloud version.
     window.addEventListener('beforeunload', function () {
         if (_userId && _userRole === 'superuser' && _firebaseReady) {
-            // Fire off a final push attempt (best-effort)
+            if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
+            // Best-effort: synchronous trigger. Firebase's batched write is
+            // async and might not complete before navigation, but the
+            // request usually gets sent.
             _pushToServer();
         }
     });

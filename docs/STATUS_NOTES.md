@@ -1,8 +1,83 @@
 # Vica Domino - Project Status Notes
-**Date**: May 24, 2026
+**Date**: May 26, 2026
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 555+
-**Codebase Size**: ~17,000 lines across 4 main files
+**Total Commits**: 590+
+**Codebase Size**: ~17,500 lines across 4 main files
+
+---
+
+## May 26, 2026 — 8-stage probability rework + critical Player fix
+
+Multi-day session. 8-stage rework of M-group / probability semantics:
+groups become a UI shortcut for bulk probability editing; each card
+carries an independent prob (1–100) that biases its representation
+in the gameplay deck. ~30 commits, all pushed to the 3 mirror
+branches. No JS/CSS file edits → no cache-buster bumps.
+
+### The 8 stages
+
+| # | Title | Key deliverable |
+|---|---|---|
+| 1 | Data model migration | `_migrateGroupsAndProbabilities`: per-card `_probRed`/`_probGreen` + mGroups `{id, name?, probability, members}` schema |
+| 2 | 3-column row layout | CSS Grid per row: separator + letter + red/no-dot/green zones, drag between zones resets freeze + probs |
+| 3 | Group / probability popup | `_showGroupPopup` — name, prob 1–100, quick-pick, Ungroup-all. **No auto-merge on matching prob** (user rule). |
+| 4 | `P%×N` badge in 1/M view | `applyMWeightBadges` paints top-right pill; percent number click-edits inline via `_editWeightBadgePct` → `_setCardProbability` |
+| 5 | Deck builder GCD instances | `_computeCardZoneInstances` + `_computeCardZoneInstancesStudio` produce `(topInst, botInst)` per card after GCD per `(row, zone)`; pair-emit multiplies by both |
+| 6 | `×N` count badge on Show Dominos | `buildGameViewDomino` reads `domino._copies` (set by Stage 5) and appends `.domino-copies-badge` when > 1 |
+| 7 | Cross-row color consistency | Verified structurally + at runtime. Bonus: palette extended 8→12 (M9 used to wrap to yellow). |
+| 8 | Docs update | This entry. |
+
+### 3 significant bugs fixed mid-rework
+
+**CRITICAL — Player deck always empty (`46d5953`)**. User saw
+instant Game Over. Cause: `index.html` `startCustomGame` filter
+`if (!c.svgMarkup || !c.svgMarkup.trim()) return;` dropped every
+card (post-Stage-1 cards have no inline svgMarkup; they resolve via
+stableId → card-set store, which `getGameCardSVG` already supports).
+Fix: `if (!getGameCardSVG(c)) return;`. Pre-existing bug, not
+caused by Stage 5.
+
+**Card-delete sweeping siblings (`aa208c5`)**. Deleting one 4-dot
+card removed all cards sharing its `stableId`. `Array.filter` was
+removing all matches; replaced with `_findRemoveIdx` + `splice`.
+
+**Test 1 / legacy games showed 6 player buttons (`2259ede`,
+`9bb8f41`)**. Games without a `setup` field bailed early from
+`_applyGameSetupToPlayerScreen`, leaving all 6 static HTML buttons
+visible. Fix: hardcoded 4-button fallback first, then upgraded to
+clone the setup from `DEFAULT_FIND_GAME_TEMPLATE = 'Match 0-4'`
+runtime.
+
+### Polish
+
+- **M2/M6 same red (`614bea4`, `9ae7421`)**: pink `#F50057` at index
+  5 read as red. Replaced with `#D500F9` (Material purple A400).
+- **Size-1 groups (`fab2284`)**: single cards can now have a name
+  and probability via the same popup. Group button renames to "Edit",
+  destructive action renames to "Clear" when size=1.
+- **Copy-game preserves all (`9bb8f41`)**: `copyGame` / `copyGameAndEdit`
+  switched to `JSON.parse(JSON.stringify(game))` like `copyCatchGame`
+  has always done. No more silently-dropped `setup` field on copies.
+- **No auto-merge on matching probability (`a902c78`)**: removed the
+  "M-N has the same probability — merge?" confirm dialog from
+  `_showGroupPopup`'s save handler. Groups are only created by
+  explicit user action.
+- **Palette extension 8→12 (`74ce8c2`)**: added indigo/lime/hot-pink/
+  brown at slots M9–M12. Wrap still happens at M13.
+
+### Files touched
+
+- `pm-studio-DrV.html` — primary (most stages + popups + palette + copy-game)
+- `index.html` — Player deck builder (Stage 5), palette sync, setup fallback, svgMarkup filter fix
+- `docs/MEMORY.md`, `docs/STATUS_NOTES.md` — this entry
+
+### Key code names (for future grep)
+
+`_computeCardZoneInstances`, `_computeCardZoneInstancesStudio`,
+`applyMWeightBadges`, `_editWeightBadgePct`, `_setCardProbability`,
+`_loadDefaultFindGameSetup`, `_applyFallbackPlayerButtons`,
+`DEFAULT_FIND_GAME_TEMPLATE`, `_findRemoveIdx`, `_mGroupColors`
+(12 entries), `_CARDS_LIBRARY_M_COLORS` (12 entries).
 
 ---
 

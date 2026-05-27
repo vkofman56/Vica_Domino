@@ -1,5 +1,275 @@
 # Vica Domino Project Memory
-**Last Updated**: May 24, 2026
+**Last Updated**: May 26, 2026
+
+---
+
+## May 26, 2026 — 8-stage probability rework + critical Player fix
+
+Long multi-day session. The user wanted a rework of how M-groups
+("Match groups") interact with deck generation: instead of being a
+visual-collapse mechanism, groups become a UI shortcut for bulk
+probability editing, and each card carries an independent probability
+that biases its deck representation. Eight stages, plus a steady
+trickle of polish and three significant bug fixes.
+
+All commits land on `claude/review-project-docs-JOOeh` and are
+mirrored to `claude/general-session-yVBQq` and
+`claude/resume-vica-domin-UOJun` per the project's 3-branch safety
+net.
+
+### Stage 1 — Data model migration
+
+`_migrateGroupsAndProbabilities(game)` runs at the top of openGameView
+/ openCatchGameView (idempotent):
+
+- **Per-card probability**: each card gets `_probRed` and/or
+  `_probGreen` (1–100). Defaults:
+  - `_freezeState === 'frozen'`   → `_probRed: 100`,  no `_probGreen`
+  - `_freezeState === 'floating'` → `_probGreen: 100`, no `_probRed`
+  - no dot                        → `_probRed: 50, _probGreen: 50`
+- **mGroups schema**: legacy bare-array members → object form
+  `{id, name?, probability, members: ident[]}`. `probability` defaults
+  to 100. `id` is `'g_' + Date.now() + '_' + random6`. Members stay
+  in the same `"u:<uid>"` / bare-label format Stage-0 left them.
+
+Two compatibility helpers used everywhere downstream:
+- `_mgMembers(g)` — returns members array regardless of legacy/new shape
+- `_findCardByMGroupIdent(cards, ident)` — resolves uid or label to a card
+
+### Stage 2 — 3-column row layout (red / no-dot / green)
+
+Each row in the Game Creator now renders as a CSS Grid with four
+visible columns: separator, letter, then three "zones" sharing
+identical widths via `grid-template-columns: auto auto auto auto`.
+Zone cells are tagged `data-row-letter` + `data-row-zone` so the
+drag handler can read the zone the user dropped into:
+
+```
+zoneToFreeze = { red: 'frozen', green: 'floating', nodot: null };
+```
+
+When a card crosses zones during a drag, `saveGameViewOrder` resets
+its freeze state AND zeroes the previous-zone probability fields so
+the new-zone defaults take over (the 50/50 split survives only as
+long as the card stays in the no-dot column).
+
+Polish layered in during this stage:
+- 2-line "red cards" / "no dot" / "green cards" placeholders in
+  empty zone cells; first drop into a cell clears the placeholder
+- Zone cells are never removed on drag-out (only their contents
+  change). The legacy drag-end logic that removed `.library-row`
+  when empty was guarded against `dataset.rowZone` so zone cells
+  survive
+- Shift-click multi-select inside `_gvMultiSelected` Set → bulk
+  drag of selected cards
+- Per-row delete button (red `×` next to the letter cell)
+
+### Stage 3 — Group / probability popup
+
+Click any colored M-badge → `_showGroupPopup(groupIdx)`:
+
+- Name field (optional free text)
+- Probability field (1–100 number + 10-step quick-pick buttons)
+- Member count + sample labels
+- Save / Cancel / Ungroup-all buttons
+
+Critical bug worth remembering: `getMCardGroups()` re-parses
+localStorage on each call, so the `grp` reference captured at
+popup-open is from a stale clone. Save must look up the LIVE entry
+at save time via index:
+
+```js
+var allGroups = getMCardGroups(currentGameViewIndex);
+var liveGrp = allGroups[groupIdx];
+// ...mutate liveGrp...
+saveMCardGroups(currentGameViewIndex, allGroups);
+```
+
+Originally the save also prompted "M-N has the same probability —
+merge?". User pushed back hard: **groups are only created by
+explicit user action**. Removed the entire merge branch. Two groups
+sharing a probability now simply coexist (commit `a902c78`).
+
+### Stage 4 — P%×N badge in 1/M collapsed view
+
+When the 1/M button is ON, every visible card gets a small dark
+`P%×N` pill in the top-right corner:
+
+- **P** = group probability (1–100), or 100 if ungrouped
+- **N** = group's member count, or 1 if ungrouped
+
+Painted by `applyMWeightBadges()` at the end of `applyCollapsedView`
+(both the no-groups branch and the main branch) so toggling 1/M
+paints/clears in lockstep. Torn down during `_showAllCardsForShape`
+so it doesn't overlap shape-editing handles.
+
+Polish: the percent number is its own `.mcw-pct` span, clickable.
+Click → inline number input → Enter/blur commits, Escape reverts.
+On commit, `_setCardProbability(cardIdent, newProb)` either updates
+the existing group's probability or creates a size-1 group carrying
+just this card (commit `6832b95`). The badge as a whole keeps
+`pointer-events:none` so card drag still works through it; only
+the number span opts back in.
+
+### Stage 5 — GCD-reduced instance counts in deck builder
+
+The core change. Each card now contributes `(topInst, botInst)`
+copies to the deck:
+
+Priority for the probability source:
+1. `mGroup.probability` if the card is in a group with `probability` set
+2. Card's own `_probRed` / `_probGreen` (set by Stage 1 migration)
+3. Default 100
+
+Mapping to top/bottom instance counts:
+- `_freezeState 'frozen'`   → topInst = P, botInst = 0
+- `_freezeState 'floating'` → topInst = 0, botInst = P
+- no dot                    → topInst = P_red, botInst = P_green
+
+After raw counts, GCD-reduce within each `(row, zone)` bucket so the
+smallest count in a bucket is 1. Pair-emit multiplies:
+
+```js
+copies = topInst(top) × botInst(bottom);
+for (var cp = 0; cp < copies; cp++) customDeck.push(...);
+```
+
+**Backward compatibility**: when every card has prob 100 (the
+default), GCD = 100 → every card becomes 1 instance → deck is
+identical to pre-Stage-5. Existing games behave exactly as today
+unless probabilities are explicitly varied.
+
+Three call sites updated, all using the same `_computeCardZoneInstances`
+helper (duplicated as `_computeCardZoneInstancesStudio` in pm-studio
+because Studio and Player don't share a JS module):
+
+| File | Function | Behavior |
+|---|---|---|
+| `index.html` | `startCustomGame` | Emits N copies per pair → weighted draws |
+| `pm-studio-DrV.html` | `rebuildGameViewDominos` | One tile per unique pair, attaches `_copies` |
+| `pm-studio-DrV.html` | `startCustomGame` | Same multiply-emit as index.html |
+
+`domino.js getShuffledDeck` is unchanged — it returns a uniform
+shuffle of `customGameDeck`, so duplicated entries naturally weight
+the draw.
+
+**Deck-size note**: when a game's probabilities are coprime (Match
+0-4 has `{5, 8, 13, 30, 60, 75, 80, 100}`), GCD can't reduce much
+and the deck grows fast — 11,090 entries for Match 0-4. This is
+mathematically correct (a prob-100 card SHOULD appear 20× as often
+as a prob-5 card) and `shuffleArray` is O(N) so perf is fine, but
+if it becomes an issue an across-pair scaling cap is the next step.
+
+### Stage 6 — ×N count badge on Show Dominos tiles
+
+Each unique-pair tile in Show Dominos shows a small dark `×N` badge
+in the top-right when the pair contributes more than one entry to
+the gameplay deck. The data (`_copies`) is set on the `allDominos`
+entries by Stage 5's `rebuildGameViewDominos`; Stage 6 just renders.
+
+Reads `domino._copies` in `buildGameViewDomino`, appends a
+`.domino-copies-badge` div when `> 1`. Tooltip: "Appears N times in
+the gameplay deck (weighted by per-card probability)."
+
+Default behavior unchanged: with all probs 100, every pair has
+copies=1 and no badge renders.
+
+### Stage 7 — Cross-row color consistency (verified) + palette extension
+
+**Verification (the original goal)**: every color-assignment site
+in the codebase derives the badge color from `palette[gi % len]`
+where `gi` is the position in the global `mGroups` array. So a
+group spanning multiple rows always resolves to one color regardless
+of which row a member lives in. Confirmed structurally and at
+runtime — Match 0-4's M3 (spans rows B+E) and TEST 1's M7 (spans
+C+D+E) each show one consistent color across all members.
+
+**Bonus finding**: with only 8 palette slots, games with 9+ groups
+wrap around — M9 reused M1's yellow, and x2 x4 with 21 groups had
+3-way collisions on every base color. Extended palette to 12 in
+both `pm-studio _mGroupColors` and `index.html
+_CARDS_LIBRARY_M_COLORS`:
+
+| Slot | Color | Notes |
+|---|---|---|
+| M9  | `#3D5AFE` indigo | distinct from M4's cyan-blue |
+| M10 | `#76FF03` lime   | distinct from M3's emerald + M1's yellow |
+| M11 | `#FF4081` hot pink | distinct from M2 red + M6 magenta |
+| M12 | `#6D4C41` brown  | low-sat anchor, off the rainbow |
+
+Wrap still happens at M13. Algorithmic HSL hue rotation
+(`hue = gi × 137.5° mod 360`) is the next escalation if the user
+hits it.
+
+### Stage 8 — This docs update.
+
+### Significant bugs caught + fixed during the rework
+
+**1. CRITICAL — Player deck always empty (`46d5953`).** The user
+reported "no dominos in the game" with a Game Over screen.
+Diagnosed: index.html `startCustomGame` had a filter
+`if (!c.svgMarkup || !c.svgMarkup.trim()) return;` that dropped
+every card. Post-Stage-1 cards are trimmed of inline svgMarkup and
+reference the central card-set store via stableId. `getGameCardSVG`
+already handles both shapes (inline first, then `_gpResolveBySid`
+fallback) — the filter just denied it the chance. Fix:
+`if (!getGameCardSVG(c)) return;` instead. Studio was unaffected
+because it uses `getGameCardSVGWithFallback`. Pre-existing bug,
+surfaced by Stage 5 testing. **Stage 5 itself was not the cause.**
+
+**2. Card-delete sweeping siblings (`aa208c5`).** Deleting a single
+4-dot card removed every card sharing its `stableId`.
+`Array.filter` with `stableId === stableId` removed all siblings.
+Fix: new `_findRemoveIdx(cards)` returns ONE index preferring
+`gameCardIdx → uid → first stableId → first label`; caller does
+`splice(idx, 1)`.
+
+**3. Test 1 / legacy games showed 6 player buttons instead of 4
+(`2259ede`).** Games saved before the per-game setup feature have
+no `setup` field. `_applyGameSetupToPlayerScreen` early-returned
+after `_resetGameSetupLabels` (which restores ALL 6 static HTML
+buttons to visible). Initial fix: hardcoded 4-button fallback
+(`_applyFallbackPlayerButtons`). Upgrade (`9bb8f41`): runtime-
+clone the setup from `DEFAULT_FIND_GAME_TEMPLATE = 'Match 0-4'`
+instead, so legacy games render with the full template config.
+Hardcoded 4-button view kept as final safety net.
+
+### Other polish (smaller commits)
+
+- **M2/M6 same red (`614bea4`, `9ae7421`)**: pink `#F50057` at
+  palette index 5 read as red next to vivid red at index 1.
+  Replaced with purple `#AA00FF`, then user requested more pink
+  tone → `#D500F9` (Material purple A400).
+
+- **Size-1 groups (`fab2284`)**: previously single cards had no
+  path to set name / probability. Relaxed `createMCardGroup` to
+  accept 1+ selected, kept size-1 groups through `ungroupMCard`'s
+  filter, adapted popup title ("Edit card A3 (M5)") and destructive
+  action ("Clear" instead of "Ungroup all") for size-1.
+
+- **Copy-game preserves all settings (`9bb8f41`)**: `copyGame` /
+  `copyGameAndEdit` were enumerating fields and silently dropping
+  anything added later (setup, published, MPP config, …). Switched
+  to `JSON.parse(JSON.stringify(game))` like `copyCatchGame` has
+  always done.
+
+- **Sync race (carried from prior session)**: `SYNC_DEBOUNCE_MS`
+  reduced from 2000 → 350 in `js/sync.js`; `beforeunload` flush +
+  warning for in-flight changes.
+
+### Files touched
+
+- `pm-studio-DrV.html` — primary file (Stage 1–8 changes, palette,
+  popups, badges, copy-game, group-edit logic)
+- `index.html` — Player deck builder (Stage 5), palette sync, setup
+  fallback + Match 0-4 template, svgMarkup filter fix
+- `js/sync.js` — earlier-session sync race fix (referenced for context)
+- `docs/MEMORY.md`, `docs/STATUS_NOTES.md` — this entry
+
+### Cache-busters
+
+No JS/CSS file edits in this session (everything was inline HTML
+script), so no cache-buster bumps required.
 
 ---
 

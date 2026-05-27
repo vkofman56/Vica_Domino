@@ -1,8 +1,37 @@
 # Vica Domino - Project Status Notes
-**Date**: May 26, 2026
+**Date**: May 26, 2026 (evening — header / library polish addendum)
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 590+
+**Total Commits**: 595+
 **Codebase Size**: ~17,500 lines across 4 main files
+
+---
+
+## May 26, 2026 (evening) — header & library polish
+
+Short post-Stage-8 pass. 5 small commits, all pushed to the 3 mirror
+branches. One CSS file edit → cache buster bumped twice in this set.
+
+| Commit | What |
+|---|---|
+| `e06b53b` | **Disable Pub/Unpub toggle, show all games in Game Previewer.** Pub button no longer rendered on Library rows; 4 `published === false` filters removed across both files; `published` field kept on disk for future re-enable. |
+| `0b2b96b` | **AGC label: shrink 10%, bottom-align with game name.** `#a-game-view-label` font-size 28→25.2px + line-height 1; new `_alignAGCLabelToGameNameBottom()` runtime-sets `top` so `label.bottom === gameName.bottom`. Wired into both openGameView paths. Cache buster `icon-fallback-title-1 → agc-label-shrink-1`. |
+| `7fdd6b0` | **GP 0 title row shifted 15pt down** so "MathGrain Game Preview" h1 + TOUCH/MOUSE toggle clear the top-right Sync indicator. `margin-top: 15pt` on `.intro-title-row`. Cache buster `→ gp0-title-shift-1`. |
+| `7c8f15c` | **Drop "TRIAL" prefix from deploy-time banner.** Stripped from all 5 banner sites. `scripts/bump-trial.sh` now writes bare time and matches the legacy `TRIAL `-prefixed form for in-place migration. |
+| `77a1f93` | **A-L Library timestamp font 20% smaller** (36 → 28.8px inline). Other 4 banner sites left at their existing sizes. |
+
+### Files touched
+
+- `pm-studio-DrV.html` — library rows, AGC aligner JS, banner sites, library inline-style font, cache busters
+- `index.html` — intro `published` filters, banner sites, cache busters
+- `css/style.css` — `#a-game-view-label` override, `.intro-title-row` margin
+- `scripts/bump-trial.sh` — bare-time format + permissive regex
+- `docs/MEMORY.md`, `docs/STATUS_NOTES.md` — this entry
+
+### Key code names (for future grep)
+
+`_alignAGCLabelToGameNameBottom`, `_FALLBACK_PLAYER_IDS` (still used
+as last-resort), `.publish-toggle-btn` (now never rendered),
+`.intro-title-row` (15pt margin-top), bare deploy-time banner.
 
 ---
 

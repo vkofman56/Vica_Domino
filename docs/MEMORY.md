@@ -1,5 +1,91 @@
 # Vica Domino Project Memory
-**Last Updated**: May 26, 2026
+**Last Updated**: May 26, 2026 (evening — header / library polish addendum)
+
+---
+
+## May 26, 2026 — header & library polish (evening addendum)
+
+After Stage 8 closed out the 8-stage rework, a short polish pass on
+the page headers and the Library row. Five small commits, all pushed
+to the 3 mirror branches.
+
+### Pub/Unpub toggle disabled, Game Previewer shows all games (`e06b53b`)
+
+User: publishing isn't implemented, so the Pub/Unpub button on each
+Library row does nothing meaningful and "Unpub" games were hidden
+from the Game Previewer (hiding work-in-progress games).
+
+Changes:
+- `populateLibraryGames` no longer renders the `.publish-toggle-btn`
+  for Find or Catch rows. The `game-unpublished` fade class on the
+  game-name button is also dropped so every name reads at full
+  opacity.
+- Four `if (game.published === false) return;` filters removed —
+  pm-studio `populateIntroGames` (Find + Catch branches) and
+  index.html intro (`findList` + `catchList` branches).
+- The `published` field on game objects is left intact in localStorage
+  so re-enabling the feature is a one-line revert per site once
+  publishing actually ships.
+
+### AGC label: shrink 10%, bottom-align with game name (`0b2b96b`)
+
+`#a-game-view-label` ("AGC-Found" / "AGC-Catch" — the faded page
+label in the Game Creator header) was 28px and pinned at `top: 6px`,
+floating above the game-name H1's baseline.
+
+- CSS override: `font-size: 25.2px` (= 28 × 0.9) + `line-height: 1`.
+- New JS helper `_alignAGCLabelToGameNameBottom()` measures
+  `#game-view-title.getBoundingClientRect().bottom` minus the
+  label's own height, sets `label.style.top` so `label.bottom ===
+  gameName.bottom`. Wrapped in `requestAnimationFrame` so it runs
+  after layout settles.
+- Called from both `openCatchGameView` and `openGameView` right
+  after `_alignGameNameToGameTypeIndicator` (the existing horizontal
+  aligner from the May 24 session).
+- Bumped `style.css` cache buster `icon-fallback-title-1 →
+  agc-label-shrink-1`.
+
+### GP 0 title row shifted 15pt down (`7fdd6b0`)
+
+The "MathGrain Game Preview" h1 + TOUCH/MOUSE toggle on `#intro-screen`
+(GP 0, the welcome page) overlapped the top-right Saved / Sync
+status pill.
+
+- Added `margin-top: 15pt` to `.intro-title-row` (the flex container
+  wrapping both elements) — they shift down as a unit, clearing the
+  sync indicator.
+- Cache buster `agc-label-shrink-1 → gp0-title-shift-1`.
+
+### Drop "TRIAL" prefix from the deploy-time banner (`7c8f15c`)
+
+User: the header should just be the time, e.g. `10:34 PM PDT`, not
+`TRIAL 10:34 PM PDT`.
+
+- Stripped "TRIAL " from all 5 banner sites: index.html intro +
+  start screens, pm-studio admin-id splash + admin home + Library
+  title.
+- `scripts/bump-trial.sh` now:
+  - Writes `NEW_BANNER="${NEW_TIME}"` (no prefix)
+  - Match regex `(?:TRIAL\s+)?\d{1,2}:\d{2}\s+(?:AM|PM)\s+(?:PDT|PST)`
+    — optional TRIAL prefix so any legacy banner that slips back in
+    (rebase, branch merge) gets normalized on next commit.
+- The pre-commit hook continues to re-run `bump-trial.sh` whenever
+  either HTML file is committed, so the time stays fresh.
+
+### Library (A-L) timestamp font 20% smaller (`77a1f93`)
+
+Inline span next to the "Library" h1: `font-size: 36px → 28.8px`
+(= 36 × 0.8). Other 4 banner sites left at their existing sizes
+(28px on Player intro/start, 14px on pm-studio splash + admin home).
+
+### Files touched
+
+- `pm-studio-DrV.html` — copy-game, library rows, AGC aligner JS,
+  cache busters, banner sites, library inline-style font
+- `index.html` — intro filters, GP 0 title row CSS hook, banner sites
+- `css/style.css` — `#a-game-view-label` override + new helper,
+  `.intro-title-row` margin
+- `scripts/bump-trial.sh` — bare-time format + permissive regex
 
 ---
 

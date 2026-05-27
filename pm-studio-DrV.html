@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:07 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:23 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -16738,6 +16738,7 @@
                 container.querySelectorAll('.library-card').forEach(function(c) {
                     c.style.display = '';
                 });
+                applyMWeightBadges();
                 return;
             }
 
@@ -16774,6 +16775,57 @@
                 });
                 cardEl.style.display = hidden ? 'none' : '';
             });
+            applyMWeightBadges();
+        }
+
+        // When 1/M is ON, paint a small "P%×N" badge in the top-right of
+        // every visible card. P = the M-group's probability (1–100),
+        // N = the group's member count. Cards not in any group are shown
+        // as "100%×1" — same weight format as a size-1 group at default.
+        // Called from applyCollapsedView (both branches) and from the
+        // 1/M toggle flow so the badges appear/disappear in lockstep.
+        function applyMWeightBadges() {
+            var container = document.getElementById('game-view-cards');
+            if (!container) return;
+            // Always tear down first — this also handles the toggle-OFF case
+            // (where we want zero badges).
+            container.querySelectorAll('.mcard-weight-badge').forEach(function(b) {
+                b.remove();
+            });
+            if (!_collapsedView) return;
+
+            var groups = getMCardGroups(currentGameViewIndex) || [];
+            container.querySelectorAll('.library-card').forEach(function(cardEl) {
+                if (cardEl.style.display === 'none') return; // skip hidden reps
+                var prob = 100;
+                var count = 1;
+                for (var i = 0; i < groups.length; i++) {
+                    var members = _mgMembers(groups[i]);
+                    var matched = members.some(function(ident) {
+                        return _cardMatchesIdent(cardEl, ident);
+                    });
+                    if (matched) {
+                        var grp = groups[i];
+                        prob = (typeof grp.probability === 'number') ? grp.probability : 100;
+                        count = members.length;
+                        break;
+                    }
+                }
+                var badge = document.createElement('div');
+                badge.className = 'mcard-weight-badge';
+                badge.textContent = prob + '%×' + count;
+                badge.title = 'Probability ' + prob + '% × ' + count + ' card' + (count === 1 ? '' : 's') + ' in this set';
+                badge.style.cssText =
+                    'position:absolute;top:-6px;right:-2px;' +
+                    'background:rgba(0,0,0,0.88);color:#fff;' +
+                    'font-size:9px;font-weight:bold;line-height:1;' +
+                    'padding:2px 4px;border-radius:3px;' +
+                    'z-index:6;white-space:nowrap;pointer-events:none;' +
+                    'text-shadow:0 0 1px rgba(0,0,0,0.9);' +
+                    'box-shadow:0 0 0 1px rgba(255,255,255,0.25);';
+                cardEl.style.position = 'relative';
+                cardEl.appendChild(badge);
+            });
         }
 
         // ============ Game-Level Shape & Scale ============
@@ -16805,6 +16857,12 @@
             // Hide M-card badges
             container.querySelectorAll('.mcard-badge').forEach(function(b) {
                 b.style.display = 'none';
+            });
+            // Also drop the 1/M weight badges so they don't overlap
+            // the shape-editing handles. _restoreCardsAfterShape →
+            // applyCollapsedView → applyMWeightBadges will rebuild them.
+            container.querySelectorAll('.mcard-weight-badge').forEach(function(b) {
+                b.remove();
             });
         }
 

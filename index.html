@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:20 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 09:28 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1762,10 +1762,11 @@
         window._currentGameSetupTimer = null;
         window._currentGameSetupSandTimer = null;
 
-        // Default player buttons for legacy games (no `setup` field):
-        // Find-Touch standard = 1 player, 1 player + timer, 2 players,
-        // 2 players + timer. Anything else (p3, p3x) stays hidden so the
-        // setup screen doesn't show all 6 static HTML buttons.
+        // Last-resort default player buttons when neither the game itself
+        // nor any template has a setup field. Find-Touch standard =
+        // 1 player, 1 player + timer, 2 players, 2 players + timer.
+        // Anything else (p3, p3x) stays hidden so the setup screen
+        // doesn't show all 6 static HTML buttons.
         var _FALLBACK_PLAYER_IDS = ['p1', 'p1x', 'p2', 'p2x'];
         function _applyFallbackPlayerButtons() {
             var pbs = document.querySelectorAll('#start-screen .player-btn');
@@ -1776,21 +1777,43 @@
             });
         }
 
+        // When a Find game has no `setup` field, clone the setup from a
+        // template game (Match 0-4 for now — admin can change later). Returns
+        // a deep-cloned setup object, or null if the template can't be found.
+        var DEFAULT_FIND_GAME_TEMPLATE = 'Match 0-4';
+        function _loadDefaultFindGameSetup() {
+            try {
+                var raw = localStorage.getItem('savedCustomGames');
+                if (!raw) return null;
+                var games = JSON.parse(raw);
+                if (!Array.isArray(games)) return null;
+                for (var i = 0; i < games.length; i++) {
+                    var g = games[i];
+                    if (g && g.name === DEFAULT_FIND_GAME_TEMPLATE && g.setup) {
+                        return JSON.parse(JSON.stringify(g.setup));
+                    }
+                }
+            } catch(e) {}
+            return null;
+        }
+
         function _applyGameSetupToPlayerScreen(game, gameType) {
             // Always reset first, so a previous game's customizations don't linger.
             _resetGameSetupLabels();
-            if (!game || !game.setup) {
+            // Resolve a setup object. Priority:
+            //   1. game.setup (admin saved this game's own setup)
+            //   2. for Find games, clone DEFAULT_FIND_GAME_TEMPLATE's setup
+            //   3. neither found → hardcoded 4-button fallback (then return)
+            var setup = (game && game.setup) || null;
+            if (!setup && game && gameType !== 'catch') {
+                setup = _loadDefaultFindGameSetup();
+            }
+            if (!setup) {
                 window._currentGameSetupTimer = null;
                 window._currentGameSetupSandTimer = null;
-                // Legacy games saved before the per-game setup feature have
-                // no `setup` field. Without this fallback, _resetGameSetupLabels
-                // restores ALL 6 player buttons to visible — too many.
-                // Apply the Find-Touch standard (p1, p1x, p2, p2x) so the
-                // player sees the same defaults a freshly-created game uses.
                 _applyFallbackPlayerButtons();
                 return;
             }
-            var setup = game.setup;
             var mode = 'touch';
             if (gameType === 'catch') {
                 mode = (_catchInputMode === 'mouse') ? 'mouse' : 'touch';

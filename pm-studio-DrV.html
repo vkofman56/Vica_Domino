@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:43 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 07:43 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:23 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 07:43 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8370,7 +8370,14 @@
             var lbl = cardEl.querySelector('.library-label');
             var labelText = lbl ? lbl.textContent : '';
             var stableId = cardEl.dataset.stableId || '';
-            if (!labelText && !stableId) return;
+            // Per-card identity tokens written by buildGameViewCard:
+            //   gameCardIdx — position in game.cards at render time
+            //   gameCardUid — unique-per-instance uid (when present)
+            // Both let us delete exactly ONE card even when several share
+            // a stableId or label.
+            var gameCardIdx = cardEl.dataset.gameCardIdx;
+            var gameCardUid = cardEl.dataset.gameCardUid || '';
+            if (!labelText && !stableId && !gameCardUid && (gameCardIdx === undefined || gameCardIdx === '')) return;
             // Look up the card's effective row letter (= where the user
             // placed it, NOT the label's first letter — those drift apart
             // when a card is copied/moved between rows). Falls back to the
@@ -8404,27 +8411,55 @@
             _showRemoveFromGameDialog(labelText, rowLetter, function() {
                 var inCatch = (typeof currentCatchGameViewIndex !== 'undefined') && currentCatchGameViewIndex >= 0;
                 var inFind = !inCatch && (typeof currentGameViewIndex !== 'undefined') && currentGameViewIndex >= 0;
-                var filterFn = function(c) {
-                    if (!c) return false;
-                    if (stableId && c.stableId === stableId) return false;
-                    if (!stableId && c.label === labelText) return false;
-                    return true;
-                };
+                // Locate EXACTLY ONE matching card in game.cards, in this
+                // priority order:
+                //   1. game-card index from the rendered DOM (most precise —
+                //      survives even when stableId/uid/label all collide)
+                //   2. unique uid
+                //   3. stableId — first match only (don't sweep siblings)
+                //   4. label — first match only
+                function _findRemoveIdx(cards) {
+                    if (!Array.isArray(cards)) return -1;
+                    if (gameCardIdx !== undefined && gameCardIdx !== '') {
+                        var idxN = parseInt(gameCardIdx, 10);
+                        if (!isNaN(idxN) && idxN >= 0 && idxN < cards.length) return idxN;
+                    }
+                    var i;
+                    if (gameCardUid) {
+                        for (i = 0; i < cards.length; i++) {
+                            if (cards[i] && cards[i].uid === gameCardUid) return i;
+                        }
+                    }
+                    if (stableId) {
+                        for (i = 0; i < cards.length; i++) {
+                            if (cards[i] && cards[i].stableId === stableId) return i;
+                        }
+                    }
+                    if (labelText) {
+                        for (i = 0; i < cards.length; i++) {
+                            if (cards[i] && cards[i].label === labelText) return i;
+                        }
+                    }
+                    return -1;
+                }
                 // Capture pre-delete snapshot so Cmd+Z reverses the removal.
-                // force=true: this can fire without Card Maker ever being built.
                 if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
                 if (inCatch) {
                     var games = loadCatchGames();
                     var g = games[currentCatchGameViewIndex];
                     if (!g || !Array.isArray(g.cards)) return;
-                    g.cards = g.cards.filter(filterFn);
+                    var rmi = _findRemoveIdx(g.cards);
+                    if (rmi < 0) return;
+                    g.cards.splice(rmi, 1);
                     saveCatchGames(games);
                     openCatchGameView(currentCatchGameViewIndex, gameViewReturnScreen);
                 } else if (inFind) {
                     var fgs = loadCustomGames();
                     var fg = fgs[currentGameViewIndex];
                     if (!fg || !Array.isArray(fg.cards)) return;
-                    fg.cards = fg.cards.filter(filterFn);
+                    var rmif = _findRemoveIdx(fg.cards);
+                    if (rmif < 0) return;
+                    fg.cards.splice(rmif, 1);
                     localStorage.setItem('savedCustomGames', JSON.stringify(fgs));
                     openGameView(currentGameViewIndex, gameViewReturnScreen);
                 }

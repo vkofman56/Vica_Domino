@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:37 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2461,6 +2461,99 @@
         // === Custom game: build domino deck from saved game cards ===
         var activeCustomGameIndex = -1;
 
+        // Stage 5: compute how many "instances" each card contributes to
+        // the top (red/no-dot) and bottom (green/no-dot) deck pools.
+        //
+        // Source of probability per card:
+        //   1. If the card belongs to an mGroup that has a numeric
+        //      `probability` field, that value wins.
+        //   2. Else use the card's own _probRed / _probGreen (set by
+        //      Stage 1 migration / zone-drop in Studio).
+        //   3. Else default to 100.
+        //
+        // Mapping to top/bottom instance counts:
+        //   _freezeState === 'frozen'   → topInst = P, botInst = 0
+        //   _freezeState === 'floating' → topInst = 0, botInst = P
+        //   no dot                      → topInst = P_red, botInst = P_green
+        //
+        // GCD-reduce within each (row=_gameValue, zone=top|bottom) so the
+        // smallest count is 1. This keeps the deck size from blowing up
+        // while preserving relative weights within a zone.
+        //
+        // Returns: Map(card → { topInst: int, botInst: int }).
+        function _computeCardZoneInstances(origCards, mGroups) {
+            function _members(g) {
+                if (!g) return [];
+                if (Array.isArray(g)) return g;
+                if (Array.isArray(g.members)) return g.members;
+                return [];
+            }
+            // Card → group probability (if grouped + group has prob)
+            var cardGroupProb = new Map();
+            (mGroups || []).forEach(function(g) {
+                if (!g || typeof g.probability !== 'number') return;
+                var p = g.probability;
+                _members(g).forEach(function(ident) {
+                    if (typeof ident !== 'string') return;
+                    var match = null;
+                    if (ident.indexOf('u:') === 0) {
+                        var uid = ident.slice(2);
+                        for (var i = 0; i < origCards.length; i++) {
+                            if (origCards[i].uid === uid) { match = origCards[i]; break; }
+                        }
+                    } else {
+                        for (var k = 0; k < origCards.length; k++) {
+                            if (origCards[k].label === ident) { match = origCards[k]; break; }
+                        }
+                    }
+                    if (match && !cardGroupProb.has(match)) cardGroupProb.set(match, p);
+                });
+            });
+            // Raw {top, bot} per card
+            var raw = new Map();
+            origCards.forEach(function(c) {
+                var gp = cardGroupProb.has(c) ? cardGroupProb.get(c) : null;
+                var fs = c._freezeState; // 'frozen' | 'floating' | undefined
+                var pr, pg;
+                if (gp != null) {
+                    pr = (fs === 'floating') ? 0 : gp;
+                    pg = (fs === 'frozen')   ? 0 : gp;
+                } else {
+                    pr = (typeof c._probRed === 'number')   ? c._probRed   : (fs === 'floating' ? 0 : 100);
+                    pg = (typeof c._probGreen === 'number') ? c._probGreen : (fs === 'frozen'   ? 0 : 100);
+                }
+                raw.set(c, { topInst: pr, botInst: pg });
+            });
+            // GCD-reduce per (row, zone). Bucket cards by _gameValue + zone.
+            function _gcd(a, b) {
+                a = Math.abs(a); b = Math.abs(b);
+                while (b) { var t = b; b = a % b; a = t; }
+                return a || 1;
+            }
+            function _bucketReduce(zoneKey) {
+                var buckets = {}; // row → [{card, n}]
+                origCards.forEach(function(c) {
+                    var n = raw.get(c)[zoneKey];
+                    if (!n || n <= 0) return;
+                    var row = c._gameValue || (c.label || '').charAt(0).toUpperCase();
+                    if (!buckets[row]) buckets[row] = [];
+                    buckets[row].push({ card: c, n: n });
+                });
+                Object.keys(buckets).forEach(function(row) {
+                    var list = buckets[row];
+                    var g = list[0].n;
+                    for (var i = 1; i < list.length; i++) g = _gcd(g, list[i].n);
+                    if (g < 1) g = 1;
+                    list.forEach(function(e) {
+                        raw.get(e.card)[zoneKey] = Math.max(1, Math.round(e.n / g));
+                    });
+                });
+            }
+            _bucketReduce('topInst');
+            _bucketReduce('botInst');
+            return raw;
+        }
+
         function startCustomGame(gameIndex, btnEl) {
             _gpInvalidateCardCache();
             var games = loadCustomGames();
@@ -2648,6 +2741,23 @@
                     return true;
                 });
             }
+            // Stage 5: compute per-card zone-instance counts (GCD-reduced
+            // per row/zone). Each card contributes topInst copies as a top
+            // half and botInst copies as a bottom half. The pair-emit loop
+            // below multiplies these out so a card with higher probability
+            // appears proportionally more often in the shuffled deck.
+            var cardZoneInst = _computeCardZoneInstances(origCards, mGroups);
+            function _instForEff(eff, half) {
+                // eff.cards holds 1 origCard in current (post-Stage-1)
+                // builds; fall back to 1 if anything's missing so we
+                // never silently drop a pair.
+                var c = eff.cards && eff.cards[0];
+                if (!c) return 1;
+                var inst = cardZoneInst.get(c);
+                if (!inst) return 1;
+                var n = (half === 'top') ? inst.topInst : inst.botInst;
+                return (n && n > 0) ? n : 1;
+            }
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
@@ -2669,21 +2779,35 @@
                     if (excludedKeys.indexOf(dominoKey) >= 0) continue;
                     var leftValue = leftEff._gameValue;
                     var rightValue = rightEff._gameValue;
-                    var leftKey = leftEff.label + '_d' + cardId + 'L';
-                    var rightKey = rightEff.label + '_d' + cardId + 'R';
-                    var leftPool = topPools[leftEff.label];
-                    if (!leftPool || leftPool.length === 0) leftPool = valueTopPools[leftValue];
-                    if (!leftPool || leftPool.length === 0) leftPool = svgPools[leftEff.label];
-                    var rightPool = bottomPools[rightEff.label];
-                    if (!rightPool || rightPool.length === 0) rightPool = valueBottomPools[rightValue];
-                    if (!rightPool || rightPool.length === 0) rightPool = svgPools[rightEff.label];
-                    if (leftPool && leftPool.length > 0) svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
-                    if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
                     // Halves are LOCKED whenever either side's value has any
                     // dot in the game — the round-start flip in game.js must
                     // not swap them, or red would land on the bottom.
                     var _lockHalves = !!(valueHasDot[leftValue] || valueHasDot[rightValue]);
-                    customDeck.push({ id: cardId++, left: leftKey, right: rightKey, leftValue: leftValue, rightValue: rightValue, _lockHalves: _lockHalves });
+                    // Stage 5: instances per zone determine deck multiplicity.
+                    // leftEff sits on top → use its topInst.
+                    // rightEff sits on bottom → use its botInst.
+                    var copies = _instForEff(leftEff, 'top') * _instForEff(rightEff, 'bottom');
+                    if (copies < 1) copies = 1;
+                    for (var cp = 0; cp < copies; cp++) {
+                        var leftKey  = leftEff.label  + '_d' + cardId + 'L';
+                        var rightKey = rightEff.label + '_d' + cardId + 'R';
+                        var leftPool = topPools[leftEff.label];
+                        if (!leftPool || leftPool.length === 0) leftPool = valueTopPools[leftValue];
+                        if (!leftPool || leftPool.length === 0) leftPool = svgPools[leftEff.label];
+                        var rightPool = bottomPools[rightEff.label];
+                        if (!rightPool || rightPool.length === 0) rightPool = valueBottomPools[rightValue];
+                        if (!rightPool || rightPool.length === 0) rightPool = svgPools[rightEff.label];
+                        if (leftPool && leftPool.length > 0)  svgMap[leftKey]  = randomPick(leftPool).cloneNode(true);
+                        if (rightPool && rightPool.length > 0) svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
+                        customDeck.push({
+                            id: cardId++,
+                            left: leftKey,
+                            right: rightKey,
+                            leftValue: leftValue,
+                            rightValue: rightValue,
+                            _lockHalves: _lockHalves
+                        });
+                    }
                 }
             }
 

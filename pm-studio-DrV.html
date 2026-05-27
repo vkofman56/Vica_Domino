@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:37 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:36px;color:rgba(255,255,255,0.5);font-weight:normal;">TRIAL 08:51 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -15731,6 +15731,81 @@
             return effective;
         }
 
+        // Stage 5: per-card top/bottom instance counts, GCD-reduced per
+        // (row, zone). Mirrors the same function in index.html — see the
+        // detailed docblock there for the rules. Kept duplicated rather
+        // than factored out because Studio and Player load each other's
+        // HTML and don't share a JS module.
+        function _computeCardZoneInstancesStudio(origCards, mGroups) {
+            function _members(g) {
+                if (!g) return [];
+                if (Array.isArray(g)) return g;
+                if (Array.isArray(g.members)) return g.members;
+                return [];
+            }
+            var cardGroupProb = new Map();
+            (mGroups || []).forEach(function(g) {
+                if (!g || typeof g.probability !== 'number') return;
+                var p = g.probability;
+                _members(g).forEach(function(ident) {
+                    if (typeof ident !== 'string') return;
+                    var match = null;
+                    if (ident.indexOf('u:') === 0) {
+                        var uid = ident.slice(2);
+                        for (var i = 0; i < origCards.length; i++) {
+                            if (origCards[i].uid === uid) { match = origCards[i]; break; }
+                        }
+                    } else {
+                        for (var k = 0; k < origCards.length; k++) {
+                            if (origCards[k].label === ident) { match = origCards[k]; break; }
+                        }
+                    }
+                    if (match && !cardGroupProb.has(match)) cardGroupProb.set(match, p);
+                });
+            });
+            var raw = new Map();
+            origCards.forEach(function(c) {
+                var gp = cardGroupProb.has(c) ? cardGroupProb.get(c) : null;
+                var fs = c._freezeState;
+                var pr, pg;
+                if (gp != null) {
+                    pr = (fs === 'floating') ? 0 : gp;
+                    pg = (fs === 'frozen')   ? 0 : gp;
+                } else {
+                    pr = (typeof c._probRed === 'number')   ? c._probRed   : (fs === 'floating' ? 0 : 100);
+                    pg = (typeof c._probGreen === 'number') ? c._probGreen : (fs === 'frozen'   ? 0 : 100);
+                }
+                raw.set(c, { topInst: pr, botInst: pg });
+            });
+            function _gcd(a, b) {
+                a = Math.abs(a); b = Math.abs(b);
+                while (b) { var t = b; b = a % b; a = t; }
+                return a || 1;
+            }
+            function _bucketReduce(zoneKey) {
+                var buckets = {};
+                origCards.forEach(function(c) {
+                    var n = raw.get(c)[zoneKey];
+                    if (!n || n <= 0) return;
+                    var row = c._gameValue || (c.label || '').charAt(0).toUpperCase();
+                    if (!buckets[row]) buckets[row] = [];
+                    buckets[row].push({ card: c, n: n });
+                });
+                Object.keys(buckets).forEach(function(row) {
+                    var list = buckets[row];
+                    var g = list[0].n;
+                    for (var i = 1; i < list.length; i++) g = _gcd(g, list[i].n);
+                    if (g < 1) g = 1;
+                    list.forEach(function(e) {
+                        raw.get(e.card)[zoneKey] = Math.max(1, Math.round(e.n / g));
+                    });
+                });
+            }
+            _bucketReduce('topInst');
+            _bucketReduce('botInst');
+            return raw;
+        }
+
         function rebuildGameViewDominos() {
             if (currentGameViewIndex < 0) return;
             var games = loadCustomGames();
@@ -15798,6 +15873,22 @@
             // Skip red+red and green+green pairs — by definition red sits
             // only on top, green only on bottom, so two same-color cards
             // can't form a domino.
+            //
+            // Stage 5: each domino also carries a _copies field — the
+            // multiplicity it would have in the gameplay deck given the
+            // top/bottom probability instance counts of its representatives
+            // (GCD-reduced per row/zone). Stage 6 paints this as an ×N
+            // badge. One tile per unique pair stays in the UI.
+            var origCardsForPreview = (game.cards || []).filter(function(c){ return c && !c.isVariation; });
+            var cardInstPreview = _computeCardZoneInstancesStudio(origCardsForPreview, game.mGroups || []);
+            function _instForPreview(eff, half) {
+                var c = eff.cards && eff.cards[0];
+                if (!c) return 1;
+                var inst = cardInstPreview.get(c);
+                if (!inst) return 1;
+                var n = (half === 'top') ? inst.topInst : inst.botInst;
+                return (n && n > 0) ? n : 1;
+            }
             var allDominos = [];
             for (var i = 0; i < effective.length; i++) {
                 for (var j = i + 1; j < effective.length; j++) {
@@ -15812,12 +15903,15 @@
                     var botG = iTopJBot ? effective[j] : effective[i];
                     var lv = topG._gameValue;
                     var rv = botG._gameValue;
+                    var copies = _instForPreview(topG, 'top') * _instForPreview(botG, 'bottom');
+                    if (copies < 1) copies = 1;
                     allDominos.push({
                         leftCard: _pickRepForHalf(topG, 'top'),
                         rightCard: _pickRepForHalf(botG, 'bottom'),
                         leftValue: lv,
                         rightValue: rv,
-                        isDouble: lv === rv
+                        isDouble: lv === rv,
+                        _copies: copies
                     });
                 }
             }
@@ -20577,7 +20671,19 @@
             // Load excluded dominos for this game
             var excludedKeys = getExcludedDominos(gameIndex);
 
-            // Generate ALL effective-card pair combinations as dominos (skip excluded)
+            // Generate ALL effective-card pair combinations as dominos (skip excluded).
+            // Stage 5: expand each pair by topInst×botInst copies so cards with
+            // higher probability appear proportionally more often in the deck.
+            var origCardsForDeck = (game.cards || []).filter(function(c){ return c && !c.isVariation; });
+            var cardInstDeck = _computeCardZoneInstancesStudio(origCardsForDeck, game.mGroups || []);
+            function _instForDeck(ec, half) {
+                var c = ec.cards && ec.cards[0];
+                if (!c) return 1;
+                var inst = cardInstDeck.get(c);
+                if (!inst) return 1;
+                var n = (half === 'top') ? inst.topInst : inst.botInst;
+                return (n && n > 0) ? n : 1;
+            }
             var customDeck = [];
             var svgMap = {};
             var cardId = 1;
@@ -20590,25 +20696,29 @@
                     if (excludedKeys.indexOf(dominoKey) >= 0) continue;
                     var leftValue = leftEc._gameValue;
                     var rightValue = rightEc._gameValue;
-                    // Unique keys per domino half
-                    var leftKey = leftEc.label + '_d' + cardId + 'L';
-                    var rightKey = rightEc.label + '_d' + cardId + 'R';
-                    // Randomly pick visual from pool (m-group = random face each time)
-                    var leftPool = svgPools[leftEc.label];
-                    var rightPool = svgPools[rightEc.label];
-                    if (leftPool && leftPool.length > 0) {
-                        svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
+                    var copies = _instForDeck(leftEc, 'top') * _instForDeck(rightEc, 'bottom');
+                    if (copies < 1) copies = 1;
+                    for (var cp = 0; cp < copies; cp++) {
+                        // Unique keys per domino half
+                        var leftKey = leftEc.label + '_d' + cardId + 'L';
+                        var rightKey = rightEc.label + '_d' + cardId + 'R';
+                        // Randomly pick visual from pool (m-group = random face each time)
+                        var leftPool = svgPools[leftEc.label];
+                        var rightPool = svgPools[rightEc.label];
+                        if (leftPool && leftPool.length > 0) {
+                            svgMap[leftKey] = randomPick(leftPool).cloneNode(true);
+                        }
+                        if (rightPool && rightPool.length > 0) {
+                            svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
+                        }
+                        customDeck.push({
+                            id: cardId++,
+                            left: leftKey,
+                            right: rightKey,
+                            leftValue: leftValue,
+                            rightValue: rightValue
+                        });
                     }
-                    if (rightPool && rightPool.length > 0) {
-                        svgMap[rightKey] = randomPick(rightPool).cloneNode(true);
-                    }
-                    customDeck.push({
-                        id: cardId++,
-                        left: leftKey,
-                        right: rightKey,
-                        leftValue: leftValue,
-                        rightValue: rightValue
-                    });
                 }
             }
 

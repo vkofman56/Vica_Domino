@@ -706,19 +706,36 @@
         setTimeout(function () { clearInterval(_fbWait); }, 30000);
     }
 
-    // Try to sync on page unload (superusers only). If a debounced push
-    // is pending in _syncTimer, cancel the timer and trigger immediately
-    // — that's the window where drag-saves were being lost: user did a
-    // drag, the 350ms timer was still counting down, they reloaded, the
-    // pending push never fired, and the next pull replaced their local
-    // changes with the stale cloud version.
-    window.addEventListener('beforeunload', function () {
+    // Try to sync on page unload (superusers only). Two things happen:
+    //
+    //   1. If a debounced push is pending in _syncTimer, cancel the
+    //      timer and trigger immediately. That's the window where
+    //      drag-saves were being lost: user did a drag, the 350ms timer
+    //      was still counting down, they reloaded, the pending push
+    //      never fired, and the next pull replaced their local changes
+    //      with the stale cloud version. Firebase's batched write is
+    //      async — best-effort, but the request usually departs.
+    //
+    //   2. Show a native browser confirm dialog if there's still
+    //      anything in flight (timer pending OR a push actively running)
+    //      so the user knows that closing now risks losing the change.
+    //      Modern Chrome/Firefox ignore the custom message and show a
+    //      generic warning instead, but setting returnValue is still
+    //      what triggers the dialog at all.
+    window.addEventListener('beforeunload', function (e) {
         if (_userId && _userRole === 'superuser' && _firebaseReady) {
+            var hadTimer = !!_syncTimer;
             if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
-            // Best-effort: synchronous trigger. Firebase's batched write is
-            // async and might not complete before navigation, but the
-            // request usually gets sent.
-            _pushToServer();
+            // Flush whatever was queued.
+            if (hadTimer) _pushToServer();
+            // If something is still in flight (the just-fired push, or a
+            // push that was already running), warn the user.
+            if (_syncing || hadTimer) {
+                var msg = 'Your latest changes are still syncing. Close anyway?';
+                e.preventDefault();
+                e.returnValue = msg;
+                return msg;
+            }
         }
     });
 })();

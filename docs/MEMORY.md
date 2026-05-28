@@ -1,5 +1,99 @@
 # Vica Domino Project Memory
-**Last Updated**: May 26, 2026 (evening — header / library polish addendum)
+**Last Updated**: May 27, 2026 — Prob Options feature (Find games)
+
+---
+
+## May 27, 2026 — Prob Options (9-stage feature, Find only)
+
+A second large rework after the 8-stage probability rework. "Prob
+Options" let an admin author **several named probability presets per
+game**; the player picks one in the Game Previewer and the gameplay
+deck rebuilds from it. Find games only for v1 (Catch deferred). All
+commits on `claude/review-project-docs-JOOeh`, mirrored to the two
+sibling branches.
+
+### Design (locked with the user before building)
+
+- A **Prob** stores, per card: a **zone** (red / no-dot / green) and a
+  **probability** (red/green channels, 0–100). Two channels always
+  exist; the off-channel is 0 in a single-color zone, so the user
+  usually sees one number. 0 is allowed = "card absent from this Prob."
+- **BaseState** ("BasicS") = all cards neutral / 50-50; a reset target,
+  not a stored Prob.
+- Editor is **always inside one active Prob**; new games auto-get Prob 1
+  on first edit. Autosave (no explicit save button).
+- **Per-Prob**: cardZones, cardProbs, mGroups, excludedDominos.
+  **Per-game** (shared across Probs): the player/levels/types/timer
+  setup matrix, the card SET itself.
+- Add a card → lands neutral/50-50 in every Prob. Delete a card →
+  choose "delete from all Probs" or "just zero it in the active Prob."
+
+### Data model
+
+```js
+game.probOptions = [{
+  id, name?,
+  cardZones: { <key>: 'red'|'green'|'nodot' },
+  cardProbs: { <key>: { red:0..100, green:0..100 } },
+  mGroups:   [...],            // same shape as legacy game.mGroups
+  excludedDominos: [...]
+}]
+game.activeProbOptionId
+```
+`<key>` = `u:<uid>` > `s:<stableId>` > `l:<label>` (helpers
+`_probCardKey` / `_resolveCardForKey` in Studio, `_gpProbCardKey` in
+the Player).
+
+### The 9 stages
+
+| # | Stage | Commits |
+|---|---|---|
+| 1 | Data model + idempotent migration (`_migrateGameToProbOptions` builds Prob 1 from the current cards/mGroups/excludedDominos localStorage; runs in openGameView). Helpers `_getActiveProb`, `_materializeProbIntoCards`, `_writeActiveProb`, `_snapshotProbFromCurrent`. | `650f529` |
+| 2+3 | Editor chip strip `[BasicS][Prob1*][Prob2][+Prob]` + Prob switching + autosave. `_renderProbChipStrip`, `_switchActiveProb`, `_createNewProb`, `_resetToBasicS`, `_autosaveActiveProbForGame` wired into `saveGameViewOrder` / `_saveFreezeView` / `_saveCurrentViewGames`. Also added a local `saveCustomGames()` helper (none existed). | `50b7398` |
+| 4 | Allow probability = 0: popup + inline `%` editor min 1→0, zero-prob cards dim (`.prob-zero-card`, `_applyZeroProbDimming`, group-aware), deck builder honors honest 0 (skip pair when copies≤0). | `543f0da`, `7a1df2c` |
+| 5 | Delete-card 3-option dialog (2+ Probs): "Delete from all Probs" (`_purgeCardFromAllProbs`) / "Just set to 0% in ProbN" / Cancel. | `2db0915` |
+| 6+7 | mGroups per-Prob (already worked via the Stage 2/3 mirror) + excluded dominoes per-Prob (`getExcludedDominos`/`saveExcludedDominos` route through the active Prob via `_activeProbForExcluded`; legacy key kept mirrored for the Player). | `e765b95` |
+| 8a | Player deck builder honors the selected Prob: `startCustomGame(idx, btn, probId, skipSetupRender)` → `_gpApplySelectedProb` rewrites in-memory card zones/probs, swaps mGroups, stashes excluded. | `45eff50` |
+| 8b | Player "Frequency" chip selector below the timer toggle on the setup screen (`_renderPlayerProbSelector`; chip click rebuilds deck with `skipSetupRender=true` so level/player picks survive). | `7704a7f` + UI tweaks |
+| 9 | This docs entry. | — |
+
+### Badge rename (during the feature)
+
+`M`-for-Match badges retired. Single card with a custom probability →
+lowercase **`p`**; multi-card group → **`p1, p2…`** (numbered among
+multi-card groups only, no gaps). Prob Option chips spell out **`Prob1,
+Prob2`**. Toolbar mode button `M` → `p`. Helper `_groupDisplayLabel`.
+(`d72488e`, `96b63cd`)
+
+### p-mode per-card flag
+
+In probability mode, every card without a group badge shows a clickable
+`p` flag; clicking opens the editor (size-1 group seeded with the card's
+current prob, removed on cancel). `_applyPModeFlags`, `_editSingleCardProb`.
+(`fbe37ac`)
+
+### Deprecation decision (Stage 9)
+
+`game.mGroups` and the `excludedDominos_<idx>` localStorage key are
+**kept, not removed** — they serve as fallbacks for games without
+probOptions (Catch games, or Find games never opened in Studio) and as
+the Player-facing mirror until a future Catch rollout. The active Prob
+is the source of truth in the Studio editor; the legacy fields are
+mirrored on save / view-open.
+
+### Player-side Frequency selector — final layout
+
+After several nudges: heading "Frequency" (#fff, 1.3rem bold, matching
+the Timer/Levels h3s), relative-offset up; chips Prob1/Prob2 stacked
+vertically, width 65%, left-aligned with the timer pill, dropped 9pt
+below the heading. Lives inside `#setup-timer-col` under the toggle.
+
+### Files
+
+- `pm-studio-DrV.html` — all editor stages, helpers, chip strip, dialogs
+- `index.html` — Player deck materialization + Frequency selector
+- `css/style.css` — `.prob-chip-*`, `.player-prob-*`, `.prob-zero-card`
+- `docs/*` — this entry
 
 ---
 

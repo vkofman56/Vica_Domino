@@ -1,8 +1,67 @@
 # Vica Domino - Project Status Notes
-**Date**: May 26, 2026 (evening — header / library polish addendum)
+**Date**: May 27, 2026 — Prob Options feature
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 595+
-**Codebase Size**: ~17,500 lines across 4 main files
+**Total Commits**: 625+
+**Codebase Size**: ~18,000 lines across 4 main files
+
+---
+
+## May 27, 2026 — Prob Options (9 stages, Find only)
+
+Per-game **probability presets** ("Probs"). Admin authors several in
+Studio; player picks one in the Game Previewer ("Frequency" selector)
+and the gameplay deck rebuilds from it. Find only for v1.
+
+### Data shape
+```
+game.probOptions[] = { id, name?, cardZones{}, cardProbs{}, mGroups[], excludedDominos[] }
+game.activeProbOptionId
+```
+Key resolves uid > stableId > label. Per-Prob: zones/probs/mGroups/
+excludedDominos. Per-game: setup matrix + the card set.
+
+### Stage table
+| # | What | Commit |
+|---|---|---|
+| 1 | Data model + idempotent migration (`_migrateGameToProbOptions`) | `650f529` |
+| 2+3 | Editor chip strip `[BasicS][Prob1*][+Prob]` + switching + autosave | `50b7398` |
+| 4 | Probability = 0 allowed + dim zero-prob cards + deck skips 0-pairs | `543f0da`,`7a1df2c` |
+| 5 | Delete-card 3-option dialog (delete-all / zero-in-active / cancel) | `2db0915` |
+| 6+7 | mGroups per-Prob (via mirror) + excluded dominoes per-Prob | `e765b95` |
+| 8a | Player deck honors selected Prob (`_gpApplySelectedProb`) | `45eff50` |
+| 8b | Player "Frequency" chip selector on setup screen | `7704a7f` |
+| 9 | Docs (this) | — |
+
+### Key names (grep)
+`_migrateGameToProbOptions`, `_getActiveProb`, `_materializeProbIntoCards`,
+`_writeActiveProb`, `_snapshotProbFromCurrent`, `_renderProbChipStrip`,
+`_switchActiveProb`, `_createNewProb`, `_resetToBasicS`,
+`_autosaveActiveProbForGame`, `_applyZeroProbDimming`,
+`_purgeCardFromAllProbs`, `_activeProbForExcluded`, `_groupDisplayLabel`,
+`_applyPModeFlags`, `_editSingleCardProb` (Studio);
+`_gpApplySelectedProb`, `_gpProbCardKey`, `_renderPlayerProbSelector`
+(Player).
+
+### Badge rename
+`M1/M2` → single card `p`, group `p1/p2`; Prob chips `Prob1/Prob2`;
+toolbar `M` button → `p`. (`d72488e`, `96b63cd`)
+
+### Deprecation (Stage 9)
+`game.mGroups` + `excludedDominos_<idx>` localStorage **kept** as
+fallbacks for no-Prob / Catch games and the Player mirror — NOT
+removed. Active Prob is source of truth in the Studio editor.
+
+### Files
+- `pm-studio-DrV.html` — editor stages, helpers, chip strip, dialogs
+- `index.html` — Player deck materialization + Frequency selector
+- `css/style.css` — `.prob-chip-*`, `.player-prob-*`, `.prob-zero-card`
+
+### Known follow-ups
+- Catch games (probOptions parallel) — deferred.
+- Stale orphan mGroups in some games (members referencing deleted
+  cards) — harmless, ignored everywhere; a cleanup pass would tidy.
+- No-dot two-number editing UI (red≠green) — the popup edits a single
+  number; seeds from _probRed. Build if/when needed.
 
 ---
 

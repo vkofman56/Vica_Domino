@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:55 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:27 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:55 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:27 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2653,46 +2653,16 @@
         //
         // Returns: Map(card → { topInst: int, botInst: int }).
         function _computeCardZoneInstances(origCards, mGroups) {
-            function _members(g) {
-                if (!g) return [];
-                if (Array.isArray(g)) return g;
-                if (Array.isArray(g.members)) return g.members;
-                return [];
-            }
-            // Card → group probability (if grouped + group has prob)
-            var cardGroupProb = new Map();
-            (mGroups || []).forEach(function(g) {
-                if (!g || typeof g.probability !== 'number') return;
-                var p = g.probability;
-                _members(g).forEach(function(ident) {
-                    if (typeof ident !== 'string') return;
-                    var match = null;
-                    if (ident.indexOf('u:') === 0) {
-                        var uid = ident.slice(2);
-                        for (var i = 0; i < origCards.length; i++) {
-                            if (origCards[i].uid === uid) { match = origCards[i]; break; }
-                        }
-                    } else {
-                        for (var k = 0; k < origCards.length; k++) {
-                            if (origCards[k].label === ident) { match = origCards[k]; break; }
-                        }
-                    }
-                    if (match && !cardGroupProb.has(match)) cardGroupProb.set(match, p);
-                });
-            });
-            // Raw {top, bot} per card
+            // Two-channel model: each card's own _probRed (LEFT/top) and
+            // _probGreen (RIGHT/bottom) drive its deck instances. Group
+            // probability is no longer consulted — the Studio migration
+            // pushed any legacy group prob into the member cards' channels,
+            // and the editor writes per-card channels directly.
             var raw = new Map();
             origCards.forEach(function(c) {
-                var gp = cardGroupProb.has(c) ? cardGroupProb.get(c) : null;
                 var fs = c._freezeState; // 'frozen' | 'floating' | undefined
-                var pr, pg;
-                if (gp != null) {
-                    pr = (fs === 'floating') ? 0 : gp;
-                    pg = (fs === 'frozen')   ? 0 : gp;
-                } else {
-                    pr = (typeof c._probRed === 'number')   ? c._probRed   : (fs === 'floating' ? 0 : 100);
-                    pg = (typeof c._probGreen === 'number') ? c._probGreen : (fs === 'frozen'   ? 0 : 100);
-                }
+                var pr = (typeof c._probRed === 'number')   ? c._probRed   : (fs === 'floating' ? 0 : 100);
+                var pg = (typeof c._probGreen === 'number') ? c._probGreen : (fs === 'frozen'   ? 0 : 100);
                 raw.set(c, { topInst: pr, botInst: pg });
             });
             // GCD-reduce per (row, zone). Bucket cards by _gameValue + zone.

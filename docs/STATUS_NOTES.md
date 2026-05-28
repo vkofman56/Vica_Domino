@@ -1,8 +1,63 @@
 # Vica Domino - Project Status Notes
-**Date**: May 27, 2026 — Prob Options feature
+**Date**: May 28, 2026 — two-channel probability + help/tooltip audit
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 625+
+**Total Commits**: 630+
 **Codebase Size**: ~18,000 lines across 4 main files
+
+---
+
+## May 28, 2026 — Two-channel probability + help/tooltip pass
+
+### Two-channel (LEFT/RIGHT) per-card probability
+Every card now stores BOTH halves of its frequency, homogeneously, so
+all cards in a column store the same way regardless of dot state:
+- `_probRed`   — LEFT / top-half weight (0–100)
+- `_probGreen` — RIGHT / bottom-half weight (0–100)
+
+Both channels are ALWAYS present (0 = "off in that zone"); the migration
+never deletes a channel. `_freezeState` decides which channel(s) are
+live: `frozen` → top/red only, `floating` → bottom/green only,
+undefined (no-dot / neutral) → both.
+
+- **Group = convenience only.** A group (`mGroups[] = {id, name?, members[]}`)
+  exists so the user can edit one probability and apply it to every
+  member at once, and to give that set a name. The old `group.probability`
+  field is **deprecated** — `_migrateGroupProbsToCards(game)` pushes any
+  legacy group prob down into each member's card channels once, then
+  `delete g.probability`. Idempotent; runs in `openGameView` after
+  `_migrateGroupsAndProbabilities`.
+- **Editor popup** (`_showGroupPopup`): neutral card shows two controls
+  (LEFT + RIGHT) built by `_buildProbControl(sideLabel, initVal)`;
+  red/green card shows one. Range is 0–100. Save writes `_probRed` /
+  `_probGreen` onto ALL members + `_autosaveActiveProbForGame`.
+- **Deck builder** (`_computeCardZoneInstancesStudio` / Player
+  `_computeCardZoneInstances`): group-prob override REMOVED — reads
+  per-card channels, GCD-reduces instances per (row, zone). Match 0-4
+  deck went 11090 → 1258 (correct, not a regression).
+- **Weight badge** (`applyMWeightBadges`, shown when 1/M is ON): label
+  is `pr` (frozen) / `pg` (floating) / `pr/pg` neutral (e.g. `70/30`),
+  suffixed `×N` (copies in deck). Click opens `_editSingleCardProb`.
+- **Dimming** (`_applyZeroProbDimming`): reads card channels directly —
+  frozen→pr===0, floating→pg===0, neutral→both 0.
+
+### p-mode marker only recolours when edited
+`_applyPModeFlags()` `.pmode-flag` now matches `.mcard-badge` geometry
+EXACTLY (`top:13px; right:-2px; font-size:8px; padding:1px 3px;
+border-radius:3px;` + same text-shadow). Un-edited = neutral grey
+`rgba(120,120,140,0.92)`; once edited it becomes a palette-coloured
+badge in the SAME spot/size. Editing no longer makes the marker jump
+corners or resize — only the colour changes. (`70166be`)
+
+### Help / tooltip audit
+- `_helpContent.gameview` rewritten to match the CURRENT toolbar and
+  cover probability: stale `MPP`→`IC`, `M`→`p`; new entries for the
+  `p` / `p1,p2` badges, the LEFT/RIGHT editor, the `70/30 ×N` weight
+  badge, and the `BasicS / Prob1 / +Prob` chip strip.
+- Added missing hover tooltips: Library `+` (new card set) and the
+  delete-mode button (Studio); the Player "Frequency" heading + preset
+  chips (`index.html`).
+- Player (`index.html`) still has **no "?" page-help system** — only
+  hover tooltips. Flagged as an open choice (build one or not).
 
 ---
 
@@ -60,8 +115,8 @@ removed. Active Prob is source of truth in the Studio editor.
 - Catch games (probOptions parallel) — deferred.
 - Stale orphan mGroups in some games (members referencing deleted
   cards) — harmless, ignored everywhere; a cleanup pass would tidy.
-- No-dot two-number editing UI (red≠green) — the popup edits a single
-  number; seeds from _probRed. Build if/when needed.
+- ~~No-dot two-number editing UI (red≠green)~~ — DONE May 28 via the
+  two-channel refactor (LEFT/RIGHT controls). See top section.
 
 ---
 

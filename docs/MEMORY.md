@@ -1,5 +1,56 @@
 # Vica Domino Project Memory
-**Last Updated**: May 27, 2026 — Prob Options feature (Find games)
+**Last Updated**: May 28, 2026 — two-channel probability + help/tooltip audit
+
+---
+
+## May 28, 2026 — Two-channel probability + help/tooltip audit
+
+Follow-on polish after Prob Options. Three things landed:
+
+### 1. Homogeneous two-channel per-card probability
+Every card carries BOTH halves of its frequency, the same way regardless
+of dot state, so a whole column stores identically:
+- `_probRed` = LEFT / top-half weight (0–100)
+- `_probGreen` = RIGHT / bottom-half weight (0–100)
+
+Both channels ALWAYS exist (0 = "off in that zone"); migrations never
+delete one. `_freezeState` selects which are live: `frozen` → red/top
+only, `floating` → green/bottom only, undefined (neutral/no-dot) → both.
+
+- **Groups are convenience only.** `mGroups[] = {id, name?, members[]}`
+  let the user edit one probability and apply it to all members, plus
+  carry a name. `group.probability` is **deprecated**;
+  `_migrateGroupProbsToCards(game)` pushes any legacy group prob into
+  member card channels once (frozen→_probRed, floating→_probGreen,
+  neutral→both) then `delete g.probability`. Idempotent, runs in
+  `openGameView` after `_migrateGroupsAndProbabilities` (which is now
+  homogeneous too — never drops a channel).
+- **Editor popup** `_showGroupPopup`: neutral card → two controls (LEFT
+  + RIGHT) via `_buildProbControl(sideLabel, initVal)`; red/green → one.
+  Range 0–100. Save writes channels to ALL members + autosaves.
+- **Deck builders** (`_computeCardZoneInstancesStudio`, Player
+  `_computeCardZoneInstances`): group-prob override REMOVED; read card
+  channels, GCD-reduce per (row, zone). Match 0-4: 11090 → 1258 copies.
+- **Weight badge** (`applyMWeightBadges`, when 1/M ON): `pr` / `pg` /
+  `pr/pg` (e.g. `70/30`) `×N`. Dimming reads channels directly.
+
+### 2. p-mode marker only recolours on edit
+`.pmode-flag` (in `_applyPModeFlags`) now matches `.mcard-badge`
+geometry exactly (`top:13px; right:-2px; 8px font; 1px 3px pad; 3px
+radius;` + same text-shadow). Un-edited = neutral grey
+`rgba(120,120,140,0.92)`; editing turns it a palette colour in place —
+no more jumping corners / resizing. (`70166be`)
+
+### 3. Help + tooltip audit
+- `_helpContent.gameview` rewritten to match the live toolbar and cover
+  probability: `MPP`→`IC`, `M`→`p`, plus new entries for the p / p1,p2
+  badges, the LEFT/RIGHT editor, the `70/30 ×N` weight badge, and the
+  `BasicS / Prob1 / +Prob` chip strip.
+- Added missing tooltips: Studio Library `+` (new card set) and
+  delete-mode button; Player "Frequency" heading + preset chips.
+- **Player (`index.html`) has no "?" page-help system** — tooltips only.
+  Studio's `showPageHelp(page)` covers library / gameview / cardmaker /
+  cardeditor. Open question whether the Player should get one.
 
 ---
 

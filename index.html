@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:35 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:40 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:40 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -716,9 +716,76 @@
             catch(e) { return []; }
         }
 
+        // Stage 8: when a Prob Option is selected for the game being
+        // started, its excludedDominos override the per-game localStorage
+        // key. Set by _gpApplySelectedProb, scoped by gameIndex.
+        var _gpSelectedProbExcluded = null; // { gameIndex, list } | null
+
         function getExcludedDominos(gameIndex) {
+            if (_gpSelectedProbExcluded && _gpSelectedProbExcluded.gameIndex === gameIndex) {
+                return _gpSelectedProbExcluded.list.slice();
+            }
             try { var data = localStorage.getItem('excludedDominos_' + gameIndex); return data ? JSON.parse(data) : []; }
             catch(e) { return []; }
+        }
+
+        // Stage 8: per-card key for resolving Prob overrides (mirrors
+        // Studio's _probCardKey): uid > stableId > label.
+        function _gpProbCardKey(c) {
+            if (!c) return null;
+            if (c.uid) return 'u:' + c.uid;
+            if (c.stableId) return 's:' + c.stableId;
+            if (c.label) return 'l:' + c.label;
+            return null;
+        }
+
+        // Stage 8: apply a Prob Option onto the IN-MEMORY game copy so the
+        // deck builder reads Prob-correct zones / probs / mGroups /
+        // excludedDominos. Never persists (the game object is a fresh
+        // loadCustomGames() parse). No-op when the game has no probOptions.
+        //   probId → explicit pick; falls back to activeProbOptionId,
+        //            then the first Prob.
+        function _gpApplySelectedProb(game, gameIndex, probId) {
+            _gpSelectedProbExcluded = null;
+            if (!game || !Array.isArray(game.probOptions) || !game.probOptions.length) return;
+            var prob = null, i;
+            if (probId) {
+                for (i = 0; i < game.probOptions.length; i++) {
+                    if (game.probOptions[i] && game.probOptions[i].id === probId) { prob = game.probOptions[i]; break; }
+                }
+            }
+            if (!prob && game.activeProbOptionId) {
+                for (i = 0; i < game.probOptions.length; i++) {
+                    if (game.probOptions[i] && game.probOptions[i].id === game.activeProbOptionId) { prob = game.probOptions[i]; break; }
+                }
+            }
+            if (!prob) prob = game.probOptions[0];
+            if (!prob) return;
+            (game.cards || []).forEach(function(c) {
+                if (!c || c.isVariation) return;
+                var key = _gpProbCardKey(c);
+                var z = (prob.cardZones && key) ? prob.cardZones[key] : undefined;
+                var p = (prob.cardProbs && key) ? prob.cardProbs[key] : undefined;
+                if (z === 'red') {
+                    c._freezeState = 'frozen';
+                    c._probRed = (p && typeof p.red === 'number') ? p.red : 100;
+                    delete c._probGreen;
+                } else if (z === 'green') {
+                    c._freezeState = 'floating';
+                    c._probGreen = (p && typeof p.green === 'number') ? p.green : 100;
+                    delete c._probRed;
+                } else if (z === 'nodot') {
+                    delete c._freezeState;
+                    c._probRed   = (p && typeof p.red   === 'number') ? p.red   : 50;
+                    c._probGreen = (p && typeof p.green === 'number') ? p.green : 50;
+                }
+                // z === undefined → card not described by this Prob;
+                // leave its legacy fields untouched.
+            });
+            if (Array.isArray(prob.mGroups)) game.mGroups = prob.mGroups;
+            if (Array.isArray(prob.excludedDominos)) {
+                _gpSelectedProbExcluded = { gameIndex: gameIndex, list: prob.excludedDominos };
+            }
         }
 
         function getExcludedVariations(gameIndex) {
@@ -2602,12 +2669,20 @@
             return raw;
         }
 
-        function startCustomGame(gameIndex, btnEl) {
+        function startCustomGame(gameIndex, btnEl, probId) {
             _gpInvalidateCardCache();
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
-            console.log('[startCustomGame] gameIndex=' + gameIndex + ' name=' + game.name + ' cards=' + (game.cards ? game.cards.length : 0) + ' mGroups=' + (game.mGroups ? game.mGroups.length : 0));
+            // Stage 8: materialize the selected (or active) Prob Option
+            // onto this in-memory game copy before building the deck.
+            // probId is undefined for legacy callers → uses the active /
+            // first Prob, so single-Prob games behave exactly as before.
+            // Remember the choice so a re-entry (toggle) rebuilds the
+            // same Prob.
+            window._gpSelectedProbId = probId || window._gpSelectedProbId || null;
+            try { _gpApplySelectedProb(game, gameIndex, window._gpSelectedProbId); } catch(e) {}
+            console.log('[startCustomGame] gameIndex=' + gameIndex + ' name=' + game.name + ' cards=' + (game.cards ? game.cards.length : 0) + ' mGroups=' + (game.mGroups ? game.mGroups.length : 0) + ' prob=' + window._gpSelectedProbId);
 
             if (activeCustomGameIndex === gameIndex) {
                 clearCustomGame();

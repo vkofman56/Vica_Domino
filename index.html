@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=prob-zero-dim-1">
+    <link rel="stylesheet" href="css/style.css?v=player-prob-select-1">
 </head>
 <body>
     <div class="game-container">
@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:40 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:44 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -227,6 +227,11 @@
                         <span class="level-label">4 dominos</span>
                     </div>
                 </div>
+                        <!-- Prob Option selector — hidden unless the active
+                             game has 2+ Probs. Populated by
+                             _renderPlayerProbSelector(). Picking a chip
+                             rebuilds the gameplay deck from that Prob. -->
+                        <div class="player-prob-select" id="player-prob-select" style="display:none;"></div>
                     </div>
 
                     <div class="setup-right">
@@ -786,6 +791,56 @@
             if (Array.isArray(prob.excludedDominos)) {
                 _gpSelectedProbExcluded = { gameIndex: gameIndex, list: prob.excludedDominos };
             }
+        }
+
+        // Stage 8b: render the Prob Option selector on the setup screen
+        // (below the levels). Only shows when the game has 2+ Probs.
+        // Picking a chip remembers the choice and rebuilds the deck
+        // (skipSetupRender=true so level / player picks survive).
+        function _renderPlayerProbSelector(gameIndex) {
+            var host = document.getElementById('player-prob-select');
+            if (!host) return;
+            host.innerHTML = '';
+            host.style.display = 'none';
+            var games = loadCustomGames();
+            var game = games[gameIndex];
+            if (!game || !Array.isArray(game.probOptions) || game.probOptions.length < 2) return;
+
+            // Resolve the currently-selected Prob id (chip click sets
+            // window._gpSelectedProbId; default to active/first).
+            var selId = window._gpSelectedProbId;
+            if (!selId || !game.probOptions.some(function(p){ return p && p.id === selId; })) {
+                selId = game.activeProbOptionId || game.probOptions[0].id;
+                window._gpSelectedProbId = selId;
+            }
+
+            host.style.display = '';
+            var heading = document.createElement('div');
+            heading.className = 'player-prob-heading';
+            heading.textContent = 'Probability set:';
+            host.appendChild(heading);
+
+            var row = document.createElement('div');
+            row.className = 'player-prob-row';
+            game.probOptions.forEach(function(prob, i) {
+                if (!prob) return;
+                var chip = document.createElement('button');
+                chip.type = 'button';
+                var isSel = (prob.id === selId);
+                chip.className = 'player-prob-chip' + (isSel ? ' selected' : '');
+                chip.textContent = prob.name ? ('Prob' + (i + 1) + ' · ' + prob.name) : ('Prob' + (i + 1));
+                chip.addEventListener('click', function() {
+                    if (prob.id === window._gpSelectedProbId) return;
+                    window._gpSelectedProbId = prob.id;
+                    // Rebuild the deck for this Prob without touching the
+                    // rest of the setup screen.
+                    activeCustomGameIndex = -1;
+                    startCustomGame(gameIndex, null, prob.id, true);
+                    _renderPlayerProbSelector(gameIndex); // refresh highlight
+                });
+                row.appendChild(chip);
+            });
+            host.appendChild(row);
         }
 
         function getExcludedVariations(gameIndex) {
@@ -2669,7 +2724,7 @@
             return raw;
         }
 
-        function startCustomGame(gameIndex, btnEl, probId) {
+        function startCustomGame(gameIndex, btnEl, probId, skipSetupRender) {
             _gpInvalidateCardCache();
             var games = loadCustomGames();
             var game = games[gameIndex];
@@ -2695,8 +2750,14 @@
             activeCustomGameIndex = gameIndex;
 
             document.querySelector('#start-screen .subtitle').textContent = 'Find the doubles: ' + game.name;
-            // Phase A.2: apply admin's matrix for this find game
-            _applyGameSetupToPlayerScreen(game, 'find');
+            // Phase A.2: apply admin's matrix for this find game.
+            // skipSetupRender=true on a Prob-chip rebuild so the player's
+            // level / player-count picks aren't reset just by switching
+            // which Prob's deck is built.
+            if (!skipSetupRender) {
+                _applyGameSetupToPlayerScreen(game, 'find');
+                try { _renderPlayerProbSelector(gameIndex); } catch(e) {}
+            }
 
             // Collect original cards. Dedupe by BOTH label and stableId so
             // a source card accidentally re-added twice (different label,

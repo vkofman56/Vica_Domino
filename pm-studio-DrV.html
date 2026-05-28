@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=prob-chip-strip-1">
+    <link rel="stylesheet" href="css/style.css?v=prob-zero-dim-1">
     <style>
         /* M-mode selection ring. White on the purple page background reads
            clearly and is visually distinct from any of the M-group palette
@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:29 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:50 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:29 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:50 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:29 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:50 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14524,6 +14524,9 @@
             // Catch (currentGameViewIndex === -1).
             try { _renderProbChipStrip(); } catch(e) {}
 
+            // Stage 4: dim cards whose prob is 0 in the active Prob.
+            try { _applyZeroProbDimming(); } catch(e) {}
+
             // Close shape popup on re-enter
             _gameShapePopupOpen = false;
             var shapePopup = document.getElementById('game-shape-popup');
@@ -15277,6 +15280,9 @@
             // Catch (currentGameViewIndex === -1).
             try { _renderProbChipStrip(); } catch(e) {}
 
+            // Stage 4: dim cards whose prob is 0 in the active Prob.
+            try { _applyZeroProbDimming(); } catch(e) {}
+
             // Close shape popup when re-entering game view
             _gameShapePopupOpen = false;
             var shapePopup = document.getElementById('game-shape-popup');
@@ -15935,12 +15941,14 @@
             var origCardsForPreview = (game.cards || []).filter(function(c){ return c && !c.isVariation; });
             var cardInstPreview = _computeCardZoneInstancesStudio(origCardsForPreview, game.mGroups || []);
             function _instForPreview(eff, half) {
+                // Stage 4: honest zero — when the card has prob 0 in its
+                // zone, return 0 so the pair-loop below can skip this tile.
                 var c = eff.cards && eff.cards[0];
                 if (!c) return 1;
                 var inst = cardInstPreview.get(c);
                 if (!inst) return 1;
                 var n = (half === 'top') ? inst.topInst : inst.botInst;
-                return (n && n > 0) ? n : 1;
+                return (typeof n === 'number') ? n : 1;
             }
             var allDominos = [];
             for (var i = 0; i < effective.length; i++) {
@@ -15957,7 +15965,9 @@
                     var lv = topG._gameValue;
                     var rv = botG._gameValue;
                     var copies = _instForPreview(topG, 'top') * _instForPreview(botG, 'bottom');
-                    if (copies < 1) copies = 1;
+                    // Stage 4: skip pairs where either side has prob 0
+                    // in this Prob (the tile would never appear in play).
+                    if (copies <= 0) continue;
                     allDominos.push({
                         leftCard: _pickRepForHalf(topG, 'top'),
                         rightCard: _pickRepForHalf(botG, 'bottom'),
@@ -16805,6 +16815,42 @@
             _reopenCurrentView();
         }
 
+        // Stage 4: dim cards whose probability is 0 in the active Prob.
+        // Dim rule (matches _probsFromCard's zone semantics):
+        //   frozen   → dim if _probRed   === 0
+        //   floating → dim if _probGreen === 0
+        //   no-dot   → dim if BOTH channels are 0
+        // Cards stay clickable so the user can bump the prob back up via
+        // the inline % editor or the popup. Called from openGameView
+        // after the card grid renders.
+        function _applyZeroProbDimming() {
+            var container = document.getElementById('game-view-cards');
+            if (!container) return;
+            container.querySelectorAll('.library-card').forEach(function(el) {
+                el.classList.remove('prob-zero-card');
+            });
+            if (currentGameViewIndex < 0) return;
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            container.querySelectorAll('.library-card').forEach(function(cardEl) {
+                var idxStr = cardEl.dataset && cardEl.dataset.gameCardIdx;
+                if (idxStr === undefined || idxStr === '') return;
+                var idx = parseInt(idxStr, 10);
+                if (isNaN(idx) || idx < 0 || idx >= game.cards.length) return;
+                var c = game.cards[idx];
+                if (!c || c.isVariation) return;
+                var fs = c._freezeState;
+                var pr = c._probRed;
+                var pg = c._probGreen;
+                var zero = false;
+                if (fs === 'frozen')        zero = (pr === 0);
+                else if (fs === 'floating') zero = (pg === 0);
+                else                        zero = (pr === 0 && pg === 0);
+                if (zero) cardEl.classList.add('prob-zero-card');
+            });
+        }
+
         // Autosave hook — Stage 3. Called by every editor save site
         // RIGHT BEFORE saveCustomGames so the active Prob captures the
         // in-memory state. Also handles the "first edit after BasicS"
@@ -17071,7 +17117,9 @@
             probRow.className = 'ged-prob-row';
             var probInput = document.createElement('input');
             probInput.type = 'number';
-            probInput.min = '1';
+            // Stage 4: 0 is allowed — sets prob to zero (card won't appear
+            // in this Prob's deck). Other Probs still use the card.
+            probInput.min = '0';
             probInput.max = '100';
             probInput.step = '1';
             probInput.className = 'ged-prob-input';
@@ -17083,10 +17131,11 @@
             probRow.appendChild(probPct);
             dlg.appendChild(probRow);
 
-            // Quick-pick 10% buttons
+            // Quick-pick % buttons. Stage 4: 0 added on the left as an
+            // explicit "exclude this card from this Prob's deck" shortcut.
             var quickRow = document.createElement('div');
             quickRow.className = 'ged-quick-row';
-            [10,20,30,40,50,60,70,80,90,100].forEach(function(v){
+            [0,10,20,30,40,50,60,70,80,90,100].forEach(function(v){
                 var qb = document.createElement('button');
                 qb.type = 'button';
                 qb.className = 'ged-quick-btn' + (v === currentProb ? ' active' : '');
@@ -17176,7 +17225,7 @@
             saveBtn.addEventListener('click', function() {
                 var newName = nameInput.value.trim();
                 var newProb = parseInt(probInput.value, 10);
-                if (isNaN(newProb) || newProb < 1) newProb = 1;
+                if (isNaN(newProb) || newProb < 0) newProb = 0;
                 if (newProb > 100) newProb = 100;
 
                 // Re-load from storage at save time. The `grp` captured at
@@ -17413,7 +17462,8 @@
             var oldText = pctSpan.textContent;
             var input = document.createElement('input');
             input.type = 'number';
-            input.min = '1';
+            // Stage 4: 0 allowed — typing 0 means "don't appear in this Prob".
+            input.min = '0';
             input.max = '100';
             input.step = '1';
             input.value = oldText;
@@ -17433,7 +17483,7 @@
                 if (done) return;
                 done = true;
                 var v = parseInt(input.value, 10);
-                if (isNaN(v) || v < 1) v = parseInt(oldText, 10) || 100;
+                if (isNaN(v) || v < 0) v = parseInt(oldText, 10) || 0;
                 if (v > 100) v = 100;
                 // Save, then rebuild the whole view so M-badges +
                 // weight badges + (later) percent overlays all refresh
@@ -21185,12 +21235,14 @@
             var origCardsForDeck = (game.cards || []).filter(function(c){ return c && !c.isVariation; });
             var cardInstDeck = _computeCardZoneInstancesStudio(origCardsForDeck, game.mGroups || []);
             function _instForDeck(ec, half) {
+                // Stage 4: honest zero — 0 means "exclude this card from
+                // this Prob"; the pair loop skips when copies === 0.
                 var c = ec.cards && ec.cards[0];
                 if (!c) return 1;
                 var inst = cardInstDeck.get(c);
                 if (!inst) return 1;
                 var n = (half === 'top') ? inst.topInst : inst.botInst;
-                return (n && n > 0) ? n : 1;
+                return (typeof n === 'number') ? n : 1;
             }
             var customDeck = [];
             var svgMap = {};
@@ -21205,7 +21257,8 @@
                     var leftValue = leftEc._gameValue;
                     var rightValue = rightEc._gameValue;
                     var copies = _instForDeck(leftEc, 'top') * _instForDeck(rightEc, 'bottom');
-                    if (copies < 1) copies = 1;
+                    // Stage 4: skip pairs where either side has prob 0.
+                    if (copies <= 0) continue;
                     for (var cp = 0; cp < copies; cp++) {
                         // Unique keys per domino half
                         var leftKey = leftEc.label + '_d' + cardId + 'L';

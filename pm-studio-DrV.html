@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=gp0-title-shift-1">
+    <link rel="stylesheet" href="css/style.css?v=prob-chip-strip-1">
     <style>
         /* M-mode selection ring. White on the purple page background reads
            clearly and is visually distinct from any of the M-group palette
@@ -362,7 +362,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:29 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -380,7 +380,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:29 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -622,7 +622,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:11 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:29 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -726,6 +726,11 @@
                     <span class="lines-need-cards-warning" id="lines-need-cards-warning" style="display:none;"></span>
                 </div>
                 <p class="game-view-desc game-view-editable" id="game-view-desc" onclick="editGameDesc()" title="Click to edit description"></p>
+                <!-- Prob Options chip strip (Stage 2). Sits above the
+                     cards. Populated by _renderProbChipStrip() on every
+                     game open. Hidden when viewing a Catch game (Find
+                     only for v1). -->
+                <div class="prob-chip-strip" id="prob-chip-strip" style="display:none;"></div>
                 <div id="game-view-cards"></div>
             </div>
         </div>
@@ -14515,6 +14520,10 @@
             // Apply game-level shape/scale override
             applyGameShapeOverride();
 
+            // Stage 2: render Prob Options chip strip. Self-hides for
+            // Catch (currentGameViewIndex === -1).
+            try { _renderProbChipStrip(); } catch(e) {}
+
             // Close shape popup on re-enter
             _gameShapePopupOpen = false;
             var shapePopup = document.getElementById('game-shape-popup');
@@ -15264,6 +15273,10 @@
             // Apply game-level shape/scale override
             applyGameShapeOverride();
 
+            // Stage 2: render Prob Options chip strip. Self-hides for
+            // Catch (currentGameViewIndex === -1).
+            try { _renderProbChipStrip(); } catch(e) {}
+
             // Close shape popup when re-entering game view
             _gameShapePopupOpen = false;
             var shapePopup = document.getElementById('game-shape-popup');
@@ -15538,6 +15551,13 @@
                 }
                 if (nextEmpty.length > 0) game.emptyRows = nextEmpty;
                 else if (Array.isArray(game.emptyRows)) game.emptyRows = [];
+
+                // Stage 2/3: mirror zone + prob edits into the active Prob
+                // (or auto-create one if user just left BasicS). Find only —
+                // Catch games skip via the storageKey check above.
+                if (storageKey === 'savedCustomGames' && typeof _autosaveActiveProbForGame === 'function') {
+                    try { _autosaveActiveProbForGame(game); } catch(e) {}
+                }
 
                 try {
                     localStorage.setItem(storageKey, JSON.stringify(games));
@@ -16388,6 +16408,14 @@
         // excludedDominos_<idx> localStorage key) stay primary until
         // Stage 3 flips the source-of-truth to the active Prob.
 
+        // The codebase uses raw localStorage.setItem(...) everywhere for
+        // Find-game saves — there's no analog to saveCatchGames. Define a
+        // local helper so the Prob Options code below reads cleanly, and
+        // so future sync-side-effects (if any) have one place to land.
+        function saveCustomGames(games) {
+            try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
+        }
+
         function _probCardKey(c) {
             if (!c) return null;
             if (c.uid) return 'u:' + c.uid;
@@ -16538,9 +16566,11 @@
             });
         }
 
-        // Serialize current in-memory card state (after any user edits)
-        // back into the active Prob. Wired up by Stage 3 — defined here
-        // so the helper set is complete.
+        // Serialize current in-memory state into the active Prob.
+        // Stage 3: card zones + probs (legacy fields are still primary,
+        // this just keeps the active Prob in sync). Also mirrors
+        // game.mGroups → prob.mGroups so switching Probs sees the right
+        // group badges even before Stage 6 promotes mGroups to per-Prob.
         function _writeActiveProb(game) {
             var prob = _getActiveProb(game);
             if (!prob) return false;
@@ -16555,7 +16585,242 @@
                     prob.cardProbs[key] = _probsFromCard(c);
                 });
             }
+            // Mirror mGroups (Stage 6 will retire this once mGroups are
+            // read directly from the active Prob).
+            prob.mGroups = Array.isArray(game.mGroups)
+                ? JSON.parse(JSON.stringify(game.mGroups))
+                : [];
             return true;
+        }
+
+        // Mirror _materializeProbIntoCards's extension: when switching
+        // to a Prob, also restore its mGroups onto game.mGroups so all
+        // the existing badge renderers see the right groups.
+        function _materializeProbMGroups(game, prob) {
+            game.mGroups = (prob && Array.isArray(prob.mGroups))
+                ? JSON.parse(JSON.stringify(prob.mGroups))
+                : [];
+        }
+
+        // ============================================================
+        // Prob Options — Stage 2: chip strip + Prob switching
+        // ============================================================
+        // The chip strip lives at #prob-chip-strip (above the cards
+        // grid in Game Creator). One chip per Prob, plus a "BasicS"
+        // anchor on the left and a "+Prob" on the right. Active chip
+        // is highlighted.
+        //
+        // Click chip → save current edits into the prior active Prob
+        //             → swap active → materialize new → re-render
+        // Click BasicS → confirm → materialize neutral/50-50 → null active
+        //               → next edit creates a new Prob via autosave
+        // Click +Prob → snapshot current state as a new Prob → switch
+        // Long-press a chip → rename (prompt) / delete (confirm)
+        //
+        // Long-press uses pointerdown + setTimeout(600ms). Long-press
+        // on touch is captured the same way.
+
+        function _renderProbChipStrip() {
+            var strip = document.getElementById('prob-chip-strip');
+            if (!strip) return;
+            // Find-only in v1: hide for Catch games.
+            if (currentGameViewIndex < 0) {
+                strip.style.display = 'none';
+                strip.innerHTML = '';
+                return;
+            }
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) {
+                strip.style.display = 'none';
+                strip.innerHTML = '';
+                return;
+            }
+            strip.innerHTML = '';
+            strip.style.display = '';
+
+            // BasicS chip — resets to "neutral, 50/50" baseline.
+            var basicsActive = !game.activeProbOptionId;
+            var basics = document.createElement('div');
+            basics.className = 'prob-chip-basics' + (basicsActive ? ' active' : '');
+            basics.textContent = 'BasicS';
+            basics.title = 'Reset editor to BasicS (all cards neutral / 50-50). The next edit you make will create a new Prob.';
+            basics.addEventListener('click', function() { _resetToBasicS(); });
+            strip.appendChild(basics);
+
+            // One chip per Prob.
+            (game.probOptions || []).forEach(function(prob, i) {
+                if (!prob) return;
+                var chip = document.createElement('div');
+                var isActive = (prob.id === game.activeProbOptionId);
+                chip.className = 'prob-chip' + (isActive ? ' active' : '');
+                chip.dataset.probId = prob.id;
+                var label = 'P' + (i + 1);
+                chip.textContent = label;
+                if (prob.name) {
+                    var nameSpan = document.createElement('span');
+                    nameSpan.className = 'prob-chip-name';
+                    nameSpan.textContent = '· ' + prob.name;
+                    chip.appendChild(nameSpan);
+                }
+                chip.title = (isActive ? 'Active. ' : '') +
+                    'Click to switch · long-press to rename / delete';
+                chip.addEventListener('click', function() {
+                    if (!isActive) _switchActiveProb(prob.id);
+                });
+                _attachChipLongPress(chip, prob.id, label);
+                strip.appendChild(chip);
+            });
+
+            // +Prob chip — snapshots current state into a new Prob.
+            var add = document.createElement('div');
+            add.className = 'prob-chip-add';
+            add.textContent = '+ Prob';
+            add.title = 'Create a new Prob from the current cards (zones + probabilities)';
+            add.addEventListener('click', function() { _createNewProb(); });
+            strip.appendChild(add);
+        }
+
+        function _attachChipLongPress(chipEl, probId, fallbackLabel) {
+            var pressTimer = null;
+            var triggered = false;
+            function start(e) {
+                triggered = false;
+                pressTimer = setTimeout(function() {
+                    triggered = true;
+                    _showProbChipMenu(probId, fallbackLabel);
+                }, 600);
+            }
+            function end() {
+                if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+            }
+            chipEl.addEventListener('pointerdown', start);
+            chipEl.addEventListener('pointerup', end);
+            chipEl.addEventListener('pointerleave', end);
+            chipEl.addEventListener('pointercancel', end);
+            // Swallow the click that fires after a long-press so the
+            // switch handler doesn't ALSO fire.
+            chipEl.addEventListener('click', function(e) {
+                if (triggered) { e.stopPropagation(); e.preventDefault(); triggered = false; }
+            }, true);
+        }
+
+        function _showProbChipMenu(probId, fallbackLabel) {
+            // Simple confirm-based menu for now: rename, delete, cancel.
+            // OK is rename, Cancel falls through to a 2nd confirm for delete.
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            var prob = (game.probOptions || []).find(function(p){ return p && p.id === probId; });
+            if (!prob) return;
+            var doRename = confirm(fallbackLabel + (prob.name ? ' (' + prob.name + ')' : '') +
+                '\n\nOK → rename\nCancel → delete or close');
+            if (doRename) {
+                var newName = prompt('Name for ' + fallbackLabel + ' (leave blank to clear):', prob.name || '');
+                if (newName === null) return;
+                newName = newName.trim();
+                prob.name = newName || undefined;
+                saveCustomGames(games);
+                _renderProbChipStrip();
+                return;
+            }
+            // Cancel path → delete?
+            var doDelete = confirm('Delete ' + fallbackLabel +
+                (prob.name ? ' (' + prob.name + ')' : '') + '?\n\n' +
+                'This removes the Prob and its overrides. The card set itself ' +
+                'is untouched.');
+            if (!doDelete) return;
+            // Remove the Prob.
+            game.probOptions = (game.probOptions || []).filter(function(p){ return p && p.id !== probId; });
+            // If we deleted the active one, pick another (or null = BasicS).
+            if (game.activeProbOptionId === probId) {
+                game.activeProbOptionId = game.probOptions.length > 0 ? game.probOptions[0].id : undefined;
+                // Materialize the new active (or BasicS) so the editor
+                // doesn't keep showing the deleted Prob's state.
+                if (game.activeProbOptionId) {
+                    var newActive = _getActiveProb(game);
+                    _materializeProbIntoCards(game, newActive);
+                    _materializeProbMGroups(game, newActive);
+                } else {
+                    _materializeProbIntoCards(game, null);
+                    _materializeProbMGroups(game, null);
+                }
+                // Save the materialized state.
+                game.cards = game.cards; // (no-op, just for clarity)
+            }
+            saveCustomGames(games);
+            _reopenCurrentView();
+        }
+
+        function _switchActiveProb(newProbId) {
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            if (!Array.isArray(game.probOptions)) return;
+            var target = game.probOptions.find(function(p){ return p && p.id === newProbId; });
+            if (!target) return;
+            // Save the prior active Prob from current in-memory cards
+            // (legacy fields are still source-of-truth, this just keeps
+            // the Prob in sync).
+            _writeActiveProb(game);
+            // Switch active + materialize target.
+            game.activeProbOptionId = newProbId;
+            _materializeProbIntoCards(game, target);
+            _materializeProbMGroups(game, target);
+            saveCustomGames(games);
+            _reopenCurrentView();
+        }
+
+        function _createNewProb() {
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            // Save current state first.
+            _writeActiveProb(game);
+            // Snapshot current state into a new Prob.
+            var newProb = _snapshotProbFromCurrent(game, currentGameViewIndex, { name: undefined });
+            if (!Array.isArray(game.probOptions)) game.probOptions = [];
+            game.probOptions.push(newProb);
+            game.activeProbOptionId = newProb.id;
+            saveCustomGames(games);
+            _reopenCurrentView();
+        }
+
+        function _resetToBasicS() {
+            var games = loadCustomGames();
+            var game = games[currentGameViewIndex];
+            if (!game) return;
+            var hasActive = !!game.activeProbOptionId;
+            var msg = hasActive
+                ? 'Reset editor to BasicS (all cards neutral / 50-50)?\n\n' +
+                  'Your current Prob is saved. The next edit you make will ' +
+                  'create a new Prob.'
+                : 'Reset editor to BasicS (all cards neutral / 50-50)?';
+            if (!confirm(msg)) return;
+            _writeActiveProb(game);
+            game.activeProbOptionId = undefined;
+            _materializeProbIntoCards(game, null);  // null = BasicS defaults
+            _materializeProbMGroups(game, null);    // wipe groups in editor view
+            saveCustomGames(games);
+            _reopenCurrentView();
+        }
+
+        // Autosave hook — Stage 3. Called by every editor save site
+        // RIGHT BEFORE saveCustomGames so the active Prob captures the
+        // in-memory state. Also handles the "first edit after BasicS"
+        // case: if no active Prob is set, create one from current.
+        function _autosaveActiveProbForGame(game) {
+            if (!game) return;
+            if (!Array.isArray(game.probOptions)) game.probOptions = [];
+            if (!game.activeProbOptionId) {
+                // First edit after BasicS reset (or for a brand-new
+                // game with no Probs yet) → snapshot now.
+                var fresh = _snapshotProbFromCurrent(game, currentGameViewIndex, { name: undefined });
+                game.probOptions.push(fresh);
+                game.activeProbOptionId = fresh.id;
+            } else {
+                _writeActiveProb(game);
+            }
         }
 
         // Build an M-group identifier for a DOM card element.
@@ -17296,6 +17561,13 @@
             // savedCustomGames and savedCatchGames keys. force=true because
             // game-view edits can happen without Card Maker ever being built.
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
+            // Stage 2/3: mirror Find-game edits into the active Prob
+            // (zone + prob fields AND game.mGroups). Skips Catch — Probs
+            // are Find-only in v1.
+            if (info.type === 'find' && info.game &&
+                typeof _autosaveActiveProbForGame === 'function') {
+                try { _autosaveActiveProbForGame(info.game); } catch(e) {}
+            }
             if (info.type === 'find') {
                 localStorage.setItem('savedCustomGames', JSON.stringify(info.games));
             } else {
@@ -18317,6 +18589,12 @@
             return null;
         }
         function _saveFreezeView(view) {
+            // Stage 2/3: mirror dot-toggle changes into the active Prob
+            // (or auto-create one) for Find games. Catch is unaffected.
+            if (view && view.type === 'find' && view.game &&
+                typeof _autosaveActiveProbForGame === 'function') {
+                try { _autosaveActiveProbForGame(view.game); } catch(e) {}
+            }
             try { localStorage.setItem(view.saveKey, JSON.stringify(view.games)); } catch(e) {}
         }
 

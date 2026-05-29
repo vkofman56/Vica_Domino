@@ -430,7 +430,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:16 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -448,7 +448,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:16 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -690,7 +690,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:11 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:16 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14652,19 +14652,15 @@
 
             container.appendChild(btnRow);
 
-            // Show freeze/float button, hide flip button for Catch games
+            // Red/green DOT button retired — the red/neutral/green COLUMNS
+            // (with their colored bracket lines) now convey each card's zone,
+            // so the dot toggle + on-card dots are gone. Keep the button
+            // hidden and freeze-mode off (drag-between-columns sets the zone).
             var _flipBtn = document.getElementById('game-view-flip-btn');
             var _freezeBtn = document.getElementById('game-view-freeze-btn');
             if (_flipBtn) _flipBtn.style.display = 'none';
-            if (_freezeBtn) {
-                _freezeBtn.style.display = '';
-                // updateFreezeBtnState sets _freezeModeActive to match the
-                // saved game.freezeEnabled flag — don't overwrite it after.
-                // The previous `_freezeModeActive = false` line forced the JS
-                // state to off even when the button was visually active, so
-                // card clicks no-op'd until the user toggled off→on.
-                updateFreezeBtnState(!!game.freezeEnabled);
-            }
+            if (_freezeBtn) _freezeBtn.style.display = 'none';
+            _freezeModeActive = false;
 
             // Reset Edit button when leaving Library
             var _editBtn = document.getElementById('edit-card-set-btn');
@@ -15323,18 +15319,15 @@
 
             container.appendChild(btnRow);
 
-            // Show flip + freeze buttons for Find games. Freeze controls
-            // top/bottom placement of cards on dominos: red = top-only,
-            // green = bottom-only, no mark = either half.
+            // Show flip button for Find games. The red/green DOT button is
+            // retired — the red/neutral/green COLUMNS now show each card's
+            // zone (top/bottom-half), so keep the dot button hidden and
+            // freeze-mode off. Drag-between-columns sets the zone.
             var _flipBtn = document.getElementById('game-view-flip-btn');
             var _freezeBtn = document.getElementById('game-view-freeze-btn');
             if (_flipBtn) _flipBtn.style.display = '';
-            if (_freezeBtn) {
-                _freezeBtn.style.display = '';
-                updateFreezeBtnState(!!game.freezeEnabled);
-            } else {
-                _freezeModeActive = false;
-            }
+            if (_freezeBtn) _freezeBtn.style.display = 'none';
+            _freezeModeActive = false;
             updateFlipBtnState(!!game.flipEnabled);
 
             // Dominos area (hidden initially)
@@ -19181,60 +19174,11 @@
         }
 
         function renderFreezeIndicators() {
-            var view = _currentFreezeView();
-            if (!view || !view.game || !view.game.cards) return;
-            var container = document.getElementById('game-view-cards');
-            if (!container) return;
-            // Game-type-aware short labels for the dot tooltips.
-            var t = (typeof _currentGameViewType === 'function') ? _currentGameViewType() : null;
-            var redLabel, greenLabel;
-            if (t === 'catch') {
-                redLabel   = 'Red dot — static card (anchored)';
-                greenLabel = 'Green dot — falling card';
-            } else {
-                redLabel   = 'Red dot — sits on TOP half of every domino';
-                greenLabel = 'Green dot — sits on BOTTOM half of every domino';
-            }
-            // Per-index state map. Falls back to label only when the DOM
-            // element pre-dates the dataset.gameCardIdx tagging (legacy).
-            var stateByIdx = {};
-            var stateByLabel = {};
-            view.game.cards.forEach(function(c, i) {
-                if (!c || !c._freezeState) return;
-                stateByIdx[i] = c._freezeState;
-                // Only useful as a fallback when ALL cards with this label
-                // share the same state — record it but mark conflicts as null.
-                var L = c.label;
-                if (!(L in stateByLabel)) stateByLabel[L] = c._freezeState;
-                else if (stateByLabel[L] !== c._freezeState) stateByLabel[L] = null;
-            });
-            container.querySelectorAll('.library-card').forEach(function(cardEl) {
-                var existing = cardEl.querySelector('.freeze-indicator');
-                if (existing) existing.remove();
-                var state = null;
-                var idxStr = cardEl.dataset && cardEl.dataset.gameCardIdx;
-                if (idxStr !== undefined && idxStr !== '') {
-                    var idx = parseInt(idxStr, 10);
-                    if (!isNaN(idx)) state = stateByIdx[idx] || null;
-                } else {
-                    var lblFallback = cardEl.querySelector('.library-label');
-                    if (lblFallback) state = stateByLabel[lblFallback.textContent] || null;
-                }
-                if (state) {
-                    var dot = document.createElement('div');
-                    dot.className = 'freeze-indicator';
-                    dot.style.cssText = 'position:absolute;top:0px;left:0px;width:12px;height:12px;border-radius:50%;z-index:10;pointer-events:none;';
-                    if (state === 'frozen') {
-                        dot.style.background = '#ff4444';
-                        dot.title = redLabel;
-                    } else if (state === 'floating') {
-                        dot.style.background = '#44cc44';
-                        dot.title = greenLabel;
-                    }
-                    cardEl.style.position = 'relative';
-                    cardEl.appendChild(dot);
-                }
-            });
+            // Retired: the red/neutral/green COLUMNS now show each card's
+            // zone, so we no longer draw red/green dots on cards. Kept as a
+            // safe no-op (clears any stray dot) so the many existing callers
+            // don't need touching. _freezeState data is unaffected.
+            removeFreezeIndicators();
         }
 
         function removeFreezeIndicators() {

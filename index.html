@@ -34,7 +34,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:04 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:11 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +84,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:04 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:11 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -798,12 +798,13 @@
         // (below the levels). Only shows when the game has 2+ Probs.
         // Picking a chip remembers the choice and rebuilds the deck
         // (skipSetupRender=true so level / player picks survive).
-        function _renderPlayerProbSelector(gameIndex) {
+        function _renderPlayerProbSelector(gameIndex, type) {
+            type = type || 'find';
             var host = document.getElementById('player-prob-select');
             if (!host) return;
             host.innerHTML = '';
             host.style.display = 'none';
-            var games = loadCustomGames();
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
             var game = games[gameIndex];
             if (!game || !Array.isArray(game.probOptions) || game.probOptions.length < 2) return;
 
@@ -835,11 +836,18 @@
                 chip.addEventListener('click', function() {
                     if (prob.id === window._gpSelectedProbId) return;
                     window._gpSelectedProbId = prob.id;
-                    // Rebuild the deck for this Prob without touching the
-                    // rest of the setup screen.
-                    activeCustomGameIndex = -1;
-                    startCustomGame(gameIndex, null, prob.id, true);
-                    _renderPlayerProbSelector(gameIndex); // refresh highlight
+                    if (type === 'catch') {
+                        // Catch builds its deck at launch (openCatchPlayModal
+                        // reads window._gpSelectedProbId) — just remember the
+                        // choice and refresh the highlight here.
+                        _renderPlayerProbSelector(gameIndex, 'catch');
+                    } else {
+                        // Find: rebuild the deck for this Prob without
+                        // touching the rest of the setup screen.
+                        activeCustomGameIndex = -1;
+                        startCustomGame(gameIndex, null, prob.id, true);
+                        _renderPlayerProbSelector(gameIndex); // refresh highlight
+                    }
                 });
                 row.appendChild(chip);
             });
@@ -2322,7 +2330,10 @@
                     var cidx = parseInt(selectedIntroGame.replace('catch-', ''), 10);
                     var catchGames = loadCatchGames();
                     var catchGame = catchGames[cidx];
-                    if (catchGame) _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                    if (catchGame) {
+                        _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                        try { _renderPlayerProbSelector(cidx, 'catch'); } catch(e) {}
+                    }
                 } else if (typeof activeCustomGameIndex !== 'undefined' && activeCustomGameIndex >= 0) {
                     var games = loadCustomGames();
                     var game = games[activeCustomGameIndex];
@@ -2495,6 +2506,8 @@
                 document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
                 // Phase A.2: apply admin's matrix for this catch game
                 _applyGameSetupToPlayerScreen(catchGame, 'catch');
+                // Frequency (Prob Options) selector — only shows for 2+ Probs.
+                try { _renderPlayerProbSelector(idx, 'catch'); } catch(e) {}
                 var _spl = document.getElementById('setup-page-label');
                 // Prefix a mode glyph so the developer/QA sees at a glance
                 // which input mode the current setup represents (✋ touch,
@@ -3612,6 +3625,10 @@
                 alert('No cards in this game.');
                 return;
             }
+            // Materialize the player-selected Prob onto the in-memory game
+            // so the spawn weights below read Prob-correct zones/probs.
+            // No-op when the game has no probOptions.
+            try { _gpApplySelectedProb(game, catchIndex, window._gpSelectedProbId); } catch(e) {}
             var origCards = [];
             var seenLabels = {};
             game.cards.forEach(function(c) {
@@ -3887,6 +3904,46 @@
             } catch(e) {}
         }
 
+        // Prob-aware spawn weights for Catch (mirrors Find's deck weighting).
+        // red channel = how often a card appears as the STATIC reference;
+        // green channel = how often it FALLS. Role gating: frozen never
+        // falls (green→0), floating never static (red→0). Missing channels
+        // default to frozen/floating=100, neutral=50 (so games never opened
+        // in the new Studio still play). A channel of 0 = never in that role.
+        function _catchRedProb(c) {
+            if (!c) return 0;
+            if (c._freezeState === 'floating') return 0;
+            if (c._freezeState === 'frozen')   return (typeof c._probRed === 'number') ? c._probRed : 100;
+            return (typeof c._probRed === 'number') ? c._probRed : 50;
+        }
+        function _catchGreenProb(c) {
+            if (!c) return 0;
+            if (c._freezeState === 'frozen')   return 0;
+            if (c._freezeState === 'floating') return (typeof c._probGreen === 'number') ? c._probGreen : 100;
+            return (typeof c._probGreen === 'number') ? c._probGreen : 50;
+        }
+        // Weighted random pick (prob ∝ weightFn). Uniform fallback if all 0.
+        function _catchPickWeighted(pool, weightFn) {
+            if (!pool || !pool.length) return null;
+            var total = 0, ws = [];
+            for (var i = 0; i < pool.length; i++) { var w = Math.max(0, weightFn(pool[i]) || 0); ws.push(w); total += w; }
+            if (total <= 0) return pool[Math.floor(Math.random() * pool.length)];
+            var r = Math.random() * total;
+            for (var j = 0; j < pool.length; j++) { r -= ws[j]; if (r < 0) return pool[j]; }
+            return pool[pool.length - 1];
+        }
+        // Weighted sample WITHOUT replacement of up to n items.
+        function _catchSampleWeighted(pool, n, weightFn) {
+            var rest = pool.slice(), out = [];
+            while (out.length < n && rest.length > 0) {
+                var pick = _catchPickWeighted(rest, weightFn);
+                var idx = rest.indexOf(pick);
+                if (idx >= 0) rest.splice(idx, 1); else rest.pop();
+                out.push(pick);
+            }
+            return out;
+        }
+
         function _catchStartRound() {
             if (!_catchGame || !_catchGame.active) return;
             _catchGame.roundActive = true;
@@ -3906,9 +3963,10 @@
             // card in the value group is floating-only, fall back to the
             // unfiltered group so the round can still proceed (graceful
             // degradation — admin should rebalance the assignments).
-            var staticPool = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
+            var staticPool = targetCards.filter(function(c) { return c._freezeState !== 'floating' && _catchRedProb(c) > 0; });
+            if (staticPool.length === 0) staticPool = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
             if (staticPool.length === 0) staticPool = targetCards;
-            var staticCard = staticPool[Math.floor(Math.random() * staticPool.length)];
+            var staticCard = _catchPickWeighted(staticPool, _catchRedProb);
             var staticEl = document.getElementById('catch-static-card');
             if (staticEl) {
                 staticEl.innerHTML = '';
@@ -3919,38 +3977,45 @@
             var fallingCards = [];
             // Match candidate must (a) share the target value, (b) not be the
             // static card itself, (c) not be frozen (frozen cards never fall).
+            // Match candidate: shares the target value, isn't the static
+            // card, can fall (not frozen) AND has a non-zero green prob.
+            // Fallback ladder relaxes green>0, then frozen, then static.
             var matchCandidates = targetCards.filter(function(c) {
-                return c.label !== staticCard.label && c._freezeState !== 'frozen';
+                return c.label !== staticCard.label && c._freezeState !== 'frozen' && _catchGreenProb(c) > 0;
             });
-            // Fallback: if no candidate satisfies all three, relax the frozen
-            // filter (still excluding the static label). If even that empties,
-            // fall back to the static card itself (legacy behavior).
+            if (matchCandidates.length === 0) {
+                matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label && c._freezeState !== 'frozen'; });
+            }
             if (matchCandidates.length === 0) {
                 matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
             }
             var matchCard = matchCandidates.length > 0 ?
-                matchCandidates[Math.floor(Math.random() * matchCandidates.length)] : staticCard;
+                _catchPickWeighted(matchCandidates, _catchGreenProb) : staticCard;
             fallingCards.push({ card: matchCard, isMatch: true });
             // Distractors come from other value groups; frozen cards never
-            // fall, so they're excluded from the distractor pool too.
+            // fall and green-prob-0 cards never appear, so both are excluded.
             var distractorPool = [];
             vKeys.forEach(function(v) {
                 if (v !== targetValue) vGroups[v].forEach(function(c) {
-                    if (c._freezeState !== 'frozen') distractorPool.push(c);
+                    if (c._freezeState !== 'frozen' && _catchGreenProb(c) > 0) distractorPool.push(c);
                 });
             });
-            // If every other-value card is frozen, fall back to the unfiltered
-            // pool so the round still has distractors.
+            if (distractorPool.length === 0) {
+                vKeys.forEach(function(v) {
+                    if (v !== targetValue) vGroups[v].forEach(function(c) {
+                        if (c._freezeState !== 'frozen') distractorPool.push(c);
+                    });
+                });
+            }
             if (distractorPool.length === 0) {
                 vKeys.forEach(function(v) {
                     if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
                 });
             }
-            _catchShuffle(distractorPool);
             var numDistractors = _catchGame.numFalling - 1;
-            for (var i = 0; i < numDistractors && i < distractorPool.length; i++) {
-                fallingCards.push({ card: distractorPool[i], isMatch: false });
-            }
+            _catchSampleWeighted(distractorPool, numDistractors, _catchGreenProb).forEach(function(c) {
+                fallingCards.push({ card: c, isMatch: false });
+            });
             _catchShuffle(fallingCards);
             var fallingAreaEl = document.getElementById('catch-falling-area');
             if (!fallingAreaEl) return;
@@ -4332,9 +4397,10 @@
             //   _freezeState === 'frozen'   → static-only
             //   _freezeState === 'floating' → falling-only
             //   undefined                   → either role
-            var staticPool2p = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
+            var staticPool2p = targetCards.filter(function(c) { return c._freezeState !== 'floating' && _catchRedProb(c) > 0; });
+            if (staticPool2p.length === 0) staticPool2p = targetCards.filter(function(c) { return c._freezeState !== 'floating'; });
             if (staticPool2p.length === 0) staticPool2p = targetCards;
-            var staticCard = staticPool2p[Math.floor(Math.random() * staticPool2p.length)];
+            var staticCard = _catchPickWeighted(staticPool2p, _catchRedProb);
             var staticEl = document.getElementById('catch-2p-target');
             if (staticEl) {
                 staticEl.innerHTML = '';
@@ -4346,23 +4412,33 @@
             // same value group. Fallback ladder: drop the frozen filter, then
             // (last resort) re-use the static card.
             var matchCandidates = targetCards.filter(function(c) {
-                return c.label !== staticCard.label && c._freezeState !== 'frozen';
+                return c.label !== staticCard.label && c._freezeState !== 'frozen' && _catchGreenProb(c) > 0;
             });
+            if (matchCandidates.length === 0) {
+                matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label && c._freezeState !== 'frozen'; });
+            }
             if (matchCandidates.length === 0) {
                 matchCandidates = targetCards.filter(function(c) { return c.label !== staticCard.label; });
             }
-            _catchShuffle(matchCandidates);
-            var match1 = matchCandidates[0] || staticCard;
-            var match2 = (matchCandidates.length > 1) ? matchCandidates[1] : match1;
-            // Distractor pool: other-value cards, frozen excluded (frozen
-            // cards never fall). Fall back to the unfiltered pool if every
-            // other-value card is frozen.
+            // Pick one match per player, weighted by the green channel.
+            var matchPicks = _catchSampleWeighted(matchCandidates, 2, _catchGreenProb);
+            var match1 = matchPicks[0] || staticCard;
+            var match2 = matchPicks[1] || match1;
+            // Distractor pool: other-value cards that can fall (not frozen)
+            // and have a non-zero green prob. Fallback ladder relaxes both.
             var distractorPool = [];
             vKeys.forEach(function(v) {
                 if (v !== targetValue) vGroups[v].forEach(function(c) {
-                    if (c._freezeState !== 'frozen') distractorPool.push(c);
+                    if (c._freezeState !== 'frozen' && _catchGreenProb(c) > 0) distractorPool.push(c);
                 });
             });
+            if (distractorPool.length === 0) {
+                vKeys.forEach(function(v) {
+                    if (v !== targetValue) vGroups[v].forEach(function(c) {
+                        if (c._freezeState !== 'frozen') distractorPool.push(c);
+                    });
+                });
+            }
             if (distractorPool.length === 0) {
                 vKeys.forEach(function(v) {
                     if (v !== targetValue) vGroups[v].forEach(function(c) { distractorPool.push(c); });
@@ -4374,12 +4450,10 @@
                 var zone = document.getElementById('catch-2p-zone-' + pi);
                 if (!zone) continue;
                 _catchGame.players[pi].fallingCards = [];
-                var pool = distractorPool.slice();
-                _catchShuffle(pool);
                 var cards = [{ card: (pi === 0) ? match1 : match2, isMatch: true }];
-                for (var d = 0; d < numDistractors && d < pool.length; d++) {
-                    cards.push({ card: pool[d], isMatch: false });
-                }
+                _catchSampleWeighted(distractorPool, numDistractors, _catchGreenProb).forEach(function(c) {
+                    cards.push({ card: c, isMatch: false });
+                });
                 _catchShuffle(cards);
                 _catch2pSpawnInto(zone, cards, pi);
             }

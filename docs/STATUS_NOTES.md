@@ -14,7 +14,7 @@ colored rails: outer edges faint white, inner boundary lines coloured —
 red `]` bracket on the red/neutral edge (prongs point LEFT), green `[`
 on neutral/green (prongs point RIGHT). Prongs are `::before`/`::after`
 (8px; `display:block` to beat the legacy `[data-row-letter]::before
-{display:none}`; z-index 5). Red `rgba(255,110,110,0.85)` 3px, green
+{display:none}`; z-index 5). Red `rgba(255,110,110,0.85)` 2px, green
 `rgba(60,200,90,0.9)` 2px. Shared layout → Find AND Catch.
 
 ### Red/green DOT button + on-card dots retired (Find + Catch) — `cbef723`
@@ -32,6 +32,12 @@ on neutral/green (prongs point RIGHT). Prongs are `::before`/`::after`
 
 Catch prob model = identical to Find (red=static, green=falling, neutral
 =both). Backward compatible (un-opened Catch games default 100/50).
+
+**Fix `2995d6a`:** the Frequency picker (`#player-prob-select`) lives
+inside `#setup-timer-col`, which was hidden wholesale for Catch — so it
+never showed. Now `_applyTimerSwitchForGameType` hides only the timer
+heading + toggle for Catch, and `_renderPlayerProbSelector` reveals the
+column when it shows the picker.
 
 ### Studio custom hover tooltips — `febff38`
 `#studio-tip` instant bubble (native `title` doesn't render in the preview

@@ -21,7 +21,7 @@ column reads as red (LEFT) / green (RIGHT), neutral plain:
   Prongs are `::before`/`::after` (8px long, set `display:block` to beat
   the legacy `.library-row[data-row-letter]::before{display:none}` rule),
   z-index 5 so they sit above cards.
-- Red is `rgba(255,110,110,0.85)` (line + prongs, 3px thick); green
+- Red is `rgba(255,110,110,0.85)` (line + prongs, 2px); green
   `rgba(60,200,90,0.9)` (2px). Shared `.gv-zone` → shows in Find AND Catch.
 
 ### Red/green DOT button + on-card dots RETIRED (Find + Catch)
@@ -65,6 +65,11 @@ probability** and **0 = never appears**.
   setup screen (`goToMainPage` + `_reapplyCurrentSetup`) shows the
   "Frequency" selector for 2+ Probs. Catch remembers the pick and applies
   it at launch.
+- **Gotcha fixed (`2995d6a`):** the Frequency host `#player-prob-select`
+  lives INSIDE `#setup-timer-col`, which `_applyTimerSwitchForGameType`
+  hid wholesale for Catch — so the picker landed in a hidden column. Now
+  the timer switch hides only the timer heading + toggle for Catch, and
+  `_renderPlayerProbSelector` reveals the column when it shows the picker.
 - Backward compatible: Catch games never opened in the new Studio still
   play (no probOptions → `_gpApplySelectedProb` no-ops, channel defaults).
 

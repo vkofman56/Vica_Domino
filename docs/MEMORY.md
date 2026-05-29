@@ -1,5 +1,85 @@
 # Vica Domino Project Memory
-**Last Updated**: May 28, 2026 — two-channel probability + help/tooltip audit
+**Last Updated**: May 28, 2026 — Prob Options ported to Catch + zone columns replace the dot button
+
+---
+
+## May 28, 2026 — Catch gets Prob Options; columns replace red/green dots
+
+Big follow-on: the whole probability feature now works for **Catch**
+games too (it was Find-only), and the red/green **dot button** is gone —
+the colored **columns** carry the zone now.
+
+### Zone columns are now color-coded (Studio editor)
+The Game-View 3-column layout (`.gv-zone[data-row-zone="red|nodot|green"]`,
+inline CSS near top of pm-studio) gained colored "rail" lines so each
+column reads as red (LEFT) / green (RIGHT), neutral plain:
+- Outer edges = faint white (`rgba(255,255,255,0.18)`); the two INNER
+  boundary lines carry colour — red on the red/neutral edge, green on
+  the neutral/green edge.
+- Each inner line is a directional **bracket**: red `]` (top+bottom
+  prongs point LEFT, into the red column), green `[` (prongs point RIGHT).
+  Prongs are `::before`/`::after` (8px long, set `display:block` to beat
+  the legacy `.library-row[data-row-letter]::before{display:none}` rule),
+  z-index 5 so they sit above cards.
+- Red is `rgba(255,110,110,0.85)` (line + prongs, 3px thick); green
+  `rgba(60,200,90,0.9)` (2px). Shared `.gv-zone` → shows in Find AND Catch.
+
+### Red/green DOT button + on-card dots RETIRED (Find + Catch)
+- The toolbar dot button (`game-view-freeze-btn`) is kept hidden in both
+  `openGameView` and `openCatchGameView`; `_freezeModeActive` forced off.
+- `renderFreezeIndicators()` is now a **no-op** (clears stray dots only) —
+  no red/green dots drawn on cards.
+- UNCHANGED: `_freezeState` data + **drag-between-columns** (which sets it
+  in `_renderZoneRow`), so zones / two-channel probs / deck+spawn builders
+  all still work. (`cbef723`)
+
+### Prob Options now work for Catch (was Find-only)
+Two stages. The probability MODEL is identical for both types
+(red = static/top, green = falling/bottom, neutral = both).
+
+**Stage 1 — Studio Catch editor (`a56dcf1`):** the chip strip, `p`
+badges, weight badges, zero-prob dimming, p-mode flag, group popup, and
+per-Prob exclusions all work for Catch now. The fix was mostly removing
+Find-only guards and routing through the already-neutral
+`_getCurrentViewGame()` / `_saveCurrentViewGames()` plumbing
+(`_renderProbChipStrip`, `_switchActiveProb`, `_createNewProb`,
+`_resetToBasicS`, `_showProbChipMenu`, `_applyZeroProbDimming`,
+`applyMWeightBadges`, `_applyPModeFlags`). `openCatchGameView` now runs
+`_migrateGroupProbsToCards` + `_migrateGameToProbOptions` and mirrors the
+active Prob's excludedDominos to the legacy key. `_autosaveActiveProbForGame`
+takes the view index and runs for both types. `_activeProbForExcluded`
+generalized to the open Find OR Catch view.
+
+**Stage 2 — Catch Player spawn (`b60219a`):** the Catch engine was
+role-only (`_freezeState`) and ignored the numbers; now it **weights by
+probability** and **0 = never appears**.
+- `openCatchPlayModal` calls `_gpApplySelectedProb(game, idx,
+  window._gpSelectedProbId)` before building `valueGroups`.
+- New helpers `_catchRedProb`/`_catchGreenProb` (red=static weight,
+  green=falling weight; frozen→green0, floating→red0; missing channels
+  default 100/50) + `_catchPickWeighted` / `_catchSampleWeighted`.
+- `_catchStartRound` + `_catch2pStartRound` pick static / match /
+  distractor cards via weighted sampling, dropping 0-prob cards, with
+  graceful fallback ladders.
+- `_renderPlayerProbSelector(gameIndex, type)` generalized; the Catch
+  setup screen (`goToMainPage` + `_reapplyCurrentSetup`) shows the
+  "Frequency" selector for 2+ Probs. Catch remembers the pick and applies
+  it at launch.
+- Backward compatible: Catch games never opened in the new Studio still
+  play (no probOptions → `_gpApplySelectedProb` no-ops, channel defaults).
+
+### Studio hover tooltips (`febff38`)
+Native `title` tooltips don't render in the embedded preview pane (and
+never on touch), so a small custom tooltip (`#studio-tip`, event-delegated
+over `.zoom-btn`, `.prob-chip*`, `.help-trigger-btn`, etc.) shows an
+instant bubble sourced from each control's `title` (lazily moved to
+`data-tip`, `aria-label` kept).
+
+### Open follow-ups
+- Player **cards-library legend** (index.html `_buildCardsLibraryRow`)
+  still shows red/green freeze STRIPS + a legend — left as-is (the
+  retirement was about the Studio dot button + on-card dots).
+- Player has no "?" page-help system (tooltips only) — by user's call.
 
 ---
 

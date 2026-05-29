@@ -1,8 +1,46 @@
 # Vica Domino - Project Status Notes
-**Date**: May 28, 2026 — two-channel probability + help/tooltip audit
+**Date**: May 28, 2026 — Prob Options ported to Catch + dot button retired
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 630+
+**Total Commits**: 640+
 **Codebase Size**: ~18,000 lines across 4 main files
+
+---
+
+## May 28, 2026 — Catch Prob Options + color columns replace the dot button
+
+### Zone columns color-coded + directional brackets (Studio)
+`.gv-zone[data-row-zone]` (inline CSS, pm-studio) now shows the zone via
+colored rails: outer edges faint white, inner boundary lines coloured —
+red `]` bracket on the red/neutral edge (prongs point LEFT), green `[`
+on neutral/green (prongs point RIGHT). Prongs are `::before`/`::after`
+(8px; `display:block` to beat the legacy `[data-row-letter]::before
+{display:none}`; z-index 5). Red `rgba(255,110,110,0.85)` 3px, green
+`rgba(60,200,90,0.9)` 2px. Shared layout → Find AND Catch.
+
+### Red/green DOT button + on-card dots retired (Find + Catch) — `cbef723`
+- `game-view-freeze-btn` kept hidden in `openGameView` + `openCatchGameView`;
+  `_freezeModeActive` forced off.
+- `renderFreezeIndicators()` → no-op (clears only). No dots drawn.
+- `_freezeState` data + drag-between-columns UNCHANGED, so zones / probs /
+  deck+spawn untouched.
+
+### Prob Options ported to Catch (was Find-only)
+| Stage | What | Commit |
+|---|---|---|
+| 1 | Catch **editor** parity: chip strip / p-badges / weight badges / dimming / p-mode / per-Prob exclusions un-gated via `_getCurrentViewGame()`+`_saveCurrentViewGames()`; `openCatchGameView` runs `_migrateGroupProbsToCards`+`_migrateGameToProbOptions`; `_autosaveActiveProbForGame(game,index)` runs for both types; `_activeProbForExcluded` generalized | `a56dcf1` |
+| 2 | Catch **Player** prob-aware spawn: `openCatchPlayModal`→`_gpApplySelectedProb`; new `_catchRedProb`/`_catchGreenProb`/`_catchPickWeighted`/`_catchSampleWeighted`; `_catchStartRound`+`_catch2pStartRound` weight static/match/distractor + drop 0-prob (0 = never); `_renderPlayerProbSelector(idx,type)` + "Frequency" selector on Catch setup | `b60219a` |
+
+Catch prob model = identical to Find (red=static, green=falling, neutral
+=both). Backward compatible (un-opened Catch games default 100/50).
+
+### Studio custom hover tooltips — `febff38`
+`#studio-tip` instant bubble (native `title` doesn't render in the preview
+pane); event-delegated, sourced from each control's `title`→`data-tip`.
+
+### Open follow-ups
+- Player cards-library legend still shows red/green freeze STRIPS — not
+  touched by the dot retirement (Studio-only).
+- Player has no "?" page help (tooltips only) — user's call.
 
 ---
 

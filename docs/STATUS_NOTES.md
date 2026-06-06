@@ -1,10 +1,263 @@
 # Vica Domino - Project Status Notes
-**Date**: May 28, 2026 — Prob Options ported to Catch + dot button retired
+**Date**: June 4, 2026 — ⚠️ RECOVERY in progress (see banner below + MEMORY.md "READ FIRST")
 **Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 640+
+**Total Commits**: 640+ (⚠️ **nothing committed since May 28** — see below)
 **Codebase Size**: ~18,000 lines across 4 main files
 
 ---
+
+## ⚠️ June 4, 2026 — WHERE WE ARE / WHAT TO START FROM TOMORROW
+
+**The problem:** ~a week of work (the **May 30 → Jun 4** session, **244 uncommitted
+edits**) is sitting in the working tree with **no git checkpoints** since the May 28
+commit `b76930f`. The user reports this week's changes **broke unintended places** and
+wants to **find and undo the regressions** without losing work. We have NOT committed
+(by the user's choice) while we figure out recovery.
+
+**What we did today (June 4):**
+1. Confirmed git has only two recoverable states: current tree, or May 28 (`b76930f`).
+   No stashes, no backup tags, no intermediate commits.
+2. Found the real recovery asset: the **Claude Code session transcripts** — a complete,
+   ordered log of every edit (old+new text). **Backed them up** (read-only, verified
+   checksums) to:
+   `/Users/victoriakofman/CLAUDE CODE/_recovery_transcripts_backup/snapshot_20260604_195112/`
+3. Generated **change tables** (244 edits, grouped by the user's 98 requests):
+   `CHANGELOG_uncommitted.html` / `.csv` / `.md` in `_recovery_transcripts_backup/`.
+
+**Plan (user leaning to on-demand time-travel):** roll back to `b76930f`, then
+reconstruct → verify → **commit** each known-good "time-back point," advancing forward
+to rebuild a clean commit history; OR surgical per-bug revert. **Safety checkpoint
+(tag current state) BEFORE anything destructive.** Full detail in MEMORY.md "READ FIRST."
+
+**START TOMORROW BY:** user reviews the change tables, names a regression (request/row),
+then we (a) make the safety checkpoint, (b) act via time-travel or surgical revert.
+
+**THEN (after the first recovery step) — build the prevention** (user-agreed): (#1) a
+`SessionEnd`/`Stop` Claude Code hook that auto-commits uncommitted changes to a
+`wip/auto-<date>` branch and pushes; (#2) `scripts/ship.sh` = bump + `git add -A` +
+commit + push to all 3 branches, used instead of bump-trial after each change. See
+MEMORY.md "READ FIRST" for the why. **Lesson burned in:** automation, not memory —
+this mess came from a memory-only rule + a bump-trial ritual that only *felt* like shipping.
+
+---
+
+## June 2, 2026 (cont.) — Studio Prob/Delete UX + dot-tag polish + sync gap
+
+Long iterative session, mostly **pm-studio-DrV.html** + **css/style.css**.
+Durable facts/lessons in MEMORY June 2 (cont.).
+
+### Start-page summary — final look (index.html)
+- Timer → plain `on`/`off` (toggle removed); Probability → preset name only
+  (chip box removed); Level → `Easy/Medium/Hard` (circle/triangle/star) + the
+  `N dominos`/`N bubbles` descriptor; Type unchanged.
+- Reduced row gap 10→9px; added a 1px rounded rectangle **only when Level
+  buttons are visible** (Setup-page context), with its right edge pinned to the
+  `.level-btn-wrapper` right edge (measured live; matched 348=348). No box on
+  the Start page.
+
+### Studio dot-tag / badge polish
+- Darkened the grey dot-tag; centered the dot in the dot-only case (hidden
+  width placeholder + absolute-centered dot); verified width parity 16.38=16.38
+  and dot center = half-width.
+- `•p` mode button: bigger dot (6px), nudged left 2px, `p` up 2px.
+
+### Prob-delete UX — iterated with the user
+1. Advised: keep delete scopes separate; built the **chip ×** + **right-click /
+   long-press menu** (Rename/Delete) to replace the chained-confirm.
+2. Built the **⚙ Manage Probs** bulk dialog (keep game).
+3. User: "Delete Game" should show the Probs and let you pick one/several/all.
+   Built `_deleteCurrentGameFlow` → `_openDeleteGameDialog`; all→whole-game
+   delete, subset→prune.
+4. User: list Probs one by one, then **All Probes**, no separate "delete game"
+   button → reordered, relabeled.
+5. User: heading → "Check the Probes to delete".
+6. User: "design is terrible" → full redesign with `.dgx-*` classes (custom
+   checkboxes + ✓, row-click toggle, red-tint selection, trash header, ghost
+   Cancel + red Delete).
+
+### Games "disappeared" scare → found a real sync gap
+- User: several Find games gone from the Previewer but present in the Studio
+  library. Traced it: NOT the Prob/Delete UI. **js/sync.js wipes localStorage
+  and replaces with cloud, preserving only CARD keys — games keys
+  (`savedCustomGames`/`savedCatchGames`/`savedCombinedGames`) are unprotected**,
+  so a stale cloud can overwrite local games. Told the user to Download Backup
+  immediately; offered to add the guard. User: "It all looks fine" (self-
+  resolved, stale tab) and deferred the fix.
+
+### Process notes
+- Verified every dialog in the preview by mocking `_getCurrentViewGame` and
+  opening the dialog (preview has no real game data). User confirms real
+  deletes on their machine.
+- Local server `python3 -m http.server 8000` must run as a true background
+  task. Deploy stamp via `scripts/bump-trial.sh`. CSS cache-buster ended at
+  `dgx-redesign-1`.
+
+---
+
+## June 2, 2026 — Previewer Setup polish + Start-page options summary
+
+Session in **index.html** (Game Previewer). Durable facts/lessons in MEMORY June 2.
+
+### Setup page polish (done earlier in session)
+- "Frequency" → **"Probabilities"** (left-aligned with Timer); prob chips
+  `"N. Name"` if named else `ProbN`; shown even with one Prob; chips widened to
+  the title width; titles top-aligned; first prob box dropped to Level/Type line.
+- **Catch level icons = bubbles in BOTH modes** (split the previously mouse-only
+  bubble block so touch stops showing dominoes).
+- **Catch player-box icon** (`#setup-game-icon`) = filled Medium bubble cluster
+  scaled up, carrying the game's pictures; clone the *filled* level button +
+  `_pbUniqueIds()` (id-collision fix) or it renders empty.
+
+### Start-page options summary — the feature + the box-placement fix
+1. Built `_renderStartSummary()` → 4 rows (Timer toggle / Probability chip /
+   Level / Type), read live from the selected setup controls. First put it into
+   `#setup-game-icon`.
+2. **User feedback: "You placed the chart into the player's box. Move it to the
+   box above."** Inspected the live DOM: `#setup-game-icon` is inside
+   `.setup-box-2` (the player box). The upper box is `.setup-box-1`, holding
+   `#selected-options-row` (game.js's "N dominos" level chip).
+3. Re-targeted the summary to **`#selected-options-row` in Box 1**; Box 2's
+   `#setup-game-icon` restored to the game icon. Observer on `#player-names`
+   style always syncs the icon, renders the summary when visible, hides the row
+   when not.
+4. **Fixed "Level —":** the `.level-label` is a sibling of `.level-btn`, so the
+   old child query found nothing — now reads via `.closest('.level-btn-wrapper')`.
+
+### Process notes
+- `_renderStartSummary`/observer verified by simulation in the preview (no game
+  data there): confirmed summary lands in Box 1 (`box1.contains(row)` true) and
+  `#setup-game-icon` keeps its SVG icon. User to confirm on a real game.
+- Local server: `python3 -m http.server 8000` (must run as a true background
+  task — a foreground Bash invocation gets killed when the call returns).
+- Deploy stamp bumped via `scripts/bump-trial.sh`.
+
+---
+
+## May 31, 2026 — Game Previewer page names + Game Studio polish
+
+Long iterative session. Two files: **index.html** (Previewer) and
+**pm-studio-DrV.html** (Studio). Durable facts/lessons in MEMORY May 31.
+
+### Game Previewer (index.html) — page names that survive + don't leak
+- Unified every editable page label under `window._gpApplyLabel(el, key,
+  default)` + a capture-phase delegated `focusout` save (store
+  `pageNameLabels_gp2`). Keys per (page-kind × type × mode), and per
+  player-COUNT for Start/Board (dominoes + "+timer" share one name).
+- Defaults rebuilt to `GP{m|t} {F|C} Setup` / `GP{m|t} {F|C}{count} Start` /
+  `…Board`. Mode in the `GPm`/`GPt` prefix; dropped the old `M `/`H ` prefix
+  and the redundant `Cm`/`Ct`.
+- **Root cause of the catch-board leak:** `_catchGame.inputMode` is never set
+  (undefined) → both modes used `GPt`/`t`. Switched to the global
+  `_catchInputMode`. Same class of bug fixed on the back-button restore.
+- **Shared-name warning** evolved: blocking `alert` (stole focus, broke the
+  edit — looked like the rename "reverted") → non-blocking toast → final
+  **confirm-on-blur** that names the exact scope (page/type/mode via
+  `_gpDescribeKey`) and reverts on Cancel.
+- **Stale Start label** ("GPm F1 Start" hanging over a Catch game): the
+  setup-entry paths (find + catch) now show the Setup label and hide any
+  leftover `setup2-page-label`.
+
+### Game Studio (pm-studio-DrV.html)
+- **Icon `→G` "to Group" button** (`.icon-send-btn`): added per-(gameType ×
+  sizeClass) px nudges (right/down) via `_iconBtnShifts` + `_applyIconBtnShift`;
+  also up-nudges for catch copy/delete badges. Many relative-delta tweaks.
+- **Find single-type cleanup:** suppressed the "L1" label in the IC chip, the
+  Card-Maker template inner label + caption, and the right-click "Copy to
+  icons → Find the Double" menu (no "(L1)"). IC size chip moved to a centered
+  caption BELOW each thumb.
+- **Hanging-submenu bug** (right-click → Copy to icons → Catch → leave): the
+  "Find/Catch" submenu was orphaned when a hover-timeout removed its child and
+  nulled `_ctxSub`. Fix: `_ctxClose` now also sweeps **all** `.ctx-menu-sub`.
+- **Zone brackets:** both sides of red + green columns now show a full colored
+  `[ ]` (spines via box-shadow, prongs via full-width `::before`/`::after`
+  gradients with an 8px tip at each end).
+- **Group line** under grouped cards inset 4px each side (transparent 6px
+  border + `.gv-grp-line::after`, color via `--gv-grp-color`).
+- **Column headers** above row A — Find: Top Cards / Neutral / Bottom Cards;
+  Catch: Frozen Bubbles / Neutral / Falling Bubbles. Iterated to grayish,
+  13px, weight 500, shared `.gv-col-header`.
+- **Probability badge** iterations: `_groupDisplayLabel` → capital **P**
+  (P1/P2); 2px gap before the number; then **dot replaces "P"** (4px circle,
+  inline-flex centered, 2px from left); dot-only keeps the dot+1-digit width
+  via an invisible placeholder; dot 5→4px, gap 2→1px, badge `right:-5→-7px`,
+  font `8→10px`. Applied to both `.mcard-badge` and `.pmode-flag`.
+
+### Verification pattern
+Throwaway sandboxes injected into the live page via Claude Preview +
+screenshot / `getBoundingClientRect()` confirmed pixel-exact results (e.g.
+dot-only width 18.38 == dot+1-digit 18.38; brackets `[ 0 0 ]`; headers
+aligned to columns). `jsc` syntax-check on every edit; `bump-trial.sh` stamp
+each time. No `css/style.css` change this session except a copy-button tweak
+that was reverted — almost all UI work was inline.
+
+---
+
+## May 30, 2026 — Card Maker: rubber-band select, insert-line, 702-row keys
+
+All in `pm-studio-DrV.html` (Card Maker). Feature thread = "standard mouse
+abilities to select a group of cards for move/copy/delete," then row
+insertion + a row-key scheme that breaks the 26-row ceiling.
+
+### Rubber-band (marquee) selection
+Left-press on EMPTY grid space + drag a box → every `.library-card` it
+touches joins the passive selection (`groupEditSelected` / `.ge-selected`)
+— the SAME selection Shift+click builds and the right-click menu's group
+Copy/Move/Delete verbs already act on. So it's purely a faster way to fill
+that selection; no new verb plumbing. New IIFE next to the card-drag
+handler; a `marqueeJustEnded` guard stops the click handler from clearing
+the result. Plain marquee replaces the selection, Shift+marquee adds. No
+conflict with card-drag (that arms only on pointerdown over a card; this
+only on empty space). Cards in hidden sets skipped via `offsetParent===null`.
+
+### Never-collapse: cross-set move/copy = one new row per source row
+`_ctxMoveCardOrSelectionToSet` / `_ctxCopyCardOrSelectionToSet` used to
+pack a whole multi-line selection into ONE batch row (E1,E2,E3…). Now they
+group by source row (`_groupCardsBySourceRow`) and give each source line
+its OWN fresh row in the target. Move preserves `stableId` (game wiring
+follows); copy mints fresh uid+stableId. Both wrapped in one undo entry.
+
+### Insert empty line above/below (model A) — `_insertEmptyLine`
+Right-click a card → "Insert empty line above/below". Opens a slot: the
+occupied rows from there up to the first free key shift DOWN one key
+(C→D, D→E…); cards relabel via `renumberRow` (stableIds untouched → games
+stay wired); one BLANK-art card is dropped at the freed key. The blank
+card is what makes the row PERSIST — rows rebuild from card data on reload,
+so a truly empty row vanishes (verified). Undoable. The "set full" refusal
+uses a visible `alert()`, NOT `_geFlash` (which writes to `#group-edit-status`
+inside the `display:none` toolbar → invisible when there's no selection).
+
+### Row-key scheme past Z: A–Z, then aA–zZ (702 max)
+Rows hard-capped at Z (`getNextLetter`→null, single-char `charCodeAt+1`,
+`toUpperCase()` sort). New scheme: A..Z, then aA..aZ, bA..bZ … zZ; the
+lowercase prefix marks overflow blocks. Helpers `_rowKeyParse(label)` (→
+`[a-z]?[A-Z]` prefix) and `_rowKeyNext(key)` (A→…→Z→aA→…→aZ→bA→…→zZ→null,
+702 keys). KEY INSIGHT: plain string compare already orders these right
+(uppercase 65–90 < lowercase 97–122), so sorting only dropped its
+`toUpperCase()`. Backward-compatible (A–Z identical).
+
+**Full migration (req: user needs up to ~400 rows).** First pass only did
+the core fns → regression: the set-BUILDERS grouped by
+`label.charAt(0).toUpperCase()`, merging overflow cards (`aA1`→`A`) back
+into base rows on reload (scrambled the ABC set; data intact). Now routed
+through `_rowKeyParse` + new `_labelNum(label)` (numeric part after the key,
+replacing `label.substring(1)`) everywhere a row key/number is derived: all
+3 builders, buildNumbers/AbcPreview, selectCustomSet, getNextNumber,
+generateCopyLabel, addVariation, renumberVariations, loadVariations,
+new-card-mode, _groupCardsBySourceRow, row-name dialog, _effectiveRowLetter,
+zone bucketing, copyCardInRow (was `(rowLetter||…).toUpperCase()` → `aA`→
+`AA`). Verified on overflow rows (rebuild/add/copy/getNextNumber). Left A–Z
+(soft, no corruption): `addEmptyGameRow` +Row input; display-only capitals.
+
+### Also shipped May 30
+- "Insert empty line(s)" now prompts for a **count** (default 1).
+- New **"Delete this line"** menu item: removes the row, shifts rows below
+  up to close the gap; game-used cards go to Safe Haven (not deleted).
+
+### Still open (next)
+- Verb-gating by selection shape: drop within-set "Copy to [other row]"
+  (copy stays same-line per spec), disable multi-line "Move to [row]"
+  flatten, both keyed off "does selection span >1 row?".
+- Drag-to-insert between rows (thin layer over `_insertEmptyLine`).
 
 ## May 28, 2026 — Catch Prob Options + color columns replace the dot button
 

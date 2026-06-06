@@ -356,12 +356,17 @@ class VicaDominoGame {
             var lbl2 = document.getElementById('setup2-page-label');
             if (lbl1) {
                 lbl1.style.display = '';
-                // For catch games, set the correct label instead of restoring from localStorage
+                // Use the SAME per-(type×mode) keying + defaults as index.html's
+                // _gpApplyLabel, so an edit made on this page survives and stays
+                // shared across games of that type+mode (and the M/H icon rule applies).
                 if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
                     var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
-                    lbl1.textContent = _cim === 'mouse' ? 'GPm Cm Setup' : 'GPt Ct Setup';
+                    if (window._gpApplyLabel) window._gpApplyLabel(lbl1, _cim === 'mouse' ? 'setup-catch-mouse' : 'setup-catch-touch', _cim === 'mouse' ? 'GPm C Setup' : 'GPt C Setup');
+                    else lbl1.textContent = _cim === 'mouse' ? 'GPm C Setup' : 'GPt C Setup';
                 } else {
-                    _restoreLabel(lbl1);
+                    var _fim = (typeof _findInputMode !== 'undefined') ? _findInputMode : 'touch';
+                    if (window._gpApplyLabel) window._gpApplyLabel(lbl1, _fim === 'mouse' ? 'setup-find-mouse' : 'setup-find-touch', _fim === 'mouse' ? 'GPm F Setup' : 'GPt F Setup');
+                    else _restoreLabel(lbl1);
                 }
             }
             if (lbl2) lbl2.style.display = 'none';
@@ -1410,9 +1415,18 @@ class VicaDominoGame {
         if (_boardLbl) {
             var _gt = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) ? 'C' : 'F';
             var _d = this.selectedLevel === 'circle' ? '2' : this.selectedLevel === 'triangle' ? '3' : '4';
-            var _p = (this.players.length === 1 && this.includeXeno) ? '1' :
-                     (this.players.length === 2 && !this.includeXeno) ? '2' : '3';
-            _boardLbl.textContent = 'GP ' + _gt + _d + _p + ' Board';
+            // Digit = PLAYER COUNT (1/2/3); "+timer" (xeno) variants share the
+            // count's name (players.length is the human count, not incl. timer).
+            var _p = String(this.players.length || 1);
+            // Include the INPUT MODE in the key so Mouse and Touch boards have
+            // independent names (no leaking between them).
+            var _bMode = (_gt === 'C')
+                ? (((typeof _catchInputMode !== 'undefined') && _catchInputMode === 'mouse') ? 'm' : 't')
+                : (((typeof _findInputMode !== 'undefined') && _findInputMode === 'mouse') ? 'm' : 't');
+            // Board name: type x mode x PLAYER OPTION (_p) only — dominoes (_d) are
+            // not in the name. Mode lives in the GPm/GPt prefix: "GP{m|t} {F|C}{#} Board".
+            if (window._gpApplyLabel) window._gpApplyLabel(_boardLbl, 'board-' + _gt + _bMode + _p, 'GP' + _bMode + ' ' + _gt + _p + ' Board');
+            else _boardLbl.textContent = 'GP' + _bMode + ' ' + _gt + _p + ' Board';
         }
 
         // Show current game name temporarily next to title

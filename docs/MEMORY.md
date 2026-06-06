@@ -1,7 +1,408 @@
 # Vica Domino Project Memory
-**Last Updated**: May 28, 2026 — Prob Options ported to Catch + zone columns replace the dot button
+**Last Updated**: June 4, 2026 — ⚠️ RECOVERY SITUATION (read the banner below FIRST)
 
 ---
+
+## ⚠️ READ FIRST — June 4, 2026 — uncommitted-work recovery in progress
+
+**Situation:** Nothing has been committed since **May 28** (commit `b76930f`). The
+entire **May 30 → Jun 4** session (`fb852b27…`, **244 edits** across 7 files,
++2282/−255 lines) sits **uncommitted** in the working tree — a direct violation of
+the project's own commit/push rules (SESSION_HANDOFF Rule 1). The user reports that
+this week's changes **broke unintended things**, and wants to find & undo the
+regressions without losing work.
+
+**Do NOT** run any destructive git op (`reset --hard`, `checkout .`, `stash` of the
+whole tree) until a safety checkpoint exists. The current tree is **under review** —
+do not assume it is "good" or "bad".
+
+**Recovery assets (all safe, outside the repo):**
+- **Transcript backup (read-only):**
+  `/Users/victoriakofman/CLAUDE CODE/_recovery_transcripts_backup/snapshot_20260604_195112/`
+  — the 3 session `.jsonl` files (the complete, ordered edit log: every Edit/Write
+  with full old/new text), + subagents + memory. THIS is the recovery key — git has
+  no checkpoint between May 28 and now, but the transcripts let us reconstruct any
+  past file state.
+- **Change tables** in `/Users/victoriakofman/CLAUDE CODE/_recovery_transcripts_backup/`:
+  `CHANGELOG_uncommitted.html` (grouped by the user's request, color-coded by file),
+  `CHANGELOG_uncommitted.csv` (sortable in Numbers), `CHANGELOG_uncommitted_since_May28.md`.
+  244 edits ↔ 98 distinct user requests.
+
+**Key anchors:**
+- Clean baseline = `b76930f` (May 28 22:25 PDT = 2026-05-29T05:25:50Z). Filter edits
+  with transcript timestamp **after** that cutoff to get the uncommitted set.
+- Uncommitted work is ONE session: `fb852b27` (May 30–Jun 4). The other two
+  transcripts (`6bc5b668` May 22–29, `e4a9cf67` May 14–21) are OLD/committed.
+- Three branches must stay byte-identical: `claude/review-project-docs-JOOeh` (dev),
+  `claude/general-session-yVBQq`, `claude/resume-vica-domin-UOJun`.
+
+**Agreed plan (user is leaning to "on-demand time travel"):**
+1. SAFETY FIRST — tag the current full state, branch from `b76930f`.
+2. Reconstruct files as of a chosen point (baseline + transcript edits up to time T),
+   user verifies, then **commit that verified "time-back point."** Advance to the next
+   point, verify, commit. Builds a clean chain of verified checkpoints.
+   - Alternative / faster: surgical per-bug revert — user names a broken behavior, we
+     find the few edits touching it (via the change tables/transcripts) and revert just
+     those.
+3. Caveats: cosmetic shell-driven changes (banner time, `?v=` cache-busters) aren't in
+   the edit stream, so a replay reaches a *functionally* identical state with a possibly
+   stale banner; occasional old_string-mismatch on replay needs a manual nudge.
+
+**Tomorrow starts with:** the user reviewing the change tables to spot regressions,
+then telling us which request/row to act on. **Before acting, make the safety
+checkpoint.** And going forward: **commit + push to all 3 branches regularly** — this
+whole mess is from not doing that.
+
+**DECIDED — prevention setup (do AFTER the first recovery step tomorrow):** build the
+two forcing functions so the daily-commit rule can't depend on memory again:
+- **#1 Auto-snapshot hook** — a Claude Code `SessionEnd` (and/or `Stop`) hook in
+  `.claude/settings.json` that runs a script: if `git status` shows uncommitted
+  changes, commit them to a `wip/auto-<date>` branch and push. This is the guarantee
+  (worst case = lose one session, not a week).
+- **#2 `scripts/ship.sh`** — replaces the bump-trial-only ritual: bump banner →
+  `git add -A` → commit → push to all 3 branches. Used after each meaningful change so
+  clean intentional commits happen at change-frequency.
+Root cause of the lapse (for context): the rule lived only in docs (memory-dependent),
+the built-in default is "don't commit unless asked," it was one 5-day session with no
+natural boundary, and running `bump-trial.sh` *felt* like shipping but only rewrites a
+banner. Fix = automation, not discipline.
+
+**Also already in the uncommitted tree (this session's fixes, under review):** sync
+`local-wins` guard for `pageNameLabels_gp2`/game keys (`js/sync.js`), page-name id-vs-key
+mismatch fix (`index.html` ~line 602 skip `_gpManagedIds`), Start-summary observer
+re-assert (`index.html`), no-cache `<meta>` tags in both HTML heads, Prob-delete UX +
+Delete-Game dialog + dot-tag/badge polish (`pm-studio-DrV.html`).
+
+---
+
+## June 2, 2026 (cont.) — Studio Prob/Delete UX + dot-tag polish + a sync gap
+
+All in **pm-studio-DrV.html** + **css/style.css** unless noted. Play-by-play in
+STATUS_NOTES June 2 (cont.).
+
+### Start-page options summary — final visual pass (index.html)
+- The 4-row summary (`_renderStartSummary`) is now PLAIN: **Timer** = the word
+  `on`/`off` (no toggle picture); **Probability** = the preset name only (no
+  chip box); **Level** = difficulty + descriptor (`Easy 2 dominos`); **Type**
+  unchanged. Difficulty from the level shape: **circle=Easy, triangle=Medium,
+  star=Hard** (the code already calls triangle the "Medium" bubble).
+- **Context-aware rectangle:** the chart draws a 1px bordered box ONLY when the
+  Level buttons are visible (the catch-mouse Setup-page case); its RIGHT edge is
+  pinned (live `getBoundingClientRect`) to the **`.level-btn-wrapper`** right
+  edge — that wrapper carries the rounded background, the inner `.level-btn` is
+  just the icon (measure the wrapper, not the btn, or the box is too narrow and
+  text wraps). On the GP… Start page (Level buttons hidden) → no rectangle.
+
+### Probability dot-tag (`.mcard-badge` + `.pmode-flag`)
+- Grey flag darkened `rgba(120,120,140,0.92)` → `rgba(84,84,100,0.96)`.
+- **Dot-only tag centers the dot**: keep the dot+1-digit WIDTH via a hidden
+  placeholder reproducing dot+gap+digit, and absolutely-center the visible dot
+  (`left:50%;top:50%;translate(-50%,-50%)`) — the badge is `position:absolute`,
+  so it's its own containing block. Numbered tags keep the dot left + number.
+- **`•p` mode button** (`#game-view-mcard-btn`): dot (6×6, was 4×4) shifted
+  `left:-2px`, the `p` raised `top:-2px`, dot uses `currentColor`.
+
+### Prob-delete UX (the big one)
+- **Per-Prob delete is now discoverable.** Each `.prob-chip` gets a visible
+  `×` (`.prob-chip-x`) — always shown on the ACTIVE chip, on hover for others,
+  `pointer-events:none` when hidden so touch can't hit an invisible ×. Plus a
+  real right-click / long-press context menu (`_openProbCtxMenu`, reuses
+  `_ctxItem`/`_ctxClose`/`_ctxPosition`) with **Rename / Delete**. Replaced the
+  old confusing chained `confirm()` where *Cancel* meant *delete*.
+- **⚙ Manage chip** (`.prob-chip-manage`, shown when ≥2 Probs) → bulk
+  `_openManageProbsDialog` (multi-select, Select-all, "Delete selected (N)"),
+  prunes Probs but KEEPS the game.
+- **"Delete Game" is now a Prob picker** (`_deleteCurrentGameFlow` →
+  `_openDeleteGameDialog`), wired from the in-view Delete Game button (find +
+  catch). Lists Probs one-by-one, then an **"All Probes"** row. Subset → prune
+  Probs, keep game. **All Probes → whole-game delete** (calls the original
+  `deleteGame`/`deleteCatchGame` with their rich warning). With <2 Probs it goes
+  straight to the whole-game delete. Final wording: heading "Check the Probes to
+  delete", no separate "delete entire game" button.
+- Redesigned dialog uses dedicated **`.dgx-*`** CSS (custom rounded checkbox +
+  ✓, whole-row click toggles, red-tint selected row, trash header icon, ghost
+  Cancel + solid red Delete) — replaced the ugly native checkboxes.
+- The three deletion scopes are intentionally separate: **chip ×** = one Prob,
+  **⚙ Manage** = bulk prune (keep game), **Delete Game** = picker incl. all→game.
+
+### ⚠️ Sync gap — games are NOT protected from a stale cloud (UNFIXED)
+- **Symptom seen:** Previewer showed only 2 Find games while the Studio library
+  showed 6 (games "deleted from GP 0, still in A-L"). It self-resolved (stale
+  tab), data was never lost.
+- **Root cause (js/sync.js ~378–393):** on load, if cloud has data, sync WIPES
+  every localStorage key except META/ROLE and replaces with the cloud copy,
+  preserving ONLY card keys (`customDrawnCards*`, `cardMakerVariations`,
+  `cardArrangement*`, `abcCardSnapshot`). **`savedCustomGames` /
+  `savedCatchGames` / `savedCombinedGames` are NOT preserved** → a stale/smaller
+  cloud copy silently overwrites local games. Both index.html and pm-studio load
+  the same sync.js + Firebase, so either tab can trigger it.
+- **Not caused by the Prob/Delete UI work** (that only touches one chosen game).
+- **Proposed fix (user deferred):** mirror the card guard for the three game
+  keys — preserve local when the cloud copy is empty/missing. (Won't fix a
+  smaller-but-non-empty cloud conflict; that's a deeper merge problem.)
+- Immediate user recovery: **Download Backup** in the Studio captures the full
+  localStorage snapshot (incl. games) before any re-sync.
+
+### Cache-busters
+- `css/style.css?v=dgx-redesign-1` (bumped through prob-chip-delete-1 →
+  prob-manage-1 → dgx-redesign-1) in BOTH index.html + pm-studio.
+
+---
+
+## June 2, 2026 — Previewer Setup polish + Start-page options summary
+
+All in **index.html** (Game Previewer). Play-by-play in STATUS_NOTES June 2.
+
+### Setup page (GP{m|t} {F|C} Setup) polish
+- **"Frequency" → "Probabilities"**, left-aligned with "Timer". Prob chips:
+  named → `"N. Name"` (e.g. `1. MainProb`), unnamed → `ProbN`. Heading +
+  chips render even with **one** Prob set (gate is `length < 1`). Chips widen
+  to the full "Probabilities" title width (`width:100%; box-sizing:border-box`).
+- **Catch level icons must be bubbles in BOTH modes.** The bubble-label/SVG +
+  `_fillCatchLevelBubbles()` block was mouse-only — split it so it runs for
+  touch too (touch was showing dominoes).
+- **Player-box icon for Catch** (`#setup-game-icon`) = the FILLED Medium
+  (triangle) bubble cluster (1 big + 3 small) cloned and scaled up, carrying
+  the game's pictures — never dominoes. Clone the **filled** level button and
+  run `_pbUniqueIds()` to suffix all ids (clipPath/gradient collision fix),
+  else the cluster renders empty.
+- Titles (Level/Type/Probabilities) **top-aligned** (`.setup-columns` is
+  `align-items:flex-start`); first prob box dropped to align with Level/Type.
+
+### Start pages — read-only OPTIONS SUMMARY (`_renderStartSummary`)
+- On every Start page (player-names visible), the **UPPER box (Box 1)** shows a
+  4-row read-only summary: **Timer** (toggle picture + on/off), **Probability**
+  (the selected `.player-prob-chip`), **Level** (selected level label), **Type**
+  (`.setup-type-line.selected` or `window._currentTypeBehavior`).
+- **Box geography matters (cost me a round-trip):** `#setup-game-icon` lives
+  inside **Box 2** (`.setup-box-2`) = the *player* box (icon sits above the
+  avatars). The "box above the player box" the user means is **Box 1**
+  (`.setup-box-1`), where game.js drops `#selected-options-row` (the "N dominos"
+  level chip). The summary renders into **`#selected-options-row` within Box 1**;
+  Box 2's `#setup-game-icon` is restored to the game icon every time.
+- **Level label is a SIBLING of `.level-btn`** inside `.level-btn-wrapper`, not
+  a child — `selectedBtn.querySelector('.level-label')` returns null. Reach up
+  via `.closest('.level-btn-wrapper')` then read `.level-label` (fallback to the
+  button `title`). Symptom of getting it wrong: "Level —".
+- **One MutationObserver on `#player-names` style** covers all show-points
+  (find/catch × mouse/touch × all player counts): always calls
+  `_syncSetupGameIcon()` (Box 2 icon); when visible also `_renderStartSummary()`
+  (Box 1); when hidden, hides `#selected-options-row`. The observer fires as a
+  microtask *after* game.js's synchronous `showStartScreen` builds the level
+  chip, so the summary overwrite wins.
+
+### Lessons
+- **Verify which box an element belongs to before rendering into it.** I put the
+  summary in `#setup-game-icon` assuming it was the upper box; it's the first
+  child of the player box. A 2-line `getBoundingClientRect`/`contains()` eval in
+  the preview settled it instantly.
+- Preview sandbox has **no game data** — Start/catch flows can't be driven live.
+  Verified the summary by injecting representative selections + reading
+  `#selected-options-row`. User must confirm Probability/Level on a real game.
+
+---
+
+## May 31, 2026 — Game Previewer page names + Game Studio polish
+
+Two files: **index.html** (Game Previewer / player) and **pm-studio-DrV.html**
+(Game Studio). Play-by-play in STATUS_NOTES May 31.
+
+### Game Previewer (index.html) — page-name persistence
+- **One applier for every page label:** `window._gpApplyLabel(el, key, default)`
+  sets `el.dataset.gpKey`, loads the saved value (or default), normalizes
+  🖱→M / ✋→H. A document-level **capture-phase delegated save** (on
+  `focusout`) persists under `_pnKeyOf(el)` = `dataset.gpKey || id`. Store:
+  `localStorage['pageNameLabels_gp2']`.
+- **Keys = per (page-kind × type × mode [× player-COUNT for Start/Board]).**
+  Setup `setup-{find|catch}-{mouse|touch}`; Start (player-names)
+  `setup2-{F|C}{m|t}{count}`; Board `board-{F|C}{m|t}{count}` (catch overlay
+  `board-catch-{m|t}{count}`). **Dominoes (2/3/4) and the "+timer"(xeno)
+  variant are NOT in the key** — they share one name; only the player COUNT
+  splits Start/Board.
+- **Defaults:** Setup `GP{m|t} {F|C} Setup`; Start `GP{m|t} {F|C}{count} Start`;
+  Board `GP{m|t} {F|C}{count} Board`. Mode lives in the `GPm`/`GPt` prefix.
+- **Shared-name edit = confirm-on-blur with EXACT scope** ("Rename the Setup
+  page of Find games in Mouse mode?"), Cancel reverts. Scope built from the
+  label's key by `_gpDescribeKey`. It must NOT be a blocking `alert()` *while
+  typing* — that steals focus from the contenteditable and commits a partial
+  value (was the "reverted to GP F43" bug).
+- **Stale-label fix:** opening a Setup (find OR catch) now shows the Setup
+  label and HIDES any leftover `setup2-page-label`, so a prior game's
+  `GPm F1 Start` can't hang over the next game.
+
+### `_catchGame.inputMode` is NEVER assigned — use the globals
+The catch board read `_catchGame.inputMode` (always `undefined`) so both
+modes collapsed to `GPt`/touch and leaked names. **Mode truth = globals
+`_catchInputMode` / `_findInputMode`** (set by the single intro Touch/Mouse
+toggle via `_setInputMode`; device-aware default). Same globals drive the
+GPm/GPt prefix everywhere.
+
+### Game Studio (pm-studio-DrV.html)
+- **Game-view zone columns** (`_renderZoneRow`) =
+  `[sep | letterCell | red | nodot/neutral | green]` → grid
+  `[letter, red, neutral, green]`. Two builders: **`openGameView`** (Find),
+  **`openCatchGameView`** (Catch). Column headers = 4 `.gv-col-header` cells
+  prepended to the grid (Find: Top Cards / Neutral / Bottom Cards; Catch:
+  Frozen Bubbles / Neutral / Falling Bubbles; grayish, 13px, weight 500).
+- **Probability badge** (`.mcard-badge`) + the unedited **grey flag**
+  (`.pmode-flag`) are designed to sit IDENTICALLY — change BOTH together.
+  Label from `_groupDisplayLabel` (now capital **P** / **P1, P2…**). The badge
+  renders a **dot** (4px circle, `currentColor`) in place of "P": badge is
+  `inline-flex; align-items:center; padding-left:2px` so the dot is 2px from
+  left + vertically centered; a numbered group adds the number after a 1px
+  gap; a dot-only badge reserves a 1-digit-wide invisible placeholder so it
+  matches the dot+1-digit width (2-digit grows). Badge at `right:-7px`,
+  font 10px.
+- **Icon `→G` "to Group" button** (`.icon-send-btn`): per-(gameType ×
+  sizeClass) px nudges via shared `_iconBtnShifts` + `_applyIconBtnShift`
+  (x = right+, y = down+). Copy/delete badges share the "corner" sub-map.
+- **Find has ONE icon type (L1)** → its "L1" label is suppressed everywhere:
+  IC chip (`_renderMppIconsRow`, gameType!=='find'), Card-Maker template inner
+  label + caption (`_buildIconCardElement`), context menu ("Copy to icons →
+  Find the Double", no "(L1)"). Catch keeps L1–S3.
+- **IC size chip** moved to a centered cell BELOW each thumb (wrapper div,
+  `position:static` on the chip).
+- **Zone brackets** (inline CSS atop the `<style>`): colored spines via
+  `box-shadow` insets + `::before`/`::after` full-width gradients painting an
+  8px prong at EACH end → a full `[ ]` on BOTH sides per zone (red + green).
+- **Group line under grouped cards** = inset 4px each side: transparent 6px
+  `border-bottom` holds the space, `.gv-grp-line::after` draws the bar
+  (`var(--gv-grp-color)`).
+
+### Lessons
+- **Never block a contenteditable edit with `alert()`/`confirm()`** — steals
+  focus, commits a partial/old value. Use a non-blocking toast, or confirm
+  **on blur** (after editing).
+- **Two pseudo-elements, four prongs:** a full-width `::before`/`::after` with
+  a gradient (color 0–8px, transparent middle, color last 8px) draws a prong
+  at BOTH ends — one element brackets both sides.
+- **Match-by-design pairs:** `.mcard-badge` ↔ `.pmode-flag`, and the
+  per-(type×mode) page keys — touch one, touch its twin.
+- Most badge/header/bracket work is **inline** (JS `cssText` or the `<style>`
+  block in pm-studio) → reloads with the HTML, NO `style.css` cache-buster.
+  Only bump `css/style.css?v=…` (in BOTH index.html + pm-studio) when you
+  actually edit `css/style.css`.
+- Verify pixel-exact UI by building a throwaway sandbox in the live page
+  (Claude Preview) + screenshot / `getBoundingClientRect()` — caught the
+  dot-width match (18.38 = 18.38) and the bracket/header/dot looks.
+- **Treat the user's "pt" as px** for these nudges (they're tiny UI offsets);
+  flag the assumption.
+
+---
+
+## May 30, 2026 — Card Maker: rubber-band select, insert-line, row keys past Z
+
+All `pm-studio-DrV.html` (Card Maker). See STATUS_NOTES May 30 for the
+blow-by-blow; this captures the durable facts + lessons.
+
+### What shipped
+- **Rubber-band (marquee) select.** Drag a box over empty grid space →
+  touched `.library-card`s join `groupEditSelected` / `.ge-selected` — the
+  SAME passive selection Shift+click builds and the right-click group
+  Copy/Move/Delete verbs already consume. So marquee = a faster selector,
+  not new verbs. Marquee IIFE sits next to the card-drag IIFE; they don't
+  collide (card-drag arms on pointerdown over a card, marquee on empty
+  space). `marqueeJustEnded` guards the click handler. Shift+marquee adds.
+- **Never-collapse cross-set move/copy.** A multi-line selection becomes
+  one new row PER SOURCE ROW in the target (`_groupCardsBySourceRow`), not
+  one merged row. Move keeps `stableId`; copy mints fresh ids.
+- **Insert empty line above/below** (`_insertEmptyLine`, right-click menu).
+  Model A: shift the occupied run from the insert point up to the first
+  free key DOWN one key, drop a BLANK card at the freed key.
+- **Row keys past Z**: A–Z then aA–zZ (702). Helpers `_rowKeyParse` /
+  `_rowKeyNext`.
+
+### Durable facts (don't relearn these)
+- **A row exists only if it holds ≥1 card.** Rows are rebuilt from card
+  data on load (`buildNumbersCardSet` groups by first-letter). So an
+  "empty" row can't persist on its own — it must carry one blank-art card.
+  This is why `_insertEmptyLine` creates a blank card, and why the
+  `addNewDrawnCard` "new card on a new row" path already worked.
+- **A card's label = rowKey + position** (`renumberRow` writes
+  `rowLetter + n`). Relabeling (move/insert/shift) does NOT touch
+  `stableId` — it's a stored attribute, so game wiring (which references by
+  `stableId`) survives any relabel. This underpins model A and Safe Haven.
+- **Label suffixes like `C1_2`** are text-markers (`A2_5+3` =
+  rowKey+position+`_`+SVG text), re-derived from the card art — not
+  meaningful identity; `renumberRow` normalizes them away.
+- **Row-key scheme sorts by plain string compare** (uppercase 65–90 <
+  lowercase 97–122), so `insertRowAlphabetically` / `sortRowsAlphabetically`
+  just had `toUpperCase()` removed — no length-aware comparator needed.
+- **`_geFlash` is invisible without a selection** — it writes to
+  `#group-edit-status` inside the `display:none` Group-Edit toolbar. Use
+  `alert()` (or show the toolbar) for feedback on no-selection actions.
+
+### Lessons (process)
+- **`beforeunload` calls `saveVariations()`** (saves the live DOM). So
+  editing localStorage directly while a stale DOM is rendered, then
+  reloading, lets the stale DOM clobber your storage edit. Fix BOTH storage
+  and DOM (rebuild from storage) before any reload.
+- **Don't test destructive ops on real card sets.** A live `insert` test
+  mutated the real Numbers set; it was reversible (deterministic un-shift),
+  but use a disposable/seeded set for move/insert/delete verification.
+- Pure helpers (`_rowKeyNext`/`_rowKeyParse`) are unit-testable headless via
+  the JavaScriptCore `jsc` binary — cheap correctness before any DOM test.
+- **ALWAYS bump the deploy stamp after editing the studio.** Run
+  `bash scripts/bump-trial.sh` (writes current LA time into the
+  `HH:MM AM/PM PDT` banner next to "Library", 5 sites across
+  pm-studio-DrV.html + index.html). The user reads that stamp to confirm a
+  reload actually loaded the new code — a stale stamp = they're seeing old
+  code. The pre-commit hook auto-runs it on commit, but when handing the
+  user a file to reload WITHOUT committing, bump it manually or they can't
+  tell the change landed.
+
+### Row insert/delete + data repair (May 30 cont.)
+- **Insert is gap-absorbing** (`_insertEmptyLines`). It walks up from the
+  insert point collecting occupied rows until it finds `count` FREE keys, so
+  an existing gap (deleted row) soaks up the insert instead of shoving every
+  row above it. Earlier "shift everything ≥ insertLetter" version mangled
+  sets that had gaps ("inserted below D, D vanished, E appeared").
+- **`repairRowsFromArt(setName)`** (+ `window.` + auto-offer on set open via
+  `_maybeOfferRowRepair`): rebuilds row labels from each card's DRAWN letter
+  (SVG `<text>` marker = ground truth; labels AND even stableIds had drifted).
+  Groups by uppercased letter, sorts upper-before-lower, relabels `rowKey+N`.
+  Auto-offer is gated to mostly-single-letter sets so number/dot sets never
+  trip it. **It MUST force a rebuild of the on-screen rows after writing
+  storage** — otherwise the stale DOM lingers and the `beforeunload` save
+  clobbers the repair on reload (this exact thing made an "OK" silently do
+  nothing for the user, twice). The clobber trap is the #1 recurring footgun.
+- **Games survive relabeling**: games wire to cards by `stableId` (sticky,
+  never regenerated on renumber), not by label. Insert/shift → games
+  unaffected. `_deleteLine` sends game-used cards to Safe Haven (kept), only
+  deletes unused ones. Confirmed: shift preserves stableId byte-for-byte.
+
+### Row-key scheme is FULLY migrated (May 30 cont.) — REQUIREMENT: up to ~400 rows
+User confirmed real educational sets can grow to **300–400 rows**, so the
+A–Z→aA–zZ scheme (702 cap) is a hard requirement, not a nicety. The first
+pass only migrated the *core* row fns, which caused a **regression**: the
+set-BUILDERS (`buildNumbers/Abc/CustomCardSet`, `buildNumbers/AbcPreview`,
+`selectCustomSet`) grouped rows by `label.charAt(0).toUpperCase()`, so an
+overflow card `aA1` → `'A'` and **merged back into row A on reload**
+(scrambled the user's ABC set; data was intact, only the on-reload grouping
+was wrong). Now migrated everywhere a row key OR a label-number is derived:
+- New helper **`_labelNum(label)`** = numeric part after the key (`aB3`→3);
+  replaces the old `label.substring(1)` (which assumed a 1-char key).
+- Routed through `_rowKeyParse` / `_labelNum`: all 3 builders + 3
+  preview/select builders, `getNextNumber`, `generateCopyLabel`,
+  `addVariation`, `renumberVariations`, `loadVariations`, new-card-mode
+  detection, `_groupCardsBySourceRow`, the row-name dialog title,
+  `_effectiveRowLetter` (game read path), zone bucketing.
+- **Gotcha that bit us:** `copyCardInRow` did `(row.dataset.rowLetter || …)
+  .toUpperCase()` → `aA`→`AA`; a grep for `.charAt(0).toUpperCase()` missed
+  it. Sweep for ANY `.toUpperCase()` on a rowLetter/label expression.
+- Verified on overflow rows: rebuild keeps `aA` separate, `getNextNumber`,
+  copy, and add all produce correct `aA-N` labels; row A not polluted.
+- Intentionally left A–Z (soft limit, no corruption): `addEmptyGameRow`
+  (Game Creator +Row) input regex; two dead `_effectiveRowLetter` inline
+  fallbacks; display-only capitalizations (font names, usage titles).
+
+### Still open
+- Verb-gating by selection shape (drop within-set "Copy to other row";
+  disable multi-line "Move to row" flatten). Drag-to-insert between rows
+  (thin layer over `_insertEmptyLine`). "Delete this line" + count-aware
+  "Insert empty line(s)" shipped. Empty-row policy (delete last card →
+  keep blank / remove row / block) still undecided. `addEmptyGameRow` +Row
+  still single A–Z.
 
 ## May 28, 2026 — Catch gets Prob Options; columns replace red/green dots
 

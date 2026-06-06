@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Always fetch the current page — a cached older copy of this HTML was
+         hiding newly-added features (e.g. the game-view column titles) until a
+         manual hard refresh. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MathGrain Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=prob-chip-align-3">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-1">
 </head>
 <body>
     <div class="game-container">
@@ -34,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:23 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -84,7 +90,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -100,7 +106,7 @@
                      behavior ("manual" / "nonstop") is stored on
                      window._currentTypeBehavior for game.js to read. -->
                 <div class="setup-types-row" id="setup-types-row" style="display:none;">
-                    <h3 id="setup-h3-types">Type of Game</h3>
+                    <h3 id="setup-h3-types">Type</h3>
                     <div class="setup-types-buttons" id="setup-types-buttons"></div>
                 </div>
                 <div class="setup-columns">
@@ -128,7 +134,7 @@
                         <div class="player-prob-select" id="player-prob-select" style="display:none;"></div>
                     </div>
                     <div class="setup-left">
-                        <h3 id="setup-h3-level">Choose your game:</h3>
+                        <h3 id="setup-h3-level">Level</h3>
                         <div class="game-level-select">
                     <div class="level-btn-wrapper">
                         <button class="level-btn selected" data-level="circle" title="2 Dominos">
@@ -512,7 +518,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=unload-warning-1"></script>
+    <script src="js/sync.js?v=local-wins-1"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -560,31 +566,111 @@
                         var p = parseInt(btn.getAttribute('data-players'), 10);
                         var x = btn.getAttribute('data-xeno') === 'true';
                         var pl = (p === 1 && x) ? '1' : (p === 2 && !x) ? '2' : '3';
-                        // Game type prefix: GPt for touch catch, GPm for mouse catch, GP for find
-                        var prefix = 'GP ';
-                        if (gt === 'C') {
-                            var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
-                            prefix = _cim === 'mouse' ? 'GPm ' : 'GPt ';
-                        }
-                        lbl2.textContent = prefix + gt + d + pl;
+                        // Mode letter (m/t) drives BOTH the storage key and the
+                        // GPm/GPt name prefix — for find AND catch.
+                        var _cim = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
+                        var _fim = (typeof _findInputMode !== 'undefined') ? _findInputMode : 'touch';
+                        var _modeLetter = (gt === 'C') ? (_cim === 'mouse' ? 'm' : 't') : (_fim === 'mouse' ? 'm' : 't');
+                        var _mt = gt + _modeLetter; // Fm / Ft / Cm / Ct
+                        // Start (player-names) page name: keyed by type x mode x
+                        // PLAYER OPTION only — dominoes are NOT in the name, so all
+                        // 2/3/4-domino looks of one player option share one name.
+                        // Format: "GP{m|t} {F|C}{player#} Start".
+                        // Digit = PLAYER COUNT (1/2/3). "+timer" (xeno) variants
+                        // share the count's name, like the domino looks do.
+                        var _po = (p || 1);
+                        window._gpApplyLabel(lbl2, 'setup2-' + _mt + _po, 'GP' + _modeLetter + ' ' + gt + _po + ' Start');
                         if (lbl1) lbl1.style.display = 'none';
                         lbl2.style.display = '';
                     });
                 });
-                // Persist page name labels to localStorage
+                // Persist page name labels to localStorage. The Setup labels are
+                // RECONSTRUCTED per game-type + input-mode at several points, which
+                // used to clobber admin edits. So those reconstruction points now
+                // call _gpApplyLabel(el, key, default): it restores the saved name
+                // for that key (or the default) and tags the element with the key.
+                // Edits then save under that key — so the name is shared across all
+                // games of the same type+mode, and survives.
                 var _pnKey = 'pageNameLabels_gp2';
-                var _saved = JSON.parse(localStorage.getItem(_pnKey) || '{}');
+                function _pnLoad() { try { return JSON.parse(localStorage.getItem(_pnKey) || '{}'); } catch (e) { return {}; } }
+                function _pnKeyOf(el) { return el.dataset.gpKey || el.id || el.textContent.trim().replace(/\s+/g, '_'); }
+                window._gpApplyLabel = function(el, key, defaultText) {
+                    if (!el) return;
+                    el.dataset.gpKey = key;
+                    var s = _pnLoad();
+                    var txt = (s[key] != null && s[key] !== '') ? s[key] : defaultText;
+                    // User rule: a mouse icon in a page name shows as 'M', a hand
+                    // icon as 'H' — applies to both saved edits and defaults.
+                    txt = String(txt).replace(/🖱/g, 'M').replace(/✋/g, 'H');
+                    el.textContent = txt;
+                };
+                // Labels whose value is owned by _gpApplyLabel (keyed per
+                // page × type × mode), NOT by their element id. The id-keyed
+                // apply below MUST skip them — otherwise it loads a stale legacy
+                // id-keyed value (e.g. "GP F23") that fights the per-page name
+                // and makes the Setup/Start/Board label flip back on navigation.
+                var _gpManagedIds = { 'setup-page-label': 1, 'setup2-page-label': 1, 'board-page-label': 1 };
+                // Apply saved names to the labels present now — id-keyed labels
+                // only (e.g. the Welcome label). Managed labels are restored by
+                // _gpApplyLabel each time their page is shown.
                 document.querySelectorAll('.page-name-label').forEach(function(el) {
-                    var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
-                    if (_saved[id]) el.textContent = _saved[id];
-                    function _saveLabel() {
-                        var labels = JSON.parse(localStorage.getItem(_pnKey) || '{}');
-                        labels[id] = el.textContent.trim();
-                        localStorage.setItem(_pnKey, JSON.stringify(labels));
-                    }
-                    el.addEventListener('blur', _saveLabel);
-                    el.addEventListener('input', _saveLabel);
+                    if (_gpManagedIds[el.id]) return;
+                    var s = _pnLoad(), k = _pnKeyOf(el);
+                    if (s[k] != null && s[k] !== '' && document.activeElement !== el) el.textContent = s[k];
                 });
+                // Describe a label's exact scope from its storage key, so the
+                // confirm names precisely what changes: which PAGE KIND (Setup /
+                // Start Game / Board), which TYPE (Find/Catch), which MODE
+                // (Mouse/Touch). A rename touches ONLY that one page of that one
+                // type+mode — never other pages, types, or modes.
+                function _gpDescribeKey(key) {
+                    key = String(key || '');
+                    var page = /^setup2/.test(key) ? 'Start'
+                             : /^setup/.test(key)  ? 'Setup'
+                             : /board/.test(key)   ? 'Board'
+                             : /welcome/.test(key) ? 'Welcome' : 'this';
+                    var type = (/find|F[mt]/.test(key))  ? 'Find'
+                             : (/catch|C[mt]/.test(key)) ? 'Catch' : '';
+                    var mode = (/mouse|[FC]m\d|catch-m/.test(key))  ? 'Mouse'
+                             : (/touch|[FC]t\d|catch-t/.test(key)) ? 'Touch' : '';
+                    return { page: page, type: type, mode: mode };
+                }
+                // Capture the value when editing STARTS, so Cancel can revert it.
+                document.addEventListener('focusin', function(e) {
+                    var el = e.target && e.target.closest ? e.target.closest('.page-name-label') : null;
+                    if (el && el._gpOrig == null) el._gpOrig = el.textContent;
+                }, true);
+                // Commit on BLUR (after typing is done — no focus-stealing mid-edit),
+                // and ONLY if the text actually changed. Ask with a precise-scope
+                // confirm so the user can say NO (Cancel = keep the old name). OK
+                // saves under the per-(page×type×mode) key, so it applies to that
+                // one page in all games of that single type+mode — nothing else.
+                function _pnCommitOnBlur(e) {
+                    var el = e.target && e.target.closest ? e.target.closest('.page-name-label') : null;
+                    if (!el) return;
+                    var orig = (el._gpOrig != null) ? String(el._gpOrig) : el.textContent;
+                    var newVal = el.textContent.trim();
+                    el._gpOrig = null; // reset for the next edit session
+                    if (newVal === String(orig).trim()) return; // unchanged → no prompt
+                    var d = _gpDescribeKey(el.dataset.gpKey || el.id);
+                    var scope = d.page + ' page'
+                              + (d.type ? ' of ' + d.type + ' games' : '')
+                              + (d.mode ? ' in ' + d.mode + ' mode' : '');
+                    var msg = 'Rename the ' + scope + '?\n\n'
+                            + 'This changes ONLY the ' + d.page + ' page'
+                            + (d.type ? ', only ' + d.type + ' games' : '')
+                            + (d.mode ? ', only ' + d.mode + ' mode' : '')
+                            + ' — no other pages, types, or modes.\n\n'
+                            + 'OK = apply     Cancel = keep the old name';
+                    if (window.confirm(msg)) {
+                        var labels = _pnLoad();
+                        labels[_pnKeyOf(el)] = newVal;
+                        try { localStorage.setItem(_pnKey, JSON.stringify(labels)); } catch (e2) {}
+                    } else {
+                        el.textContent = orig; // revert — user said No
+                    }
+                }
+                document.addEventListener('focusout', _pnCommitOnBlur, true);
             });
             // Override game board back button to go to GP Start (player names), not intro
             window.addEventListener('DOMContentLoaded', function() {
@@ -806,7 +892,9 @@
             host.style.display = 'none';
             var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
             var game = games[gameIndex];
-            if (!game || !Array.isArray(game.probOptions) || game.probOptions.length < 2) return;
+            // Show Probabilities whenever the game has at least ONE prob set
+            // (was 2+) — so a single-set game still shows it, in both game types.
+            if (!game || !Array.isArray(game.probOptions) || game.probOptions.length < 1) return;
 
             // Resolve the currently-selected Prob id (chip click sets
             // window._gpSelectedProbId; default to active/first).
@@ -825,20 +913,47 @@
             if (_col) _col.style.display = '';
             var heading = document.createElement('div');
             heading.className = 'player-prob-heading';
-            heading.textContent = 'Frequency';
-            heading.title = 'Frequency: pick how often each card turns up in this game. Each preset uses different card probabilities.';
+            heading.textContent = 'Probabilities';
+            // Left-align with the "Timer" h3 (overrides the parent
+            // .player-prob-select's text-align:center, which centered it).
+            heading.style.textAlign = 'left';
+            heading.title = 'Probabilities: pick how often each card turns up in this game. Each preset uses different card probabilities.';
+            // Catch has no timer above, so drop the prob-select's timer-pill
+            // clearance margin + the heading's -2pt nudge → the "Probabilities"
+            // title top-aligns with the "Level"/"Type" h3s in the other columns.
+            if (type === 'catch') {
+                host.style.marginTop = '0';
+                heading.style.top = '0';
+            } else {
+                host.style.marginTop = '';
+                heading.style.top = '';
+            }
             host.appendChild(heading);
 
             var row = document.createElement('div');
             row.className = 'player-prob-row';
+            // Drop the 4px left pad so the chips' LEFT lines up with the
+            // "Probabilities" title (not the timer pill).
+            row.style.paddingLeft = '0';
+            // Catch: match the Level/Type title→box gap (the h3's 20px
+            // margin-bottom) so the first prob chip top-aligns with the
+            // "Hard" / "Non-Stop Gaming" boxes (was 9pt, sitting higher).
+            if (type === 'catch') row.style.marginTop = '20px';
             game.probOptions.forEach(function(prob, i) {
                 if (!prob) return;
                 var chip = document.createElement('button');
                 chip.type = 'button';
                 var isSel = (prob.id === selId);
                 chip.className = 'player-prob-chip' + (isSel ? ' selected' : '');
-                chip.textContent = prob.name ? ('Prob' + (i + 1) + ' · ' + prob.name) : ('Prob' + (i + 1));
-                chip.title = 'Frequency preset' + (prob.name ? ' “' + prob.name + '”' : (' ' + (i + 1))) + ': changes how often each card appears in the deck. Pick one before you start.';
+                // Widen each chip to the full column width so its left/right
+                // edges match the "Probabilities" title above (the column
+                // shrink-wraps to that title). Overrides the CSS width:65%.
+                chip.style.width = '100%';
+                chip.style.boxSizing = 'border-box';
+                // Named Prob → "N. Name" (list number + the custom name).
+                // Unnamed Prob → default "ProbN".
+                chip.textContent = prob.name ? ((i + 1) + '. ' + prob.name) : ('Prob' + (i + 1));
+                chip.title = 'Probability preset' + (prob.name ? ' “' + prob.name + '”' : (' ' + (i + 1))) + ': changes how often each card appears in the deck. Pick one before you start.';
                 chip.addEventListener('click', function() {
                     if (prob.id === window._gpSelectedProbId) return;
                     window._gpSelectedProbId = prob.id;
@@ -1846,7 +1961,7 @@
             var _setupLeft = document.querySelector('.setup-left');
             if (_setupLeft) {
                 var _cyg = _setupLeft.querySelector('h3');
-                if (_cyg) _cyg.textContent = 'Choose your game:';
+                if (_cyg) _cyg.textContent = 'Level';
             }
             document.querySelectorAll('.level-label').forEach(function(lbl) {
                 lbl.textContent = lbl.textContent.replace('bubbles', 'dominos');
@@ -1873,7 +1988,7 @@
                 if (_origSetupLabels) return;
                 _origSetupLabels = {
                     h3Players: 'How many players?',
-                    h3Level:   'Choose your game:',
+                    h3Level:   'Level',
                     playerBtns: [], // parallel to DOM order
                     levelLabels: []
                 };
@@ -2002,9 +2117,9 @@
                 h3p.style.display = _pAx ? '' : 'none';
             }
             if (h3l && conf.levels) {
-                var _lAx = (typeof conf.levels.axisLabel === 'string') ? conf.levels.axisLabel : '';
-                h3l.textContent = _lAx;
-                h3l.style.display = _lAx ? '' : 'none';
+                // Fixed column title — always "Level" (ignores the game's axisLabel).
+                h3l.textContent = 'Level';
+                h3l.style.display = '';
             }
             // Player options — buttons are in DOM order matching matrix slots 0..2
             if (conf.players && Array.isArray(conf.players.options)) {
@@ -2422,8 +2537,10 @@
             // Settings → empty heading on the player screen.
             if (rightCol) rightCol.style.display = '';
             var _tAx = (conf.types && typeof conf.types.axisLabel === 'string') ? conf.types.axisLabel : '';
-            rightH3.style.display = _tAx ? '' : 'none';
-            rightH3.textContent = _tAx;
+            // Fixed column title — always "Type" (ignores the game's axisLabel).
+            // The single-type case below still hides it.
+            rightH3.style.display = '';
+            rightH3.textContent = 'Type';
             dominoStyleEl.style.display = 'none';
             rightTypes.style.display = '';
             _stashTypeChoice(enabled[0]);
@@ -2526,7 +2643,13 @@
                 // Prefix a mode glyph so the developer/QA sees at a glance
                 // which input mode the current setup represents (✋ touch,
                 // 🖱 mouse). Plain GPt/GPm prefix kept for the text label.
-                if (_spl) _spl.textContent = _catchInputMode === 'mouse' ? '🖱 GPm Cm Setup' : '✋ GPt Ct Setup';
+                if (_spl) window._gpApplyLabel(_spl, _catchInputMode === 'mouse' ? 'setup-catch-mouse' : 'setup-catch-touch', _catchInputMode === 'mouse' ? 'GPm C Setup' : 'GPt C Setup');
+                // Entering a catch setup ALWAYS starts on the Setup page: show it and
+                // hide any stale Start (setup2) label a previous game left visible —
+                // otherwise e.g. a leftover "GPm F1 Start" shows over this catch game.
+                if (_spl) _spl.style.display = '';
+                var _s2lCatch = document.getElementById('setup2-page-label');
+                if (_s2lCatch) _s2lCatch.style.display = 'none';
 
                 // For MOUSE mode: show single-player icon+name setup directly (no "How many players?")
                 if (_catchInputMode === 'mouse') {
@@ -2538,12 +2661,16 @@
                         _playerSelect.style.display = 'none';
                     }
 
-                    // Change "Choose your game:" to "The Level of Difficulty:"
+                    // Level column title is always "Level".
                     var _setupLeft = document.querySelector('.setup-left');
                     if (_setupLeft) {
                         var _cyg = _setupLeft.querySelector('h3');
-                        if (_cyg) _cyg.textContent = 'The Level of Difficulty:';
+                        if (_cyg) _cyg.textContent = 'Level';
                     }
+                }
+                // ↑ end MOUSE-only. ↓ runs for BOTH catch modes: catch ALWAYS
+                // uses bubble level icons (touch was wrongly keeping dominoes).
+                {
                     // Change level labels: "2 dominos" → "2 bubbles", etc.
                     var _levelLabels = document.querySelectorAll('.level-label');
                     _levelLabels.forEach(function(lbl) {
@@ -2593,7 +2720,12 @@
                         }
                     });
                     _fillCatchLevelBubbles(catchGame);
-
+                    // Now that the level bubbles are filled, refresh the player-box
+                    // icon so it clones the FILLED Medium bubble (with pictures).
+                    if (typeof _syncSetupGameIcon === 'function') _syncSetupGameIcon();
+                }
+                // ↓ MOUSE-only again: single-player inline icon + name setup.
+                if (_catchInputMode === 'mouse') {
                     // Show player-names section with single player setup
                     var playerNamesDiv = document.getElementById('player-names');
                     playerNamesDiv.style.display = 'block';
@@ -2641,7 +2773,12 @@
             document.getElementById('start-screen').style.display = 'flex';
             var _spl = document.getElementById('setup-page-label');
             // Mode glyph prefix (✋ touch / 🖱 mouse) for at-a-glance clarity.
-            if (_spl) _spl.textContent = (_findInputMode === 'mouse') ? '🖱 GPm F Setup' : '✋ GPt F Setup';
+            if (_spl) window._gpApplyLabel(_spl, (_findInputMode === 'mouse') ? 'setup-find-mouse' : 'setup-find-touch', (_findInputMode === 'mouse') ? 'GPm F Setup' : 'GPt F Setup');
+            // Start on the Setup page: show it and hide any stale Start (setup2)
+            // label a previous game left visible (e.g. a leftover "GPt C2 Start").
+            if (_spl) _spl.style.display = '';
+            var _s2lFind = document.getElementById('setup2-page-label');
+            if (_s2lFind) _s2lFind.style.display = 'none';
             clearCustomGame();
             activeCustomGameIndex = -1;
             if (selectedIntroGame && selectedIntroGame.indexOf('custom-') === 0) {
@@ -3383,9 +3520,196 @@
         //   - updateLevelDominoIcons (after creator's cards re-render).
         //   - initGameLevelSelector (game.js) on every level click.
         //   - one-time DOMContentLoaded fallback (initial paint).
+        // Make every id in a cloned svg unique (suffix) + rewrite url(#id)
+        // references, so a clone's gradients/clip-paths are self-contained and
+        // never collide with the original it was cloned from.
+        var _pbIdSeq = 0;
+        function _pbUniqueIds(svg) {
+            _pbIdSeq++;
+            var map = {};
+            svg.querySelectorAll('[id]').forEach(function(el) {
+                var oid = el.getAttribute('id'); var nid = oid + '_pb' + _pbIdSeq;
+                el.setAttribute('id', nid); map[oid] = nid;
+            });
+            var keys = Object.keys(map);
+            if (!keys.length) return;
+            svg.querySelectorAll('*').forEach(function(el) {
+                for (var i = 0; i < el.attributes.length; i++) {
+                    var a = el.attributes[i];
+                    if (a.value && a.value.indexOf('url(#') !== -1) {
+                        keys.forEach(function(oid) {
+                            a.value = a.value.split('url(#' + oid + ')').join('url(#' + map[oid] + ')');
+                        });
+                    }
+                }
+            });
+        }
+        // ===== Start-page options summary (the box above the player box) =====
+        // On the Start (player-names) page, fill the UPPER box (Box 1, via
+        // #selected-options-row) with a read-only summary of the options that
+        // are ON — read from the DOM's currently-selected setup controls. The
+        // lower player box keeps its own game icon (#setup-game-icon). The
+        // summary replaces the "N dominos" level chip that game.js would
+        // otherwise drop into Box 1.
+        function _renderStartSummary() {
+            var box1 = document.querySelector('.setup-box-1');
+            if (!box1) return;
+            var box = document.getElementById('selected-options-row');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'selected-options-row';
+                box.className = 'selected-options-row';
+                box1.appendChild(box);
+            } else if (box.parentElement !== box1) {
+                box1.appendChild(box);
+            }
+            function pick(sel, sub) {
+                var e = document.querySelector(sel); if (!e) return '';
+                if (sub) { var s = e.querySelector(sub); return s ? s.textContent.trim() : ''; }
+                return e.textContent.trim();
+            }
+            var tog = document.getElementById('setup-timer-toggle');
+            var tState = (tog && tog.getAttribute('data-state') === 'on') ? 'on' : 'off';
+            var probTxt  = pick('#start-screen .player-prob-chip.selected')
+                        || pick('#start-screen .player-prob-chip') || '—';
+            // The level label is a SIBLING of the .level-btn inside the
+            // .level-btn-wrapper, so reach up to the wrapper before reading it.
+            var levelTxt = '';
+            var _lvlBtn = document.querySelector('#start-screen .level-btn.selected')
+                       || document.querySelector('#start-screen .level-btn');
+            if (_lvlBtn) {
+                var _lvlWrap = _lvlBtn.closest('.level-btn-wrapper');
+                var _lvlLab = _lvlWrap && _lvlWrap.querySelector('.level-label');
+                var _lvlDesc = (_lvlLab ? _lvlLab.textContent.trim() : '') || (_lvlBtn.getAttribute('title') || '');
+                // Difficulty name from the level shape: circle=Easy,
+                // triangle=Medium, star=Hard (the code calls triangle the
+                // "Medium" bubble). Prepend it to the "N dominos"/"N bubbles"
+                // descriptor → e.g. "Easy 2 dominos".
+                var _lvlKey = _lvlBtn.getAttribute('data-level');
+                var _diff = _lvlKey === 'circle' ? 'Easy' : _lvlKey === 'triangle' ? 'Medium' : _lvlKey === 'star' ? 'Hard' : '';
+                levelTxt = (_diff ? (_diff + (_lvlDesc ? ' ' + _lvlDesc : '')) : _lvlDesc);
+            }
+            if (!levelTxt) levelTxt = '—';
+            var typeTxt  = pick('#start-screen .setup-type-line.selected');
+            if (!typeTxt) {
+                var beh = window._currentTypeBehavior;
+                typeTxt = (beh === 'nonstop') ? 'Non-Stop' : (beh === 'manual') ? 'Manual' : '—';
+            }
+            // Timer → just the word "on"/"off" (no toggle picture).
+            var toggleHTML = '<span style="color:#fff;font-size:13px;">' + tState + '</span>';
+            // Probability → just the preset name (no chip box).
+            var probHTML = '<span style="color:#fff;font-size:13px;">' + probTxt + '</span>';
+            var rows = [['Timer', toggleHTML], ['Probability', probHTML], ['Level', levelTxt], ['Type', typeTxt]];
+            var html = '<div id="start-summary-inner" style="display:flex;flex-direction:column;gap:9px;padding:10px 14px;text-align:left;box-sizing:border-box;">';
+            rows.forEach(function(r) {
+                html += '<div style="display:flex;align-items:center;gap:14px;">' +
+                        '<span style="min-width:104px;color:#fff;font-weight:bold;font-size:14px;">' + r[0] + '</span>' +
+                        '<span style="display:inline-flex;align-items:center;color:#fff;font-size:13px;">' + r[1] + '</span></div>';
+            });
+            html += '</div>';
+            box.style.display = 'block';
+            box.style.width = '100%';
+            box.style.boxSizing = 'border-box';
+            box.style.textAlign = 'left';
+            box.innerHTML = html;
+            // Two contexts for this chart:
+            //  • SETUP page (e.g. GPm C Setup, where the Level buttons are
+            //    still visible): draw the rectangle and pin its RIGHT edge to
+            //    the right edge of the Level buttons (left edge stays put).
+            //  • START page (GP… Start, Level buttons hidden): no rectangle,
+            //    full natural width.
+            var inner = document.getElementById('start-summary-inner');
+            var lvlSel = document.querySelector('#start-screen .game-level-select');
+            var lvlOnPage = !!(lvlSel && lvlSel.getClientRects().length
+                               && getComputedStyle(lvlSel).display !== 'none');
+            if (inner) {
+                if (lvlOnPage) {
+                    inner.style.border = '1px solid rgba(255,255,255,0.55)';
+                    inner.style.borderRadius = '10px';
+                    // Right edge = rightmost Level button's right edge. The
+                    // visible button is the .level-btn-wrapper (it carries the
+                    // rounded background); the inner .level-btn is just the
+                    // icon, so measure the wrapper.
+                    var btns = document.querySelectorAll('#start-screen .game-level-select .level-btn-wrapper');
+                    var lvlRight = 0;
+                    btns.forEach(function(b) { var r = b.getBoundingClientRect(); if (r.right > lvlRight) lvlRight = r.right; });
+                    var innerLeft = inner.getBoundingClientRect().left;
+                    var w = Math.round(lvlRight - innerLeft);
+                    if (lvlRight && w > 120) inner.style.width = w + 'px';
+                    else inner.style.width = '';
+                } else {
+                    inner.style.border = 'none';
+                    inner.style.borderRadius = '0';
+                    inner.style.width = '';
+                }
+            }
+        }
+        // One observer covers every Start-page show-point (find/catch, mouse/
+        // touch, all player options). The lower player box always shows the
+        // game icon; when the Start page is visible, the upper box (Box 1)
+        // also shows the options summary.
+        (function _wireStartSummary() {
+            function init() {
+                var pn = document.getElementById('player-names');
+                if (!pn) return;
+                var apply = function() {
+                    try { if (typeof _syncSetupGameIcon === 'function') _syncSetupGameIcon(); } catch (e) {}
+                    if (pn.style.display !== 'none') {
+                        try { _renderStartSummary(); } catch (e) {}
+                    } else {
+                        var r = document.getElementById('selected-options-row');
+                        if (r) r.style.display = 'none';
+                    }
+                };
+                // (1) Player-names show/hide → render or hide the summary.
+                new MutationObserver(apply).observe(pn, { attributes: true, attributeFilter: ['style'] });
+
+                // (2) Re-assert the summary whenever game.js (re)builds the
+                // #selected-options-row level chip. The style observer above
+                // MISSES this when player-names is ALREADY visible (revisiting
+                // a Start page, or a rebuild that doesn't toggle display) — no
+                // style mutation fires, so the chart silently reverts to the
+                // "N dominos" chip. Watching Box 1's child list catches every
+                // rebuild. Guarded by #start-summary-inner so our own write
+                // (which replaces the chip) never loops.
+                var box1 = document.querySelector('.setup-box-1');
+                if (box1) {
+                    new MutationObserver(function() {
+                        if (pn.style.display === 'none') return;
+                        var row = document.getElementById('selected-options-row');
+                        if (!row || row.querySelector('#start-summary-inner')) return;
+                        try { _renderStartSummary(); } catch (e) {}
+                    }).observe(box1, { childList: true, subtree: true });
+                }
+                apply();
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+            else init();
+        })();
         function _syncSetupGameIcon() {
             var iconHost = document.getElementById('setup-game-icon');
             if (!iconHost) return;
+            // CATCH: the player-box icon is the FILLED Medium (triangle) bubble
+            // cluster — 1 big + 3 small bubbles WITH the game's pictures — cloned
+            // and scaled up (never dominoes). Uniquify the clone's ids so its
+            // gradients/clip-paths don't collide with the level button it came
+            // from. Swap only the icon svg (keeps other children, e.g. hourglass).
+            if (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0) {
+                var _mBtn = document.querySelector('#start-screen .level-btn[data-level="triangle"]');
+                var _mSvg = _mBtn ? _mBtn.querySelector('svg') : null;
+                if (_mSvg) {
+                    var _pbClone = _mSvg.cloneNode(true);
+                    _pbUniqueIds(_pbClone);
+                    _pbClone.classList.remove('level-dominos-svg');
+                    _pbClone.classList.add('setup-game-icon-svg');
+                    _pbClone.setAttribute('width', '110');
+                    _pbClone.setAttribute('height', '88');
+                    var _pbOld = iconHost.querySelector('svg.setup-game-icon-svg');
+                    if (_pbOld) iconHost.replaceChild(_pbClone, _pbOld);
+                    else iconHost.insertBefore(_pbClone, iconHost.firstChild);
+                }
+                return;
+            }
             var selectedBtn = document.querySelector('#start-screen .level-btn.selected');
             var srcBtn = selectedBtn || document.querySelector('.level-btn[data-level="triangle"]');
             var srcSvg = srcBtn ? srcBtn.querySelector('.level-dominos-svg') : null;
@@ -3679,7 +4003,8 @@
             backBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             backBtn.onclick = function() {
                 var savedIdx = _catchGame ? _catchGame.catchIndex : -1;
-                var savedMode = _catchGame ? _catchGame.inputMode : 'touch';
+                // _catchGame.inputMode is never set — use the reliable global.
+                var savedMode = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
                 _catchCleanup();
                 // Restore catch game index so Start Game launches catch again
                 _pendingCatchGameIndex = savedIdx;
@@ -3689,7 +4014,7 @@
                 var _s2l = document.getElementById('setup2-page-label');
                 if (savedMode === 'mouse') {
                     // Mouse mode: go back to GPm Cm Setup (single-player setup page)
-                    if (_spl) { _spl.style.display = ''; _spl.textContent = '🖱 GPm Cm Setup'; }
+                    if (_spl) { _spl.style.display = ''; window._gpApplyLabel(_spl, 'setup-catch-mouse', 'GPm C Setup'); }
                     if (_s2l) _s2l.style.display = 'none';
                 } else {
                     // Touch mode: go back to GP Cnm player names page
@@ -3730,13 +4055,23 @@
             var selPlayer = document.querySelector('.player-btn.selected');
             if (selPlayer) {
                 var pp = parseInt(selPlayer.getAttribute('data-players'), 10);
-                var xx = selPlayer.getAttribute('data-xeno') === 'true';
-                _p = (pp === 1 && xx) ? '1' : (pp === 2 && !xx) ? '2' : '3';
+                // Digit = PLAYER COUNT (1/2/3); "+timer" variants share the name.
+                _p = String(pp || 1);
             }
             var pageLbl = document.createElement('div');
             pageLbl.className = 'page-name-label catch-overlay-label';
-            var _modePrefix = (_catchGame && _catchGame.inputMode === 'mouse') ? 'GPm' : 'GPt';
-            pageLbl.textContent = _modePrefix + ' C' + _d + _p + ' Board';
+            // Make it editable like the static page-name labels (the delegated
+            // save + _gpApplyLabel key already handle persistence).
+            pageLbl.setAttribute('contenteditable', 'true');
+            pageLbl.setAttribute('spellcheck', 'false');
+            // Use the GLOBAL _catchInputMode (the reliable mouse/touch tracker the
+            // setup pages use). _catchGame.inputMode was never assigned — always
+            // undefined — so it forced both modes to 'GPt'/'t', leaking the name.
+            var _cbMouse = (typeof _catchInputMode !== 'undefined') && _catchInputMode === 'mouse';
+            var _modePrefix = _cbMouse ? 'GPm' : 'GPt';
+            // Board name keyed by type x mode x PLAYER OPTION (_p) only — dominoes
+            // (_d) are not in the name; all domino looks share one board name.
+            window._gpApplyLabel(pageLbl, 'board-catch-' + (_cbMouse ? 'm' : 't') + _p, _modePrefix + ' C' + _p + ' Board');
             overlay.appendChild(pageLbl);
 
             var hud = document.createElement('div');
@@ -4806,7 +5141,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=level-icon-sync-2"></script>
+    <script src="js/game.js?v=page-name-persist-4"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

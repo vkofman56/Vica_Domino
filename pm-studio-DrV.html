@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Always fetch the current page — a cached older copy of this HTML was
+         hiding newly-added features (e.g. the game-view column titles) until a
+         manual hard refresh. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MathGrain Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=prob-chip-align-3">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-1">
     <style>
         /* M-mode selection ring. White on the purple page background reads
            clearly and is visually distinct from any of the M-group palette
@@ -158,50 +164,82 @@
            "red" / "green" without the dot button. Shared .gv-zone layout,
            so it applies to both Find and Catch. */
         .gv-zones-grid .library-row.gv-zone[data-row-zone="red"] {
-            box-shadow: inset 2px 0 0 0 rgba(255,255,255,0.18),   /* outer-left: faint white */
-                        inset -2px 0 0 0 rgba(255,110,110,0.85);     /* inner-right: red, 2px thick */
+            box-shadow: inset 2px 0 0 0 rgba(255,110,110,0.85),    /* left spine: red */
+                        inset -2px 0 0 0 rgba(255,110,110,0.85);   /* right spine: red */
         }
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"] {
-            box-shadow: inset 2px 0 0 0 rgba(60,200,90,0.9),
-                        inset -2px 0 0 0 rgba(255,255,255,0.18);
+            box-shadow: inset 2px 0 0 0 rgba(60,200,90,0.9),       /* left spine: green */
+                        inset -2px 0 0 0 rgba(60,200,90,0.9);      /* right spine: green */
         }
-        /* Directional brackets on the inner colored lines: the red line
-           becomes a "]" (top + bottom prongs point LEFT, into the red/left
-           column) and the green line becomes a "[" (prongs point RIGHT,
-           into the green/right column) — hinting red→left, green→right.
-           Drawn as ::before (top prong) / ::after (bottom prong). */
+        /* Full bracket on BOTH sides of each zone: red zone "[ ]" in red,
+           green zone "[ ]" in green. The vertical spines are the box-shadow
+           insets above; the top/bottom prongs are ::before (top pair) and
+           ::after (bottom pair). Each pseudo spans the FULL width and uses a
+           gradient that paints an 8px prong at EACH end (transparent middle),
+           so two pseudo-elements draw all four corner prongs. */
         .gv-zones-grid .library-row.gv-zone[data-row-zone="red"],
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"] {
             position: relative;
         }
         .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::before,
-        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::after {
-            content: '';
-            display: block;      /* override .library-row[data-row-letter]::before { display:none } */
-            position: absolute;
-            right: 0;            /* anchored to the red line (right edge) */
-            width: 8px;          /* prong reaches LEFT into the red column */
-            height: 2px;         /* red prong thickness */
-            background: rgba(255,110,110,0.85);
-            pointer-events: none;
-            z-index: 5;          /* sit above cards so the TOP prong shows too */
-        }
-        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::before { top: 0; }
-        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::after  { bottom: 0; }
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::after,
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::before,
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::after {
             content: '';
             display: block;      /* override .library-row[data-row-letter]::before { display:none } */
             position: absolute;
-            left: 0;             /* anchored to the green line (left edge) */
-            width: 8px;          /* prong reaches RIGHT into the green column */
+            left: 0;
+            right: 0;
             height: 2px;
-            background: rgba(60,200,90,0.9);
             pointer-events: none;
             z-index: 5;          /* sit above cards so the TOP prong shows too */
         }
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::before,
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::after {
+            background: linear-gradient(to right,
+                rgba(255,110,110,0.85) 0, rgba(255,110,110,0.85) 8px,
+                transparent 8px, transparent calc(100% - 8px),
+                rgba(255,110,110,0.85) calc(100% - 8px), rgba(255,110,110,0.85) 100%);
+        }
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::before,
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::after {
+            background: linear-gradient(to right,
+                rgba(60,200,90,0.9) 0, rgba(60,200,90,0.9) 8px,
+                transparent 8px, transparent calc(100% - 8px),
+                rgba(60,200,90,0.9) calc(100% - 8px), rgba(60,200,90,0.9) 100%);
+        }
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::before,
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::before { top: 0; }
+        .gv-zones-grid .library-row.gv-zone[data-row-zone="red"]::after,
         .gv-zones-grid .library-row.gv-zone[data-row-zone="green"]::after  { bottom: 0; }
+        /* Group underline: the colored bar under cards that share a probability
+           group, inset 4px on each side so it's SHORTER than the card width.
+           A transparent 6px bottom border (set inline) holds the space; this
+           ::after draws the colored bar within it. */
+        .gv-grp-line::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            right: 4px;
+            bottom: -6px;
+            height: 6px;
+            background: var(--gv-grp-color, #888);
+            pointer-events: none;
+            z-index: 4;
+        }
+        /* Column headers (Find game view): "top cards" / "bottom cards" above
+           the red / green columns, colored to match the zone brackets. */
+        .gv-zones-grid .gv-col-header {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(200,200,210,0.6);   /* grayish — all three titles */
+            line-height: 1.15;
+            padding: 0 4px 4px;
+            align-self: end;
+            white-space: nowrap;
+            user-select: none;
+        }
         /* Horizontal separator: a full-width grid item that draws a hairline
            between letter rows. */
         .gv-zones-grid .gv-row-sep {
@@ -430,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -448,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -690,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:23 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:32 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -746,7 +784,7 @@
                 <button class="zoom-btn" id="game-view-mpp-btn" onclick="openMppForCurrentView()" title="IC (Icons' Creator): choose which icon images appear on the game start page bubbles.">IC</button>
                 <button class="zoom-btn" id="game-view-add-card-btn" onclick="openAddCardToGame()" title="Add cards: pick cards from your card sets to add to this game." style="font-size:20px;color:#7eff7e;">+</button>
                 <button class="zoom-btn" id="game-view-add-row-btn" onclick="addEmptyGameRow()" title="Add an empty row to this game. You choose the row letter; you can then drag cards into the new row." style="font-size:13px;color:#7eff7e;font-weight:bold;">+Row</button>
-                <button class="zoom-btn" id="game-view-mcard-btn" onclick="toggleMCardMode()" title="Probability mode: select 2+ cards and press Group to give them a shared probability — they show a 'p1', 'p2'… badge. OR select 1 card and press Edit to set just that card's name / probability — it shows a small 'p' badge. To UNGROUP / CLEAR: click the colored badge on any card (works without entering this mode), or in this mode click any badged card to reveal the Ungroup / Clear button." style="opacity:0.4;font-weight:bold;">p</button>
+                <button class="zoom-btn" id="game-view-mcard-btn" onclick="toggleMCardMode()" title="Probability mode: select 2+ cards and press Group to give them a shared probability — they show a 'p1', 'p2'… badge. OR select 1 card and press Edit to set just that card's name / probability — it shows a small 'p' badge. To UNGROUP / CLEAR: click the colored badge on any card (works without entering this mode), or in this mode click any badged card to reveal the Ungroup / Clear button." style="opacity:0.4;font-weight:bold;"><span style="display:inline-flex;align-items:center;justify-content:center;gap:1px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto;position:relative;left:-2px;"></span><span style="position:relative;top:-2px;">p</span></span></button>
                 <button class="zoom-btn" id="game-view-collapse-btn" onclick="toggleCollapsedView()" title="Collapsed view: M-groups are sets of cards grouped as one multi-face card (created with the M button). This button hides the extra faces, showing only one card per group. Click again to show all cards." style="opacity:0.4;font-size:12px;">1/M</button>
                 <button class="zoom-btn" id="game-view-shape-btn" onclick="toggleGameShapePopup()" title="Card shape: change the shape (square, circle, rectangle) and picture scale for all cards in this game. Does not affect the original cards in Card Maker."><svg viewBox="0 0 24 24" width="18" height="18"><rect x="1" y="1" width="9" height="9" rx="1.2" fill="currentColor"/><circle cx="18" cy="18" r="5.5" fill="currentColor"/></svg></button>
             </div>
@@ -1367,7 +1405,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=unload-warning-1"></script>
+    <script src="js/sync.js?v=local-wins-1"></script>
 
     <script>
         /* ---- Backup / Restore ---- */
@@ -1566,22 +1604,60 @@
             }
             updateSyncUserBtn();
         })();
-        // Persist page name labels to localStorage
-        window.addEventListener('DOMContentLoaded', function() {
+        // Persist page name labels to localStorage — ROBUST against screen
+        // rebuilds. Per-element listeners broke when a screen re-rendered its
+        // label (the new element had no listener, so edits silently dropped and
+        // the old name "came back"). So: (1) DELEGATED save on document covers
+        // any .page-name-label, even a freshly rebuilt one; (2) a MutationObserver
+        // re-applies the saved name whenever a label is (re)inserted, so a
+        // rebuilt screen shows the saved name instead of the HTML default.
+        // a-game-view-label is excluded — it's persisted PER game type by
+        // openGameView / openCatchGameView (_gvApplyPageName / _gvSavePageName).
+        (function() {
             var _pnKey = 'pageNameLabels_admin';
-            var _saved = JSON.parse(localStorage.getItem(_pnKey) || '{}');
-            document.querySelectorAll('.page-name-label').forEach(function(el) {
-                var id = el.id || el.textContent.trim().replace(/\s+/g, '_');
-                if (_saved[id]) el.textContent = _saved[id];
-                function _saveLabel() {
-                    var labels = JSON.parse(localStorage.getItem(_pnKey) || '{}');
-                    labels[id] = el.textContent.trim();
-                    localStorage.setItem(_pnKey, JSON.stringify(labels));
-                }
-                el.addEventListener('blur', _saveLabel);
-                el.addEventListener('input', _saveLabel);
-            });
-        });
+            function _pnLoad() { try { return JSON.parse(localStorage.getItem(_pnKey) || '{}'); } catch (e) { return {}; } }
+            function _pnManaged(el) { return el && el.classList && el.classList.contains('page-name-label') && el.id !== 'a-game-view-label'; }
+            function _pnIdOf(el) { return el.id || el.textContent.trim().replace(/\s+/g, '_'); }
+            function _pnApply(el) {
+                if (!_pnManaged(el) || document.activeElement === el) return;
+                var s = _pnLoad(), id = _pnIdOf(el);
+                if (s[id] != null && s[id] !== '') el.textContent = s[id];
+            }
+            function _pnSave(el) {
+                if (!_pnManaged(el)) return;
+                var labels = _pnLoad();
+                labels[_pnIdOf(el)] = el.textContent.trim();
+                try { localStorage.setItem(_pnKey, JSON.stringify(labels)); } catch (e) {}
+            }
+            function _pnApplyAll() { document.querySelectorAll('.page-name-label').forEach(_pnApply); }
+            function _pnInit() {
+                _pnApplyAll();
+                // Delegated save (capture phase so it fires even if something
+                // stops propagation): any edit to any page-name-label persists.
+                document.addEventListener('input', function(e) {
+                    var el = e.target && e.target.closest ? e.target.closest('.page-name-label') : null;
+                    if (el) _pnSave(el);
+                }, true);
+                document.addEventListener('focusout', function(e) {
+                    var el = e.target && e.target.closest ? e.target.closest('.page-name-label') : null;
+                    if (el) _pnSave(el);
+                }, true);
+                // Re-apply saved names to labels that get (re)inserted by a rebuild.
+                try {
+                    new MutationObserver(function(muts) {
+                        muts.forEach(function(m) {
+                            (m.addedNodes || []).forEach(function(n) {
+                                if (n.nodeType !== 1) return;
+                                if (n.classList && n.classList.contains('page-name-label')) _pnApply(n);
+                                if (n.querySelectorAll) n.querySelectorAll('.page-name-label').forEach(_pnApply);
+                            });
+                        });
+                    }).observe(document.body, { childList: true, subtree: true });
+                } catch (e) {}
+            }
+            if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', _pnInit);
+            else _pnInit();
+        })();
     </script>
 
     <script>
@@ -3138,7 +3214,7 @@
                     var letter = row.dataset.rowLetter;
                     if (!letter) {
                         var firstLabel = row.querySelector('.library-label');
-                        if (firstLabel) letter = firstLabel.textContent.charAt(0).toUpperCase();
+                        if (firstLabel) letter = _rowKeyParse(firstLabel.textContent);
                     }
                     if (letter) usedLetters.push(letter);
                 });
@@ -3193,7 +3269,7 @@
                 if (!letter) {
                     var firstLabel = row.querySelector('.library-label');
                     if (!firstLabel) return;
-                    letter = firstLabel.textContent.charAt(0).toUpperCase();
+                    letter = _rowKeyParse(firstLabel.textContent);
                 }
                 usedLetters.push(letter);
                 // Create letter label on the left of the row
@@ -3245,10 +3321,139 @@
             if (ngr) ngr.parentNode.removeChild(ngr);
         }
 
+        // === Row-key scheme (overflow past Z) ==============================
+        // Rows are keyed A..Z, then aA..aZ, bA..bZ, … zZ. The lowercase prefix
+        // marks an "overflow block" past the first 26 rows. Capacity = 26 +
+        // 26*26 = 702 rows. Plain string comparison already orders these keys
+        // correctly (every single uppercase key < any two-char key, because
+        // 'A'..'Z' = 65..90 < 'a'..'z' = 97..122; within a block, natural
+        // order), so the sorting code just needs its toUpperCase() removed —
+        // stepping and parsing live here. Backward-compatible: for a plain
+        // A..Z key these behave exactly like the old single-letter logic.
+        function _rowKeyParse(label) {
+            var m = String(label == null ? '' : label).match(/^([a-z]?[A-Z])/);
+            return m ? m[1] : '';
+        }
+        function _rowKeyNext(key) {
+            if (!key) return 'A';
+            if (key.length === 1) {
+                return key < 'Z' ? String.fromCharCode(key.charCodeAt(0) + 1) : 'aA';
+            }
+            var p = key.charAt(0), s = key.charAt(1);
+            if (s < 'Z') return p + String.fromCharCode(s.charCodeAt(0) + 1);
+            if (p < 'z') return String.fromCharCode(p.charCodeAt(0) + 1) + 'A';
+            return null; // 'zZ' is the last possible row
+        }
+        // Numeric part of a label, AFTER its row key. 'aB3' → 3, 'C12' → 12.
+        // (Old code used label.substring(1), which assumed a 1-char key.)
+        function _labelNum(label) {
+            var k = _rowKeyParse(label);
+            var n = parseInt(String(label == null ? '' : label).slice(k.length), 10);
+            return isNaN(n) ? 0 : n;
+        }
+
+        // One-time REPAIR: rebuild a set's row labels from each card's DRAWN
+        // letter (its SVG <text> marker), the ground truth. Fixes corruption
+        // where stored labels drifted out of sync with the art (from earlier
+        // shift/merge bugs). Groups cards by the uppercased drawn letter, sorts
+        // uppercase-before-lowercase within each row, relabels `rowKey + N`.
+        // stableIds are left untouched (game wiring preserved). Cards with no
+        // readable text fall back to their current label's row. Returns a
+        // summary; caller reloads/rebuilds to see it. Exposed on window so it
+        // can be run from the console: repairRowsFromArt('ABC').
+        function repairRowsFromArt(setName) {
+            var key = (typeof _getSetStorageKey === 'function')
+                ? _getSetStorageKey(setName) : ('customDrawnCards_' + setName);
+            var arr;
+            try { arr = JSON.parse(localStorage.getItem(key) || '[]'); }
+            catch (e) { return { error: 'cannot read ' + key }; }
+            if (!Array.isArray(arr) || !arr.length) return { error: 'no cards in ' + setName };
+            function artLetter(c) {
+                var m = String(c.svgContent || '').match(/<text[^>]*>([^<]*)<\/text>/i);
+                return m ? m[1].trim() : '';
+            }
+            var noArt = 0;
+            arr.forEach(function(c) {
+                var t = artLetter(c);
+                if (t) { c.__art = t; c.__row = t.charAt(0).toUpperCase(); }
+                else { noArt++; c.__art = c.label || ''; c.__row = _rowKeyParse(c.label) || 'Z'; }
+            });
+            var groups = {};
+            arr.forEach(function(c) { (groups[c.__row] = groups[c.__row] || []).push(c); });
+            var changed = 0;
+            Object.keys(groups).forEach(function(row) {
+                groups[row].sort(function(a, b) { return a.__art < b.__art ? -1 : a.__art > b.__art ? 1 : 0; });
+                groups[row].forEach(function(c, i) {
+                    var nl = row + (i + 1);
+                    if (c.label !== nl) changed++;
+                    c.label = nl;
+                });
+            });
+            arr.forEach(function(c) { delete c.__art; delete c.__row; });
+            localStorage.setItem(key, JSON.stringify(arr));
+            // CRITICAL: force the on-screen rows to rebuild from the repaired
+            // storage. Otherwise the stale (corrupted) DOM stays, and the
+            // beforeunload→saveVariations save clobbers this fix on the next
+            // reload (that's why an earlier OK "did nothing" and the fix
+            // vanished). Only rebuild when this set is the one on screen.
+            try {
+                var activeName = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : activeCardSet;
+                if (activeName === setName || activeCardSet === setName) {
+                    if (typeof isCustomCardSet === 'function' && isCustomCardSet(setName)) {
+                        var cc = document.getElementById('card-set-custom'); if (cc) cc.innerHTML = '';
+                        if (typeof buildCustomCardSet === 'function') buildCustomCardSet(setName);
+                    } else if (activeCardSet === 'abc') {
+                        var ac = document.getElementById('card-set-abc'); if (ac) ac.innerHTML = '';
+                        if (typeof buildAbcCardSet === 'function') buildAbcCardSet();
+                    } else {
+                        var nc = document.getElementById('card-set-numbers'); if (nc) nc.innerHTML = '';
+                        if (typeof buildNumbersCardSet === 'function') buildNumbersCardSet();
+                    }
+                }
+            } catch (e) {}
+            return { set: setName, total: arr.length, rows: Object.keys(groups).length, relabeled: changed, noArtFallback: noArt };
+        }
+        if (typeof window !== 'undefined') window.repairRowsFromArt = repairRowsFromArt;
+
+        // On opening a letter-style set, detect labels that drifted out of sync
+        // with the drawn letters (the corruption from earlier row-edit bugs) and
+        // offer a one-click repair. Scoped to sets that are mostly single-letter
+        // cards (so number/dot sets never trip it), and only when many cards are
+        // mislabeled. Offered once per set per session.
+        var _rowRepairOffered = {};
+        function _maybeOfferRowRepair(setName) {
+            if (!setName || _rowRepairOffered[setName]) return;
+            var key = (typeof _getSetStorageKey === 'function')
+                ? _getSetStorageKey(setName) : ('customDrawnCards_' + setName);
+            var arr; try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return; }
+            if (!Array.isArray(arr) || arr.length < 4) return;
+            var letterCards = 0, mismatch = 0;
+            arr.forEach(function(c) {
+                var m = String(c.svgContent || '').match(/<text[^>]*>([^<]*)<\/text>/i);
+                if (!m) return;
+                var a = m[1].trim();
+                if (!/^[A-Za-z]$/.test(a)) return;     // single-letter art only (alphabet sets)
+                letterCards++;
+                var lbl = _rowKeyParse(c.label);
+                if (lbl && a.toUpperCase() !== lbl) mismatch++;
+            });
+            // Predominantly a letter set AND clearly corrupted.
+            if (letterCards >= Math.max(4, arr.length * 0.5) && mismatch >= Math.max(2, letterCards * 0.1)) {
+                _rowRepairOffered[setName] = true;
+                if (window.confirm('The "' + setName + '" set’s row labels are out of sync with the cards (' +
+                        mismatch + ' of ' + letterCards + ' are filed under the wrong letter, from earlier row edits).\n\n' +
+                        'Repair now? Each card is re-filed into the row of its drawn letter. Nothing is deleted; game links are kept.')) {
+                    repairRowsFromArt(setName);
+                    if (typeof selectCardSet === 'function') selectCardSet(setName);
+                }
+            }
+        }
+
         function getNextLetter(usedLetters) {
-            var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            for (var i = 0; i < alphabet.length; i++) {
-                if (usedLetters.indexOf(alphabet[i]) < 0) return alphabet[i];
+            var key = 'A';
+            while (key) {
+                if (usedLetters.indexOf(key) < 0) return key;
+                key = _rowKeyNext(key);
             }
             return null;
         }
@@ -3424,8 +3629,8 @@
             var maxNum = 0;
             labels.forEach(function(lbl) {
                 var txt = lbl.textContent;
-                if (txt.charAt(0).toUpperCase() === letter) {
-                    var num = parseInt(txt.substring(1), 10);
+                if (_rowKeyParse(txt) === letter) {
+                    var num = _labelNum(txt);
                     if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
             });
@@ -5924,7 +6129,7 @@
         }
         function generateCopyLabel(baseLabel) {
             // Use the same letter group as the source card, increment number
-            var letter = baseLabel.charAt(0).toUpperCase();
+            var letter = _rowKeyParse(baseLabel);
             var num = getNextNumber(letter);
             return letter + num;
         }
@@ -6011,15 +6216,15 @@
 
             // Find row matching this letter within the ACTIVE card set only
             // (searching across all sets could place cards in a hidden container)
-            var firstChar = label.charAt(0).toUpperCase();
+            var firstChar = _rowKeyParse(label) || label.charAt(0).toUpperCase();
             var rows = appendTarget.querySelectorAll('.library-row');
             var targetRow = null;
             rows.forEach(function(r) {
-                if ((r.dataset.rowLetter || '').toUpperCase() === firstChar) {
+                if ((r.dataset.rowLetter || '') === firstChar) {
                     targetRow = r;
                 } else {
                     var firstLabel = r.querySelector('.library-label');
-                    if (firstLabel && firstLabel.textContent.charAt(0).toUpperCase() === firstChar) {
+                    if (firstLabel && _rowKeyParse(firstLabel.textContent) === firstChar) {
                         targetRow = r;
                     }
                 }
@@ -6292,6 +6497,8 @@
             if (e.target.closest('.variation-delete-btn') || e.target.closest('.card-delete-btn') || e.target.closest('.card-copy-btn')) return;
             // Ignore if a drag just ended
             if (cardDragJustEnded) { cardDragJustEnded = false; return; }
+            // Ignore if a marquee (rubber-band) drag just ended — keep its selection
+            if (typeof marqueeJustEnded !== 'undefined' && marqueeJustEnded) { marqueeJustEnded = false; return; }
             // Ignore clicks on letter labels (new card mode)
             if (e.target.closest('.row-letter-label') || e.target.closest('.new-group-row')) return;
 
@@ -6442,6 +6649,11 @@
                 }
                 _ctxSub = null;
             }
+            // Safety net: remove ANY remaining context submenus that escaped the
+            // _parentSub chain — e.g. the "Find / Catch" submenu orphaned when a
+            // hover-timeout removed its child and nulled _ctxSub. Without this,
+            // that submenu "hangs" on screen after the menu is dismissed.
+            document.querySelectorAll('.ctx-menu-sub').forEach(function(s) { s.remove(); });
             if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
         }
         function _ctxItem(icon, label, onClick, cls) {
@@ -6550,6 +6762,163 @@
             }
         }
 
+        // --- Insert an empty line (model A) ---------------------------------
+        // Opens a slot at a chosen position: the occupied rows from there up to
+        // the next free letter shift down a notch (C→D, D→E…) — their cards are
+        // relabeled, but stableIds are left untouched so games stay wired — and
+        // a single blank-art card is dropped at the freed letter. The blank card
+        // is what makes the new row PERSIST: rows are rebuilt from card data on
+        // reload, so a truly empty row would vanish. If the contiguous run has no
+        // free letter up to Z, the set is full and we refuse. Undoable (Ctrl+Z).
+        // Step a row key forward n times (null if it runs past 'zZ').
+        function _stepRowKey(key, n) {
+            for (var i = 0; i < n && key; i++) key = _rowKeyNext(key);
+            return key;
+        }
+        // Previous row key in the scheme (inverse of _rowKeyNext); null below 'A'.
+        function _rowKeyPrev(key) {
+            if (!key) return null;
+            if (key.length === 1) return key > 'A' ? String.fromCharCode(key.charCodeAt(0) - 1) : null;
+            var p = key.charAt(0), s = key.charAt(1);
+            if (s > 'A') return p + String.fromCharCode(s.charCodeAt(0) - 1);
+            return p === 'a' ? 'Z' : String.fromCharCode(p.charCodeAt(0) - 1) + 'Z';
+        }
+
+        // Insert `count` empty lines (model A). Every occupied row from the
+        // insert point onward shifts UP by `count` keys (cards relabel via
+        // renumberRow; stableIds untouched → games stay wired), and `count`
+        // blank-art cards are dropped at the freed keys so the new rows persist
+        // (rows rebuild from card data on reload). Refuses — with the max that
+        // fits — if the shift would run past the final key 'zZ'.
+        function _insertEmptyLines(refRow, where, count) {
+            count = Math.max(1, count | 0);
+            if (!refRow) return;
+            var container = (typeof _ctxGetActiveContainer === 'function')
+                ? _ctxGetActiveContainer() : refRow.parentNode;
+            if (!container) return;
+            var refLetter = getRowLetter(refRow) || '';
+            if (!refLetter) return;
+            var insertLetter = (where === 'below') ? _rowKeyNext(refLetter) : refLetter;
+            if (!insertLetter) { alert('Can’t insert below the last possible row (zZ).'); return; }
+
+            // GAP-ABSORBING: walk up from insertLetter, collecting the occupied
+            // rows that must move and counting FREE keys, until `count` free
+            // slots are found. Existing gaps (e.g. a deleted row) absorb the
+            // insert, so rows ABOVE a gap are NOT disturbed — inserting next to
+            // a gap just fills the gap. Running off the end ('zZ') before
+            // finding `count` free slots means there isn't room.
+            var occupied = {};
+            container.querySelectorAll('.library-row').forEach(function(row) {
+                var L = getRowLetter(row) || '';
+                if (L) occupied[L] = row;
+            });
+            var toShift = [];
+            var k = insertLetter, freeFound = 0, full = false;
+            while (freeFound < count) {
+                if (!k) { full = true; break; }
+                if (occupied[k]) toShift.push(occupied[k]);
+                else freeFound++;
+                k = _rowKeyNext(k);
+            }
+            if (full) {
+                alert('Not enough room: at most ' + freeFound + ' empty line' + (freeFound !== 1 ? 's' : '') +
+                      ' can be inserted here before running past the last row (zZ).');
+                return;
+            }
+
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+            _undoSuspended = true;
+            try {
+                // The first `count` keys from insertLetter become the new blanks;
+                // the collected rows take the keys just above them (assigned
+                // ascending so the final keys never collide).
+                var assignKey = _stepRowKey(insertLetter, count);
+                toShift.forEach(function(row) {
+                    row.dataset.rowLetter = assignKey;
+                    if (typeof _addRowLetterSpan === 'function') _addRowLetterSpan(row);
+                    renumberRow(row);
+                    assignKey = _rowKeyNext(assignKey);
+                });
+                var bk = insertLetter;
+                for (var i = 0; i < count && bk; i++) {
+                    var blankSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    blankSvg.setAttribute('viewBox', '0 0 60 60');
+                    addNewDrawnCard(blankSvg, bk + '1');
+                    bk = _rowKeyNext(bk);
+                }
+            } finally {
+                _undoSuspended = _prev;
+            }
+            saveVariations();
+        }
+
+        // Right-click entry: ask how many lines (default 1), then insert.
+        function _promptInsertLines(refRow, where) {
+            var ans = prompt('How many empty lines to insert ' + where + '?', '1');
+            if (ans === null) return; // cancelled
+            var n = parseInt(ans, 10);
+            if (isNaN(n) || n < 1) n = 1;
+            _insertEmptyLines(refRow, where, n);
+        }
+
+        // Delete a whole line: remove its cards, then shift the rows below UP a
+        // key to close the gap (inverse of insert). Game-used cards are NOT
+        // deleted — they go to Safe Haven so game wiring survives (same policy
+        // as the group-delete dialog). Undoable.
+        function _deleteLine(refRow) {
+            if (!refRow) return;
+            var container = (typeof _ctxGetActiveContainer === 'function')
+                ? _ctxGetActiveContainer() : refRow.parentNode;
+            var key = getRowLetter(refRow) || '';
+            if (!key) return;
+            var cards = Array.prototype.slice.call(refRow.querySelectorAll('.library-card'));
+            var blocked = cards.filter(function(c) {
+                return typeof _geFindCardUsage === 'function' && _geFindCardUsage(c).length > 0;
+            });
+            var msg = cards.length === 0
+                ? ('Delete the empty line ' + key + '?\nRows below shift up to close the gap.')
+                : blocked.length
+                ? ('Delete line ' + key + ' (' + cards.length + ' card' + (cards.length !== 1 ? 's' : '') + ')?\n\n' +
+                   blocked.length + ' of them are used in games — those move to Safe Haven (games keep working); the rest are deleted. Rows below shift up.')
+                : ('Delete line ' + key + ' and its ' + cards.length + ' card' + (cards.length !== 1 ? 's' : '') + '?\nRows below shift up to close the gap.');
+            if (!confirm(msg)) return;
+
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+            _undoSuspended = true;
+            try {
+                cards.forEach(function(c) {
+                    if (typeof _geFindCardUsage === 'function' && _geFindCardUsage(c).length > 0) {
+                        _moveCardToSet(c, 'Safe Haven');
+                    } else {
+                        deleteCard(c);
+                    }
+                });
+                // Remove the now-empty row (and its section wrapper) from the DOM.
+                var sec = refRow.previousElementSibling;
+                if (sec && sec.classList.contains('library-section')) sec.remove();
+                refRow.remove();
+                // Shift every row below the deleted key UP one key (ascending so
+                // each vacated slot is filled before the next row moves into it).
+                Array.prototype.slice.call(container.querySelectorAll('.library-row'))
+                    .map(function(r) { return { row: r, key: getRowLetter(r) || '' }; })
+                    .filter(function(o) { return o.key && o.key > key; })
+                    .sort(function(a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; })
+                    .forEach(function(o) {
+                        var pk = _rowKeyPrev(o.key);
+                        if (pk) {
+                            o.row.dataset.rowLetter = pk;
+                            if (typeof _addRowLetterSpan === 'function') _addRowLetterSpan(o.row);
+                            renumberRow(o.row);
+                        }
+                    });
+            } finally {
+                _undoSuspended = _prev;
+            }
+            saveVariations();
+        }
+
         // Sibling to _ctxShowMoveSubmenu — lists rows the user can copy
         // into. Unlike Move's submenu, the source row IS included (copy to
         // same row = duplicate in place, same as the legacy "Copy" item).
@@ -6558,44 +6927,63 @@
         // (groupEditSelected >= 2 and the right-clicked card is in it).
         // Loops _moveCardToSet across the selection in a single undo entry,
         // saves the source set once at the end, and flashes a status.
+        // Group a list of card elements by their SOURCE row, preserving the
+        // first-seen order of both the groups and the cards within each group.
+        // The cross-set move/copy flows use this so each source line becomes its
+        // OWN new row in the target — a multi-line selection is NEVER collapsed
+        // into a single row.
+        function _groupCardsBySourceRow(list) {
+            var groups = [], byKey = {};
+            list.forEach(function(c) {
+                if (!c || !c.parentNode) return;
+                var sr = c.closest('.library-row');
+                var key = '?';
+                if (sr) {
+                    key = sr.dataset.rowLetter || '';
+                    if (!key) { var fl = sr.querySelector('.library-label'); key = fl ? (_rowKeyParse(fl.textContent) || '?') : '?'; }
+                }
+                if (!byKey[key]) { byKey[key] = []; groups.push(byKey[key]); }
+                byKey[key].push(c);
+            });
+            return groups;
+        }
+
         function _ctxMoveCardOrSelectionToSet(card, targetSetName) {
             if (!targetSetName) return;
             var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
                        || (groupEditActive && groupEditSelected.length >= 1);
-            // Pre-allocate the destination row letter ONCE per batch so all
-            // moved cards land in the same new row at the bottom (E1, E2,
-            // E3…), not scattered across one row per card (E1, F1, G1…).
-            // The first call to _nextBottomRowLabel happens against the
-            // target's current state; subsequent cards in this batch reuse
-            // the letter with incremented numbers.
             var targetKey = (typeof _getSetStorageKey === 'function')
                 ? _getSetStorageKey(targetSetName)
                 : ('customDrawnCards_' + targetSetName);
-            var firstLabel = _nextBottomRowLabel(targetKey);
-            var batchLetter = firstLabel.charAt(0);
-            var seq = 1;
+            // NEVER collapse a multi-line selection into one row: group cards by
+            // their source line and give each group its OWN fresh row in the
+            // target. Letters are allocated per group; _moveCardToSet persists as
+            // it goes, so _nextBottomRowLabel sees each just-filled letter as used
+            // and advances to the next free one (continue-after-highest = model A).
+            var list = isGroup ? groupEditSelected.slice() : [card];
+            var groups = _groupCardsBySourceRow(list);
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
             var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
             _undoSuspended = true;
-            var moved = 0;
+            var moved = 0, rowsMade = 0;
             try {
-                if (isGroup) {
-                    groupEditSelected.slice().forEach(function(c) {
-                        if (!c || !c.parentNode) return;
-                        if (_moveCardToSet(c, targetSetName, batchLetter + seq)) { moved++; seq++; }
+                groups.forEach(function(grp) {
+                    var letter = _nextBottomRowLabel(targetKey).charAt(0);
+                    var seq = 1, any = false;
+                    grp.forEach(function(c) {
+                        if (_moveCardToSet(c, targetSetName, letter + seq)) { moved++; seq++; any = true; }
                     });
-                } else if (_moveCardToSet(card, targetSetName, batchLetter + seq)) {
-                    moved = 1;
-                }
+                    if (any) rowsMade++;
+                });
             } finally {
                 _undoSuspended = _prev;
             }
             if (moved > 0) {
-                groupEditSelected = isGroup ? [] : groupEditSelected;
-                if (isGroup) groupEditReference = null;
+                if (isGroup) { groupEditSelected = []; groupEditReference = null; }
                 saveVariations();
                 if (typeof _geFlash === 'function') {
-                    _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + targetSetName + ' row ' + batchLetter);
+                    _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + targetSetName +
+                        ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
                 }
             }
         }
@@ -6669,25 +7057,32 @@
             if (!targetSetName) return;
             var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
                        || (groupEditActive && groupEditSelected.length >= 1);
-            // Same batch-row-letter precompute pattern as the move flow:
-            // all copied cards land in one fresh row (E1, E2, …).
             var targetKey = (typeof _getSetStorageKey === 'function')
                 ? _getSetStorageKey(targetSetName)
                 : ('customDrawnCards_' + targetSetName);
-            var firstLabel = _nextBottomRowLabel(targetKey);
-            var batchLetter = firstLabel.charAt(0);
-            var seq = 1;
-            var copied = 0;
-            if (isGroup) {
-                groupEditSelected.slice().forEach(function(c) {
-                    if (!c) return;
-                    if (_copyCardToSet(c, targetSetName, batchLetter + seq)) { copied++; seq++; }
+            // Same never-collapse rule as the move flow: one new target row per
+            // source line. Copies get fresh ids inside _copyCardToSet.
+            var list = isGroup ? groupEditSelected.slice() : [card];
+            var groups = _groupCardsBySourceRow(list);
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+            var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+            _undoSuspended = true;
+            var copied = 0, rowsMade = 0;
+            try {
+                groups.forEach(function(grp) {
+                    var letter = _nextBottomRowLabel(targetKey).charAt(0);
+                    var seq = 1, any = false;
+                    grp.forEach(function(c) {
+                        if (c && _copyCardToSet(c, targetSetName, letter + seq)) { copied++; seq++; any = true; }
+                    });
+                    if (any) rowsMade++;
                 });
-            } else if (_copyCardToSet(card, targetSetName, batchLetter + seq)) {
-                copied = 1;
+            } finally {
+                _undoSuspended = _prev;
             }
             if (copied > 0 && typeof _geFlash === 'function') {
-                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName + ' row ' + batchLetter);
+                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName +
+                    ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
             }
         }
 
@@ -6826,7 +7221,7 @@
             var sub = document.createElement('div');
             sub.className = 'ctx-menu-sub';
 
-            var findItem = _ctxItem('', 'Find the Double  (L1)', function() {
+            var findItem = _ctxItem('', 'Find the Double', function() {
                 _ctxCopyCardOrSelectionToIconSlot(card, targetSetName, 'find', 'L1');
             });
             sub.appendChild(findItem);
@@ -7265,6 +7660,11 @@
                     }, 200);
                 });
                 menu.appendChild(moveSetItem);
+                menu.appendChild(_ctxSep());
+                var _ieRow = card.closest('.library-row');
+                menu.appendChild(_ctxItem('↑', 'Insert empty line(s) above…', function() { _promptInsertLines(_ieRow, 'above'); }));
+                menu.appendChild(_ctxItem('↓', 'Insert empty line(s) below…', function() { _promptInsertLines(_ieRow, 'below'); }));
+                menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(_ieRow); }, 'danger'));
                 if (groupEditSelected.length > 0 || !card.classList.contains('ge-selected')) {
                     menu.appendChild(_ctxItem('\u2B50', 'Set as Reference', function() {
                         if (!card.classList.contains('ge-selected')) {
@@ -7287,12 +7687,42 @@
         document.addEventListener('click', function() { _ctxClose(); });
         document.addEventListener('scroll', function() { _ctxClose(); }, true);
         document.addEventListener('keydown', function(e) { if (e.key === 'Escape') _ctxClose(); });
+        // Minimal right-click menu for a ROW (works even with no card in it),
+        // so empty lines can be inserted around or deleted.
+        function _ctxShowRowMenu(row, x, y) {
+            _ctxClose();
+            var menu = document.createElement('div');
+            menu.className = 'ctx-menu';
+            var letter = getRowLetter(row) || '';
+            var isEmpty = row.querySelectorAll('.library-card').length === 0;
+            var hdr = document.createElement('div');
+            hdr.className = 'ctx-menu-item';
+            hdr.style.cssText = 'opacity:0.6;pointer-events:none;font-weight:600;';
+            hdr.textContent = 'Row ' + letter + (isEmpty ? ' (empty)' : '');
+            menu.appendChild(hdr);
+            menu.appendChild(_ctxSep());
+            menu.appendChild(_ctxItem('↑', 'Insert empty line(s) above…', function() { _promptInsertLines(row, 'above'); }));
+            menu.appendChild(_ctxItem('↓', 'Insert empty line(s) below…', function() { _promptInsertLines(row, 'below'); }));
+            menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(row); }, 'danger'));
+            _ctxMenu = menu;
+            _ctxPosition(menu, x, y);
+        }
+
         document.querySelector('#domino-library-screen .domino-library-content').addEventListener('contextmenu', function(e) {
-            var card = e.target.closest('.library-card');
-            if (!card) return;
             if (gameMakerActive || shapeModeActive) return;
-            e.preventDefault();
-            _ctxShow(card, e.clientX, e.clientY);
+            var card = e.target.closest('.library-card');
+            if (card) {
+                e.preventDefault();
+                _ctxShow(card, e.clientX, e.clientY);
+                return;
+            }
+            // No card under the cursor — if it's a row (including an empty one),
+            // offer the line actions so empty lines can be inserted/deleted.
+            var row = e.target.closest('.library-row');
+            if (row && getRowLetter(row)) {
+                e.preventDefault();
+                _ctxShowRowMenu(row, e.clientX, e.clientY);
+            }
         });
 
         // S3: Drag-and-drop files from OS onto Card Maker
@@ -7665,6 +8095,125 @@
 
             document.addEventListener('pointercancel', function() {
                 if (dragPending) cleanupDragState();
+            });
+        })();
+
+        // --- Rubber-band (marquee) selection ---------------------------------
+        // Left-press on EMPTY space in the Card Maker grid and drag a box; every
+        // card the box touches joins the passive multi-selection
+        // (groupEditSelected / .ge-selected) — the SAME selection that Shift+click
+        // builds and that the right-click menu's group Copy / Move / Delete verbs
+        // (and the Group Edit toolbar) already act on. So this is purely a faster
+        // way to populate that selection; no new verb plumbing is needed.
+        //
+        // No conflict with card-drag: that handler only arms on pointerdown over a
+        // .library-card; this one only arms on pointerdown over empty space. Their
+        // document-level move/up handlers each bail unless their own gesture armed.
+        var marqueeJustEnded = false;
+        (function() {
+            var contentEl = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!contentEl) return;
+            var box = null;
+            var startX = 0, startY = 0;
+            var pending = false, active = false;
+            var pointerId = null;
+            var additive = false;        // Shift held at press → add to existing selection
+            var baseSelection = [];      // selection snapshot when additive
+            var MQ_THRESHOLD = 6;        // px before a press becomes a marquee (vs a click)
+
+            function isSelectableCard(c) {
+                // A real, visible library card (hidden card-set containers report
+                // offsetParent === null, so cards in inactive sets are skipped).
+                return c && c.classList.contains('library-card') && c.offsetParent !== null;
+            }
+            function ensureBox() {
+                if (box) return;
+                box = document.createElement('div');
+                box.className = 'marquee-box';
+                box.style.cssText = 'position:fixed;z-index:9998;pointer-events:none;display:none;' +
+                    'border:1px solid rgba(120,180,255,0.95);background:rgba(120,180,255,0.18);' +
+                    'left:0;top:0;width:0;height:0;border-radius:2px;';
+                document.body.appendChild(box);
+            }
+            function clearPassiveSelection() {
+                contentEl.querySelectorAll('.library-card.ge-selected').forEach(function(c) {
+                    c.classList.remove('ge-selected');
+                    c.classList.remove('ge-reference');
+                });
+                groupEditSelected = [];
+                groupEditReference = null;
+            }
+
+            contentEl.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0) return;                 // left button only
+                // Modes that own click-selection keep their own behavior.
+                if (typeof gameMakerActive !== 'undefined' && gameMakerActive) return;
+                if (typeof shapeModeActive !== 'undefined' && shapeModeActive) return;
+                // Start only on empty space — never on a card or interactive bits.
+                if (e.target.closest('.library-card')) return;
+                if (e.target.closest('.variation-box') || e.target.closest('button') ||
+                    e.target.closest('input') || e.target.closest('textarea') ||
+                    e.target.closest('.row-letter-label') || e.target.closest('.new-group-row')) return;
+                startX = e.clientX; startY = e.clientY;
+                pending = true; active = false;
+                pointerId = e.pointerId;
+                additive = !!e.shiftKey;
+                baseSelection = groupEditSelected.slice();
+            });
+
+            document.addEventListener('pointermove', function(e) {
+                if (!pending) return;
+                var dx = e.clientX - startX, dy = e.clientY - startY;
+                if (!active && Math.sqrt(dx * dx + dy * dy) > MQ_THRESHOLD) {
+                    active = true;
+                    ensureBox();
+                    box.style.display = 'block';
+                    if (!additive) clearPassiveSelection();
+                    if (window.getSelection) window.getSelection().removeAllRanges();
+                    try { contentEl.setPointerCapture(pointerId); } catch (ex) {}
+                }
+                if (!active) return;
+                e.preventDefault();
+                var x1 = Math.min(startX, e.clientX), y1 = Math.min(startY, e.clientY);
+                var x2 = Math.max(startX, e.clientX), y2 = Math.max(startY, e.clientY);
+                box.style.left = x1 + 'px'; box.style.top = y1 + 'px';
+                box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
+                // Recompute selection live = base (if additive) ∪ cards the box touches.
+                contentEl.querySelectorAll('.library-card').forEach(function(c) {
+                    if (!isSelectableCard(c)) return;
+                    var r = c.getBoundingClientRect();
+                    var hit = !(r.right < x1 || r.left > x2 || r.bottom < y1 || r.top > y2);
+                    var keep = hit || (additive && baseSelection.indexOf(c) !== -1);
+                    var has = c.classList.contains('ge-selected');
+                    if (keep && !has) {
+                        c.classList.add('ge-selected');
+                        groupEditSelected.push(c);
+                    } else if (!keep && has) {
+                        c.classList.remove('ge-selected');
+                        if (c === groupEditReference) { c.classList.remove('ge-reference'); groupEditReference = null; }
+                        groupEditSelected = groupEditSelected.filter(function(x) { return x !== c; });
+                    }
+                });
+            });
+
+            document.addEventListener('pointerup', function() {
+                if (!pending) return;
+                if (active) {
+                    if (box) box.style.display = 'none';
+                    if (typeof _updateGEToolbarVisibility === 'function') _updateGEToolbarVisibility();
+                    if (typeof groupEditActive !== 'undefined' && groupEditActive &&
+                        typeof _updateGroupEditStatus === 'function') _updateGroupEditStatus();
+                    // Stop the click handler from clearing what we just selected.
+                    marqueeJustEnded = true;
+                    setTimeout(function() { marqueeJustEnded = false; }, 50);
+                    try { contentEl.releasePointerCapture(pointerId); } catch (ex) {}
+                }
+                pending = false; active = false; pointerId = null;
+            });
+
+            document.addEventListener('pointercancel', function() {
+                if (box) box.style.display = 'none';
+                pending = false; active = false; pointerId = null;
             });
         })();
 
@@ -8064,7 +8613,7 @@
             }
 
             // Get next available label number
-            var letter = label.charAt(0).toUpperCase();
+            var letter = _rowKeyParse(label);
             var num = getNextNumber(letter);
             var newLabel = letter + num;
             card.dataset.stableId = generateStableId(newLabel, getCurrentCardSetName());
@@ -8236,7 +8785,7 @@
             // Pick the row letter for the new label from the *target* row,
             // not the source — so a copy of "A3" into row D becomes "D7"
             // (next free number in D), not "A7".
-            var letter = (row.dataset.rowLetter || baseLabel.charAt(0)).toUpperCase();
+            var letter = row.dataset.rowLetter || _rowKeyParse(baseLabel);
             var copyLabel = letter + getNextNumber(letter);
 
             // Build the new card element
@@ -8607,7 +9156,7 @@
             //   rowLetter matches label → "Remove '<label>' from this game?"
             //   rowLetter differs       → "Remove card from row F? (source: E1)"
             var titleText;
-            var labelLetter = String(labelText || '').charAt(0).toUpperCase();
+            var labelLetter = _rowKeyParse(labelText);
             if (!rowLetter) {
                 titleText = 'Remove "' + labelText + '" from this game?';
             } else if (rowLetter === labelLetter) {
@@ -8834,33 +9383,20 @@
         function _nextBottomRowLabel(storageKey) {
             var existing = [];
             try { var raw = localStorage.getItem(storageKey); if (raw) existing = JSON.parse(raw); } catch(e) {}
-            // Collect all used row letters (first char of each label)
-            var usedRows = {};
+            // Highest used row key (string compare = row-key-scheme order), then
+            // the next key after it (A..Z, then aA..zZ). Empty set starts at 'A'.
+            var maxKey = '';
             existing.forEach(function(c) {
-                if (c.label) usedRows[c.label.charAt(0).toUpperCase()] = true;
+                if (!c || !c.label) return;
+                var k = _rowKeyParse(c.label);
+                if (k && (maxKey === '' || k > maxKey)) maxKey = k;
             });
-            // Find first unused letter starting from Z going backwards, or A-Z going forward
-            // Actually, find the letter after the last used one alphabetically
-            var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            var bestLetter = '';
-            for (var i = letters.length - 1; i >= 0; i--) {
-                if (usedRows[letters[i]]) {
-                    // Use the next letter after the last used one
-                    bestLetter = (i < letters.length - 1) ? letters[i + 1] : letters[i];
-                    break;
-                }
-            }
-            if (!bestLetter) bestLetter = 'A';
-            // If bestLetter is already used, find one that truly isn't
-            if (usedRows[bestLetter]) {
-                for (var j = letters.length - 1; j >= 0; j--) {
-                    if (!usedRows[letters[j]]) { bestLetter = letters[j]; break; }
-                }
-            }
-            // Count cards already in this row to get the right number
+            var bestLetter = maxKey ? _rowKeyNext(maxKey) : 'A';
+            if (!bestLetter) bestLetter = maxKey; // already at 'zZ' — extremely unlikely
+            // Count cards already in that row (0 for a fresh letter → numbering starts at 1)
             var count = 0;
             existing.forEach(function(c) {
-                if (c.label && c.label.charAt(0).toUpperCase() === bestLetter) count++;
+                if (c && c.label && _rowKeyParse(c.label) === bestLetter) count++;
             });
             return bestLetter + (count + 1);
         }
@@ -9224,7 +9760,7 @@
         function getRowLetter(row) {
             if (row.dataset.rowLetter) return row.dataset.rowLetter;
             var firstLabel = row.querySelector('.library-label');
-            if (firstLabel) return firstLabel.textContent.charAt(0).toUpperCase();
+            if (firstLabel) return _rowKeyParse(firstLabel.textContent);
             return '';
         }
         function updateRowEmptyState(row) {
@@ -9246,12 +9782,12 @@
             rows.forEach(function(row) {
                 var section = row.previousElementSibling;
                 if (section && section.classList.contains('library-section')) {
-                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z').toUpperCase() });
+                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z') });
                 } else {
                     // Create a section if missing
                     section = document.createElement('div');
                     section.className = 'library-section';
-                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z').toUpperCase() });
+                    pairs.push({ section: section, row: row, letter: (row.dataset.rowLetter || getRowLetter(row) || 'Z') });
                 }
             });
             pairs.sort(function(a, b) { return a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0; });
@@ -9265,8 +9801,10 @@
             var existingRows = container.querySelectorAll('.library-row');
             var insertBefore = null;
             for (var i = 0; i < existingRows.length; i++) {
-                var rl = (existingRows[i].dataset.rowLetter || '').toUpperCase();
-                if (rl > letter.toUpperCase()) {
+                // Case-sensitive compare: the row-key scheme relies on
+                // 'A'..'Z' sorting before any lowercase-prefixed overflow key.
+                var rl = (existingRows[i].dataset.rowLetter || '');
+                if (rl > letter) {
                     // Insert before this row's section
                     var prevSec = existingRows[i].previousElementSibling;
                     insertBefore = (prevSec && prevSec.classList.contains('library-section')) ? prevSec : existingRows[i];
@@ -9621,7 +10159,7 @@
         }
 
         function renumberVariations(row, originalLabel) {
-            var letter = originalLabel.charAt(0).toUpperCase();
+            var letter = _rowKeyParse(originalLabel);
             var variations = row.querySelectorAll('.library-card.variation[data-original-label="' + originalLabel + '"]');
             variations.forEach(function(v) {
                 var lbl = v.querySelector('.library-label');
@@ -10357,8 +10895,9 @@
             // Size-class label INSIDE the card (overlay), e.g. "L1" / "S3".
             // Only shown on TEMPLATES — user icons have actual artwork that
             // would be obscured by the pill, and the size class appears as
-            // the caption below the card instead.
-            if (ic._isTemplate) {
+            // the caption below the card instead. Skipped for Find: it has a
+            // single icon type, so the "L1" label is redundant.
+            if (ic._isTemplate && ic.gameType !== 'find') {
                 var innerLabel = document.createElement('span');
                 innerLabel.className = 'icon-inner-label';
                 innerLabel.textContent = ic.label;
@@ -10375,6 +10914,9 @@
             // glance — without an overlay covering the artwork.
             if (ic._isTemplate) {
                 desc.textContent = ic.desc || 'template';
+            } else if (ic.gameType === 'find') {
+                // Find has a single icon type — no "L1" size caption needed.
+                desc.textContent = '';
             } else {
                 desc.textContent = ic.sizeClass || ic.label || 'icon';
             }
@@ -10399,11 +10941,11 @@
                 // user icons only (templates are permanent). The buttons live in
                 // the preview wrap so they hug the bubble's corners regardless
                 // of card size.
-                _addIconCopyButton(card, previewWrap);
-                if (!ic._isTemplate) _addIconDeleteButton(card, previewWrap);
+                _addIconCopyButton(card, previewWrap, ic);
+                if (!ic._isTemplate) _addIconDeleteButton(card, previewWrap, ic);
                 // Phase 4 migration: send button on user icons opens a game picker
                 // so the user can explicitly add the icon to a game's icon pool.
-                if (!ic._isTemplate) _addIconSendButton(card, previewWrap);
+                if (!ic._isTemplate) _addIconSendButton(card, previewWrap, ic);
                 // Phase 2.2: double-click a user icon to open the editor.
                 // Templates are not editable (would defeat the purpose of having
                 // a fixed reference shape).
@@ -10421,10 +10963,26 @@
 
         // ----- Phase 2.1: icon copy / delete buttons + storage ops -----
 
-        function _addIconCopyButton(card, host) {
+        // Shared per-(gameType × sizeClass) pixel nudges for the small icon
+        // buttons. Values are CSS translate [x, y] with x = right+, y = down+
+        // (so "up" is a negative y). Applied as an inline transform.
+        var _iconBtnShifts = {
+            send:   { 'catch': { L1:[2,0], L2:[5,0], L3:[7,0], S1:[8,0], S2:[10,0], S3:[12,0] },
+                      'find':  { L1:[4,7] } },
+            corner: { 'catch': { S1:[0,-1], S2:[0,-2], S3:[0,-4] } }
+        };
+        function _applyIconBtnShift(btn, group, ic) {
+            if (!ic) return;
+            var m = _iconBtnShifts[group] && _iconBtnShifts[group][ic.gameType];
+            var v = m && m[ic.sizeClass || ic.label];
+            if (v && (v[0] || v[1])) btn.style.transform = 'translate(' + v[0] + 'px, ' + v[1] + 'px)';
+        }
+
+        function _addIconCopyButton(card, host, ic) {
             if ((host || card).querySelector(':scope > .icon-copy-btn')) return;
             var btn = document.createElement('button');
             btn.className = 'icon-copy-btn';
+            _applyIconBtnShift(btn, 'corner', ic);
             btn.textContent = '⧉';
             btn.title = card.dataset.iconTemplate === 'true'
                 ? 'Copy template into a new editable icon'
@@ -10436,10 +10994,11 @@
             (host || card).appendChild(btn);
         }
 
-        function _addIconDeleteButton(card, host) {
+        function _addIconDeleteButton(card, host, ic) {
             if ((host || card).querySelector(':scope > .icon-delete-btn')) return;
             var btn = document.createElement('button');
             btn.className = 'icon-delete-btn';
+            _applyIconBtnShift(btn, 'corner', ic);
             btn.textContent = '✕';
             btn.title = 'Delete icon';
             btn.addEventListener('click', function(e) {
@@ -10492,12 +11051,15 @@
         // (find icons → Find games, catch icons → Catch games). Clicking a
         // game name adds the icon's {uid, setName} reference to game.icons
         // and persists the game list.
-        function _addIconSendButton(card, host) {
+        function _addIconSendButton(card, host, ic) {
             if ((host || card).querySelector(':scope > .icon-send-btn')) return;
             var btn = document.createElement('button');
             btn.className = 'icon-send-btn';
             btn.textContent = '→G';
             btn.title = 'Add this icon to a game';
+            // Right/down nudge of the →G "to Group" button (see _iconBtnShifts:
+            // catch L1=2 L2=5 L3=7 / S1=8 S2=10 S3=12; find L1 = right 4, down 2).
+            _applyIconBtnShift(btn, 'send', ic);
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 _openIconGamePicker(card, btn);
@@ -11575,7 +12137,7 @@
             // Group cards by first letter
             var rowMap = {};
             numbersCards.forEach(function(item) {
-                var firstChar = item.label.charAt(0).toUpperCase();
+                var firstChar = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                 if (!rowMap[firstChar]) rowMap[firstChar] = [];
                 rowMap[firstChar].push(item);
             });
@@ -11724,11 +12286,11 @@
                         }
 
                         // Generate label: find next available number for this letter
-                        var letter = v.originalLabel.charAt(0).toUpperCase();
+                        var letter = _rowKeyParse(v.originalLabel);
                         var maxNum = 0;
                         cards.forEach(function(c) {
-                            if (c.label.charAt(0).toUpperCase() === letter) {
-                                var n = parseInt(c.label.substring(1), 10);
+                            if (_rowKeyParse(c.label) === letter) {
+                                var n = _labelNum(c.label);
                                 if (n > maxNum) maxNum = n;
                             }
                         });
@@ -14536,7 +15098,7 @@
             currentGameViewIndex = -1; // not a regular game
             gameViewReturnScreen = returnScreen || 'card-library-screen';
             var _gvl = document.getElementById('a-game-view-label');
-            if (_gvl) _gvl.textContent = 'AGC-Catch';
+            if (_gvl) _gvApplyPageName('catch');
 
             // Title row 2 shows just the game name; row 1 already carries
             // the white-caps "CATCH THE MATCHING BUBBLE" indicator.
@@ -14560,6 +15122,17 @@
             zonesGrid.className = 'gv-zones-grid';
             zonesGrid.id = 'game-view-zones-grid';
             container.appendChild(zonesGrid);
+
+            // Column headers above the first row (Catch game view): red column
+            // "Frozen Bubbles", neutral "Everywhere", green "Falling Bubbles".
+            // Same grayish .gv-col-header style as the Find view. Four cells
+            // line up with [letter | red | neutral | green].
+            ['', 'Frozen Bubbles', 'Neutral', 'Falling Bubbles'].forEach(function(txt) {
+                var h = document.createElement('div');
+                h.className = 'gv-col-header';
+                h.textContent = txt;
+                zonesGrid.appendChild(h);
+            });
 
             var addedCards = [];
             var orderedCards = [];
@@ -14647,7 +15220,7 @@
             var delBtn = document.createElement('button');
             delBtn.className = 'delete-game-btn';
             delBtn.textContent = 'Delete Game';
-            delBtn.onclick = function() { deleteCatchGame(catchIndex); };
+            delBtn.onclick = function() { _deleteCurrentGameFlow(); };
             btnRow.appendChild(delBtn);
 
             container.appendChild(btnRow);
@@ -14728,9 +15301,9 @@
         function _effectiveRowLetter(c) {
             if (!c) return '';
             if (typeof c._gameValue === 'string' && c._gameValue.length > 0) {
-                return c._gameValue.charAt(0).toUpperCase();
+                return _rowKeyParse(c._gameValue) || c._gameValue.charAt(0).toUpperCase();
             }
-            return String(c.label || '').charAt(0).toUpperCase();
+            return _rowKeyParse(c.label) || String(c.label || '').charAt(0).toUpperCase();
         }
 
         function _autoPromoteAddedCards(game) {
@@ -15000,7 +15573,7 @@
                 saveFn = function() { try { localStorage.setItem(storageKey, JSON.stringify(games)); } catch(e) {} };
             }
             if (!game) return;
-            var L = String(rowLetter || '').toUpperCase();
+            var L = _rowKeyParse(rowLetter) || String(rowLetter || '');
             if (!L) return;
             // Use _effectiveRowLetter so a card whose source label is 'E1'
             // but which the user placed in row F is correctly counted as a
@@ -15105,6 +15678,35 @@
             return renderedHere;
         }
 
+        // --- Game-view (previewer) page name: editable + persistent PER game
+        // type. It used to be hardcoded to 'AGC-Found' / 'AGC-Catch' on every
+        // open, clobbering admin edits. Now it restores a saved per-type name
+        // (all Find games share one, all Catch games another) and saves edits.
+        var _gvCurrentType = null;
+        function _gvPageNameKey(type) { return 'a-game-view-label-' + (type === 'catch' ? 'catch' : 'find'); }
+        function _gvPageNameDefault(type) { return type === 'catch' ? 'AGC-Catch' : 'AGC-Found'; }
+        function _gvApplyPageName(type) {
+            _gvCurrentType = (type === 'catch') ? 'catch' : 'find';
+            var el = document.getElementById('a-game-view-label');
+            if (!el) return;
+            var saved;
+            try { saved = (JSON.parse(localStorage.getItem('pageNameLabels_admin') || '{}'))[_gvPageNameKey(_gvCurrentType)]; } catch (e) {}
+            el.textContent = (saved != null && saved !== '') ? saved : _gvPageNameDefault(_gvCurrentType);
+        }
+        function _gvSavePageName() {
+            if (!_gvCurrentType) return;
+            var el = document.getElementById('a-game-view-label');
+            if (!el) return;
+            var labels = {};
+            try { labels = JSON.parse(localStorage.getItem('pageNameLabels_admin') || '{}'); } catch (e) {}
+            labels[_gvPageNameKey(_gvCurrentType)] = el.textContent.trim();
+            localStorage.setItem('pageNameLabels_admin', JSON.stringify(labels));
+        }
+        (function() {
+            var el = document.getElementById('a-game-view-label');
+            if (el) { el.addEventListener('input', _gvSavePageName); el.addEventListener('blur', _gvSavePageName); }
+        })();
+
         function openGameView(gameIndex, returnScreen) {
             // Save all card edits before leaving card maker
             if (typeof saveVariations === 'function') saveVariations();
@@ -15160,7 +15762,7 @@
                 collapseBtn.style.background = _collapsedView ? '#7c4dff' : '';
             }
             var _gvl = document.getElementById('a-game-view-label');
-            if (_gvl) _gvl.textContent = 'AGC-Found';
+            if (_gvl) _gvApplyPageName('find');
 
             // Title row 2 shows just the game name; the game type lives on
             // row 1 as the white-caps "FIND THE DOUBLES" indicator, so the
@@ -15191,6 +15793,17 @@
             zonesGrid.className = 'gv-zones-grid';
             zonesGrid.id = 'game-view-zones-grid';
             container.appendChild(zonesGrid);
+
+            // Column headers above the first row (Find game view): label the
+            // red column "top cards" and the green column "bottom cards", in
+            // the same colors as the zone brackets. Four cells fill the grid's
+            // first row to line up with [letter | red | neutral | green].
+            ['', 'Top Cards', 'Neutral', 'Bottom Cards'].forEach(function(txt) {
+                var h = document.createElement('div');
+                h.className = 'gv-col-header';   // grayish color comes from the CSS class
+                h.textContent = txt;
+                zonesGrid.appendChild(h);
+            });
 
             // Group cards by row letter, splitting each row into three
             // zones (red / no-dot / green) inside _renderZoneRow.
@@ -15314,7 +15927,7 @@
             var delBtn = document.createElement('button');
             delBtn.className = 'delete-game-btn';
             delBtn.textContent = 'Delete Game';
-            delBtn.onclick = function() { deleteGame(gameIndex); };
+            delBtn.onclick = function() { _deleteCurrentGameFlow(); };
             btnRow.appendChild(delBtn);
 
             container.appendChild(btnRow);
@@ -15723,7 +16336,7 @@
                 });
                 var domEmptyLetters = {};
                 containerEl.querySelectorAll('.library-row[data-empty-row="true"]').forEach(function(r) {
-                    var L = r.dataset.rowLetter ? String(r.dataset.rowLetter).toUpperCase() : '';
+                    var L = r.dataset.rowLetter || '';
                     if (L) domEmptyLetters[L] = true;
                 });
                 var nextEmpty = [];
@@ -16001,7 +16614,7 @@
                 origCards.forEach(function(c) {
                     var n = raw.get(c)[zoneKey];
                     if (!n || n <= 0) return;
-                    var row = c._gameValue || (c.label || '').charAt(0).toUpperCase();
+                    var row = c._gameValue || _rowKeyParse(c.label) || (c.label || '').charAt(0).toUpperCase();
                     if (!buckets[row]) buckets[row] = [];
                     buckets[row].push({ card: c, n: n });
                 });
@@ -16324,12 +16937,12 @@
         function _groupDisplayLabel(groups, idx) {
             if (!groups || idx < 0 || idx >= groups.length) return '?';
             var members = _mgMembers(groups[idx]);
-            if (!members || members.length <= 1) return 'p';
+            if (!members || members.length <= 1) return 'P';
             var gNum = 0;
             for (var k = 0; k <= idx; k++) {
                 if (_mgMembers(groups[k]).length >= 2) gNum++;
             }
-            return 'p' + gNum;
+            return 'P' + gNum;
         }
 
         function toggleMCardMode() {
@@ -16916,10 +17529,30 @@
                     chip.appendChild(nameSpan);
                 }
                 chip.title = (isActive ? 'Active. ' : '') +
-                    'Click to switch · long-press to rename / delete';
+                    'Click to switch · right-click (or ×) to rename / delete';
                 chip.addEventListener('click', function() {
                     if (!isActive) _switchActiveProb(prob.id);
                 });
+                // Right-click → explicit Rename / Delete menu.
+                chip.addEventListener('contextmenu', function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    _openProbCtxMenu(prob.id, label, ev.clientX, ev.clientY);
+                });
+                // Visible × delete affordance — always shown on the active
+                // chip, on hover for the rest (see .prob-chip-x CSS). One
+                // click → confirm → delete.
+                var del = document.createElement('span');
+                del.className = 'prob-chip-x';
+                del.textContent = '×';
+                del.title = 'Delete ' + label + (prob.name ? ' (' + prob.name + ')' : '');
+                del.addEventListener('pointerdown', function(ev) { ev.stopPropagation(); });
+                del.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    _deleteProb(prob.id, label);
+                });
+                chip.appendChild(del);
                 _attachChipLongPress(chip, prob.id, label);
                 strip.appendChild(chip);
             });
@@ -16931,6 +17564,17 @@
             add.title = 'Create a new Prob from the current cards (zones + probabilities)';
             add.addEventListener('click', function() { _createNewProb(); });
             strip.appendChild(add);
+
+            // Manage chip (⚙) — bulk Prob manager (delete several at once).
+            // Only meaningful with 2+ Probs; single-Prob removal is the chip ×.
+            if ((game.probOptions || []).length >= 2) {
+                var manage = document.createElement('div');
+                manage.className = 'prob-chip-manage';
+                manage.textContent = '⚙';
+                manage.title = 'Manage Probs — delete several at once';
+                manage.addEventListener('click', function() { _openManageProbsDialog(); });
+                strip.appendChild(manage);
+            }
         }
 
         function _attachChipLongPress(chipEl, probId, fallbackLabel) {
@@ -16938,9 +17582,10 @@
             var triggered = false;
             function start(e) {
                 triggered = false;
+                var px = e.clientX, py = e.clientY;
                 pressTimer = setTimeout(function() {
                     triggered = true;
-                    _showProbChipMenu(probId, fallbackLabel);
+                    _showProbChipMenu(probId, fallbackLabel, px, py);
                 }, 600);
             }
             function end() {
@@ -16957,31 +17602,34 @@
             }, true);
         }
 
-        function _showProbChipMenu(probId, fallbackLabel) {
-            // Simple confirm-based menu for now: rename, delete, cancel.
-            // OK is rename, Cancel falls through to a 2nd confirm for delete.
+        // Rename a Prob (chip context menu).
+        function _renameProb(probId, fallbackLabel) {
             var info = _getCurrentViewGame();
             var game = info ? info.game : null;
             if (!game) return;
             var prob = (game.probOptions || []).find(function(p){ return p && p.id === probId; });
             if (!prob) return;
-            var doRename = confirm(fallbackLabel + (prob.name ? ' (' + prob.name + ')' : '') +
-                '\n\nOK → rename\nCancel → delete or close');
-            if (doRename) {
-                var newName = prompt('Name for ' + fallbackLabel + ' (leave blank to clear):', prob.name || '');
-                if (newName === null) return;
-                newName = newName.trim();
-                prob.name = newName || undefined;
-                _saveCurrentViewGames(info);
-                _renderProbChipStrip();
-                return;
-            }
-            // Cancel path → delete?
-            var doDelete = confirm('Delete ' + fallbackLabel +
-                (prob.name ? ' (' + prob.name + ')' : '') + '?\n\n' +
-                'This removes the Prob and its overrides. The card set itself ' +
-                'is untouched.');
-            if (!doDelete) return;
+            var newName = prompt('Name for ' + fallbackLabel + ' (leave blank to clear):', prob.name || '');
+            if (newName === null) return;
+            newName = newName.trim();
+            prob.name = newName || undefined;
+            _saveCurrentViewGames(info);
+            _renderProbChipStrip();
+        }
+
+        // Delete a Prob (chip × button and context menu). ONE clear confirm;
+        // when the last Prob goes, the game falls back to BasicS (50/50).
+        function _deleteProb(probId, fallbackLabel) {
+            var info = _getCurrentViewGame();
+            var game = info ? info.game : null;
+            if (!game) return;
+            var prob = (game.probOptions || []).find(function(p){ return p && p.id === probId; });
+            if (!prob) return;
+            var willBeEmpty = (game.probOptions || []).filter(function(p){ return p && p.id !== probId; }).length === 0;
+            var msg = 'Delete ' + fallbackLabel + (prob.name ? ' (' + prob.name + ')' : '') + '?\n\n' +
+                'This removes the Prob and its overrides — the card set itself is untouched.' +
+                (willBeEmpty ? '\n\nThe game returns to BasicS (50/50 neutral).' : '');
+            if (!confirm(msg)) return;
             // Remove the Prob.
             game.probOptions = (game.probOptions || []).filter(function(p){ return p && p.id !== probId; });
             // If we deleted the active one, pick another (or null = BasicS).
@@ -16997,11 +17645,318 @@
                     _materializeProbIntoCards(game, null);
                     _materializeProbMGroups(game, null);
                 }
-                // Save the materialized state.
-                game.cards = game.cards; // (no-op, just for clarity)
             }
             _saveCurrentViewGames(info);
             _reopenCurrentView();
+        }
+
+        // Right-click (desktop) / long-press (touch) a Prob chip → an explicit
+        // Rename / Delete menu — no "Cancel = delete" overload.
+        function _openProbCtxMenu(probId, fallbackLabel, x, y) {
+            _ctxClose();
+            var menu = document.createElement('div');
+            menu.className = 'ctx-menu';
+            menu.appendChild(_ctxItem('✎', 'Rename ' + fallbackLabel, function() { _renameProb(probId, fallbackLabel); }));
+            menu.appendChild(_ctxSep());
+            menu.appendChild(_ctxItem('🗑', 'Delete ' + fallbackLabel, function() { _deleteProb(probId, fallbackLabel); }, 'danger'));
+            _ctxMenu = menu;
+            _ctxPosition(menu, x, y);
+        }
+
+        // Long-press entry point (touch). Positions the menu at the press
+        // point, or below the chip if no coordinates were captured.
+        function _showProbChipMenu(probId, fallbackLabel, x, y) {
+            if (typeof x !== 'number' || typeof y !== 'number') {
+                var chip = document.querySelector('.prob-chip[data-prob-id="' + probId + '"]');
+                if (chip) { var r = chip.getBoundingClientRect(); x = r.left; y = r.bottom + 2; }
+                else { x = 100; y = 100; }
+            }
+            _openProbCtxMenu(probId, fallbackLabel, x, y);
+        }
+
+        // Bulk Prob management: a multi-select dialog to remove SEVERAL Probs
+        // at once while KEEPING the game. Whole-game deletion stays a separate,
+        // coarse action (Delete Game) — this never touches the game itself,
+        // only its Prob presets. Reached via the ⚙ chip in the strip.
+        function _openManageProbsDialog() {
+            var info = _getCurrentViewGame();
+            var game = info ? info.game : null;
+            if (!game || !Array.isArray(game.probOptions) || game.probOptions.length === 0) return;
+
+            var prev = document.getElementById('manage-probs-overlay');
+            if (prev) prev.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'manage-probs-overlay';
+            overlay.className = 'group-edit-overlay';
+            var dlg = document.createElement('div');
+            dlg.className = 'group-edit-dialog';
+
+            var title = document.createElement('div');
+            title.className = 'ged-title';
+            title.textContent = 'Manage Probs';
+            dlg.appendChild(title);
+
+            var help = document.createElement('div');
+            help.className = 'ged-label';
+            help.textContent = 'Check the Probs to remove, then “Delete selected”. The cards stay in the library — only the Prob presets and their overrides go.';
+            dlg.appendChild(help);
+
+            // Select-all row
+            var allRow = document.createElement('label');
+            allRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:12px 0 4px 0;font-size:12px;color:#bbb;cursor:pointer;';
+            var allCb = document.createElement('input'); allCb.type = 'checkbox';
+            allRow.appendChild(allCb);
+            allRow.appendChild(document.createTextNode('Select all'));
+            dlg.appendChild(allRow);
+
+            // One row per Prob (checkbox + label + active badge)
+            var listWrap = document.createElement('div');
+            listWrap.style.cssText = 'max-height:260px;overflow:auto;border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.1);padding:4px 0;margin:2px 0;';
+            var rowCbs = [];
+            game.probOptions.forEach(function(prob, i) {
+                if (!prob) return;
+                var isActive = (prob.id === game.activeProbOptionId);
+                var row = document.createElement('label');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;color:#fff;cursor:pointer;border-radius:4px;';
+                row.addEventListener('mouseenter', function(){ row.style.background = 'rgba(255,255,255,0.06)'; });
+                row.addEventListener('mouseleave', function(){ row.style.background = 'transparent'; });
+                var cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.probId = prob.id;
+                rowCbs.push(cb);
+                row.appendChild(cb);
+                var strong = document.createElement('b'); strong.textContent = 'Prob' + (i + 1);
+                row.appendChild(strong);
+                if (prob.name) {
+                    var nm = document.createElement('span');
+                    nm.textContent = '· ' + prob.name;
+                    nm.style.cssText = 'color:#bbb;font-weight:400;';
+                    row.appendChild(nm);
+                }
+                if (isActive) {
+                    var act = document.createElement('span');
+                    act.textContent = 'active';
+                    act.style.cssText = 'margin-left:auto;font-size:10px;color:#b39ddb;border:1px solid #7c4dff;border-radius:8px;padding:1px 7px;';
+                    row.appendChild(act);
+                }
+                listWrap.appendChild(row);
+            });
+            dlg.appendChild(listWrap);
+
+            // Buttons
+            var btnRow = document.createElement('div');
+            btnRow.className = 'ged-btn-row';
+            var delBtn = document.createElement('button');
+            delBtn.className = 'ged-btn ged-btn-ungroup';
+            delBtn.textContent = 'Delete selected';
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'ged-btn ged-btn-cancel';
+            closeBtn.textContent = 'Close';
+            btnRow.appendChild(delBtn);
+            btnRow.appendChild(closeBtn);
+            dlg.appendChild(btnRow);
+
+            function refreshState() {
+                var n = rowCbs.filter(function(c){ return c.checked; }).length;
+                delBtn.disabled = (n === 0);
+                delBtn.style.opacity = (n === 0) ? '0.5' : '1';
+                delBtn.style.cursor = (n === 0) ? 'default' : 'pointer';
+                delBtn.textContent = (n === 0) ? 'Delete selected' : ('Delete selected (' + n + ')');
+                allCb.checked = (n === rowCbs.length && n > 0);
+                allCb.indeterminate = (n > 0 && n < rowCbs.length);
+            }
+            rowCbs.forEach(function(c){ c.addEventListener('change', refreshState); });
+            allCb.addEventListener('change', function(){
+                rowCbs.forEach(function(c){ c.checked = allCb.checked; });
+                refreshState();
+            });
+
+            function close(){ overlay.remove(); }
+            closeBtn.addEventListener('click', close);
+            overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+
+            delBtn.addEventListener('click', function() {
+                var ids = rowCbs.filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.probId; });
+                if (!ids.length) return;
+                var willBeEmpty = game.probOptions.filter(function(p){ return p && ids.indexOf(p.id) === -1; }).length === 0;
+                var msg = 'Delete ' + ids.length + ' Prob' + (ids.length > 1 ? 's' : '') + '?\n\n' +
+                          'This removes the selected Prob preset(s) and their overrides — the card set itself is untouched.' +
+                          (willBeEmpty ? '\n\nThe game returns to BasicS (50/50 neutral).' : '');
+                if (!confirm(msg)) return;
+                var activeDeleted = (ids.indexOf(game.activeProbOptionId) !== -1);
+                game.probOptions = game.probOptions.filter(function(p){ return p && ids.indexOf(p.id) === -1; });
+                if (activeDeleted) {
+                    game.activeProbOptionId = game.probOptions.length > 0 ? game.probOptions[0].id : undefined;
+                    if (game.activeProbOptionId) {
+                        var na = _getActiveProb(game);
+                        _materializeProbIntoCards(game, na);
+                        _materializeProbMGroups(game, na);
+                    } else {
+                        _materializeProbIntoCards(game, null);
+                        _materializeProbMGroups(game, null);
+                    }
+                }
+                _saveCurrentViewGames(info);
+                close();
+                _reopenCurrentView();
+            });
+
+            overlay.appendChild(dlg);
+            document.body.appendChild(overlay);
+            refreshState();
+        }
+
+        // "Delete Game" entry point (the in-view button). Delete Game is a
+        // DANGEROUS action, so when the game has 2+ Probs we don't nuke it
+        // blindly — we open a Prob picker: delete one, several, or ALL.
+        // Selecting ALL deletes the entire game; a subset just prunes those
+        // Probs and keeps the game. With <2 Probs there's nothing to pick, so
+        // it goes straight to the whole-game delete (with its full warning).
+        function _deleteCurrentGameFlow() {
+            var info = _getCurrentViewGame();
+            if (!info || !info.game) return;
+            var probs = Array.isArray(info.game.probOptions) ? info.game.probOptions.filter(Boolean) : [];
+            if (probs.length >= 2) {
+                _openDeleteGameDialog(info);
+                return;
+            }
+            if (info.type === 'find') deleteGame(info.index);
+            else deleteCatchGame(info.index);
+        }
+
+        function _openDeleteGameDialog(info) {
+            var game = info.game;
+            var probs = Array.isArray(game.probOptions) ? game.probOptions.filter(Boolean) : [];
+            if (probs.length < 2) return;
+
+            var prev = document.getElementById('delete-game-overlay');
+            if (prev) prev.remove();
+            var overlay = document.createElement('div');
+            overlay.id = 'delete-game-overlay';
+            overlay.className = 'dgx-overlay';
+            var dlg = document.createElement('div');
+            dlg.className = 'dgx-dialog';
+
+            var CHECK = '<svg viewBox="0 0 12 12" width="11" height="11"><path d="M2 6.3 4.6 9 10 3.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            var TRASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M18 6l-1 14H7L6 6"/><path d="M10 11v5M14 11v5"/></svg>';
+
+            // Header: trash glyph + single instruction line.
+            var head = document.createElement('div');
+            head.className = 'dgx-head';
+            var hic = document.createElement('div');
+            hic.className = 'dgx-head-ic';
+            hic.innerHTML = TRASH;
+            var ttl = document.createElement('div');
+            ttl.className = 'dgx-title';
+            ttl.textContent = 'Check the Probes to delete';
+            head.appendChild(hic); head.appendChild(ttl);
+            dlg.appendChild(head);
+
+            // State + selection helpers (whole-row click toggles).
+            var selected = Object.create(null);
+            var probRows = [];
+
+            var list = document.createElement('div');
+            list.className = 'dgx-list';
+            probs.forEach(function(prob, i) {
+                var row = document.createElement('div');
+                row.className = 'dgx-row';
+                var box = document.createElement('div'); box.className = 'dgx-box'; box.innerHTML = CHECK;
+                row.appendChild(box);
+                var lab = document.createElement('div'); lab.className = 'dgx-label';
+                var b = document.createElement('b'); b.textContent = 'Prob' + (i + 1); lab.appendChild(b);
+                if (prob.name) {
+                    var nm = document.createElement('span'); nm.className = 'dgx-name';
+                    nm.textContent = ' · ' + prob.name; lab.appendChild(nm);
+                }
+                row.appendChild(lab);
+                if (prob.id === game.activeProbOptionId) {
+                    var act = document.createElement('span'); act.className = 'dgx-active'; act.textContent = 'active';
+                    row.appendChild(act);
+                }
+                row.addEventListener('click', function() {
+                    if (selected[prob.id]) delete selected[prob.id]; else selected[prob.id] = true;
+                    refreshState();
+                });
+                probRows.push({ id: prob.id, el: row });
+                list.appendChild(row);
+            });
+            dlg.appendChild(list);
+
+            // Divider, then "All Probes" — one tick selects every Prob.
+            var divEl = document.createElement('div'); divEl.className = 'dgx-div';
+            dlg.appendChild(divEl);
+            var allRow = document.createElement('div');
+            allRow.className = 'dgx-row dgx-row-all';
+            var allBox = document.createElement('div'); allBox.className = 'dgx-box'; allBox.innerHTML = CHECK;
+            allRow.appendChild(allBox);
+            var allLab = document.createElement('div'); allLab.className = 'dgx-label';
+            var allB = document.createElement('b'); allB.textContent = 'All Probes'; allLab.appendChild(allB);
+            allRow.appendChild(allLab);
+            allRow.addEventListener('click', function() {
+                var isAll = (Object.keys(selected).length === probs.length);
+                selected = Object.create(null);
+                if (!isAll) probs.forEach(function(p){ selected[p.id] = true; });
+                refreshState();
+            });
+            dlg.appendChild(allRow);
+
+            // Footer
+            var foot = document.createElement('div'); foot.className = 'dgx-foot';
+            var cancelBtn = document.createElement('button'); cancelBtn.className = 'dgx-btn dgx-btn-cancel'; cancelBtn.textContent = 'Cancel';
+            var delBtn = document.createElement('button'); delBtn.className = 'dgx-btn dgx-btn-del';
+            foot.appendChild(cancelBtn); foot.appendChild(delBtn);
+            dlg.appendChild(foot);
+
+            function refreshState() {
+                var n = Object.keys(selected).length;
+                var all = (n === probs.length && n > 0);
+                probRows.forEach(function(r){ r.el.classList.toggle('checked', !!selected[r.id]); });
+                allRow.classList.toggle('checked', all);
+                delBtn.disabled = (n === 0);
+                delBtn.textContent = (n === 0) ? 'Delete' : ('Delete ' + n + ' Prob' + (n > 1 ? 's' : ''));
+            }
+
+            function close(){ overlay.remove(); }
+            cancelBtn.addEventListener('click', close);
+            overlay.addEventListener('click', function(e){ if (e.target === overlay) close(); });
+
+            delBtn.addEventListener('click', function() {
+                var ids = Object.keys(selected);
+                if (!ids.length) return;
+                if (ids.length === probs.length) {
+                    // ALL Probs → delete the whole game (its own rich warning:
+                    // card count, Catch clones, Combined-game impact).
+                    close();
+                    if (info.type === 'find') deleteGame(info.index);
+                    else deleteCatchGame(info.index);
+                    return;
+                }
+                // Subset → prune those Probs, keep the game.
+                var msg = 'Delete ' + ids.length + ' Prob' + (ids.length > 1 ? 's' : '') + '?\n\n' +
+                          'This removes the selected Prob preset(s) and their overrides — the game and its cards stay.';
+                if (!confirm(msg)) return;
+                var g = info.game;
+                var activeDeleted = (ids.indexOf(g.activeProbOptionId) !== -1);
+                g.probOptions = g.probOptions.filter(function(p){ return p && ids.indexOf(p.id) === -1; });
+                if (activeDeleted) {
+                    g.activeProbOptionId = g.probOptions.length > 0 ? g.probOptions[0].id : undefined;
+                    if (g.activeProbOptionId) {
+                        var na = _getActiveProb(g);
+                        _materializeProbIntoCards(g, na);
+                        _materializeProbMGroups(g, na);
+                    } else {
+                        _materializeProbIntoCards(g, null);
+                        _materializeProbMGroups(g, null);
+                    }
+                }
+                _saveCurrentViewGames(info);
+                close();
+                _reopenCurrentView();
+            });
+
+            overlay.appendChild(dlg);
+            document.body.appendChild(overlay);
+            refreshState();
         }
 
         function _switchActiveProb(newProbId) {
@@ -17610,8 +18565,21 @@
                         var badge = document.createElement('div');
                         badge.className = 'mcard-badge';
                         var dispLabel = _groupDisplayLabel(groups, i);
-                        badge.textContent = dispLabel;
-                        badge.style.cssText = 'position:absolute;top:13px;right:-2px;background:' + color + ';color:white;font-size:8px;font-weight:bold;padding:1px 3px;border-radius:3px;z-index:5;line-height:1;cursor:pointer;text-shadow:0 0 2px rgba(0,0,0,0.85), 0 1px 0 rgba(0,0,0,0.6);';
+                        // A DOT replaces the "P" — 2px from the left and vertically
+                        // centered (the badge is inline-flex / align-items:center).
+                        // Numbered groups keep the number after a 2px gap.
+                        var _pNum = /^P(\d+)$/.exec(dispLabel);
+                        var _dot = '<span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;flex:0 0 auto;"></span>';
+                        // A dot-only badge keeps the SAME width as a dot+1-digit
+                        // badge (hidden placeholder reproducing dot + gap +
+                        // digit) but CENTERS the visible dot in the badge via
+                        // absolute positioning — the badge is position:absolute,
+                        // so it is its own containing block. 2-digit numbers
+                        // grow the badge naturally.
+                        var _phFull = '<span style="visibility:hidden;display:inline-flex;align-items:center;"><span style="display:inline-block;width:4px;height:4px;flex:0 0 auto;"></span><span style="margin-left:1px;">0</span></span>';
+                        var _dotCentered = '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;width:4px;height:4px;border-radius:50%;background:currentColor;"></span>';
+                        badge.innerHTML = _pNum ? (_dot + '<span style="margin-left:1px;">' + _pNum[1] + '</span>') : (_phFull + _dotCentered);
+                        badge.style.cssText = 'position:absolute;top:13px;right:-7px;background:' + color + ';color:white;font-size:10px;font-weight:bold;padding:1px 3px 1px 2px;border-radius:3px;z-index:5;line-height:1;display:inline-flex;align-items:center;min-height:9px;cursor:pointer;text-shadow:0 0 2px rgba(0,0,0,0.85), 0 1px 0 rgba(0,0,0,0.6);';
                         badge.title = (groupSize === 1)
                             ? 'Custom name / probability on this card. Click to edit.'
                             : 'Group ' + dispLabel + ' (' + groupSize + ' cards). Click to edit name / probability / ungroup.';
@@ -17624,10 +18592,14 @@
                         })(groupIdx));
                         cardEl.style.position = 'relative';
                         cardEl.appendChild(badge);
-                        // Add a thick colored bottom border so the group is
+                        // Add a thick colored bottom line so the group is
                         // visible at a glance even without zooming in on the
-                        // M-badge.
-                        cardEl.style.borderBottom = '6px solid ' + color;
+                        // M-badge. A transparent 6px border holds the space;
+                        // the colored bar is drawn by ::after (.gv-grp-line),
+                        // inset 4px on each side so it's shorter than the card.
+                        cardEl.style.borderBottom = '6px solid transparent';
+                        cardEl.classList.add('gv-grp-line');
+                        cardEl.style.setProperty('--gv-grp-color', color);
                         break;
                     }
                 }
@@ -17654,7 +18626,13 @@
                 if (cardEl.querySelector('.mcard-badge')) return;
                 var flag = document.createElement('div');
                 flag.className = 'pmode-flag';
-                flag.textContent = 'p';
+                // Dot in place of the "P", matching the mcard-badge. The grey
+                // flag is always dot-only → keep the dot+1-digit WIDTH (hidden
+                // placeholder) but CENTER the visible dot via absolute
+                // positioning (the flag is position:absolute = its own
+                // containing block).
+                flag.innerHTML = '<span style="visibility:hidden;display:inline-flex;align-items:center;"><span style="display:inline-block;width:4px;height:4px;flex:0 0 auto;"></span><span style="margin-left:1px;">0</span></span>'
+                               + '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;width:4px;height:4px;border-radius:50%;background:currentColor;"></span>';
                 flag.title = 'Set this card’s probability';
                 // Match the .mcard-badge geometry EXACTLY so an unedited
                 // card's "p" flag sits in the same spot and at the same
@@ -17662,10 +18640,11 @@
                 // only changes the marker's COLOUR (neutral grey → palette
                 // colour) — never its size or position.
                 flag.style.cssText =
-                    'position:absolute;top:13px;right:-2px;' +
-                    'background:rgba(120,120,140,0.92);color:#fff;' +
-                    'font-size:8px;font-weight:bold;line-height:1;' +
-                    'padding:1px 3px;border-radius:3px;z-index:6;cursor:pointer;' +
+                    'position:absolute;top:13px;right:-7px;' +
+                    'background:rgba(84,84,100,0.96);color:#fff;' +
+                    'font-size:10px;font-weight:bold;line-height:1;' +
+                    'display:inline-flex;align-items:center;min-height:9px;' +
+                    'padding:1px 3px 1px 2px;border-radius:3px;z-index:6;cursor:pointer;' +
                     'text-shadow:0 0 2px rgba(0,0,0,0.85), 0 1px 0 rgba(0,0,0,0.6);';
                 flag.addEventListener('mousedown', function(ev){ ev.stopPropagation(); });
                 flag.addEventListener('click', function(ev){
@@ -19628,7 +20607,7 @@
             // Group by letter
             var rowMap = {};
             numbersCards.forEach(function(item) {
-                var ch = item.label.charAt(0).toUpperCase();
+                var ch = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                 if (!rowMap[ch]) rowMap[ch] = [];
                 rowMap[ch].push(item);
             });
@@ -19731,7 +20710,7 @@
             var allCards = {};
             var rowCards = {};
             abcCards.forEach(function(item) {
-                var ch = item.label.charAt(0).toUpperCase();
+                var ch = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                 if (!rowCards[ch]) rowCards[ch] = [];
                 allCards[item.label] = { svg: item.svgContent, cardShape: item.cardShape, cardShapeW: item.cardShapeW, cardShapeH: item.cardShapeH, cardCornerR: item.cardCornerR };
                 rowCards[ch].push(item.label);
@@ -19823,7 +20802,7 @@
                         var rowMap = {};
                         var rowOrder = [];
                         cards.forEach(function(item) {
-                            var letter = item.label.charAt(0).toUpperCase();
+                            var letter = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                             if (!rowMap[letter]) {
                                 rowMap[letter] = [];
                                 rowOrder.push(letter);
@@ -20763,7 +21742,7 @@
                     var rowMap = {};
                     var rowOrder = [];
                     cards.forEach(function(item) {
-                        var firstChar = item.label.charAt(0).toUpperCase();
+                        var firstChar = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                         if (!rowMap[firstChar]) {
                             rowMap[firstChar] = [];
                             rowOrder.push(firstChar);
@@ -20836,6 +21815,9 @@
             loadDeferredVariations('custom');
             // U1: baseline snapshot so first undo has a target
             if (_undoStack.length === 0) _undoPushSnapshot();
+            // If this set's labels drifted out of sync with the art, offer to
+            // repair (after render, so the dialog doesn't block the build).
+            setTimeout(function() { try { _maybeOfferRowRepair(setName); } catch (e) {} }, 200);
         }
 
         function selectCardSet(setName) {
@@ -20953,7 +21935,7 @@
             // Group cards by first letter
             var rowMap = {};
             abcCards.forEach(function(item) {
-                var firstChar = item.label.charAt(0).toUpperCase();
+                var firstChar = _rowKeyParse(item.label) || item.label.charAt(0).toUpperCase();
                 if (!rowMap[firstChar]) rowMap[firstChar] = [];
                 rowMap[firstChar].push(item);
             });
@@ -22559,13 +23541,18 @@
                 svg.setAttribute('height', svgPx.toString());
                 svg.innerHTML = ic.svgContent || '';
                 btn.appendChild(svg);
-                // Size-class chip in the corner (still useful for tiny S3
-                // thumbs where the size difference alone is subtle).
-                if (ic.sizeClass) {
-                    var chip = document.createElement('span');
-                    chip.className = 'mpp-icon-chip';
-                    chip.textContent = ic.sizeClass;
-                    btn.appendChild(chip);
+                // Size-class label, shown CENTERED BELOW the card (not as a
+                // corner overlay). Find has only ONE icon type (L1), so its
+                // label is redundant — skip it; keep it for Catch (L1–S3).
+                // position:static overrides the class's absolute corner rule so
+                // the label flows under the thumb inside the centered cell below.
+                var chipEl = null;
+                if (ic.sizeClass && ic.gameType !== 'find') {
+                    chipEl = document.createElement('span');
+                    chipEl.className = 'mpp-icon-chip';
+                    chipEl.textContent = ic.sizeClass;
+                    chipEl.style.position = 'static';
+                    chipEl.style.marginTop = '3px';
                 }
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -22611,7 +23598,12 @@
                     });
                 });
                 btn.appendChild(rmBtn);
-                row.appendChild(btn);
+                // Centered column cell: thumb on top, size label centered below it.
+                var cell = document.createElement('div');
+                cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+                cell.appendChild(btn);
+                if (chipEl) cell.appendChild(chipEl);
+                row.appendChild(cell);
             });
         }
 

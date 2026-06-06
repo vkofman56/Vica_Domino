@@ -375,6 +375,30 @@
                         } catch(e) {}
                     }
 
+                    // LOCAL-WINS keys: user-authored, device-local-authoritative
+                    // data that must NOT be rolled back by an OLDER cloud
+                    // snapshot. Page names + the three game stores were being
+                    // silently reverted because sync treats cloud as truth and
+                    // only protected CARD keys (so a stale-but-non-empty cloud
+                    // overwrote newer local work — e.g. "GPm F Setup" reverting
+                    // to the pre-model "GP F23"). Here we keep the LOCAL copy
+                    // whenever it has data, so an established device never loses
+                    // its work. A FRESH device (empty local) still pulls cloud
+                    // normally. Trade-off: edits to these keys don't propagate
+                    // device→device (acceptable for single-superuser editing).
+                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames'];
+                    _localWinsKeys.forEach(function (lk) {
+                        var lv = _origGetItem(lk);
+                        if (!lv) return;
+                        try {
+                            var parsed = JSON.parse(lv);
+                            var hasData = Array.isArray(parsed) ? parsed.length > 0
+                                        : (parsed && typeof parsed === 'object') ? Object.keys(parsed).length > 0
+                                        : false;
+                            if (hasData) _preservedCards[lk] = lv;
+                        } catch (e) {}
+                    });
+
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
                         var k = localStorage.key(i);
@@ -386,10 +410,11 @@
                         _origSetItem(k, serverData[k]);
                     });
 
-                    // Restore preserved card data that cloud would have wiped
+                    // Restore preserved local data (card keys + local-wins keys)
+                    // that the cloud overwrite would otherwise have clobbered.
                     Object.keys(_preservedCards).forEach(function (ck) {
                         _origSetItem(ck, _preservedCards[ck]);
-                        console.warn('[Sync] Preserved local card data for "' + ck + '" (cloud was empty)');
+                        console.warn('[Sync] Kept local data for "' + ck + '" (not overwritten by cloud)');
                     });
 
                     _setSyncStatus('saved');

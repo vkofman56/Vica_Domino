@@ -1,9 +1,33 @@
 # Vica Domino Project Memory
-**Last Updated**: June 4, 2026 — ⚠️ RECOVERY SITUATION (read the banner below FIRST)
+**Last Updated**: June 5, 2026 — uncommitted-work crisis RESOLVED (committed + pushed)
 
 ---
 
-## ⚠️ READ FIRST — June 4, 2026 — uncommitted-work recovery in progress
+## ✅ June 5, 2026 — the uncommitted-work crisis is RESOLVED
+
+The whole week's work is now **committed and pushed**. All 3 canonical branches
+(`claude/review-project-docs-JOOeh`, `…general-session-yVBQq`,
+`…resume-vica-domin-UOJun`) are byte-identical at **`c712fb1`** on GitHub. History
+from the May 28 baseline `b76930f`:
+- `c13b8cd` — WIP snapshot of the full pre-recovery state (the 244-edit week).
+- `fb66cac` / `8b48bf7` / `c712fb1` — new **Card Maker copy/move-rows** feature
+  (menu distribute + insert/shift + drag-with-Move/Copy popup), built & verified
+  this session.
+
+**Safety net still on disk** (if we revisit the rollback idea): branches
+`wip/full-20260604` (full pre-fix state) and `recovery/replay` (May 30 11:04 PM
+reconstruction `c49a602`), plus `_recovery_transcripts_backup/` (transcripts + change
+tables). Transcript-based recovery (reconstruct→verify→commit per time-point) is still
+available — but the DATA (localStorage) can't be time-traveled, so testing OLD code
+needs an isolated origin.
+
+**STILL TODO:** prevention setup — (#1) a `SessionEnd`/`Stop` auto-commit hook,
+(#2) `scripts/ship.sh` (bump + add + commit + push to 3 branches). Also the
+**`sync.js` games-not-protected gap** (June 2 entries) is still unfixed.
+
+---
+
+## (historical) June 4, 2026 — uncommitted-work recovery in progress
 
 **Situation:** Nothing has been committed since **May 28** (commit `b76930f`). The
 entire **May 30 → Jun 4** session (`fb852b27…`, **244 edits** across 7 files,

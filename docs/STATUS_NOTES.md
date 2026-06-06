@@ -1,12 +1,33 @@
 # Vica Domino - Project Status Notes
-**Date**: June 4, 2026 — ⚠️ RECOVERY in progress (see banner below + MEMORY.md "READ FIRST")
-**Branch**: `claude/review-project-docs-JOOeh`
-**Total Commits**: 640+ (⚠️ **nothing committed since May 28** — see below)
+**Date**: June 5, 2026 — uncommitted-work crisis RESOLVED; copy/move-rows feature shipped
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors at `c712fb1`, pushed)
+**Total Commits**: 644+
 **Codebase Size**: ~18,000 lines across 4 main files
 
 ---
 
-## ⚠️ June 4, 2026 — WHERE WE ARE / WHAT TO START FROM TOMORROW
+## ✅ June 5, 2026 — committed + pushed; Card Maker copy/move-rows shipped
+
+The whole uncommitted week is now committed and **pushed to all 3 branches**
+(`c712fb1`). Built this session: **Card Maker copy/move multiple rows** —
+- Right-click "Copy/Move N to Row X" **distributes** (one source row → one
+  consecutive row), fills empty rows, **inserts/shifts** when there aren't enough,
+  clears blank placeholders, preserves emptied source rows, atomic undo/redo.
+  (`fb66cac`, `8b48bf7`)
+- **Drag** a rubber-band selection → drop shows a **Move/Copy popup** → same
+  distribution. (`c712fb1`)
+Key bug fixed along the way: ops only called `saveVariations()`, not the full
+arrangement save — so layout + blank changes didn't persist and undo re-showed
+stale blanks. Fix: `_saveCardSetActive()` (variations + arrangement + ABC snapshot)
+after the blank clean-up, inside one undo-suspended block.
+
+Safety net still on disk: `wip/full-20260604`, `recovery/replay` (`c49a602`),
+`_recovery_transcripts_backup/`. STILL TODO: prevention hooks/ship.sh + the
+sync.js games-protection gap.
+
+---
+
+## (historical) June 4, 2026 — WHERE WE ARE / WHAT TO START FROM TOMORROW
 
 **The problem:** ~a week of work (the **May 30 → Jun 4** session, **244 uncommitted
 edits**) is sitting in the working tree with **no git checkpoints** since the May 28

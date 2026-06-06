@@ -8040,6 +8040,44 @@
             }
         });
 
+        // Small drop popup asking Move vs Copy after dragging a multi-row
+        // selection. Buttons call the same distributing copy/move used by the
+        // right-click menu, so all the Phase-1 behavior (distribute, fill/shift
+        // empty rows, blank clean-up, atomic undo) is reused as-is.
+        function _showDragMoveCopyPopup(x, y, onMove, onCopy) {
+            var prev = document.getElementById('drag-mc-popup');
+            if (prev) prev.remove();
+            var pop = document.createElement('div');
+            pop.id = 'drag-mc-popup';
+            pop.style.cssText = 'position:fixed;z-index:30001;background:#262638;border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:4px;min-width:130px;font:13px -apple-system,Segoe UI,sans-serif;';
+            function close() {
+                pop.remove();
+                document.removeEventListener('pointerdown', onOutside, true);
+                document.removeEventListener('keydown', onKey, true);
+            }
+            function onOutside(ev) { if (!pop.contains(ev.target)) close(); }
+            function onKey(ev) { if (ev.key === 'Escape') close(); }
+            function mkBtn(label, bg, fn) {
+                var b = document.createElement('button');
+                b.textContent = label;
+                b.style.cssText = 'padding:7px 12px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;text-align:left;color:#fff;background:' + bg + ';';
+                b.addEventListener('pointerdown', function(ev) { ev.stopPropagation(); });
+                b.addEventListener('click', function(ev) { ev.stopPropagation(); close(); if (fn) fn(); });
+                return b;
+            }
+            pop.appendChild(mkBtn('⇅  Move here', 'rgba(124,77,255,0.9)', onMove));
+            pop.appendChild(mkBtn('⧉  Copy here', 'rgba(56,160,90,0.9)', onCopy));
+            pop.appendChild(mkBtn('Cancel', 'rgba(255,255,255,0.10)', null));
+            document.body.appendChild(pop);
+            var r = pop.getBoundingClientRect();
+            pop.style.left = Math.max(6, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
+            pop.style.top = Math.max(6, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
+            setTimeout(function() {
+                document.addEventListener('pointerdown', onOutside, true);
+                document.addEventListener('keydown', onKey, true);
+            }, 0);
+        }
+
         // --- Drag-to-move cards between rows AND reorder within rows ---
         var cardDragJustEnded = false;
         (function() {
@@ -8047,6 +8085,7 @@
             if (!contentEl) return;
             var dragCard = null, dragStartX = 0, dragStartY = 0;
             var dragActive = false, dragPending = false;
+            var dragMulti = false; // dragging a 2+ card rubber-band selection?
             var dragSourceRow = null, dragOverRow = null;
             var dragCardSet = null;   // the card-set container the drag started in
             var dragPointerId = null; // pointer ID for capture
@@ -8079,6 +8118,7 @@
                 dragPointerId = null;
                 dragPending = false;
                 dragActive = false;
+                dragMulti = false;
             }
 
             function hideDropIndicator() {
@@ -8136,6 +8176,12 @@
                 dragPending = true;
                 dragActive = false;
                 dragPointerId = e.pointerId;
+                // Dragging a card that's part of a 2+ rubber-band selection →
+                // treat it as a multi-row drag (drop shows a Move/Copy popup
+                // and distributes, instead of a single-card move).
+                dragMulti = (typeof groupEditSelected !== 'undefined'
+                             && groupEditSelected.length >= 2
+                             && groupEditSelected.indexOf(card) !== -1);
             });
 
             document.addEventListener('pointermove', function(e) {
@@ -8211,6 +8257,18 @@
             document.addEventListener('pointerup', function(e) {
                 if (!dragPending) return;
                 if (dragActive) {
+                    // Multi-row selection drop → ask Move or Copy, then run the
+                    // same distributing op the right-click menu uses.
+                    if (dragMulti && dragOverRow) {
+                        var _dCard = dragCard, _dRow = dragOverRow, _dx = e.clientX, _dy = e.clientY;
+                        cardDragJustEnded = true;
+                        setTimeout(function() { cardDragJustEnded = false; }, 50);
+                        cleanupDragState();
+                        _showDragMoveCopyPopup(_dx, _dy,
+                            function() { try { _ctxMoveCardOrSelectionToRow(_dCard, _dRow); } catch (ex) {} },
+                            function() { try { _ctxCopyCardOrSelectionToRow(_dCard, _dRow); } catch (ex) {} });
+                        return;
+                    }
                     var moved = false;
                     var crossRowMove = false;
                     if (dragOverRow) {

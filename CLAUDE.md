@@ -62,9 +62,11 @@ This file auto-loads into every session. Do these before doing any work.
   §3); the 2-hourly `wip/auto-snapshot` launchd agent is the passive backstop.
   Use `ship.sh` after every change; the snapshot agent only catches what you
   forget.
-- Safety/recovery assets on disk: branches `wip/full-20260604`,
-  `recovery/replay` (`c49a602`), and `_recovery_transcripts_backup/`
-  (session transcripts + change tables).
+- **Safety/recovery assets — KEEP THESE, do NOT delete** (user wants them
+  retained; we may go back to inspect/use them): branches `wip/full-20260604`
+  and `recovery/replay` (`c49a602`), plus the `_recovery_transcripts_backup/`
+  directory (session transcripts + change tables). Not a cleanup target — leave
+  them in place unless the user explicitly says otherwise.
 
 ## Kick-off phrase (paste this when you start a new chat, if you want to be explicit)
 > Read CLAUDE.md, the latest section of docs/MEMORY.md and docs/STATUS_NOTES.md,

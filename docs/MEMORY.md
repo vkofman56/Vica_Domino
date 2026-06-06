@@ -7,14 +7,17 @@
 
 The whole week's work is now **committed and pushed**. All 3 canonical branches
 (`claude/review-project-docs-JOOeh`, `…general-session-yVBQq`,
-`…resume-vica-domin-UOJun`) are byte-identical at **`c712fb1`** on GitHub. History
-from the May 28 baseline `b76930f`:
+`…resume-vica-domin-UOJun`) stay **byte-identical** on GitHub — the tip advances
+with each `bash scripts/ship.sh` (the crisis was resolved at `c712fb1`; later
+doc + `ship.sh`/`.gitignore` commits have since advanced it — run `git log` for
+the live tip). History from the May 28 baseline `b76930f`:
 - `c13b8cd` — WIP snapshot of the full pre-recovery state (the 244-edit week).
 - `fb66cac` / `8b48bf7` / `c712fb1` — new **Card Maker copy/move-rows** feature
   (menu distribute + insert/shift + drag-with-Move/Copy popup), built & verified
   this session.
 
-**Safety net still on disk** (if we revisit the rollback idea): branches
+**Safety/recovery assets still on disk — KEEP, do NOT delete** (user wants them
+retained; we may go back to inspect/use them — NOT a cleanup target): branches
 `wip/full-20260604` (full pre-fix state) and `recovery/replay` (May 30 11:04 PM
 reconstruction `c49a602`), plus `_recovery_transcripts_backup/` (transcripts + change
 tables). Transcript-based recovery (reconstruct→verify→commit per time-point) is still
@@ -167,7 +170,12 @@ STATUS_NOTES June 2 (cont.).
 - The three deletion scopes are intentionally separate: **chip ×** = one Prob,
   **⚙ Manage** = bulk prune (keep game), **Delete Game** = picker incl. all→game.
 
-### ⚠️ Sync gap — games are NOT protected from a stale cloud (UNFIXED)
+### ⚠️ Sync gap — games are NOT protected from a stale cloud  →  RESOLVED June 5
+> **THIS GAP IS FIXED** (committed `c13b8cd`; verified June 5). `js/sync.js` now
+> has a LOCAL-WINS block (`_localWinsKeys`) that preserves `pageNameLabels_gp2`
+> / `savedCustomGames` / `savedCatchGames` / `savedCombinedGames` across a sync.
+> See the "RESOLVED — sync.js games-protection gap" entry at the top of this file.
+> The text below is the ORIGINAL June 2 diagnosis, kept for history.
 - **Symptom seen:** Previewer showed only 2 Find games while the Studio library
   showed 6 (games "deleted from GP 0, still in A-L"). It self-resolved (stale
   tab), data was never lost.

@@ -1,6 +1,6 @@
 # Vica Domino - Project Status Notes
-**Date**: June 5, 2026 — uncommitted-work crisis RESOLVED; copy/move-rows feature shipped
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors at `c712fb1`, pushed)
+**Date**: June 5, 2026 — crisis RESOLVED; copy/move-rows shipped; sync.js gap verified-fixed; `ship.sh` prevention tool live
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `f5237d9` as of this update; advances with each `bash scripts/ship.sh`)
 **Total Commits**: 644+
 **Codebase Size**: ~18,000 lines across 4 main files
 
@@ -21,8 +21,9 @@ arrangement save — so layout + blank changes didn't persist and undo re-showed
 stale blanks. Fix: `_saveCardSetActive()` (variations + arrangement + ABC snapshot)
 after the blank clean-up, inside one undo-suspended block.
 
-Safety net still on disk: `wip/full-20260604`, `recovery/replay` (`c49a602`),
-`_recovery_transcripts_backup/`.
+Safety/recovery assets still on disk — **KEEP, do NOT delete** (user wants them
+retained; may go back to inspect/use): `wip/full-20260604`, `recovery/replay`
+(`c49a602`), `_recovery_transcripts_backup/`.
 
 **Update (June 5 — verified):** the **sync.js games-protection gap is FIXED**
 (committed `c13b8cd`). `js/sync.js` now has a **LOCAL-WINS** block

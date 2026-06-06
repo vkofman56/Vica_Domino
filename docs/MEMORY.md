@@ -21,9 +21,22 @@ tables). Transcript-based recovery (reconstruct→verify→commit per time-point
 available — but the DATA (localStorage) can't be time-traveled, so testing OLD code
 needs an isolated origin.
 
-**STILL TODO:** prevention setup — (#1) a `SessionEnd`/`Stop` auto-commit hook,
-(#2) `scripts/ship.sh` (bump + add + commit + push to 3 branches). Also the
-**`sync.js` games-not-protected gap** (June 2 entries) is still unfixed.
+**STILL TODO:** prevention setup — (#1) a `SessionEnd`/`Stop` auto-commit hook
+(the 2-hourly `wip/auto-snapshot` launchd agent now covers this as a backstop),
+(#2) `scripts/ship.sh` (bump + add + commit + push to 3 branches) — confirm it
+exists/works.
+
+**RESOLVED — `sync.js` games-protection gap (verified June 5):** the June 2
+"games-not-protected" gap is **FIXED**, committed in `c13b8cd`. `js/sync.js`
+now has a **LOCAL-WINS** block — `_localWinsKeys = ['pageNameLabels_gp2',
+'savedCustomGames', 'savedCatchGames', 'savedCombinedGames']` — that snapshots
+any of those keys that hold local data, performs the cloud overwrite, then
+restores them (logs `[Sync] Kept local data for "<key>"`). A stale cloud copy
+can no longer roll back games or page-name labels. The fix was written during
+the May 30–Jun 4 uncommitted week, which is why the June 2 entry still said
+"unfixed." **Trade-off (by design):** these 4 keys are device-local-
+authoritative, so edits to them do NOT propagate device→device; a fresh/empty
+device still pulls cloud normally. Acceptable for single-superuser editing.
 
 ---
 

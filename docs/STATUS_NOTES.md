@@ -22,8 +22,20 @@ stale blanks. Fix: `_saveCardSetActive()` (variations + arrangement + ABC snapsh
 after the blank clean-up, inside one undo-suspended block.
 
 Safety net still on disk: `wip/full-20260604`, `recovery/replay` (`c49a602`),
-`_recovery_transcripts_backup/`. STILL TODO: prevention hooks/ship.sh + the
-sync.js games-protection gap.
+`_recovery_transcripts_backup/`.
+
+**Update (June 5 — verified):** the **sync.js games-protection gap is FIXED**
+(committed `c13b8cd`). `js/sync.js` now has a **LOCAL-WINS** block
+(`_localWinsKeys` = `pageNameLabels_gp2`, `savedCustomGames`, `savedCatchGames`,
+`savedCombinedGames`) that snapshots local data before the cloud overwrite and
+restores it after, so a stale cloud copy can't roll those keys back. The earlier
+"UNFIXED" note predated the fix being committed. Trade-off: those 4 keys are
+device-local-authoritative (edits don't propagate device→device; fresh device
+still pulls cloud).
+
+STILL TODO: prevention `scripts/ship.sh` (bump + add + commit + push to 3
+branches) — confirm it exists/works; the `wip/auto-snapshot` agent is a
+backstop only.
 
 ---
 

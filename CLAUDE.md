@@ -40,10 +40,18 @@ This file auto-loads into every session. Do these before doing any work.
 - `bash scripts/bump-trial.sh` stamps the deploy-time banner.
 
 ## 5. Known open items (as of June 5, 2026)
-- **`sync.js` gap (UNFIXED):** sync wipes localStorage and replaces with the
-  cloud copy, preserving only CARD keys — so `savedCustomGames` /
-  `savedCatchGames` / `pageNameLabels_gp2` can be overwritten by a stale cloud.
-  See MEMORY June 2 entries.
+- **`sync.js` games-protection gap — FIXED** (committed in `c13b8cd`). A
+  **LOCAL-WINS** block in `js/sync.js` (`_localWinsKeys`) now preserves
+  `pageNameLabels_gp2` / `savedCustomGames` / `savedCatchGames` /
+  `savedCombinedGames` across a sync, so a stale cloud copy can't roll them
+  back. The June 2 "UNFIXED" note was stale — the fix was written during the
+  May 30–Jun 4 week but not committed until `c13b8cd`. Trade-off baked in:
+  these 4 keys are device-local-authoritative, so edits to them don't
+  propagate device→device (fine for single-superuser editing; a fresh/empty
+  device still pulls cloud normally).
+- **Prevention tooling (partial):** the 2-hourly `wip/auto-snapshot` launchd
+  agent is live (backstop only). `scripts/ship.sh` (bump + add + commit + push
+  to all 3 branches in one step) was an agreed item — confirm it exists/works.
 - Safety/recovery assets on disk: branches `wip/full-20260604`,
   `recovery/replay` (`c49a602`), and `_recovery_transcripts_backup/`
   (session transcripts + change tables).

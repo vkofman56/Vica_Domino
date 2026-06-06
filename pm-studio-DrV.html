@@ -6695,6 +6695,93 @@
         // entire selection in a single undo entry; otherwise fall back to the
         // single-card move above. Cards already in the target row are
         // skipped so the operation is idempotent.
+        // ── Multi-row helpers (used by the distributing copy/move) ──────────
+        // Split a selection into groups by SOURCE row, top→bottom, with each
+        // group's cards also in document order. So a 2-row selection yields 2
+        // groups that we can lay into 2 consecutive destination rows instead of
+        // collapsing everything into one.
+        function _selectionGroupsBySourceRow(sel) {
+            var rows = [], byRow = [];
+            sel.forEach(function(c) {
+                if (!c || !c.parentNode) return;
+                var sr = c.closest('.library-row');
+                if (!sr) return;
+                var idx = rows.indexOf(sr);
+                if (idx === -1) { rows.push(sr); byRow.push([c]); }
+                else byRow[idx].push(c);
+            });
+            var order = rows.map(function(r, i) { return i; });
+            order.sort(function(a, b) {
+                return (rows[a].compareDocumentPosition(rows[b]) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+            });
+            return order.map(function(i) {
+                var cards = byRow[i].slice().sort(function(a, b) {
+                    return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+                });
+                return { srcRow: rows[i], cards: cards };
+            });
+        }
+        // The destination rows for a distributed op: targetRow plus its next
+        // consecutive .library-row siblings, one per source group. Returns as
+        // many as exist; the caller appends any overflow to the last.
+        function _consecutiveRowsFrom(targetRow, count) {
+            var out = [targetRow], r = targetRow;
+            while (out.length < count) {
+                r = r.nextElementSibling;
+                while (r && !(r.classList && r.classList.contains('library-row'))) r = r.nextElementSibling;
+                if (!r) break;
+                out.push(r);
+            }
+            return out;
+        }
+        function _destRowLetters(destRows, n) {
+            return destRows.slice(0, n).map(function(r) { return r.dataset.rowLetter || '?'; }).join(', ');
+        }
+        // A "blank-art" card = the empty placeholder insert-empty-line drops to
+        // keep an empty row alive on save. Its SVG has no drawn marks.
+        function _isBlankArtCard(card) {
+            if (!card || !card.classList || !card.classList.contains('library-card')) return false;
+            var svg = card.querySelector('svg');
+            if (!svg) return true;
+            return svg.querySelectorAll('path, polyline, polygon, line, text, circle, ellipse, rect, image').length === 0;
+        }
+        // After real cards land in a row, drop its blank placeholder(s) — the
+        // row now persists on its own, so the empty tile shouldn't linger.
+        // Only clears blanks when the row actually has a real card (never
+        // strips the last placeholder off a still-empty row).
+        function _clearBlankPlaceholders(row) {
+            if (!row) return;
+            var blanks = [], hasReal = false;
+            row.querySelectorAll('.library-card').forEach(function(c) {
+                if (_isBlankArtCard(c)) blanks.push(c); else hasReal = true;
+            });
+            if (hasReal) blanks.forEach(function(b) { b.remove(); });
+        }
+        // Drop a blank-art placeholder into a (now-empty) row by its letter, so
+        // the row survives a save — same mechanism Insert-empty-line uses.
+        function _dropBlankPlaceholder(rowLetter) {
+            if (typeof addNewDrawnCard !== 'function') return;
+            var blankSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            blankSvg.setAttribute('viewBox', '0 0 60 60');
+            try { addNewDrawnCard(blankSvg, (rowLetter || 'X') + '1'); } catch (e) {}
+        }
+        // COMPLETE save for the active card set (variations + row arrangement +
+        // ABC snapshot). saveVariations() alone does NOT persist row membership —
+        // that lives in the arrangement key — so without this the move/copy and
+        // blank clean-up don't survive a save/undo and stale blanks reappear.
+        function _saveCardSetActive() {
+            if (typeof saveVariations === 'function') saveVariations();
+            var cid = (activeCardSet === 'abc') ? 'card-set-abc'
+                    : (typeof isCustomCardSet === 'function' && isCustomCardSet(activeCardSet)) ? 'card-set-custom'
+                    : 'card-set-numbers';
+            if (typeof saveCardArrangement === 'function') saveCardArrangement(cid);
+            if (activeCardSet === 'abc' && typeof saveAbcSnapshot === 'function') saveAbcSnapshot();
+        }
+
+        // Distribute a multi-row selection: each SOURCE row lands in its own
+        // consecutive DESTINATION row starting at targetRow (fills your new
+        // empty rows D, E, … — never collapses 2 rows into 1). Single-row
+        // selections behave exactly as before (all into targetRow).
         function _ctxMoveCardOrSelectionToRow(card, targetRow) {
             // In Group Edit, treat every right-click as acting on groupEditSelected
             // even if the right-clicked card isn't part of the selection — the
@@ -6705,38 +6792,47 @@
                 _ctxMoveCardToRow(card, targetRow);
                 return;
             }
+            var groups = _selectionGroupsBySourceRow(groupEditSelected);
+            if (!groups.length) return;
+            var destRows = _consecutiveRowsFrom(targetRow, groups.length);
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
             var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
             _undoSuspended = true;
-            var touchedSrcRows = [];
-            var moved = 0;
+            var touchedSrcRows = [], touchedDestRows = [], moved = 0;
             try {
-                groupEditSelected.slice().forEach(function(c) {
-                    if (!c || !c.parentNode) return;
-                    var srcRow = c.closest('.library-row');
-                    if (srcRow === targetRow) return;
-                    var lbl = c.querySelector('.library-label');
-                    var labelText = lbl ? lbl.textContent : '';
-                    if (srcRow && labelText) {
-                        srcRow.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) { v.remove(); });
-                    }
-                    targetRow.appendChild(c);
-                    if (srcRow && touchedSrcRows.indexOf(srcRow) === -1) touchedSrcRows.push(srcRow);
-                    moved++;
+                groups.forEach(function(g, gi) {
+                    var dest = destRows[gi] || destRows[destRows.length - 1];
+                    if (touchedDestRows.indexOf(dest) === -1) touchedDestRows.push(dest);
+                    g.cards.forEach(function(c) {
+                        if (!c || !c.parentNode) return;
+                        var srcRow = c.closest('.library-row');
+                        if (srcRow === dest) return;
+                        var lbl = c.querySelector('.library-label');
+                        var labelText = lbl ? lbl.textContent : '';
+                        if (srcRow && labelText) {
+                            srcRow.querySelectorAll('.library-card.variation[data-original-label="' + labelText + '"]').forEach(function(v) { v.remove(); });
+                        }
+                        dest.appendChild(c);
+                        if (srcRow && touchedSrcRows.indexOf(srcRow) === -1) touchedSrcRows.push(srcRow);
+                        moved++;
+                    });
                 });
+                touchedDestRows.forEach(function(r) { _clearBlankPlaceholders(r); });
+                // A source row we fully emptied keeps a blank placeholder so the
+                // row survives a save (a truly empty row would vanish on reload).
+                touchedSrcRows.forEach(function(r) {
+                    if (r.querySelectorAll('.library-card').length === 0) _dropBlankPlaceholder(r.dataset.rowLetter || '');
+                });
+                touchedSrcRows.forEach(function(r) { updateRowEmptyState(r); renumberRow(r); });
+                touchedDestRows.forEach(function(r) { updateRowEmptyState(r); renumberRow(r); });
+                _saveCardSetActive(); // complete save AFTER the blank clean-up, so storage matches the visible result
             } finally {
                 _undoSuspended = _prevSuspended;
             }
-            touchedSrcRows.forEach(function(r) { updateRowEmptyState(r); renumberRow(r); });
-            updateRowEmptyState(targetRow);
-            renumberRow(targetRow);
-            saveVariations();
-            if (typeof _geFlash === 'function') _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + (targetRow.dataset.rowLetter || ''));
+            if (typeof _geFlash === 'function') _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to row' + (groups.length > 1 ? 's' : '') + ' ' + _destRowLetters(destRows, groups.length));
         }
-        // Group-aware copy → target row. Mirrors _ctxMoveCardOrSelectionToRow
-        // but uses copyCardInRow (which preserves the source). Selection-gate
-        // is the same: only multi-routes when 2+ cards are selected and the
-        // right-clicked card is one of them.
+        // Group-aware copy → target row(s). Mirrors _ctxMoveCardOrSelectionToRow
+        // but uses copyCardInRow (which preserves the source + mints a new uid).
         function _ctxCopyCardOrSelectionToRow(card, targetRow) {
             var _multi = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
                       || (groupEditActive && groupEditSelected.length >= 1);
@@ -6744,21 +6840,32 @@
                 copyCardInRow(card, targetRow);
                 return;
             }
+            var groups = _selectionGroupsBySourceRow(groupEditSelected);
+            if (!groups.length) return;
+            var destRows = _consecutiveRowsFrom(targetRow, groups.length);
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
             var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
             _undoSuspended = true;
-            var copied = 0;
+            var copied = 0, touchedDestRows = [];
             try {
-                groupEditSelected.slice().forEach(function(c) {
-                    if (!c || !c.parentNode) return;
-                    copyCardInRow(c, targetRow);
-                    copied++;
+                groups.forEach(function(g, gi) {
+                    var dest = destRows[gi] || destRows[destRows.length - 1];
+                    if (touchedDestRows.indexOf(dest) === -1) touchedDestRows.push(dest);
+                    g.cards.forEach(function(c) {
+                        if (!c || !c.parentNode) return;
+                        copyCardInRow(c, dest);
+                        copied++;
+                    });
                 });
+                // copyCardInRow already saved the arrangement WITH the blank
+                // still present; clear the blanks then re-save so storage matches.
+                touchedDestRows.forEach(function(r) { _clearBlankPlaceholders(r); updateRowEmptyState(r); renumberRow(r); });
+                _saveCardSetActive();
             } finally {
                 _undoSuspended = _prevSuspended;
             }
             if (typeof _geFlash === 'function') {
-                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + (targetRow.dataset.rowLetter || ''));
+                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to row' + (groups.length > 1 ? 's' : '') + ' ' + _destRowLetters(destRows, groups.length));
             }
         }
 

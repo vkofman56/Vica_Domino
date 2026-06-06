@@ -49,6 +49,8 @@ bash scripts/bump-trial.sh
 
 # ── 2 + 3. Stage everything and commit ───────────────────────────────────────
 git add -A
+# Never commit macOS .DS_Store noise, even if it slipped past .gitignore.
+git rm --cached -q -- .DS_Store ':(glob)**/.DS_Store' >/dev/null 2>&1 || true
 
 if git diff --cached --quiet; then
     echo "ship: nothing to commit — working tree already matches HEAD."

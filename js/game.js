@@ -1451,11 +1451,18 @@ class VicaDominoGame {
         const subtitle = document.querySelector('#start-screen .subtitle');
         let gameName = '';
         if (subtitle) {
-            const text = subtitle.textContent;
+            // Read the name WITHOUT the trailing input-mode glyph span that
+            // the Game Preview appends (✋/🖱) — that's decoration, not name.
+            const glyph = subtitle.querySelector('.subtitle-mode-glyph');
+            const text = glyph
+                ? Array.from(subtitle.childNodes)
+                    .filter(n => n !== glyph)
+                    .map(n => n.textContent).join('')
+                : subtitle.textContent;
             // Extract name from "Game: <name>" or "Combined: <name>"
             const match = text.match(/(?:Game|Combined):\s*(.+)/);
             if (match && match[1] !== 'Find the Double!') {
-                gameName = match[1];
+                gameName = match[1].trim();
             }
         }
 

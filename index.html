@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:26 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:37 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -90,7 +90,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:37 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1833,7 +1833,32 @@
                 toggle.title = 'Switch to ' + (mode === 'touch' ? 'mouse' : 'touch') + ' mode';
             }
             _updateIntroTileAvailability();
+            // Keep the Game Preview subtitle glyph in sync if it's showing.
+            if (window._gpSetSubtitleMode) window._gpSetSubtitleMode(mode);
         }
+
+        // Show a visible input-mode glyph after the Game Preview subtitle's
+        // game name (✋ = touch, 🖱 = mouse — same icons as the intro toggle)
+        // so the player can see at a glance which mode the toggle is set to.
+        // The glyph is a SEPARATE trailing <span> child, never merged into the
+        // name text — so anything that reads the game name from the subtitle
+        // (e.g. js/game.js) sees a clean name. Re-callable: it removes any
+        // prior glyph first. Pass no arg to use the current unified mode.
+        window._gpSetSubtitleMode = function(mode) {
+            var sub = document.querySelector('#start-screen .subtitle');
+            if (!sub) return;
+            var prev = sub.querySelector('.subtitle-mode-glyph');
+            if (prev) prev.parentNode.removeChild(prev);
+            if (mode == null) mode = (typeof _findInputMode !== 'undefined') ? _findInputMode : null;
+            if (mode !== 'touch' && mode !== 'mouse') return;
+            // Don't decorate the placeholder ("Please select a game").
+            if (!/:/.test(sub.textContent)) return;
+            var g = document.createElement('span');
+            g.className = 'subtitle-mode-glyph';
+            g.setAttribute('aria-hidden', 'true');
+            g.innerHTML = (mode === 'mouse') ? '&#128433;' : '&#9995;';
+            sub.appendChild(g);
+        };
 
         // Returns true if the given game has a setup configured for the
         // given input mode (or if we can't tell — legacy games without a
@@ -2635,6 +2660,7 @@
                 document.getElementById('intro-screen').style.display = 'none';
                 document.getElementById('start-screen').style.display = 'flex';
                 document.querySelector('#start-screen .subtitle').textContent = 'Catch the double: ' + catchGame.name;
+                if (window._gpSetSubtitleMode) window._gpSetSubtitleMode(_catchInputMode);
                 // Phase A.2: apply admin's matrix for this catch game
                 _applyGameSetupToPlayerScreen(catchGame, 'catch');
                 // Frequency (Prob Options) selector — only shows for 2+ Probs.
@@ -2887,6 +2913,7 @@
             activeCustomGameIndex = gameIndex;
 
             document.querySelector('#start-screen .subtitle').textContent = 'Find the doubles: ' + game.name;
+            if (window._gpSetSubtitleMode) window._gpSetSubtitleMode(_findInputMode);
             // Phase A.2: apply admin's matrix for this find game.
             // skipSetupRender=true on a Prob-chip rebuild so the player's
             // level / player-count picks aren't reset just by switching
@@ -3934,6 +3961,7 @@
             window.combinedGameConfig = cg;
             window.combinedGameStage = 0;
             document.querySelector('#start-screen .subtitle').textContent = 'Combined: ' + cg.name;
+            if (window._gpSetSubtitleMode) window._gpSetSubtitleMode();
         }
 
         window.loadGameDeckForStage = function(stage) {

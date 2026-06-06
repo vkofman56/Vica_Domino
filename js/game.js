@@ -1432,9 +1432,9 @@ class VicaDominoGame {
         // Show current game name temporarily next to title
         this.showGameName();
 
-        // Mirror the Game Preview subtitle (name + ✋/🖱 glyph) onto the Board's
-        // page-name line, matching every other page.
-        if (window._gpSyncBoardSubtitle) window._gpSyncBoardSubtitle();
+        // Fill the Board identity bar's game-name span (name + ✋/🖱 glyph) from
+        // the Game Preview subtitle, so the board shows the same game identity.
+        if (window._gpFillGameName) window._gpFillGameName('board-id-game');
 
         // Check if Find the Double level is selected (all levels use this mode now)
         if (this.selectedLevel === 'circle' || this.selectedLevel === 'triangle' || this.selectedLevel === 'star') {

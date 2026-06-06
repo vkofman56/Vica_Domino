@@ -6737,6 +6737,58 @@
         function _destRowLetters(destRows, n) {
             return destRows.slice(0, n).map(function(r) { return r.dataset.rowLetter || '?'; }).join(', ');
         }
+        // A row counts as "empty" (available to receive cards) if it has no real
+        // cards — only blank-art placeholders, or nothing.
+        function _rowIsEmpty(row) {
+            if (!row) return false;
+            var cards = row.querySelectorAll('.library-card');
+            if (cards.length === 0) return true;
+            return Array.prototype.every.call(cards, _isBlankArtCard);
+        }
+        // Return `count` consecutive EMPTY rows starting at targetRow. If there
+        // aren't enough, INSERT new empty rows (model-A shift, via the same
+        // _insertEmptyLines used by the menu) so the overflow lands in fresh
+        // rows — never merged into an occupied row. Must run inside the move/
+        // copy's undo-suspended block (so the insert doesn't add its own undo
+        // step). Re-resolves rows by letter because the shift relabels them.
+        function _ensureDestRows(targetRow, count) {
+            function nextRow(r) {
+                r = r ? r.nextElementSibling : null;
+                while (r && !(r.classList && r.classList.contains('library-row'))) r = r.nextElementSibling;
+                return r;
+            }
+            function consecEmptiesFrom(start) {
+                var out = [], r = start;
+                while (r && out.length < count) {
+                    if (_rowIsEmpty(r)) { out.push(r); r = nextRow(r); } else break;
+                }
+                return out;
+            }
+            var run = consecEmptiesFrom(targetRow);
+            if (run.length >= count) return run.slice(0, count);
+            var need = count - run.length;
+            // Make room by inserting empty rows (model-A shift via the same
+            // _insertEmptyLines the menu uses): below the empty run if there is
+            // one, otherwise above an occupied target.
+            if (typeof _insertEmptyLines === 'function') {
+                if (run.length > 0) _insertEmptyLines(run[run.length - 1], 'below', need);
+                else _insertEmptyLines(targetRow, 'above', need);
+            }
+            // Re-walk forward from targetRow (handles the empty-run + insert-below case).
+            var run2 = consecEmptiesFrom(targetRow);
+            if (run2.length >= count) return run2.slice(0, count);
+            // Insert-above case: the new empties were inserted BEFORE targetRow.
+            if (run.length === 0) {
+                var prevs = [], p = targetRow.previousElementSibling;
+                while (p && prevs.length < need) {
+                    if (p.classList && p.classList.contains('library-row')) {
+                        if (_rowIsEmpty(p)) { prevs.unshift(p); p = p.previousElementSibling; } else break;
+                    } else { p = p.previousElementSibling; }
+                }
+                return prevs.concat(run2).slice(0, count);
+            }
+            return run2.length ? run2 : run; // fallback (caller appends overflow)
+        }
         // A "blank-art" card = the empty placeholder insert-empty-line drops to
         // keep an empty row alive on save. Its SVG has no drawn marks.
         function _isBlankArtCard(card) {
@@ -6794,12 +6846,14 @@
             }
             var groups = _selectionGroupsBySourceRow(groupEditSelected);
             if (!groups.length) return;
-            var destRows = _consecutiveRowsFrom(targetRow, groups.length);
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
             var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
             _undoSuspended = true;
-            var touchedSrcRows = [], touchedDestRows = [], moved = 0;
+            var touchedSrcRows = [], touchedDestRows = [], moved = 0, destRows = [];
             try {
+                // Ensure enough EMPTY destination rows (insert/shift if short) so
+                // overflow never merges into an occupied row.
+                destRows = _ensureDestRows(targetRow, groups.length);
                 groups.forEach(function(g, gi) {
                     var dest = destRows[gi] || destRows[destRows.length - 1];
                     if (touchedDestRows.indexOf(dest) === -1) touchedDestRows.push(dest);
@@ -6842,12 +6896,12 @@
             }
             var groups = _selectionGroupsBySourceRow(groupEditSelected);
             if (!groups.length) return;
-            var destRows = _consecutiveRowsFrom(targetRow, groups.length);
             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
             var _prevSuspended = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
             _undoSuspended = true;
-            var copied = 0, touchedDestRows = [];
+            var copied = 0, touchedDestRows = [], destRows = [];
             try {
+                destRows = _ensureDestRows(targetRow, groups.length);
                 groups.forEach(function(g, gi) {
                     var dest = destRows[gi] || destRows[destRows.length - 1];
                     if (touchedDestRows.indexOf(dest) === -1) touchedDestRows.push(dest);

@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:59 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">03:31 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:59 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">03:31 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:59 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">03:31 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17537,13 +17537,6 @@
             if (r !== g) return { nonDefault: true, text: r + '/' + g, value: r, twoCh: true };
             return { nonDefault: r !== 50, text: String(r), value: r };
         }
-        // Deterministic value→color so cards with the SAME probability get the
-        // SAME badge color (the user reads color to spot equal-probability
-        // cards). 0 → red, 50 → green, 100 → violet.
-        function _probValueColor(v) {
-            var n = Math.max(0, Math.min(100, (typeof v === 'number') ? v : 0));
-            return 'hsl(' + Math.round((n / 100) * 300) + ', 62%, 42%)';
-        }
         // Paint a probability NUMBER badge on every Game-View card whose value
         // is non-default. If the card already carries a group / p-mode marker,
         // that marker is repurposed to show the number + value color (so there
@@ -17562,6 +17555,9 @@
                 el.textContent = bi.text;
             }
         }
+        // Grey used for cards that are NOT in a real (multi-card) group — a
+        // lone card carrying its own probability. Matches the p-mode flag grey.
+        var _PROB_SINGLE_GREY = 'rgba(84,84,100,0.96)';
         function _applyProbNumberBadges() {
             var container = document.getElementById('game-view-cards');
             if (!container) return;
@@ -17569,39 +17565,68 @@
             var info = _getCurrentViewGame();
             if (!info || !info.game) return;
             var cards = info.game.cards || [];
+            var groups = (typeof getMCardGroups === 'function') ? (getMCardGroups() || []) : [];
+            // Size of the mGroup a card belongs to (0 = ungrouped). Only groups
+            // of 2+ count as a real "group" for coloring; a size-1 group is just
+            // a single card's custom probability, shown grey like an ungrouped one.
+            function _cardGroupSize(cardEl) {
+                for (var i = 0; i < groups.length; i++) {
+                    var m = _mgMembers(groups[i]) || [];
+                    // Use the SAME matcher applyMCardBadges uses (handles both
+                    // "u:<uid>" and legacy bare-label members) so this agrees
+                    // with which cards actually got a group badge.
+                    var hit = m.some(function (ident) {
+                        return (typeof _cardMatchesIdent === 'function') && _cardMatchesIdent(cardEl, ident);
+                    });
+                    if (hit) return m.length;
+                }
+                return 0;
+            }
             container.querySelectorAll('.library-card').forEach(function (cardEl) {
                 var idxStr = cardEl.dataset && cardEl.dataset.gameCardIdx;
                 if (idxStr === undefined || idxStr === '') return;
                 var c = cards[parseInt(idxStr, 10)];
                 var bi = _cardProbBadgeInfo(c);
-                if (!bi || !bi.nonDefault) return;
-                var color = _probValueColor(bi.value);
-                // Two-channel (red/green) shows the numbers STACKED VERTICALLY so
-                // the badge stays narrow and intrudes less on the card art.
-                var existing = cardEl.querySelector('.mcard-badge') || cardEl.querySelector('.pmode-flag');
-                if (existing) {
-                    // Repurpose the existing dot/group badge: show the number,
-                    // recolor by value, keep its click-to-edit handler.
-                    _setProbBadgeContent(existing, bi);
-                    existing.style.background = color;
-                    existing.style.padding = bi.twoCh ? '1px 3px' : '1px 4px';
-                    return;
+                var inRealGroup = _cardGroupSize(cardEl) >= 2;
+                // A lone card shouldn't look like a (broken) group: strip the
+                // group underline that applyMCardBadges drew for its size-1 group.
+                if (!inRealGroup) {
+                    cardEl.classList.remove('gv-grp-line');
+                    cardEl.style.borderBottom = '';
+                    cardEl.style.removeProperty('--gv-grp-color');
                 }
-                var badge = document.createElement('div');
-                badge.className = 'prob-num-badge';
-                _setProbBadgeContent(badge, bi);
-                badge.style.cssText = 'position:absolute;top:13px;right:-7px;background:' + color + ';color:#fff;'
-                    + 'font-size:10px;font-weight:bold;line-height:1;padding:' + (bi.twoCh ? '1px 3px' : '1px 4px') + ';border-radius:3px;z-index:5;'
-                    + 'display:inline-flex;align-items:center;min-height:9px;cursor:pointer;'
-                    + 'text-shadow:0 0 2px rgba(0,0,0,0.85), 0 1px 0 rgba(0,0,0,0.6);';
-                badge.title = 'Probability ' + bi.text + (bi.twoCh ? ' (red / green)' : '%') + '. Click to edit.';
-                badge.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
-                badge.addEventListener('click', function (ev) {
-                    ev.stopPropagation(); ev.preventDefault();
-                    _editSingleCardProb(cardEl);
-                });
-                cardEl.style.position = 'relative';
-                cardEl.appendChild(badge);
+                var existing = cardEl.querySelector('.mcard-badge') || cardEl.querySelector('.pmode-flag');
+
+                if (bi && bi.nonDefault) {
+                    // Show the probability number. COLOR = GROUP: a real group
+                    // keeps its group color (already on the badge); a lone card
+                    // is grey. Two-channel numbers stack vertically (set above).
+                    if (existing) {
+                        _setProbBadgeContent(existing, bi);
+                        if (!inRealGroup) existing.style.background = _PROB_SINGLE_GREY;
+                        existing.style.padding = bi.twoCh ? '1px 3px' : '1px 4px';
+                        return;
+                    }
+                    var badge = document.createElement('div');
+                    badge.className = 'prob-num-badge';
+                    _setProbBadgeContent(badge, bi);
+                    badge.style.cssText = 'position:absolute;top:13px;right:-7px;background:' + _PROB_SINGLE_GREY + ';color:#fff;'
+                        + 'font-size:10px;font-weight:bold;line-height:1;padding:' + (bi.twoCh ? '1px 3px' : '1px 4px') + ';border-radius:3px;z-index:5;'
+                        + 'display:inline-flex;align-items:center;min-height:9px;cursor:pointer;'
+                        + 'text-shadow:0 0 2px rgba(0,0,0,0.85), 0 1px 0 rgba(0,0,0,0.6);';
+                    badge.title = 'Probability ' + bi.text + (bi.twoCh ? ' (red / green)' : '%') + '. Click to edit.';
+                    badge.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
+                    badge.addEventListener('click', function (ev) {
+                        ev.stopPropagation(); ev.preventDefault();
+                        _editSingleCardProb(cardEl);
+                    });
+                    cardEl.style.position = 'relative';
+                    cardEl.appendChild(badge);
+                } else if (existing && !inRealGroup) {
+                    // Default-probability lone card: keep its dot but grey it,
+                    // so it's no longer dressed up as a colored "group".
+                    existing.style.background = _PROB_SINGLE_GREY;
+                }
             });
         }
 

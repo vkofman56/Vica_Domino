@@ -19,7 +19,15 @@ This file auto-loads into every session. Do these before doing any work.
   `git branch --show-current`), get onto the latest canonical tip before working.
 
 ## 3. Commit + push regularly (this is the #1 rule — it was broken once and cost a week)
-- After **every** fix/feature: commit, then push to **all 3 branches**:
+- After **every** fix/feature, run the one shipping command:
+  ```bash
+  bash scripts/ship.sh "your commit message"
+  ```
+  It bumps the banner, `git add -A` (strips `.DS_Store`), commits, pushes the
+  same commit to **all 3 canonical branches**, and prints each tip with ✓/✗ so
+  you can see they match. It refuses on a detached HEAD or with no message.
+  This **replaces** the old manual push trio / bump-trial ritual.
+- Manual fallback (only if `ship.sh` can't run) — push to all 3 branches:
   ```bash
   git push origin claude/review-project-docs-JOOeh
   git push origin claude/review-project-docs-JOOeh:claude/general-session-yVBQq
@@ -37,7 +45,8 @@ This file auto-loads into every session. Do these before doing any work.
 - Gameplay = `js/game.js`; cards/data live in localStorage + Firebase sync
   (`js/sync.js`). The local server gets killed when the session's background
   tasks clear — restart it as a true background task if "can't reload".
-- `bash scripts/bump-trial.sh` stamps the deploy-time banner.
+- `bash scripts/bump-trial.sh` stamps the deploy-time banner (also runs inside
+  `ship.sh` and the pre-commit hook — you rarely call it directly).
 
 ## 5. Known open items (as of June 5, 2026)
 - **`sync.js` games-protection gap — FIXED** (committed in `c13b8cd`). A
@@ -49,9 +58,10 @@ This file auto-loads into every session. Do these before doing any work.
   these 4 keys are device-local-authoritative, so edits to them don't
   propagate device→device (fine for single-superuser editing; a fresh/empty
   device still pulls cloud normally).
-- **Prevention tooling (partial):** the 2-hourly `wip/auto-snapshot` launchd
-  agent is live (backstop only). `scripts/ship.sh` (bump + add + commit + push
-  to all 3 branches in one step) was an agreed item — confirm it exists/works.
+- **Prevention tooling — DONE.** `scripts/ship.sh` is built and verified (see
+  §3); the 2-hourly `wip/auto-snapshot` launchd agent is the passive backstop.
+  Use `ship.sh` after every change; the snapshot agent only catches what you
+  forget.
 - Safety/recovery assets on disk: branches `wip/full-20260604`,
   `recovery/replay` (`c49a602`), and `_recovery_transcripts_backup/`
   (session transcripts + change tables).

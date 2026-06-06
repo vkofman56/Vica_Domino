@@ -33,9 +33,11 @@ restores it after, so a stale cloud copy can't roll those keys back. The earlier
 device-local-authoritative (edits don't propagate device→device; fresh device
 still pulls cloud).
 
-STILL TODO: prevention `scripts/ship.sh` (bump + add + commit + push to 3
-branches) — confirm it exists/works; the `wip/auto-snapshot` agent is a
-backstop only.
+**Prevention tooling — DONE (June 5):** `scripts/ship.sh` is built and verified
+(bump + `git add -A` w/ `.DS_Store` strip + commit + push to all 3 canonical
+branches + ✓/✗ tip check; refuses on detached HEAD or no message). Use it after
+every change: `bash scripts/ship.sh "message"`. The `wip/auto-snapshot` launchd
+agent remains the passive backstop. Also: `.DS_Store` is now gitignored.
 
 ---
 

@@ -21,10 +21,15 @@ tables). Transcript-based recovery (reconstruct→verify→commit per time-point
 available — but the DATA (localStorage) can't be time-traveled, so testing OLD code
 needs an isolated origin.
 
-**STILL TODO:** prevention setup — (#1) a `SessionEnd`/`Stop` auto-commit hook
-(the 2-hourly `wip/auto-snapshot` launchd agent now covers this as a backstop),
-(#2) `scripts/ship.sh` (bump + add + commit + push to 3 branches) — confirm it
-exists/works.
+**Prevention setup — DONE (June 5):** (#1) the 2-hourly `wip/auto-snapshot`
+launchd agent (`scripts/auto-snapshot.sh`) is the passive backstop; (#2)
+`scripts/ship.sh` is built & verified — the active one-step shipper run after
+every change: bump banner + `git add -A` (strips `.DS_Store`) + commit + push
+the SAME commit to all 3 canonical branches + print each tip with ✓/✗. Refuses
+on detached HEAD or with no commit message. Usage: `bash scripts/ship.sh
+"message"`. This replaces the old manual push-trio / bump-trial ritual that
+"only felt like shipping." Also fixed in the same pass: `.DS_Store` is now
+gitignored and ship.sh strips it from the index so it can't be committed.
 
 **RESOLVED — `sync.js` games-protection gap (verified June 5):** the June 2
 "games-not-protected" gap is **FIXED**, committed in `c13b8cd`. `js/sync.js`

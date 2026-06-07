@@ -30,8 +30,14 @@ tool combines "Icons-Players" with games into **GameLines**.
 Staged order (refined — do persist + read-from-global BEFORE the Setup-page
 Start button, since that button needs real player data to launch with; keep the
 old per-game flow working in parallel until the new one is proven, then delete):
-1. **Persist** the Icons-Players config (count + each player's icon + name) to a
-   global localStorage key. Un-dim/relabel its Start button → "Save". (Foundation.)
+1. ✅ **DONE** — **Persist** the Icons-Players config (count + each player's icon
+   + name) to the global localStorage key **`vica_global_players`** (shape:
+   `{count, players:[{icon,name},…]}`, `icon` = a CHARACTER_ICONS key). The
+   panel's button is now an enabled **"Save"** (was a dimmed "Start"); on open the
+   panel **pre-fills** each row's icon + name from the saved config (falling back
+   to distinct defaults when none); Save shows "Saved ✓" then returns to intro.
+   Helpers `_ipLoadConfig` / `_ipSaveConfig` / `_ipSaveAndClose` in index.html.
+   Device-local only for now (not yet in sync.js / not yet read by any game).
 2. **Teach game-launch to READ** player count/icons/names from that global config,
    ADDED ALONGSIDE the existing per-game path (not replacing). Verify a game
    launches with the global players — Find AND Catch.

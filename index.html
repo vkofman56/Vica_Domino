@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">02:29 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:12 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">02:29 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:12 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -375,7 +375,7 @@
             <div class="player-names" id="ip-panel" style="display:block;">
                 <h3 id="ip-heading">Pick an icon and enter a name for each player:</h3>
                 <div id="ip-rows"></div>
-                <button class="btn btn-primary ip-start-dim" id="ip-start-btn" type="button" disabled aria-disabled="true" title="Not available yet">Start</button>
+                <button class="btn btn-primary" id="ip-start-btn" type="button">Save</button>
             </div>
         </div>
 
@@ -1968,16 +1968,21 @@
                 sel.querySelectorAll('.icon-btn.icon-taken').forEach(function(b) { sel.appendChild(b); });
             });
         }
-        function _ipBuildIconSelector(rowIndex, taken) {
+        function _ipBuildIconSelector(rowIndex, taken, preferKey) {
             var sel = document.createElement('div');
             sel.className = 'icon-selector';
             sel.dataset.playerIndex = String(rowIndex);
             var keys = (typeof CHARACTER_ICONS !== 'undefined') ? Object.keys(CHARACTER_ICONS) : [];
-            // Default icon = the first one NOT already taken by an earlier player,
-            // so each player starts on a DISTINCT icon: Player 1 gets the first
-            // icon (same as the 1-player option), Player 2 the next free one, etc.
-            var _takenVals = Object.keys(taken).map(function(p) { return taken[p]; });
-            var _defaultKey = keys.filter(function(k) { return _takenVals.indexOf(k) < 0; })[0] || keys[0];
+            // Default icon = a saved icon (preferKey) when valid; otherwise the
+            // first one NOT already taken by an earlier player, so each player
+            // starts on a DISTINCT icon (P1 the first icon, P2 the next free one).
+            var _defaultKey;
+            if (preferKey && keys.indexOf(preferKey) >= 0) {
+                _defaultKey = preferKey;
+            } else {
+                var _takenVals = Object.keys(taken).map(function(p) { return taken[p]; });
+                _defaultKey = keys.filter(function(k) { return _takenVals.indexOf(k) < 0; })[0] || keys[0];
+            }
             keys.forEach(function(key, idx) {
                 var btn = document.createElement('button');
                 btn.type = 'button';
@@ -2000,12 +2005,58 @@
             });
             return sel;
         }
+        // ── Global player config (step 1: persist) ──────────────────────────
+        // The Icons-Players panel is the single, GLOBAL place to set player
+        // count + each player's icon + name. Stored device-locally for now;
+        // later steps make the games READ this and drop the per-game pickers.
+        var IP_STORE_KEY = 'vica_global_players';
+        function _ipLoadConfig() {
+            try { return JSON.parse(localStorage.getItem(IP_STORE_KEY)) || null; }
+            catch (e) { return null; }
+        }
+        function _ipSaveConfig(cfg) {
+            try { localStorage.setItem(IP_STORE_KEY, JSON.stringify(cfg)); }
+            catch (e) {}
+        }
+        // Read the panel's current rows and persist them as the global config.
+        function _ipSaveAndClose() {
+            var rows = document.getElementById('ip-rows');
+            if (!rows) return;
+            var players = [];
+            rows.querySelectorAll('.player-input-row:not(.ip-start-row)').forEach(function(row) {
+                var selBtn = row.querySelector('.icon-btn.selected');
+                var input = row.querySelector('.name-section input');
+                players.push({
+                    icon: selBtn ? selBtn.dataset.icon : null,
+                    name: input ? input.value.trim() : ''
+                });
+            });
+            var pt = document.getElementById('intro-player-toggle');
+            var count = (pt && pt.getAttribute('data-players') === '2') ? 2 : 1;
+            _ipSaveConfig({ count: count, players: players });
+            // Brief "Saved ✓" confirmation, then return to the intro so the user
+            // can reopen and see the choices persisted.
+            var btn = document.getElementById('ip-start-btn');
+            if (btn) {
+                var orig = btn.textContent;
+                btn.textContent = 'Saved ✓';
+                btn.disabled = true;
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.textContent = orig;
+                    _ipBackToIntro();
+                }, 700);
+            } else {
+                _ipBackToIntro();
+            }
+        }
         window._openIconsAndPlayers = function() {
             var screen = document.getElementById('icons-players-screen');
             var rows = document.getElementById('ip-rows');
             if (!screen || !rows) return;
             var pt = document.getElementById('intro-player-toggle');
             var count = (pt && pt.getAttribute('data-players') === '2') ? 2 : 1;
+            var saved = _ipLoadConfig();
             var heading = document.getElementById('ip-heading');
             if (heading) {
                 heading.textContent = (count === 1)
@@ -2021,17 +2072,19 @@
             rows.innerHTML = '';
             var taken = {};
             for (var i = 0; i < count; i++) {
+                var savedPlayer = (saved && saved.players && saved.players[i]) ? saved.players[i] : null;
                 var row = document.createElement('div');
                 row.className = 'player-input-row';
                 var iconSec = document.createElement('div');
                 iconSec.className = 'input-section';
-                iconSec.appendChild(_ipBuildIconSelector(i, taken));
+                iconSec.appendChild(_ipBuildIconSelector(i, taken, savedPlayer ? savedPlayer.icon : null));
                 row.appendChild(iconSec);
                 var nameSec = document.createElement('div');
                 nameSec.className = 'input-section name-section';
                 var input = document.createElement('input');
                 input.type = 'text';
                 input.placeholder = 'Player ' + (i + 1);
+                if (savedPlayer && savedPlayer.name) input.value = savedPlayer.name;
                 nameSec.appendChild(input);
                 row.appendChild(nameSec);
                 rows.appendChild(row);
@@ -2068,12 +2121,14 @@
             var intro = document.getElementById('intro-screen');
             if (intro) intro.style.display = 'flex';
         }
-        // Wire the panel's back / home buttons once.
+        // Wire the panel's back / home / Save buttons once.
         function _setupIconsPlayersScreen() {
             var back = document.getElementById('ip-back-btn');
             var home = document.getElementById('ip-home-btn');
+            var save = document.getElementById('ip-start-btn');
             if (back && !back._wired) { back._wired = true; back.addEventListener('click', _ipBackToIntro); }
             if (home && !home._wired) { home._wired = true; home.addEventListener('click', _ipBackToIntro); }
+            if (save && !save._wiredSave) { save._wiredSave = true; save.addEventListener('click', _ipSaveAndClose); }
         }
 
         // Xeno-box screen (Miscellaneous → "Xeno-box"). Shows the Xeno picture.

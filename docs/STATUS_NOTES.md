@@ -1,8 +1,35 @@
 # Vica Domino - Project Status Notes
-**Date**: June 6, 2026 — board identity pill + Studio per-card probability badges & group repairs (all shipped)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `2718449` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 660+
+**Date**: June 7, 2026 — GP 0 player toggle + "Miscellaneous" column + "Icons-Players" panel (all shipped, UI-only)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `0b19863` as of this update; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 680+
 **Codebase Size**: ~18,000 lines across 4 main files
+
+---
+
+## June 7, 2026 — where we left off (Icons-Players groundwork)
+
+Working tree clean; all shipped to the 3 canonical branches. Full detail is in
+MEMORY.md's June 7 section. This session built the **UI groundwork** for a future
+global player-config feature on the Game Previewer (`GP 0`):
+
+- **GP 0 1/2-player toggle** (stick-figure icons) next to the hand/mouse toggle.
+- **"Miscellaneous" column** on GP 0 with a clickable **"Icons-Players"** box.
+- **"Icons-Players" panel** (`#icons-players-screen`): standalone icon-picker +
+  name boxes for 1/2 players, no game icons, **dimmed/disabled Start**. Lots of
+  layout polish (name-box design, heading text/position, Start button alignment +
+  full width, distinct 2-player icon defaults with mutual exclusion).
+- **Setup + Board pages** now show a **1/2-player stick-figure glyph** (from the
+  GP 0 toggle) next to the ✋/🖱 input glyph.
+
+**THE PLAN (next steps, NOT done yet):** make "Icons-Players" the **global**
+player config — its icon/name/count choices **persist and apply to every game**
+launched from GP 0, then **remove the per-game** 1/2-player picking, icon picking,
+and name entry. Everything so far is **UI-only** (the Start button is dimmed;
+nothing is saved or wired to game logic). Much later: an **"Aligning the Games"**
+tool to combine "Icons-Players" with games into GameLines.
+
+No known open regressions. Prevention tooling (`ship.sh` + auto-snapshot), the
+sync.js LOCAL-WINS protection, and the KEEP-recovery-assets note all still apply.
 
 ---
 

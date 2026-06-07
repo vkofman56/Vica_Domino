@@ -1,5 +1,88 @@
 # Vica Domino Project Memory
-**Last Updated**: June 6, 2026 — board identity pill + Studio per-card probability badges & group repairs
+**Last Updated**: June 7, 2026 — GP 0 player toggle + Miscellaneous column + "Icons-Players" panel
+
+---
+
+## ✅ June 7, 2026 — GP 0 player toggle, "Miscellaneous" column, "Icons-Players" panel
+
+All shipped via `scripts/ship.sh` to the 3 canonical branches (latest tip this
+session: `0b19863`). Working tree clean. All of this lives in `index.html` +
+`css/style.css` (the Game Previewer / `GP 0` intro). Cache-buster ended at
+`style.css?v=dgx-redesign-22`.
+
+### The big-picture VISION the user is building toward (important context)
+"Icons-Players" is becoming the **single, global** place to set player count
+(via the GP 0 toggle), assign icons to players, and enter names — and those
+settings will **persist across every game** launched from GP 0. Eventually the
+**per-game 1/2-player picking, icon picking, and name entry get REMOVED** from
+each game's setup, because this panel replaces them. Separately/much later, an
+**"Aligning the Games"** tool will combine "Icons-Players" with several
+Game-Preview games into a final **GameLine**. For NOW everything below is
+**UI-only**: nothing persists yet and nothing is wired to game logic (the
+"Start" button is deliberately dimmed/disabled). Persistence + per-game-setup
+removal is the next step.
+
+### GP 0 intro — 1/2-player toggle (`93c9ead`, `0b19863`)
+- A **second toggle** next to the hand/mouse one: **1 player / 2 players**, with
+  **SVG stick-figure** icons (1 figure / 2 figures), mirrors `.intro-input-toggle`
+  structure driven by `data-players`. `#intro-player-toggle`,
+  `_setupIntroPlayerToggle()`. UI only — flips its own visual state, not wired to
+  game behavior. Default 1 player.
+- The toggle's stick figures are nudged **down 3px** (`.intro-player-toggle-icon-
+  left/right { top:3px }`) to align with the ✋/🖱 emoji (the SVG fills its box
+  while emoji sit low in their line box).
+
+### GP 0 intro — "Miscellaneous" column (`a5eeeec`, `7e0b307`, `92ccce3`)
+- A fixed **narrow column** LEFT of the game-type columns, header "Miscellaneous",
+  containing one clickable box **"Icons-Players"** (`#misc-icons-players`). Built
+  in `_renderIntroColumns()`. The grid uses `--game-cols` (set in JS) so the
+  `<700px` single-column mobile stack still works. (Label went "Icons and
+  Players" → "Icons-Player" → "Icons-Players" — the last fits one line in the box.)
+
+### "Icons-Players" standalone panel (`6386e11` + many tweaks)
+Clicking the Misc box opens `#icons-players-screen` (a new `.screen`), built by
+`window._openIconsAndPlayers()`. Self-contained — reuses `CHARACTER_ICONS` +
+`.icon-selector`/`.icon-btn`/`.player-input-row` styling but holds its OWN
+selection state and touches NO game logic.
+- Shows **1 or 2 player rows** per the GP 0 toggle, each = icon picker + name box.
+  **No game icons** (no dominoes/timer). Back/home return to intro.
+- **Name boxes share the per-game design** — extended `#name-inputs input` styling
+  to `#ip-rows input` (one rule, near-white rounded box, `#333` text, gold focus).
+- **Placeholders**: "Player 1" / "Player 2" (not "… name").
+- **Heading** `#ip-heading`: text is singular "… for the player" at 1 player,
+  plural "… for each player:" at 2; **unbold**; **left-aligned to the 2nd icon**
+  (`padding-left: calc(50px+12px)`); **lifted 7px up** off the icon row
+  (`position:relative; top:-7px`). Title `#icons-players-screen h1` moved up 10px.
+- **Start button** (`#ip-start-btn`) is **dimmed + disabled** (UI only). It is
+  left-aligned AND width-matched to the player name box by placing it in a flex
+  row that mirrors the player rows, using a **hidden clone of the icon section**
+  as a spacer (`.ip-start-row` / `.ip-start-btn-section`, `width:100%`). This was
+  the robust fix after grid `justify-self`/margin/transform all fought the
+  2-column `.player-names` grid — see commit `19fd6cb`. The button is re-homed
+  into that row on each open (rescued before `#ip-rows.innerHTML=''`).
+- **2-player icon defaults are DISTINCT** (`5f7c347`): default = first icon NOT
+  already taken by an earlier player → P1=star (first, like 1-player), P2=cat.
+  Fixes the earlier bug where both defaulted to star. Mutual exclusion (can't pick
+  the same icon for two players) is enforced by `_ipUpdateTaken` + the click guard
+  (`if (.icon-taken) return`); picking a free icon frees the old one dynamically.
+
+### Setup + Board pages — player-mode glyph (`172f9c0`, `6f83c72`)
+- Next to the ✋/🖱 input glyph, a **1/2-player stick-figure glyph** reflecting the
+  GP 0 toggle now shows. Added in `_gpSetSubtitleMode()` (the Game Preview
+  subtitle) via `.subtitle-player-glyph` (SVGs `_GP_PLAYER_SVG_1/2`); it
+  **propagates to the board pills automatically** because `_gpFillGameName()`
+  clones the subtitle's children. Carries **no text**, so the js/game.js
+  subtitle name-reader is unaffected. Nudged **up 2px** (`top:-2px`) there to
+  match the emoji (opposite direction from the GP 0 toggle because the
+  vertical-align context differs).
+
+### Layout note worth remembering
+`.player-names` (shared by the per-game Start page AND the Icons-Players panel) is
+a 2-column grid `1fr auto` (inputs left, Start button right). Aligning a button to
+the name COLUMN inside it via grid/justify-self/margin is unreliable — the flex-
+row-with-hidden-clone-spacer trick is the dependable pattern. Also: measuring
+element positions at panel-open time is unstable; defer with `requestAnimationFrame`
+or settle, or (best) align by DOM construction instead of measuring.
 
 ---
 

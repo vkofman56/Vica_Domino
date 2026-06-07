@@ -21,15 +21,43 @@ global player-config feature on the Game Previewer (`GP 0`):
 - **Setup + Board pages** now show a **1/2-player stick-figure glyph** (from the
   GP 0 toggle) next to the ✋/🖱 input glyph.
 
-**THE PLAN (next steps, NOT done yet):** make "Icons-Players" the **global**
-player config — its icon/name/count choices **persist and apply to every game**
-launched from GP 0, then **remove the per-game** 1/2-player picking, icon picking,
-and name entry. Everything so far is **UI-only** (the Start button is dimmed;
-nothing is saved or wired to game logic). Much later: an **"Aligning the Games"**
-tool to combine "Icons-Players" with games into GameLines.
+**THE PLAN — make "Icons-Players" the GLOBAL player config** (agreed June 7,
+NOT built yet). End goal: its icon/name/count choices **persist and apply to
+every game** launched from GP 0, then the **per-game** 1/2-player picking, icon
+picking, and name entry get **removed**. Much later: an **"Aligning the Games"**
+tool combines "Icons-Players" with games into **GameLines**.
 
-No known open regressions. Prevention tooling (`ship.sh` + auto-snapshot), the
-sync.js LOCAL-WINS protection, and the KEEP-recovery-assets note all still apply.
+Staged order (refined — do persist + read-from-global BEFORE the Setup-page
+Start button, since that button needs real player data to launch with; keep the
+old per-game flow working in parallel until the new one is proven, then delete):
+1. **Persist** the Icons-Players config (count + each player's icon + name) to a
+   global localStorage key. Un-dim/relabel its Start button → "Save". (Foundation.)
+2. **Teach game-launch to READ** player count/icons/names from that global config,
+   ADDED ALONGSIDE the existing per-game path (not replacing). Verify a game
+   launches with the global players — Find AND Catch.
+3. **Add "Start Game" to the Setup page** that launches using the global config +
+   the GP 0 player-count toggle.
+4. **Only once 1–3 are proven, remove** the per-game 1/2-player buttons, icon
+   pickers, name inputs, and the intermediate Start (player-names) page.
+
+Decisions baked in:
+- **Player count = the GP 0 toggle.** When a game doesn't support the chosen
+  count (e.g. 2 players where there's no 2-player option), the EXISTING warning
+  **"Current mode does not have 2 player option."** is shown — we do NOT clamp the
+  toggle. (User-confirmed.)
+- **Defaults** when no global config is set yet come from the Icons-Players panel
+  defaults (P1=star "Player 1", P2=cat "Player 2", …).
+- Edge cases to handle in steps 2–4: the **Xeno/timer "extra player"** and
+  **Combined** games also read per-game setup today → must read global too.
+
+Also shipped this session: a **"Xeno Line" placeholder box** in the GP 0
+Miscellaneous column (`#misc-xeno-line`, Xeno icon + "Xeno-box" label) — UI only,
+no action wired, parked for possible later use.
+
+Everything so far is **UI-only** (Icons-Players Start is dimmed; nothing saved or
+wired to game logic). No known open regressions. Prevention tooling (`ship.sh` +
+auto-snapshot), the sync.js LOCAL-WINS protection, and the KEEP-recovery-assets
+note all still apply.
 
 ---
 

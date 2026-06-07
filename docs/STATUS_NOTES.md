@@ -1,8 +1,37 @@
 # Vica Domino - Project Status Notes
-**Date**: June 5, 2026 — crisis RESOLVED; copy/move-rows shipped; sync.js gap verified-fixed; `ship.sh` prevention tool live
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `f5237d9` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 644+
+**Date**: June 6, 2026 — board identity pill + Studio per-card probability badges & group repairs (all shipped)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `2718449` as of this update; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 660+
 **Codebase Size**: ~18,000 lines across 4 main files
+
+---
+
+## June 6, 2026 — where we left off
+
+Working tree clean; everything shipped to the 3 canonical branches via
+`ship.sh`. See the matching MEMORY.md June 6 section for full detail. Summary of
+what landed this session:
+
+**Game boards** — input-mode glyph (✋/🖱) on the Game Preview subtitle; one
+unified **identity pill** (page name · game name · glyph) at the top of every
+board (Find + Catch + future); removed the "MathGrain Domino" brand title from
+boards.
+
+**Studio per-card probability badges** — rebuilt the "see a card's probability"
+feature: show the **number** on non-default cards (color = GROUP; lone cards
+grey), default grouped cards show a **dot**, two-channel numbers stack
+**vertically**, **100 → roman "C"** on all games (hover shows 100), and all
+probability flags use the **instant custom tooltip**.
+
+**Group repairs** — (1) **self-healing re-bind** of orphaned mGroups whose
+members were legacy labels the relabel had orphaned (→ stable uids); (2) fixed
+Catch group/card probability edits **silently not saving** (popup Save was
+find-only); (3) fixed **can't make a group in Find** (size-1 "groups" were
+falsely blocking with "ungroup first").
+
+**No known open regressions.** Prevention tooling (`ship.sh` + auto-snapshot)
+and the sync.js LOCAL-WINS protection remain in place. Recovery assets on disk
+are KEEP (do not delete).
 
 ---
 

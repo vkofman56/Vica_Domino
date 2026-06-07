@@ -1,5 +1,87 @@
 # Vica Domino Project Memory
-**Last Updated**: June 5, 2026 — uncommitted-work crisis RESOLVED (committed + pushed)
+**Last Updated**: June 6, 2026 — board identity pill + Studio per-card probability badges & group repairs
+
+---
+
+## ✅ June 6, 2026 — board identity pill + Studio probability badges + group repairs
+
+All shipped via `scripts/ship.sh` to the 3 canonical branches (latest tip this
+session: `2718449`). Working tree clean.
+
+### Game boards (Previewer / `index.html` + `js/game.js`, `css/style.css`)
+- **Game Preview subtitle** now shows the **input-mode glyph** after the game
+  name — **✋ touch / 🖱 mouse** (HTML entities `&#9995;` / `&#128433;`, matching
+  the intro toggle). Helper `window._gpSetSubtitleMode(mode)` appends a separate
+  `.subtitle-mode-glyph` span (NOT merged into the name, so name-parsers stay
+  clean). Find / Catch / Combined.
+- **Unified Board identity pill (Tier A)** — one centered pill `.board-id-bar` at
+  the very top of EVERY board (Find `#game-screen`, Catch `#catch-game-overlay`,
+  future types): **page name · game name · glyph**. The editable page-name label
+  lives inside it (same id/key → editing & persistence unchanged). Game name +
+  glyph filled by `window._gpFillGameName(targetEl)` (clones the Preview
+  subtitle's children). Separator is a CSS `::before` that auto-hides when no
+  game name. Catch overlay builds the same pill in JS (`board-id-game-catch`).
+- **Removed the "MathGrain Domino" brand title** from game boards. Header now
+  carries only the combined-game stage-stones + turn indicator, with the "bar"
+  styling stripped so it collapses when empty (single-player Find). Removed the
+  redundant `game-name-display` fade. `js/game.js` `showGameName()` no-ops
+  safely (element gone). Cache-busters bumped: `style.css?v=dgx-redesign-2`,
+  `game.js?v=page-name-persist-6`.
+
+### Studio per-card probability badges (`pm-studio-DrV.html`)
+The lost "see a card's probability" feature, rebuilt from the data model
+(`_probRed`/`_probGreen` per card + `_freezeState`; defaults frozen/floating=100,
+neutral=50). Key new fns: `_cardProbBadgeInfo(c)`, `_applyProbNumberBadges()`,
+`_setProbBadgeContent(el,bi)` (called in both game-view render paths after
+`_applyPModeFlags`).
+- **Show the probability NUMBER** on every non-default card (grouped + ungrouped,
+  Find + Catch). Default cards keep a dot. Click a badge → edit popup.
+- **Color = GROUP** (user's choice): real multi-card groups keep their group
+  color; lone cards (size-1 groups / per-card probs) go **grey**
+  (`_PROB_SINGLE_GREY = rgba(84,84,100,0.96)`) and their fake size-1 underline is
+  stripped. `_cardGroupSize` uses the legacy-aware `_cardMatchesIdent`.
+- **Group badges** (default grouped cards) show a **dot only** — the group-INDEX
+  number was dropped (grouping is read from color + underline). Non-default
+  grouped cards still get their number painted over the dot.
+- **Two-channel (red/green) numbers stack VERTICALLY** ("90"/"20") via
+  `_setProbBadgeContent`.
+- **100 → roman "C"** on ALL games (narrow glyph, covers less art); hover shows
+  "100". `_roman100 = (bi.text === '100')`.
+- **All probability flags wired into the instant custom tooltip** — added
+  `.prob-num-badge, .mcard-badge, .pmode-flag` to the `initStudioTips()` `SEL`
+  list (it lazily moves `title`→`data-tip`, suppressing the slow native one).
+- Fixed: grey p-mode dot stacking on top of a colored number (`_applyPModeFlags`
+  now skips cards that already have a `.prob-num-badge`).
+
+### Group data repairs / fixes (the important ones)
+- **Self-healing mGroup re-bind** (`_migrateMGroupsToUidForm`): older groups
+  stored members as **legacy bare labels** (e.g. `"D7"`) that no longer matched
+  the current cards (relabeled with value suffixes, `D7 → D7_6x4`), so they
+  rendered **0 badges/underlines** ("groups are broken"). Now, when a legacy
+  label has **exactly one** card matching `label === m || label.startsWith(m+'_')`,
+  it's rewritten to that card's stable `u:<uid>`. Only unambiguous matches;
+  deleted-card members (0 matches) are left as-is and logged
+  (`[mGroup re-bind] …`). Runs on game open, persisted by the open/save path.
+  Verified: x2 x4 21 groups, 0-4 A 12, Multiply by 4 23 all render again.
+- **Catch group/card probability SAVE was broken** — `_showGroupPopup`'s Save
+  handler was hardcoded to `loadCustomGames`/`currentGameViewIndex`/
+  `savedCustomGames`, so on a Catch view (index −1) it looked up `games[-1]` →
+  undefined → silently bailed. Now catch-aware (`savedCatchGames` when
+  `currentGameViewIndex < 0`). Find path byte-identical.
+- **Couldn't make a group in Find** — cards with per-card probabilities are each
+  in a **size-1 mGroup**, and the grouping guard counted those as real groups →
+  "cards from different groups — ungroup first" with no visible group to ungroup.
+  `updateMCardUI` now has `_realGroupOf(ident)` that only returns a group index
+  for **2+ member** groups, so size-1 groups never block grouping or show
+  "ungroup first" (createMCardGroup absorbs them). Real multi-card protection
+  (2+ distinct real groups → still blocked) preserved. Find + Catch.
+
+### Workflow note
+Per-change verification was done by driving the Studio in the Claude Preview
+(localhost:8000). The Studio gates its editor behind a superuser login overlay —
+DON'T log in; verify via the rendered DOM (hide `#sync-login-overlay` to
+screenshot). Any test mutation written to `savedCustomGames`/`savedCatchGames`
+was restored afterward.
 
 ---
 

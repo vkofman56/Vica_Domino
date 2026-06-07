@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-7">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-9">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:13 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:13 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:13 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:13 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -359,6 +359,23 @@
                     <button class="btn btn-primary" id="start-game-btn">Start Game</button>
                 </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Icons & Players screen (Miscellaneous → "Icons and Players").
+             Standalone panel to assign an icon + name per player, for the
+             player count chosen by the top 1/2-player toggle. UI ONLY for now:
+             the Start button is DIMMED/disabled and nothing is saved or applied
+             to games yet. Later this becomes the single, global player config
+             (persists across all GP 0 games) that replaces per-game picking. -->
+        <div class="screen" id="icons-players-screen" style="display:none;">
+            <button class="back-arrow-btn" id="ip-back-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="back-arrow-btn home-btn" id="ip-home-btn" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <h1><span style="color:#FFD54F;">Icons</span> &amp; <span style="color:#4DD0E1;">Players</span></h1>
+            <div class="player-names" id="ip-panel" style="display:block;">
+                <h3>Pick an icon and enter a name for each player:</h3>
+                <div id="ip-rows"></div>
+                <button class="btn btn-primary ip-start-dim" id="ip-start-btn" type="button" disabled aria-disabled="true" title="Not available yet">Start</button>
             </div>
         </div>
 
@@ -1451,6 +1468,15 @@
             iconsPlayers.setAttribute('role', 'button');
             iconsPlayers.setAttribute('tabindex', '0');
             iconsPlayers.textContent = 'Icons and Players';
+            iconsPlayers.addEventListener('click', function() {
+                if (window._openIconsAndPlayers) window._openIconsAndPlayers();
+            });
+            iconsPlayers.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (window._openIconsAndPlayers) window._openIconsAndPlayers();
+                }
+            });
             miscList.appendChild(iconsPlayers);
             miscCol.appendChild(miscList);
             container.appendChild(miscCol);
@@ -1595,6 +1621,7 @@
             // harmless on subsequent re-paints (e.g. after a game add).
             _setupIntroInputToggle();
             _setupIntroPlayerToggle();
+            _setupIconsPlayersScreen();
             _wireGameTypeSearch();
             _updateIntroTileAvailability();
         }
@@ -1885,6 +1912,93 @@
                 toggle.setAttribute('aria-label', next === '1' ? '1 player' : '2 players');
                 toggle.title = 'Switch to ' + (next === '1' ? '2 players' : '1 player');
             });
+        }
+
+        // ===== "Icons and Players" panel (Miscellaneous column) =====
+        // Standalone, self-contained: reuses the CHARACTER_ICONS set + the
+        // .icon-selector/.icon-btn/.player-input-row styling so it looks like the
+        // real player-setup rows, but holds its OWN selection state and touches
+        // NO game logic. UI only for now (Start is dimmed; nothing persists).
+        function _ipUpdateTaken(taken) {
+            document.querySelectorAll('#ip-rows .icon-selector').forEach(function(sel) {
+                var pi = parseInt(sel.dataset.playerIndex, 10);
+                sel.querySelectorAll('.icon-btn').forEach(function(btn) {
+                    var k = btn.dataset.icon, isTaken = false;
+                    Object.keys(taken).forEach(function(idx) {
+                        if (parseInt(idx, 10) !== pi && taken[idx] === k) isTaken = true;
+                    });
+                    btn.classList.toggle('icon-taken', isTaken);
+                });
+                sel.querySelectorAll('.icon-btn.icon-taken').forEach(function(b) { sel.appendChild(b); });
+            });
+        }
+        function _ipBuildIconSelector(rowIndex, taken) {
+            var sel = document.createElement('div');
+            sel.className = 'icon-selector';
+            sel.dataset.playerIndex = String(rowIndex);
+            var keys = (typeof CHARACTER_ICONS !== 'undefined') ? Object.keys(CHARACTER_ICONS) : [];
+            keys.forEach(function(key, idx) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'icon-btn' + (idx === 0 ? ' selected' : '');
+                btn.dataset.icon = key;
+                btn.innerHTML = CHARACTER_ICONS[key].svg;
+                btn.title = CHARACTER_ICONS[key].name;
+                if (idx === 0) taken[rowIndex] = key;
+                btn.addEventListener('click', function() {
+                    if (btn.classList.contains('icon-taken')) return;
+                    sel.querySelectorAll('.icon-btn').forEach(function(b) { b.classList.remove('selected'); });
+                    btn.classList.add('selected');
+                    taken[rowIndex] = key;
+                    var first = sel.querySelector('.icon-btn');
+                    if (first && first !== btn) sel.insertBefore(btn, first);
+                    _ipUpdateTaken(taken);
+                });
+                sel.appendChild(btn);
+            });
+            return sel;
+        }
+        window._openIconsAndPlayers = function() {
+            var screen = document.getElementById('icons-players-screen');
+            var rows = document.getElementById('ip-rows');
+            if (!screen || !rows) return;
+            var pt = document.getElementById('intro-player-toggle');
+            var count = (pt && pt.getAttribute('data-players') === '2') ? 2 : 1;
+            rows.innerHTML = '';
+            var taken = {};
+            for (var i = 0; i < count; i++) {
+                var row = document.createElement('div');
+                row.className = 'player-input-row';
+                var iconSec = document.createElement('div');
+                iconSec.className = 'input-section';
+                iconSec.appendChild(_ipBuildIconSelector(i, taken));
+                row.appendChild(iconSec);
+                var nameSec = document.createElement('div');
+                nameSec.className = 'input-section name-section';
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = 'Player ' + (i + 1) + ' name';
+                nameSec.appendChild(input);
+                row.appendChild(nameSec);
+                rows.appendChild(row);
+            }
+            _ipUpdateTaken(taken);
+            var intro = document.getElementById('intro-screen');
+            if (intro) intro.style.display = 'none';
+            screen.style.display = 'flex';
+        };
+        function _ipBackToIntro() {
+            var screen = document.getElementById('icons-players-screen');
+            if (screen) screen.style.display = 'none';
+            var intro = document.getElementById('intro-screen');
+            if (intro) intro.style.display = 'flex';
+        }
+        // Wire the panel's back / home buttons once.
+        function _setupIconsPlayersScreen() {
+            var back = document.getElementById('ip-back-btn');
+            var home = document.getElementById('ip-home-btn');
+            if (back && !back._wired) { back._wired = true; back.addEventListener('click', _ipBackToIntro); }
+            if (home && !home._wired) { home._wired = true; home.addEventListener('click', _ipBackToIntro); }
         }
 
         function _setInputMode(mode) {

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:39 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:01 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:39 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:01 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1937,14 +1937,20 @@
             sel.className = 'icon-selector';
             sel.dataset.playerIndex = String(rowIndex);
             var keys = (typeof CHARACTER_ICONS !== 'undefined') ? Object.keys(CHARACTER_ICONS) : [];
+            // Default icon = the first one NOT already taken by an earlier player,
+            // so each player starts on a DISTINCT icon: Player 1 gets the first
+            // icon (same as the 1-player option), Player 2 the next free one, etc.
+            var _takenVals = Object.keys(taken).map(function(p) { return taken[p]; });
+            var _defaultKey = keys.filter(function(k) { return _takenVals.indexOf(k) < 0; })[0] || keys[0];
             keys.forEach(function(key, idx) {
                 var btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'icon-btn' + (idx === 0 ? ' selected' : '');
+                var isDefault = (key === _defaultKey);
+                btn.className = 'icon-btn' + (isDefault ? ' selected' : '');
                 btn.dataset.icon = key;
                 btn.innerHTML = CHARACTER_ICONS[key].svg;
                 btn.title = CHARACTER_ICONS[key].name;
-                if (idx === 0) taken[rowIndex] = key;
+                if (isDefault) taken[rowIndex] = key;
                 btn.addEventListener('click', function() {
                     if (btn.classList.contains('icon-taken')) return;
                     sel.querySelectorAll('.icon-btn').forEach(function(b) { b.classList.remove('selected'); });

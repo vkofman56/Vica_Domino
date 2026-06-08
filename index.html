@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-26">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-27">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:22 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:24 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:24 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4492,6 +4492,12 @@
                   '</svg>' +
                 '</button>';
             overlay.appendChild(hud);
+            // 1-player: show the global player's icon + name at the start of the
+            // HUD. (Hidden in 2P, which shows per-zone labels instead.)
+            var hudPlayer = document.createElement('div');
+            hudPlayer.className = 'catch-hud-player';
+            hudPlayer.appendChild(_catchPlayerLabelEl(0));
+            hud.insertBefore(hudPlayer, hud.firstChild);
             var gameArea = document.createElement('div');
             gameArea.className = 'catch-game-area';
             var staticPanel = document.createElement('div');
@@ -5066,6 +5072,27 @@
         // when first player reaches 0 lives). Runs in parallel to the 1P path
         // above; _catchGame.numPlayers === 2 controls which code runs.
         // =====================================================================
+        // Build an icon + name element for a Catch player from the global
+        // Icons-Players config (vica_global_players). Falls back to "Player N"
+        // when nothing is saved / no name. Name uses textContent (safe).
+        function _catchPlayerLabelEl(idx) {
+            var cfg = (typeof _ipLoadConfig === 'function') ? _ipLoadConfig() : null;
+            var p = (cfg && cfg.players && cfg.players[idx]) ? cfg.players[idx] : null;
+            var name = (p && p.name && p.name.trim()) ? p.name.trim() : ('Player ' + (idx + 1));
+            var wrap = document.createElement('span');
+            wrap.className = 'catch-player-label';
+            if (p && p.icon && typeof CHARACTER_ICONS !== 'undefined' && CHARACTER_ICONS[p.icon]) {
+                var ic = document.createElement('span');
+                ic.className = 'catch-player-icon';
+                ic.innerHTML = CHARACTER_ICONS[p.icon].svg;
+                wrap.appendChild(ic);
+            }
+            var nm = document.createElement('span');
+            nm.className = 'catch-player-name';
+            nm.textContent = name;
+            wrap.appendChild(nm);
+            return wrap;
+        }
         function _catch2pBuildLayout() {
             // Replace single .catch-game-area contents with 3-column layout:
             //   [zone P1] [middle: target] [zone P2]
@@ -5081,6 +5108,7 @@
                 var r = topHud.querySelector('#catch-round'); if (r) r.style.display = 'none';
                 var l = topHud.querySelector('#catch-lives'); if (l) l.style.display = 'none';
                 var cc = topHud.querySelector('#catch-coin-display'); if (cc) cc.style.display = 'none';
+                var hp = topHud.querySelector('.catch-hud-player'); if (hp) hp.style.display = 'none';
             }
             function makeZone(idx) {
                 var col = document.createElement('div');
@@ -5088,7 +5116,7 @@
                 col.dataset.player = String(idx + 1);
                 var label = document.createElement('div');
                 label.className = 'catch-2p-label';
-                label.textContent = 'Player ' + (idx + 1);
+                label.appendChild(_catchPlayerLabelEl(idx)); // global icon + name
                 col.appendChild(label);
                 var hud = document.createElement('div');
                 hud.className = 'catch-2p-hud';

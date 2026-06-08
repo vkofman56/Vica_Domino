@@ -46,9 +46,15 @@ old per-game flow working in parallel until the new one is proven, then delete):
    players. Purely **additive/guarded**: no saved config → original defaults
    (P1=star, P2=cat, empty names), behavior identical to before. Verified e2e: set
    config → Find game → pick 2 players → rows pre-filled → Start → `game.players`
-   has the right names+icons. **Catch is N/A here** — Catch has no per-player
-   icon/name UI (its `_catchGame.players` is just `{lives,coins,fallingCards}`),
-   so only its player COUNT is relevant (deferred to the count/“impossible-mode”
+   has the right names+icons. **Catch BOARD also shows the global icon + name**
+   now (user-requested follow-on): a shared `_catchPlayerLabelEl(idx)` helper
+   reads `vica_global_players` and renders icon (CHARACTER_ICONS[icon].svg) + name
+   into the **2P per-zone labels** (`makeZone`, replacing the bare "Player N") and
+   the **1P HUD** (`.catch-hud-player`, prepended; hidden in 2P). Falls back to
+   "Player N"/no-icon when unsaved. Verified 1P + 2P on the board. (Catch
+   gameplay's `_catchGame.players` is still just `{lives,coins,fallingCards}` — the
+   label is display-only, read straight from the global config.) Player COUNT for
+   Catch is still its own `_catchNumPlayers` + mode (deferred to the “impossible-mode”
    work in steps 3–4). The old per-game pickers are untouched (removed in step 4).
 
    **sync.js fix (important):** `vica_global_players` is **device-local user

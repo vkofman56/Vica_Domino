@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:03 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:15 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:15 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1381,6 +1381,98 @@
                 '</svg>';
         }
 
+        // Build a Catch game's icon EXACTLY like the Start/Setup page: the
+        // Medium (triangle) bubble cluster — 1 big + 3 small bubbles, filled
+        // with the game's pictures. Self-contained (off-DOM) so it renders for
+        // any catch game on GP 0 without loading its setup. Mirrors the live
+        // _fillCatchLevelBubbles fill logic, then _pbUniqueIds() uniquifies all
+        // ids so multiple tiles + the popup never collide.
+        function _catchSetupIconSVG(game) {
+            var ns = 'http://www.w3.org/2000/svg';
+            // Base cluster — same geometry/gradients as _bubbleSVGs['triangle'].
+            var base = '<svg viewBox="0 0 100 80" aria-hidden="true">' +
+                '<defs>' +
+                '<radialGradient id="bg3" cx="40%" cy="35%"><stop offset="0%" stop-color="#a8e6ff"/><stop offset="100%" stop-color="#4db8e0"/></radialGradient>' +
+                '<radialGradient id="bs3" cx="40%" cy="35%"><stop offset="0%" stop-color="#ffe0a8"/><stop offset="100%" stop-color="#e0a840"/></radialGradient>' +
+                '</defs>' +
+                '<circle cx="25" cy="40" r="22" fill="url(#bg3)" stroke="#3a9cc0" stroke-width="1.5"/>' +
+                '<circle cx="25" cy="40" r="16" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>' +
+                '<circle cx="17" cy="32" r="4" fill="rgba(255,255,255,0.5)"/>' +
+                '<circle cx="62" cy="15" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="57" cy="11" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                '<circle cx="78" cy="40" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="73" cy="36" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                '<circle cx="62" cy="65" r="12" fill="url(#bs3)" stroke="#c09030" stroke-width="1.2"/><circle cx="57" cy="61" r="2.5" fill="rgba(255,255,255,0.5)"/>' +
+                '</svg>';
+            var holder = document.createElement('div');
+            holder.innerHTML = base;
+            var svg = holder.querySelector('svg');
+            if (!svg) return base;
+
+            // Picture maps from the game's cards (same source as the Setup page).
+            var markupMap = {}, viewBoxMap = {};
+            if (game && Array.isArray(game.cards)) {
+                game.cards.forEach(function(c) {
+                    if (!c || c.isVariation || !c.label || markupMap[c.label]) return;
+                    var s = (typeof getGameCardSVG === 'function') ? getGameCardSVG(c) : null;
+                    var inner = (s && s.innerHTML && s.innerHTML.trim()) ? s.innerHTML
+                              : ((c.svgMarkup && c.svgMarkup.trim()) ? c.svgMarkup : '');
+                    if (!inner) return;
+                    markupMap[c.label] = inner;
+                    viewBoxMap[c.label] = (s && s.getAttribute('viewBox')) || '0 0 60 60';
+                });
+            }
+            var fallbackLabels = Object.keys(markupMap);
+            if (fallbackLabels.length) {
+                var saved = (game.mainPageDominos && Array.isArray(game.mainPageDominos.triangle))
+                          ? game.mainPageDominos.triangle : [];
+                var bubbles = [];
+                svg.querySelectorAll('circle').forEach(function(c) {
+                    var f = c.getAttribute('fill') || '';
+                    if (f.indexOf('url(#bg') === 0 || f.indexOf('url(#bs') === 0) bubbles.push(c);
+                });
+                bubbles.forEach(function(circ, idx) {
+                    var slot = saved[idx] || {};
+                    var cx = parseFloat(circ.getAttribute('cx'));
+                    var cy = parseFloat(circ.getAttribute('cy'));
+                    var r = parseFloat(circ.getAttribute('r'));
+                    if (!isFinite(cx) || !isFinite(cy) || !isFinite(r)) return;
+                    if (slot.icon && slot.icon.svgContent) {
+                        var icId = 'cs-ic-' + idx;
+                        var iNested = document.createElementNS(ns, 'svg');
+                        iNested.setAttribute('viewBox', '0 0 60 60');
+                        iNested.setAttribute('x', cx - r); iNested.setAttribute('y', cy - r);
+                        iNested.setAttribute('width', 2 * r); iNested.setAttribute('height', 2 * r);
+                        var d = document.createElementNS(ns, 'defs');
+                        var cp = document.createElementNS(ns, 'clipPath'); cp.setAttribute('id', icId);
+                        var cc = document.createElementNS(ns, 'circle');
+                        cc.setAttribute('cx', '30'); cc.setAttribute('cy', '30'); cc.setAttribute('r', '30');
+                        cp.appendChild(cc); d.appendChild(cp); iNested.appendChild(d);
+                        var g = document.createElementNS(ns, 'g');
+                        g.setAttribute('clip-path', 'url(#' + icId + ')'); g.innerHTML = slot.icon.svgContent;
+                        iNested.appendChild(g);
+                        circ.parentNode.insertBefore(iNested, circ.nextSibling);
+                        return;
+                    }
+                    var label = slot.top || fallbackLabels[idx % fallbackLabels.length];
+                    var markup = markupMap[label];
+                    if (!markup) return;
+                    var clipId = 'cs-cl-' + idx;
+                    var clip = document.createElementNS(ns, 'clipPath'); clip.setAttribute('id', clipId);
+                    var clipCirc = document.createElementNS(ns, 'circle');
+                    clipCirc.setAttribute('cx', cx); clipCirc.setAttribute('cy', cy); clipCirc.setAttribute('r', r - 1);
+                    clip.appendChild(clipCirc); svg.insertBefore(clip, svg.firstChild);
+                    var nested = document.createElementNS(ns, 'svg');
+                    nested.setAttribute('viewBox', viewBoxMap[label] || '0 0 60 60');
+                    nested.setAttribute('x', cx - r); nested.setAttribute('y', cy - r);
+                    nested.setAttribute('width', 2 * r); nested.setAttribute('height', 2 * r);
+                    nested.setAttribute('clip-path', 'url(#' + clipId + ')'); nested.setAttribute('overflow', 'hidden');
+                    nested.innerHTML = markup;
+                    circ.parentNode.insertBefore(nested, circ.nextSibling);
+                });
+            }
+            _pbUniqueIds(svg); // uniquify every id so tiles + popup never collide
+            return svg.outerHTML;
+        }
+
         // Render one game button (icon + label) into the given column list.
         // If eyeAction is supplied, an eye-icon button is rendered next to
         // the game button. Clicking it opens the cards-library overlay
@@ -1660,7 +1752,7 @@
                 var catchGames = loadCatchGames();
                 catchGames.forEach(function(cg, ci) {
                     // Publishing isn't implemented — show every game.
-                    var btn = _renderIntroGameBtn(catchList, cg.name, _introCatchIconSVG(cg), null,
+                    var btn = _renderIntroGameBtn(catchList, cg.name, _catchSetupIconSVG(cg), null,
                         function() { _openCardsLibrary('catch', ci); });
                     _bypassTileClick(btn, 'catch-' + ci);
                 });

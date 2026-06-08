@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:26 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:36 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:36 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2888,6 +2888,16 @@
             // which is more reliable than setTimeout(0) for measuring
             // freshly-shown flex children.
             _scheduleSetupIconAlignment();
+            // Render the Legend on the SETUP page (player-names hidden). rAF so
+            // the level buttons are laid out for the bordered-rectangle width.
+            try {
+                var _pnEl = document.getElementById('player-names');
+                if (!_pnEl || _pnEl.style.display === 'none') {
+                    requestAnimationFrame(function() {
+                        try { if (typeof _renderStartSummary === 'function') _renderStartSummary(); } catch (e) {}
+                    });
+                }
+            } catch (e) {}
         }
 
         // Fire alignment from MULTIPLE time anchors so at least one catches
@@ -4200,7 +4210,9 @@
                 if (!pn) return;
                 var apply = function() {
                     try { if (typeof _syncSetupGameIcon === 'function') _syncSetupGameIcon(); } catch (e) {}
-                    if (pn.style.display !== 'none') {
+                    // The Legend now lives on the SETUP page (player-names hidden),
+                    // NOT the Start page (player-names visible).
+                    if (pn.style.display === 'none') {
                         try { _renderStartSummary(); } catch (e) {}
                     } else {
                         var r = document.getElementById('selected-options-row');
@@ -4221,11 +4233,25 @@
                 var box1 = document.querySelector('.setup-box-1');
                 if (box1) {
                     new MutationObserver(function() {
-                        if (pn.style.display === 'none') return;
+                        if (pn.style.display !== 'none') return; // Legend = Setup page only
                         var row = document.getElementById('selected-options-row');
-                        if (!row || row.querySelector('#start-summary-inner')) return;
+                        // Already rendered → nothing to do. If the box is missing or
+                        // game.js overwrote it with the level chip, (re)render it.
+                        if (row && row.querySelector('#start-summary-inner')) return;
                         try { _renderStartSummary(); } catch (e) {}
                     }).observe(box1, { childList: true, subtree: true });
+                }
+                // Keep the Legend current as the user changes options on the
+                // Setup page (timer/level/probability/type). Delegated so it
+                // survives setup re-renders.
+                var ss = document.getElementById('start-screen');
+                if (ss) {
+                    ss.addEventListener('click', function(e) {
+                        if (pn.style.display !== 'none') return; // Setup page only
+                        if (e.target.closest('.level-btn, .level-btn-wrapper, .player-prob-chip, .setup-type-line, #setup-timer-toggle')) {
+                            requestAnimationFrame(function() { try { _renderStartSummary(); } catch (e) {} });
+                        }
+                    });
                 }
                 apply();
             }

@@ -751,6 +751,51 @@ class VicaDominoGame {
         return container;
     }
 
+    // STEP 2 (read global): pre-fill the just-built per-game player rows from the
+    // global Icons-Players config (localStorage 'vica_global_players'). Purely
+    // additive and guarded — with no saved config this is a no-op and the game
+    // behaves exactly as before. It pre-selects each player's icon and pre-fills
+    // the name box; startGame() then reads these inputs unchanged. Only touches
+    // the first `count` real player rows (the Xeno row is added later).
+    _applyGlobalPlayerConfig(count) {
+        let cfg = null;
+        try { cfg = JSON.parse(localStorage.getItem('vica_global_players')) || null; }
+        catch (e) { cfg = null; }
+        if (!cfg || !Array.isArray(cfg.players)) return;
+
+        const rows = document.querySelectorAll('#name-inputs .player-input-row');
+        for (let i = 0; i < count; i++) {
+            const gp = cfg.players[i];
+            const row = rows[i];
+            if (!gp || !row) continue;
+
+            // Icon: select the global icon (global set is distinct, so no
+            // .icon-taken guard needed; availability is recomputed at the end).
+            if (gp.icon && CHARACTER_ICONS[gp.icon]) {
+                const sel = row.querySelector('.icon-selector');
+                const btn = sel && sel.querySelector('.icon-btn[data-icon="' + gp.icon + '"]');
+                if (btn) {
+                    sel.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    this.playerIcons[i] = gp.icon;
+                    const firstBtn = sel.querySelector('.icon-btn');
+                    if (firstBtn && firstBtn !== btn) sel.insertBefore(btn, firstBtn);
+                }
+            }
+
+            // Name: only override when the saved name is non-empty. Keep the
+            // input's prefix so startGame()'s prefix-strip still works.
+            if (gp.name && gp.name.trim()) {
+                const input = row.querySelector('.name-section input');
+                if (input) {
+                    const prefix = input.dataset.prefix || '';
+                    input.value = prefix + gp.name.trim();
+                }
+            }
+        }
+        this.updateIconAvailability();
+    }
+
     updateIconAvailability() {
         // Get all icon selectors
         const allSelectors = document.querySelectorAll('.icon-selector');
@@ -943,6 +988,10 @@ class VicaDominoGame {
 
         // Update icon availability after all selectors are created
         this.updateIconAvailability();
+
+        // STEP 2: pre-fill these rows from the global Icons-Players config
+        // (no-op when nothing is saved). Must run AFTER the rows + availability.
+        this._applyGlobalPlayerConfig(count);
 
         // Defensive: make sure the Start Game button exists as a direct
         // child of #player-names. Reported bug: on some GPt Cxx pages the

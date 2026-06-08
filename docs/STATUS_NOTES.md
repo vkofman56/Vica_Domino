@@ -37,10 +37,28 @@ old per-game flow working in parallel until the new one is proven, then delete):
    panel **pre-fills** each row's icon + name from the saved config (falling back
    to distinct defaults when none); Save shows "Saved ✓" then returns to intro.
    Helpers `_ipLoadConfig` / `_ipSaveConfig` / `_ipSaveAndClose` in index.html.
-   Device-local only for now (not yet in sync.js / not yet read by any game).
-2. **Teach game-launch to READ** player count/icons/names from that global config,
-   ADDED ALONGSIDE the existing per-game path (not replacing). Verify a game
-   launches with the global players — Find AND Catch.
+   **Now sync-protected** — see the sync.js note below.
+2. ✅ **DONE (Find/Combined)** — **game-launch READS the global config.** When the
+   per-game player rows are built (`selectPlayerCount`), a new guarded method
+   **`_applyGlobalPlayerConfig(count)`** (js/game.js) pre-selects each player's
+   saved icon and pre-fills the name from `vica_global_players`; the existing
+   `startGame()` then reads them unchanged → the game launches with the global
+   players. Purely **additive/guarded**: no saved config → original defaults
+   (P1=star, P2=cat, empty names), behavior identical to before. Verified e2e: set
+   config → Find game → pick 2 players → rows pre-filled → Start → `game.players`
+   has the right names+icons. **Catch is N/A here** — Catch has no per-player
+   icon/name UI (its `_catchGame.players` is just `{lives,coins,fallingCards}`),
+   so only its player COUNT is relevant (deferred to the count/“impossible-mode”
+   work in steps 3–4). The old per-game pickers are untouched (removed in step 4).
+
+   **sync.js fix (important):** `vica_global_players` is **device-local user
+   config, not shared authored content**, so it's now **local-wins in BOTH sync
+   paths** — added to `_localWinsKeys` (superuser pull) AND explicitly preserved in
+   `_loadSharedData` (the guest/player pull, which otherwise wipes local and
+   restores the superuser's cloud copy). Without this, the exact CLAUDE.md
+   LOCAL-WINS bug reappeared: a reload rolled the config back to a stale cloud
+   value. Verified: as a guest `player-guest`, the saved config now survives a full
+   reload. A FRESH device (empty local) still pulls the cloud value normally.
 3. **Add "Start Game" to the Setup page** that launches using the global config +
    the GP 0 player-count toggle.
 4. **Only once 1–3 are proven, remove** the per-game 1/2-player buttons, icon

@@ -386,7 +386,7 @@
                     // its work. A FRESH device (empty local) still pulls cloud
                     // normally. Trade-off: edits to these keys don't propagate
                     // device→device (acceptable for single-superuser editing).
-                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames'];
+                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'vica_global_players'];
                     _localWinsKeys.forEach(function (lk) {
                         var lv = _origGetItem(lk);
                         if (!lv) return;
@@ -474,6 +474,13 @@
         return _pullFromServer(superusers[0])
             .then(function (data) {
                 if (Object.keys(data).length > 0) {
+                    // Preserve the device-local global player config: it's the
+                    // user's OWN player setup (names/icons/count), not shared
+                    // authored content, so it must survive the cloud pull for
+                    // players too (local-wins). A fresh device (empty local)
+                    // still falls through to the cloud value below.
+                    var _localCfg = _origGetItem('vica_global_players');
+
                     // Load the superuser's shared data (games, cards, etc.)
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
@@ -485,6 +492,17 @@
                     Object.keys(data).forEach(function (k) {
                         _origSetItem(k, data[k]);
                     });
+
+                    // Restore the local global player config when it has data.
+                    if (_localCfg) {
+                        try {
+                            var _p = JSON.parse(_localCfg);
+                            var _has = _p && typeof _p === 'object' &&
+                                (Array.isArray(_p.players) ? _p.players.length > 0
+                                                           : Object.keys(_p).length > 0);
+                            if (_has) _origSetItem('vica_global_players', _localCfg);
+                        } catch (e) {}
+                    }
                 }
                 _setSyncStatus('saved');
             })

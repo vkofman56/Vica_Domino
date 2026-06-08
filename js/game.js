@@ -1296,6 +1296,10 @@ class VicaDominoGame {
             if (!nameInput) return;
 
             const rowRect = playerRow.getBoundingClientRect();
+            // The per-game player rows are hidden now (step 4 — icons/names moved
+            // to the global config). A hidden row measures 0×0; skip alignment so
+            // we don't push the Xeno input / Start button to garbage positions.
+            if (rowRect.width === 0 || rowRect.height === 0) return;
             const cat = iconBtns[1].getBoundingClientRect();
             const nameRect = nameInput.getBoundingClientRect();
             const xenoRow = xenoInput.closest('.xeno-row');
@@ -1358,10 +1362,22 @@ class VicaDominoGame {
         this.recentDoublePositions = {};
         this._playerClickBuffers = {};
         this._playerClickTimers = {};
+        // The per-game icon/name pickers were removed (step 4) — players now come
+        // from the GLOBAL Icons-Players config. Read it once; prefer it for each
+        // player's name + icon, falling back to the (hidden) DOM input and the
+        // default when nothing is saved. Player COUNT still comes from the rows.
+        let _gcfg = null;
+        try { _gcfg = JSON.parse(localStorage.getItem('vica_global_players')) || null; }
+        catch (e) { _gcfg = null; }
+
         let playerIndex = 0;
         inputs.forEach((input) => {
             // Skip the Xeno input (disabled)
             if (input.disabled) return;
+
+            const _g = (_gcfg && _gcfg.players && _gcfg.players[playerIndex]) ? _gcfg.players[playerIndex] : null;
+            const _gName = (_g && _g.name && _g.name.trim()) ? _g.name.trim() : null;
+            const _gIcon = (_g && _g.icon && CHARACTER_ICONS[_g.icon]) ? _g.icon : null;
 
             let name = input.value;
             const prefix = input.dataset.prefix;
@@ -1369,13 +1385,14 @@ class VicaDominoGame {
             if (name.startsWith(prefix)) {
                 name = name.substring(prefix.length);
             }
-            // Check if player actually entered a name
-            const hasCustomName = name.trim().length > 0;
-            // Use default name if empty
-            name = name.trim() || `Player ${playerIndex + 1}`;
+            const _domName = name.trim();
+            // Custom name = a saved global name OR a typed DOM name.
+            const hasCustomName = !!_gName || _domName.length > 0;
+            // Prefer global name, then DOM, then default.
+            name = _gName || _domName || `Player ${playerIndex + 1}`;
 
-            // Get selected icon for this player
-            const iconKey = this.playerIcons[playerIndex] || 'star';
+            // Prefer global icon, then the (default) per-row selection, then star.
+            const iconKey = _gIcon || this.playerIcons[playerIndex] || 'star';
 
             this.players.push({
                 id: playerIndex,

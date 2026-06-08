@@ -66,9 +66,27 @@ old per-game flow working in parallel until the new one is proven, then delete):
    value. Verified: as a guest `player-guest`, the saved config now survives a full
    reload. A FRESH device (empty local) still pulls the cloud value normally.
 3. **Add "Start Game" to the Setup page** that launches using the global config +
-   the GP 0 player-count toggle.
-4. **Only once 1–3 are proven, remove** the per-game 1/2-player buttons, icon
-   pickers, name inputs, and the intermediate Start (player-names) page.
+   the GP 0 player-count toggle. *(Not done — and per user, the per-game
+   player-COUNT buttons are STAYING for now, so this is lower priority.)*
+4. ✅ **DONE (icons + names; count buttons kept by user choice)** — the per-game
+   **player icon pickers + name boxes are removed** from the Find/Catch Start
+   pages (GP t/m). Implementation:
+   - **`startGame()` now reads name+icon from the global config directly** (parses
+     `vica_global_players`), preferring it, falling back to the DOM input then the
+     default. Player COUNT still comes from the rows (the inputs stay in the DOM,
+     just hidden, so the count is unchanged).
+   - **CSS hides the rows:** `#name-inputs .player-input-row:not(.xeno-row){display:none}`
+     — covers Find (selectPlayerCount), Catch touch (renderInlinePlayerNames), and
+     Catch **mouse** (the inline 1-player row at index.html ~3147). The Xeno timer
+     row + the Start Game button stay; `#ip-rows` (the panel) is unaffected.
+   - **`_alignXenoRowToPlayerRow` guard:** returns early when the player row
+     measures 0×0 (hidden), so +timer games don't get garbage Xeno/Start
+     positions. Verified the timer Start page still lays out correctly.
+   Verified e2e: Find 2P launches with global players (rows hidden); no-config
+   falls back to "Player N"/star+cat; +timer Start page OK; Catch board shows the
+   global icon+name. The per-game count buttons + Start Game button remain (user
+   chose to keep count per-game). game.js cache-buster → global-players-2,
+   style.css → dgx-redesign-31.
 
 Decisions baked in:
 - **Player count = the GP 0 toggle.** When a game doesn't support the chosen

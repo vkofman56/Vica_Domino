@@ -1,10 +1,44 @@
 # Vica Domino - Project Status Notes
-**Date**: June 7, 2026 — GP 0 player toggle + "Miscellaneous" column + "Icons-Players" panel (all shipped, UI-only)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `0b19863` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 680+
+**Date**: June 7, 2026 — Global player config (steps 1/2/4) + Start-page-elimination prep (eye popup, Legend, lower-box cleanup)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `98f2806` as of this update; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1330+
 **Codebase Size**: ~18,000 lines across 4 main files
+**Cache-busters**: `style.css?v=dgx-redesign-35`, `game.js?v=global-players-2`, `sync.js?v=local-wins-3`
 
 ---
+
+## June 7, 2026 (latest) — where we left off
+
+Working tree clean; everything shipped to the 3 canonical branches. **Full detail
+is in MEMORY.md's "June 7 (cont.)" section.** Two threads, both live:
+
+**A) Global player config (`vica_global_players`).** Icons-Players is now the
+single source of players. **Steps 1 (persist), 2 (games read it), 4 (remove
+per-game icon/name pickers) are DONE.** Per-game player-COUNT buttons + Start
+Game button stay (removed much later). `vica_global_players` is **LOCAL-WINS in
+both sync.js paths** (don't regress this). Catch board shows the global icon+name.
+
+**B) Eliminating the Start page.** Its pieces moved out: the game icon → GP 0
+**eye popup** (RIGHT-click the eye; left-click still = cards library); Catch uses
+`_catchSetupIconSVG` so tile/popup match Setup. +timer Start pages lost the Xeno
+icon/box (kept in Misc → **Xeno-Icon**). The Setup/Start lower box lost the game
+icon + the player-options **title** (`#setup-h3-players`) — buttons stay. The
+**"Legend"** (read-only Timer/Probability/Level/Type chart) got a title and
+**moved to the Setup page** (gated on Level-buttons-visible; live-updates).
+
+**Next steps (NOT done):**
+- **Step 3** of the config plan — a "Start Game" on the Setup/GP-0 page driven by
+  the GP 0 toggle (lower priority; user is keeping per-game count for now).
+- Eventually **remove the per-game player-options buttons** (`.player-select`) —
+  "much later, after a couple of other steps" (user).
+- Then finish **eliminating the Start page** entirely.
+- Much later: **"Aligning the Games"** tool → combine Icons-Players + games into
+  **GameLines**.
+- Tiny cosmetic: Catch Legend "Level" row can read "Medium Medium" (de-dupe TODO).
+
+---
+
+## June 7, 2026 — earlier groundwork (historical)
 
 ## June 7, 2026 — where we left off (Icons-Players groundwork)
 

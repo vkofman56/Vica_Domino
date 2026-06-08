@@ -1,5 +1,101 @@
 # Vica Domino Project Memory
-**Last Updated**: June 7, 2026 — GP 0 player toggle + Miscellaneous column + "Icons-Players" panel
+**Last Updated**: June 7, 2026 — GLOBAL player config (steps 1–4) + Start-page-elimination prep (eye popup, Legend, lower-box cleanup)
+
+---
+
+## ✅ June 7, 2026 (cont.) — Global player config + eliminating the Start page
+
+Big session. Two intertwined threads. All shipped via `scripts/ship.sh` (latest
+tip `98f2806`). Cache-busters now: **`style.css?v=dgx-redesign-35`**,
+**`game.js?v=global-players-2`**, **`sync.js?v=local-wins-3`** (bump these when
+those files change). Everything below is on the canonical branches.
+
+### THREAD A — "Icons-Players" is now the GLOBAL player config
+
+The Icons-Players panel (GP 0 → Misc → "Icons-Players") is the single source of
+players. Storage key **`vica_global_players`**, shape
+`{count, players:[{icon, name}, …]}` where `icon` = a CHARACTER_ICONS key
+(star/cat/robot/dino/unicorn). The agreed plan was: (1) persist → (2) games read
+it → (3) Start-on-Setup → (4) remove per-game pickers. **Steps 1, 2, 4 are DONE;
+step 3 is NOT.**
+
+- **Step 1 — persist** (index.html): helpers `_ipLoadConfig` / `_ipSaveConfig` /
+  `_ipSaveAndClose`. The panel button is now an enabled **"Save"** (was a dimmed
+  "Start"); on open it **pre-fills** each row's icon+name from the saved config;
+  Save shows "Saved ✓" then returns to intro.
+- **Step 2 — games READ it.** game.js `_applyGlobalPlayerConfig(count)` pre-fills
+  the per-game rows in `selectPlayerCount`; and **`startGame()` reads name+icon
+  straight from `vica_global_players`** (prefers global, falls back to the DOM
+  input then default; player COUNT still from the rows). Catch BOARD shows the
+  global icon+name via **`_catchPlayerLabelEl(idx)`** (2P per-zone labels + 1P
+  `.catch-hud-player`). All **additive/guarded** — no saved config ⇒ original
+  defaults (P1=star, P2=cat).
+- **⚠️ sync.js — `vica_global_players` is LOCAL-WINS in BOTH paths.** It's
+  per-device user config, not shared content. Added to `_localWinsKeys` (the
+  superuser pull) AND explicitly preserved in **`_loadSharedData`** (the
+  guest/player pull, which otherwise wipes local and restores the superuser's
+  cloud copy). Without BOTH, a reload rolled the config back to a stale cloud
+  value (the classic CLAUDE.md LOCAL-WINS bug). The preview browser is a guest
+  `player-guest`; the superuser is `Vica` (see firebase-config SUPERUSERS).
+- **Step 4 — per-game pickers REMOVED.** CSS hides
+  `#name-inputs .player-input-row:not(.xeno-row)` (covers Find + Catch touch +
+  Catch mouse). The **player-COUNT buttons stay** (user chose to keep count
+  per-game; that feature is removed "much later"). `_alignXenoRowToPlayerRow`
+  now early-returns when the player row is hidden (0×0) so +timer Start pages
+  don't get garbage positions.
+- **Icons & Players panel chrome:** a **dimmed, non-working "Start the Game"**
+  button sits LEFT of Save, spanning exactly the five icons (overlays the hidden
+  icon-clone spacer via absolute `left:0/right:0`; `.ip-start-row .ip-startgame-
+  dim` is a 2-class selector to beat the mobile `.btn{width:200px}` rule). Same
+  height as Save (42px). UI only.
+
+### THREAD B — eliminating the Start page (move its bits elsewhere)
+
+The Start page (player-names view) is being emptied so it can go away. Its pieces
+now live on GP 0 / the Setup page:
+
+- **Misc → "Xeno-Icon" box** (renamed from "Xeno-box") opens `#xeno-box-screen`
+  showing the Xeno icon + "Xeno ⏳" box (exact copy of the Start page's xeno row:
+  canonical `XENO_ICON_SVG` in `.xeno-icon-container` + the pink `.xeno-input`).
+  Parked for later use.
+- **Game-icon eye popup:** RIGHT-click a game's eye on GP 0 → `#game-icon-popup`
+  (a small modal) shows that game's icon. `_openGameIconPopup(iconSVG, title)` /
+  `_setupGameIconPopup`; close via ×/backdrop/Esc. **LEFT-click unchanged** (the
+  cards-library overlay). The icon comes from the tile builders (no navigation):
+  Find = `_introFindIconSVG`; **Catch = new `_catchSetupIconSVG(game)`** which
+  builds the **Medium (triangle) bubble cluster** (1 big + 3 small bubbles filled
+  with the game's pictures) off-DOM, mirroring `_fillCatchLevelBubbles` then
+  `_pbUniqueIds()` to avoid id collisions — so the catch tile + popup match the
+  Start/Setup page (the old 2-bubble `_introCatchIconSVG` is no longer used for
+  tiles).
+- **+timer Start pages:** the Xeno icon + "Xeno ⏳" box are removed (CSS hides
+  `.xeno-row .input-section:not(.name-section)` + `.xeno-row .xeno-input`); the
+  Start Game button stays.
+- **Setup/Start lower box:** the game icon `#setup-game-icon` is hidden (it's in
+  the eye popup now), and the player-options **TITLE** `#setup-h3-players` is
+  hidden — but the player-option **buttons** (`.player-select`) STAY (removed much
+  later, per user).
+- **The "Legend"** = the read-only options chart `#selected-options-row`, built by
+  **`_renderStartSummary`** (Timer / Probability / Level / Type). It now has a
+  centered **"Legend"** title and lives on the **SETUP page**, not the Start page.
+  Gate: it shows whenever the **Level buttons are visible** (`#start-screen
+  .game-level-select`) — the reliable "Setup page" signal that works for Find AND
+  Catch mouse/touch (where player-names renders inline on the setup). The gate is
+  centralized inside `_renderStartSummary`; it **live-updates** as the user
+  changes options (delegated click listener on `.level-btn`/`.player-prob-chip`/
+  `.setup-type-line`/`#setup-timer-toggle`, plus a render at the end of
+  `_applyGameSetupToPlayerScreen`). Known minor cosmetic: catch Level row can read
+  "Medium Medium" (difficulty + level label coincide) — not yet de-duped.
+
+### Gotchas worth remembering
+- The same `#selected-options-row` is written by game.js (a "N dominos" level
+  chip) AND `_renderStartSummary` (the Legend). A Box-1 childList observer
+  re-asserts the Legend when game.js overwrites it; guarded by `#start-summary-
+  inner` to avoid loops.
+- "Setup page" vs "Start page" is NOT player-names visibility (Catch shows
+  player-names inline on the setup). Use **Level-buttons-visible**.
+- Catch gameplay (`_catchGame.players`) still only has `{lives,coins,fallingCards}`
+  — the board icon+name is display-only, read straight from `vica_global_players`.
 
 ---
 

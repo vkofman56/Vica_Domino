@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:23 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:31 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:31 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2075,16 +2075,26 @@
                 toggle.setAttribute('aria-label', n + (n > 1 ? ' players' : ' player'));
                 toggle.title = n + (n > 1 ? ' players' : ' player') + ' — click to change';
             }
-            // Click by ZONE (not cycle): left → 2 players, right → 3 players,
-            // and a WIDE middle → 1 player (the easy/default target).
+            // Click by ZONE (not cycle). The 1-PLAYER zone = the white circle
+            // (centered at the track center, where the thumb sits for 1 player)
+            // EXTENDED by 20% of its radius on the left and 25% on the right.
+            // Left of that zone → 2 players; right of it → 3 players.
             toggle.addEventListener('click', function(e) {
-                var rect = toggle.getBoundingClientRect();
-                var w = rect.width || 1;
-                var x = e.clientX - rect.left;
-                var n;
-                if (x < w * 0.26) n = 2;        // left zone → 2 players
-                else if (x > w * 0.74) n = 3;   // right zone → 3 players
-                else n = 1;                     // wide middle zone → 1 player
+                var track = toggle.querySelector('.intro-input-toggle-track');
+                var thumb = toggle.querySelector('.intro-input-toggle-thumb');
+                var togR = toggle.getBoundingClientRect();
+                var x = e.clientX - togR.left;
+                var n = 1;
+                if (track && thumb) {
+                    var tr = track.getBoundingClientRect();
+                    var radius = (thumb.getBoundingClientRect().width || 20) / 2;
+                    var center = (tr.left + tr.width / 2) - togR.left; // 1-player circle center
+                    var leftEdge = center - radius - 0.20 * radius;    // circle left + 20% radius
+                    var rightEdge = center + radius + 0.25 * radius;   // circle right + 25% radius
+                    if (x < leftEdge) n = 2;
+                    else if (x > rightEdge) n = 3;
+                    else n = 1;
+                }
                 applyN(n);
             });
             // Sync to the initial state (1).

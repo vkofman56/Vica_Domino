@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:57 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:57 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2816,51 +2816,53 @@
                 var enabledOpts = conf.players.options.filter(function(o) {
                     return o && o.on && pById[o.id];
                 });
-                if (enabledOpts.length === 1) {
-                    // Single option — there's nothing for the player to
-                    // pick on the Players axis, so we skip the clickable
-                    // button entirely and render the name/icon inputs +
-                    // Start button inline on the setup page (via
-                    // window.game.renderInlinePlayerNames). Levels/Types
-                    // pickers above stay visible so the player can still
-                    // make those picks before tapping Start.
+                // Decide the chosen player option.
+                //  • FIND/Combined (Stage 1): the player COUNT comes from the GP 0
+                //    toggle. Pick the enabled option matching it and render INLINE
+                //    (Start Game on the Setup page) — never show the count buttons.
+                //    The GP 0 click guard guarantees a matching option exists.
+                //  • CATCH: unchanged — single option → inline; 2+ → count buttons.
+                var chosenOpt = null;
+                if (gameType !== 'catch') {
+                    var _ptog = document.getElementById('intro-player-toggle');
+                    var _toggleN = _ptog ? (parseInt(_ptog.getAttribute('data-players'), 10) || 1) : 1;
+                    chosenOpt = enabledOpts.filter(function(o) {
+                        var b = pById[o.id];
+                        return b && (parseInt(b.getAttribute('data-players'), 10) || 1) === _toggleN;
+                    })[0] || enabledOpts[0] || null;
+                } else if (enabledOpts.length === 1) {
+                    chosenOpt = enabledOpts[0];
+                }
+
+                if (chosenOpt) {
+                    // INLINE: hide the count buttons + heading, render the player
+                    // setup (hidden rows feed startGame the count) + the Start
+                    // Game button right on the Setup page. No separate Start page.
                     pbs.forEach(function(b) { b.style.display = 'none'; });
                     if (pselect) pselect.style.display = 'none';
                     var _h3p = document.getElementById('setup-h3-players');
                     if (_h3p) _h3p.style.display = 'none';
-                    var only = enabledOpts[0];
-                    var btnOnly = pById[only.id];
-                    // Mark the (hidden) button as selected so the catch
-                    // start interceptor in index.html (which reads
-                    // .player-btn.selected) still resolves the chosen
-                    // variant for 2-player Catch.
                     document.querySelectorAll('#start-screen .player-btn.selected').forEach(function(b) {
                         b.classList.remove('selected');
                     });
-                    btnOnly.classList.add('selected');
-                    var _count = parseInt(btnOnly.getAttribute('data-players'), 10) || 1;
-                    // OR in the Timer-switch state (Find pages only —
-                    // _currentTimerOn is false on Catch, so this is a
-                    // no-op there). Lets the player pick "1 player" and
-                    // still get a timed round when the switch is ON.
-                    var _xeno  = (btnOnly.getAttribute('data-xeno') === 'true')
+                    var btnOnly = pById[chosenOpt.id];
+                    if (btnOnly) btnOnly.classList.add('selected'); // catch interceptor reads this
+                    var _count = btnOnly ? (parseInt(btnOnly.getAttribute('data-players'), 10) || 1) : 1;
+                    // Timer (Xeno) comes from the timer switch (Find) / the option's
+                    // data-xeno; _currentTimerOn is false on Catch.
+                    var _xeno = (btnOnly && btnOnly.getAttribute('data-xeno') === 'true')
                               || !!window._currentTimerOn;
                     if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
                         window.game.renderInlinePlayerNames(_count, _xeno);
                     }
                 } else {
-                    // 0 or 2+ enabled — show each enabled button with its
-                    // saved label, hide everything else, and reorder the
-                    // visible buttons to match the saved option order.
+                    // 0 or 2+ enabled (Catch only now) — show each enabled count
+                    // button with its saved label, in saved order.
                     pbs.forEach(function(b) { b.style.display = 'none'; });
                     enabledOpts.forEach(function(opt) {
                         var btn = pById[opt.id];
                         btn.style.display = '';
                         if (opt.label) btn.textContent = opt.label;
-                        // Reordering: re-append to the .player-select in
-                        // saved order. For the unenabled siblings the
-                        // display:none above keeps them out of the visual
-                        // flow; their DOM position doesn't matter.
                         if (pselect) pselect.appendChild(btn);
                     });
                 }

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:24 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:41 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:41 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -302,22 +302,11 @@
                 <div class="setup-game-icon" id="setup-game-icon" aria-hidden="true"></div>
 
                 <h3 id="setup-h3-players">How many players?</h3>
-                <div class="player-select">
-                    <!-- Six pre-rendered player-btn templates, one per
-                         PLAYER_CATALOG id (kept in sync with the Studio
-                         catalog). _applyGameSetupToPlayerScreen filters by
-                         the matching option's `on` flag, reorders to match
-                         the saved Game Settings order, and rewrites the
-                         label text from the saved option. game.js's
-                         selectPlayerCount click handler reads data-players
-                         + data-xeno — same as before. -->
-                    <button class="player-btn" data-id="p1"  data-players="1" data-xeno="false">1 player</button>
-                    <button class="player-btn" data-id="p1x" data-players="1" data-xeno="true">1 player + timer</button>
-                    <button class="player-btn" data-id="p2"  data-players="2" data-xeno="false">2 players</button>
-                    <button class="player-btn" data-id="p2x" data-players="2" data-xeno="true">2 players + timer</button>
-                    <button class="player-btn" data-id="p3"  data-players="3" data-xeno="false">3 players</button>
-                    <button class="player-btn" data-id="p3x" data-players="3" data-xeno="true">3 players + timer</button>
-                </div>
+                <!-- Player COUNT now comes from the GP 0 toggle; the per-game count
+                     buttons were removed. This empty container is kept only so the
+                     few remaining `.player-select` style references don't hit null
+                     (it stays hidden). -->
+                <div class="player-select" style="display:none;"></div>
 
                 <!-- Xeno Icon SVG -->
                 <svg id="xeno-icon" style="display:none" viewBox="0 0 100 100">
@@ -2715,19 +2704,18 @@
         window._currentGameSetupTimer = null;
         window._currentGameSetupSandTimer = null;
 
-        // Last-resort default player buttons when neither the game itself
-        // nor any template has a setup field. Find-Touch standard =
-        // 1 player, 1 player + timer, 2 players, 2 players + timer.
-        // Anything else (p3, p3x) stays hidden so the setup screen
-        // doesn't show all 6 static HTML buttons.
-        var _FALLBACK_PLAYER_IDS = ['p1', 'p1x', 'p2', 'p2x'];
+        // Last-resort path when neither the game nor any template has a setup
+        // field: still render the player setup INLINE (Start Game on the Setup
+        // page) using the GP 0 toggle count. (The old version showed the static
+        // count buttons, which no longer exist.)
         function _applyFallbackPlayerButtons() {
-            var pbs = document.querySelectorAll('#start-screen .player-btn');
-            if (!pbs || pbs.length === 0) return;
-            pbs.forEach(function(b) {
-                var id = b.getAttribute('data-id');
-                b.style.display = (_FALLBACK_PLAYER_IDS.indexOf(id) >= 0) ? '' : 'none';
-            });
+            var h3p = document.getElementById('setup-h3-players');
+            if (h3p) h3p.style.display = 'none';
+            var _psel = document.querySelector('#start-screen .player-select');
+            if (_psel) _psel.style.display = 'none';
+            if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
+                window.game.renderInlinePlayerNames(window._gpCurrentPlayerCount(), !!window._currentTimerOn);
+            }
         }
 
         // When a Find game has no `setup` field, clone the setup from a
@@ -2808,78 +2796,23 @@
                 h3l.textContent = 'Level';
                 h3l.style.display = '';
             }
-            // Player options — buttons are in DOM order matching matrix slots 0..2
-            if (conf.players && Array.isArray(conf.players.options)) {
-                // Catalog-aware filtering: pre-rendered buttons in DOM each
-                // carry data-id matching a PLAYER_CATALOG entry. We match
-                // saved options by id (not by position) so admin's
-                // sticky-rearranged order in Game Settings drives the order
-                // here too — without breaking when the catalog grows.
-                var pselect = document.querySelector('#start-screen .player-select');
-                var pbs = document.querySelectorAll('#start-screen .player-btn');
-                var pById = {};
-                pbs.forEach(function(b) {
-                    b.classList.remove('is-static-text');
-                    pById[b.getAttribute('data-id')] = b;
-                });
-                // Defensively restore the player-select container's display
-                // every render. The 1-enabled branch below hides it inline,
-                // and a follow-up Game Settings save that flips to 0/2+
-                // would otherwise leave the row collapsed.
-                if (pselect) pselect.style.display = '';
-                // Pull enabled options in saved order; ids without a matching
-                // pre-rendered button are skipped (graceful for legacy /
-                // unmigrated data).
-                var enabledOpts = conf.players.options.filter(function(o) {
-                    return o && o.on && pById[o.id];
-                });
-                // Decide the chosen player option. The player COUNT comes from the
-                // GP 0 toggle (Find AND Catch — Stage 1 + 2). Pick the enabled
-                // option matching it and render INLINE (Start Game on the Setup
-                // page) — never show the count buttons. The GP 0 click guard
-                // guarantees a matching option exists.
-                var chosenOpt = null;
-                var _ptog = document.getElementById('intro-player-toggle');
-                var _toggleN = _ptog ? (parseInt(_ptog.getAttribute('data-players'), 10) || 1) : 1;
-                // Catch in mouse mode is 1-player only (the GP 0 guard also blocks
-                // 2-player catch-mouse — belt and suspenders).
-                if (gameType === 'catch' && _catchInputMode === 'mouse') _toggleN = 1;
-                chosenOpt = enabledOpts.filter(function(o) {
-                    var b = pById[o.id];
-                    return b && (parseInt(b.getAttribute('data-players'), 10) || 1) === _toggleN;
-                })[0] || enabledOpts[0] || null;
-
-                if (chosenOpt) {
-                    // INLINE: hide the count buttons + heading, render the player
-                    // setup (hidden rows feed startGame the count) + the Start
-                    // Game button right on the Setup page. No separate Start page.
-                    pbs.forEach(function(b) { b.style.display = 'none'; });
-                    if (pselect) pselect.style.display = 'none';
-                    var _h3p = document.getElementById('setup-h3-players');
-                    if (_h3p) _h3p.style.display = 'none';
-                    document.querySelectorAll('#start-screen .player-btn.selected').forEach(function(b) {
-                        b.classList.remove('selected');
-                    });
-                    var btnOnly = pById[chosenOpt.id];
-                    if (btnOnly) btnOnly.classList.add('selected'); // catch interceptor reads this
-                    var _count = btnOnly ? (parseInt(btnOnly.getAttribute('data-players'), 10) || 1) : 1;
-                    // Timer (Xeno) comes from the timer switch (Find) / the option's
-                    // data-xeno; _currentTimerOn is false on Catch.
-                    var _xeno = (btnOnly && btnOnly.getAttribute('data-xeno') === 'true')
-                              || !!window._currentTimerOn;
-                    if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
-                        window.game.renderInlinePlayerNames(_count, _xeno);
-                    }
-                } else {
-                    // 0 or 2+ enabled (Catch only now) — show each enabled count
-                    // button with its saved label, in saved order.
-                    pbs.forEach(function(b) { b.style.display = 'none'; });
-                    enabledOpts.forEach(function(opt) {
-                        var btn = pById[opt.id];
-                        btn.style.display = '';
-                        if (opt.label) btn.textContent = opt.label;
-                        if (pselect) pselect.appendChild(btn);
-                    });
+            // Player setup — the COUNT comes from the GP 0 toggle (the per-game
+            // count buttons were removed in the toggle-driven refactor). Render
+            // INLINE: the Start Game button on the Setup page + (hidden) player
+            // rows that feed startGame the count. Timer (Xeno) from the timer
+            // switch (false on Catch). The GP 0 click guard guarantees the count
+            // is valid for the game being opened.
+            if (conf.players) {
+                var _count = window._gpCurrentPlayerCount();
+                if (gameType === 'catch') {
+                    // Catch supports 1 or 2 (2 only in touch mode).
+                    _count = (_catchInputMode !== 'mouse' && _count === 2) ? 2 : 1;
+                }
+                if (h3p) h3p.style.display = 'none';
+                var _psel = document.querySelector('#start-screen .player-select');
+                if (_psel) _psel.style.display = 'none';
+                if (window.game && typeof window.game.renderInlinePlayerNames === 'function') {
+                    window.game.renderInlinePlayerNames(_count, !!window._currentTimerOn);
                 }
             }
             // Level options — visible count == configured count (per spec).
@@ -5897,7 +5830,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=global-players-2"></script>
+    <script src="js/game.js?v=global-players-3"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

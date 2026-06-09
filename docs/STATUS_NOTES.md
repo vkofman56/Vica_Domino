@@ -1,13 +1,49 @@
 # Vica Domino - Project Status Notes
-**Date**: June 7, 2026 — Global player config (steps 1/2/4) + Start-page-elimination prep (eye popup, Legend, lower-box cleanup)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `98f2806` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1330+
+**Date**: June 8, 2026 — TOGGLE-DRIVEN player count (1/2/3 from GP 0; Start Game on Setup; count buttons + Start page removed)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `b105a97` as of this update; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1360+
 **Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-35`, `game.js?v=global-players-2`, `sync.js?v=local-wins-3`
+**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-3`
 
 ---
 
-## June 7, 2026 (latest) — where we left off
+## June 8, 2026 (latest) — toggle-driven player count, DONE
+
+Working tree clean; shipped to the 3 canonical branches. **Full detail in
+MEMORY.md's "June 8" section.** Player count is now chosen on the **GP 0 toggle
+(1/2/3)** and applies to every game; the per-game count buttons and the separate
+Start page are **gone** — click a game → Setup page (with a **Start Game** button)
+→ play. Built across 5 stages (all shipped + verified):
+
+- **Stage 0** — GP 0 player toggle extended to **1/2/3** (thumb=1 in the middle,
+  2 left, 3 right; click-by-zone; clicking the circle resets to 1).
+- **Stage 1** — Find games: count from the toggle, **Start Game on the Setup page**
+  (inline render), no count buttons.
+- **Stage 2** — Catch games: same (count → `_catchNumPlayers`; board shows global
+  icon+name).
+- **Stage 3** — full refactor: single `window._gpCurrentPlayerCount()` source;
+  **physically removed the 6 count buttons + the 236-line `selectPlayerCount`**
+  (kept an empty hidden `.player-select` container to avoid null-crashes).
+- **Stage 4** — verified Find/Catch × 1/2 × no-config/no-setup/+timer + the
+  3 warnings; docs updated.
+
+The **GP 0 guard** ("Not available in X mode" / "No N player option!") blocks
+opening a game that doesn't support the chosen mode/count, so the Setup page never
+gets an impossible count.
+
+**Open / next ideas (NOT started):**
+- The **empty `.player-select` container** could be fully removed if someone
+  guards the ~6 remaining `.player-select` style refs (low value).
+- A game with **no own setup** runs on the Match 0-4 **template** — if you want
+  per-game player options to truly persist, that's a Studio-save/sync follow-up.
+- Earlier roadmap still open: **"Aligning the Games"** → GameLines.
+
+No known regressions. `ship.sh` + auto-snapshot + sync LOCAL-WINS + KEEP-recovery
+notes all still apply.
+
+---
+
+## June 7, 2026 — global player config + Start-page prep (historical)
 
 Working tree clean; everything shipped to the 3 canonical branches. **Full detail
 is in MEMORY.md's "June 7 (cont.)" section.** Two threads, both live:

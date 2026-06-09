@@ -1,5 +1,76 @@
 # Vica Domino Project Memory
-**Last Updated**: June 7, 2026 — GLOBAL player config (steps 1–4) + Start-page-elimination prep (eye popup, Legend, lower-box cleanup)
+**Last Updated**: June 8, 2026 — TOGGLE-DRIVEN player count (1/2/3 from GP 0; Start Game on Setup; count buttons + Start page GONE)
+
+---
+
+## ✅ June 8, 2026 — Player count comes from the GP 0 toggle (Start page eliminated)
+
+The big one. Player count is now chosen ONCE on GP 0 (a 1/2/3 toggle) and applies
+to every game; the per-game "1 player / 2 players" buttons and the separate Start
+page are gone — you click a game → Setup page (with a **Start Game** button) →
+play. Shipped across many commits (latest tip `b105a97`). Cache-busters now:
+**`game.js?v=global-players-3`**, **`style.css?v=dgx-redesign-41`**,
+`sync.js?v=local-wins-3`. Builds on the global Icons-Players config (June 7).
+
+### The GP 0 player toggle (1/2/3) — `#intro-player-toggle`
+- `data-players` = 1/2/3. Redesigned look: the **white thumb holds 1 dark figure
+  and sits in the MIDDLE = 1 player**; the **left flank = 2 figures** (slide left =
+  2 players); the **right flank = 3 figures** (slide right = 3 players). Track tints
+  amber/purple/teal. SVGs `_GP_PLAYER_SVG_1/2/3` + `_gpPlayerSvg(n)`.
+- **Click-by-ZONE** (not cycle), in `_setupIntroPlayerToggle`: the 1-PLAYER zone =
+  the circle + 20% of its radius on the left + 25% on the right (centered on the
+  track center); **clicking the current circle (wherever it's displaced) also
+  resets to 1**; left of the zone → 2; right → 3.
+- The 1/2/3 stick-figure glyph also shows in the Setup/Board subtitle
+  (`_gpSetSubtitleMode`, reads the toggle).
+
+### Count flows from the toggle — single source `window._gpCurrentPlayerCount()`
+- **`window._gpCurrentPlayerCount()`** = the one source of the chosen count (reads
+  the toggle). Replaced the old "read `.player-btn.selected`" everywhere.
+- **`_applyGameSetupToPlayerScreen`** (index.html) now renders the setup INLINE for
+  Find AND Catch: `renderInlinePlayerNames(count, includeXeno)` where count =
+  `_gpCurrentPlayerCount()` (catch clamped to 1, or 2 only in touch), includeXeno =
+  `_currentTimerOn`. It no longer uses the count buttons at all. The (hidden, via
+  step-4 CSS) player rows feed `startGame()` the count; names/icons come from the
+  global `vica_global_players` config.
+- **Catch**: the start-game interceptor (capture-phase `#start-game-btn` handler)
+  and `openCatchPlayModal` read `_gpCurrentPlayerCount()` → `_catchNumPlayers`. The
+  catch board shows the global icon+name (`_catchPlayerLabelEl`).
+
+### GP 0 "won't open it" guard (the gatekeeper)
+Clicking a game that doesn't support the current mode shakes the tile + shows a
+brief red note and STAYS on GP 0 (no navigation). In `_bypassTileClick` +
+`_showModeWarning`:
+- **Input mode** (`_gameSupportsMode`) → "Not available in hand/mouse mode".
+- **Player count** (`_gameSupportsPlayerCount`) → "No 1 player option!" /
+  "No 2 player option!" / "No 3 player option!" (all singular "player").
+- `_gameSupportsPlayerCount` mirrors `_applyGameSetupToPlayerScreen`'s setup
+  resolution: a Find game with **no own `setup`** falls back to the **template**
+  (`_loadDefaultFindGameSetup` → Match 0-4). Option id → count via
+  `parseInt(id.slice(1))` (p2x→2). This guard guarantees the Setup page never gets
+  an impossible count, so the inline render can trust the toggle.
+- The mode-warning note is right-aligned to the game box's right edge, nudged.
+
+### What got REMOVED (Stage 3 full refactor)
+- The **6 `.player-btn` count buttons** (static HTML). An **empty hidden
+  `.player-select` container is intentionally KEPT** so the ~6 scattered
+  `document.querySelector('.player-select').style…` refs don't null-crash
+  (cheaper than guarding each). 
+- **`selectPlayerCount`** (game.js, ~236 lines) + its click binding — gone.
+- `_applyFallbackPlayerButtons` now renders inline too.
+- The separate **Start page (player-names view) is eliminated** — it renders
+  inline on the Setup page; the **Legend** lives on the Setup page (gated on
+  Level-buttons-visible).
+
+### Gotchas for future chats
+- Player count source is the TOGGLE (`_gpCurrentPlayerCount`), never the buttons
+  (they don't exist). Don't reintroduce `.player-btn.selected` reads.
+- `_catchNumPlayers` for catch = `(touch && toggleCount===2) ? 2 : 1` (catch is
+  1/2 only; mouse = 1).
+- A game with no own `setup` runs on the **Match 0-4 template** — so its player
+  options (and the 3-player warning) reflect the template, not the Studio view.
+- 3-player games: the toggle supports 3, but few games enable a 3-player option —
+  the guard warns "No 3 player option!" for those.
 
 ---
 

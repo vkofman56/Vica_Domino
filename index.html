@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-35">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-36">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:45 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:02 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:02 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1722,6 +1722,20 @@
             function _bypassTileClick(btn, gameId) {
                 btn.dataset.gameId = gameId;
                 btn.onclick = function() {
+                    // Block + warn when the game doesn't support the current GP 0
+                    // mode (input hand/mouse, or the 1/2-player toggle). Stay here.
+                    var mode = (typeof _findInputMode !== 'undefined' && _findInputMode === 'mouse') ? 'mouse' : 'touch';
+                    var modeLabel = (mode === 'mouse') ? 'mouse' : 'hand';
+                    var ptog = document.getElementById('intro-player-toggle');
+                    var count = (ptog && ptog.getAttribute('data-players') === '2') ? 2 : 1;
+                    var warn = null;
+                    if (!_gameSupportsMode(gameId, mode)) {
+                        warn = 'Not available in ' + modeLabel + ' mode';
+                    } else if (!_gameSupportsPlayerCount(gameId, mode, count)) {
+                        warn = 'No ' + count + '-player option in ' + modeLabel + ' mode';
+                    }
+                    if (warn) { _showModeWarning(btn, warn); return; }
+
                     document.querySelectorAll('#intro-screen .intro-game-btn').forEach(function(b) {
                         b.classList.remove('selected');
                     });
@@ -2402,6 +2416,60 @@
                 if (!game.setup.touch && !game.setup.mouse) return true;
                 return !!game.setup[mode];
             } catch (e) { return true; }
+        }
+
+        // Does this game offer the given PLAYER COUNT (1/2/3) in the given input
+        // mode? Reads game.setup[mode].players.options (ids p1/p1x/p2/p2x/p3/p3x →
+        // count = the number after "p"). Unknown / legacy data → allow (true).
+        function _gameSupportsPlayerCount(gameId, mode, count) {
+            if (!gameId || typeof gameId !== 'string') return true;
+            var dash = gameId.indexOf('-');
+            if (dash < 0) return true;
+            var prefix = gameId.slice(0, dash);
+            var idx = parseInt(gameId.slice(dash + 1), 10);
+            if (isNaN(idx)) return true;
+            try {
+                var games = prefix === 'catch' ? (typeof loadCatchGames === 'function' ? loadCatchGames() : [])
+                          : prefix === 'combined' ? (typeof loadCombinedGames === 'function' ? loadCombinedGames() : [])
+                          : (typeof loadCustomGames === 'function' ? loadCustomGames() : []);
+                var game = games[idx];
+                if (!game || !game.setup) return true;
+                var conf = game.setup[mode];
+                if (!conf || !conf.players || !Array.isArray(conf.players.options)) return true;
+                var supported = {};
+                conf.players.options.forEach(function(o) {
+                    if (o && o.on && o.id) {
+                        var c = parseInt(String(o.id).slice(1), 10); // p2x → 2
+                        if (c) supported[c] = true;
+                    }
+                });
+                if (!Object.keys(supported).length) return true; // no info → allow
+                return !!supported[count];
+            } catch (e) { return true; }
+        }
+
+        // Shake the clicked tile + show a brief red note beside it (used when a
+        // game doesn't support the current GP 0 mode). Stays on GP 0.
+        function _showModeWarning(btn, msg) {
+            if (!btn) return;
+            btn.classList.remove('intro-game-shake');
+            void btn.offsetWidth; // reflow so the animation restarts on repeat clicks
+            btn.classList.add('intro-game-shake');
+            setTimeout(function() { btn.classList.remove('intro-game-shake'); }, 600);
+            var row = btn.closest('.intro-game-row') || btn.parentElement;
+            if (!row) return;
+            var note = row.querySelector('.intro-mode-note');
+            if (!note) {
+                note = document.createElement('div');
+                note.className = 'intro-mode-note';
+                row.appendChild(note);
+            }
+            note.textContent = msg;
+            note.classList.remove('show');
+            void note.offsetWidth;
+            note.classList.add('show');
+            clearTimeout(note._t);
+            note._t = setTimeout(function() { note.classList.remove('show'); }, 2400);
         }
 
         // ===== Timer ON/OFF switch (Find setup page only) =====

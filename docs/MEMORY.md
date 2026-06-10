@@ -1,5 +1,69 @@
 # Vica Domino Project Memory
-**Last Updated**: June 8, 2026 — TOGGLE-DRIVEN player count (1/2/3 from GP 0; Start Game on Setup; count buttons + Start page GONE)
+**Last Updated**: June 9, 2026 — A-Z game "shifted rows" corruption: root-cause + the recovery + prevention plan
+
+---
+
+## 🐞 June 9, 2026 — "A-Z game rows got shifted" — corruption post-mortem
+
+The A-Z game (Game Creator / Find the Doubles, set "ABC") rendered with rows
+shifted/mixed — e.g. a "C" card sitting at the top of row D, a "d" leaking into
+row E, etc. **No code change caused it** (the only commit that day, the
+freeze-MODE cleanup `310e1b9`, was audited and touches no card data / render /
+save). It was pre-existing **data** corruption in `savedCustomGames`, surfaced
+while looking at the grid.
+
+### A game card's identity is THREE redundant fields that can drift apart
+Each entry in `game.cards` (a game inside `savedCustomGames`) carries:
+- **`label`** — e.g. `C2_C` (`<RowKey><Idx>_<drawnLetter>`). Parsed for the row by
+  `_rowKeyParse` (`/^([a-z]?[A-Z])/`).
+- **`stableId`** — e.g. `1776228033142_ABC_C2_ody5` = `<ts>_<SET>_<cardId>_<rnd>`.
+  This is the POINTER used to draw the art: `getGameCardSVGWithFallback` →
+  `_findCardDataByStableId` is the PRIMARY lookup (falls back to label/DOM/`svgMarkup`).
+- **`_gameValue`** (row letter) + **`_gameRow`** (numeric row index). The RENDERER
+  files cards into grid rows by **`_gameRow`** (then `_gameValue`/`_effectiveRowLetter`).
+  `_gameRow` for a single letter = `letter.charCodeAt(0) - 65` (A=0…Z=25).
+
+When healthy all three agree. The corruption was that they **drifted apart**:
+- **Rows A–M**: `label` & `stableId` agreed (correct); only `_gameValue`/`_gameRow`
+  had drifted **+1 row** on ONE card per row (e.g. `C2_C` had `gv=D/gr=3`). The
+  renderer groups by `_gameRow`, so that card got dragged into the next row and
+  drew its letter there → the "shifted by one" look.
+- **Rows N–Z** (24 cards): a SEPARATE, OLDER corruption — the `stableId` POINTERS
+  point at the wrong source card (`O→N`, `P→O`, `Q→P`, the four `N` cards → `M5`,
+  `Y→X5`, `Z→Y5/X5`). Timestamps differ (some `1776520…`, `1779420…` vs the base
+  `1776228033142`), i.e. cards added later, then a `rowKey+N` relabel re-stamped
+  clean sequential labels on top of shifted pointers.
+
+### Likely cause
+The **shift-drag / row-move / insert-delete-relabel** operations in Game Creator
+that move cards between rows update `_gameRow`/`_gameValue` and can renumber
+labels, but do **not atomically keep label / stableId / _gameRow,_gameValue in
+sync**. Over many edits they drift. (The "dashed shift-drag silently moves +
+saves cards across rows" is the most dangerous of these.)
+
+### How it was recovered (console, while logged in as superuser on the Studio)
+1. There is **no games backup** — the Firebase `card_backups` collection
+   (`_getCardBackupData`) backs up card SETS only, NOT `savedCustomGames`; the main
+   sync OVERWRITES with no history; the Studio `_undoStack` is in-memory; git has
+   only code. The cloud copy of A-Z was **also corrupted** (already synced up).
+2. Fixing the card-array ORDER does **nothing** — the renderer re-flattens from
+   `_gameRow` on every render. Must fix `_gameRow`/`_gameValue` themselves.
+3. Final repair: **re-file every card by its `label` row-key** (`_rowKeyParse`),
+   setting `_gameValue=L`, `_gameRow=L.charCodeAt(0)-65`, then reload. A–M came back
+   perfect; N–Z rows are clean but a few still DRAW a shifted letter (the bad
+   `stableId` pointers) — user opted to finish those manually.
+
+### PREVENTION (TODO — none built yet)
+1. **Back up `savedCustomGames`** (+ catch/combined) in the card-backup system
+   (`_getCardBackupData`, sync.js ~556) — the #1 gap; this would make recovery a
+   one-click restore instead of a console archaeology dig.
+2. **Games consistency check/repair** — analogous to `repairRowsFromArt` (sets):
+   detect when `label` / `stableId` / `_gameRow` disagree and offer a one-click
+   re-file (by label, the cleanest truth). Surface it on opening a Game Creator view.
+3. **Make the shift-drag safe** — confirm before moving cards ACROSS rows; keep the
+   three identity fields in sync atomically on every row-move.
+4. **Long term**: stop storing `_gameRow` redundantly — derive the row from ONE
+   authoritative field at render time so there's nothing to drift.
 
 ---
 

@@ -563,7 +563,15 @@
                 k.indexOf('cardArrangement') === 0 ||
                 k === 'abcCardSnapshot' ||
                 k === 'savedCardSets' ||
-                k === 'deletedBuiltinSets') {
+                k === 'deletedBuiltinSets' ||
+                // GAMES (added June 9 2026): these were NOT backed up before, so a
+                // game-data corruption (e.g. the A-Z "shifted rows" incident) had no
+                // restore point. Now the last-3 timestamped card_backups include the
+                // games too. They're local-wins keys (see sync _localWinsKeys), so a
+                // restore here is the authoritative recovery path.
+                k === 'savedCustomGames' ||
+                k === 'savedCatchGames' ||
+                k === 'savedCombinedGames') {
                 backup[k] = _origGetItem(k);
             }
         }

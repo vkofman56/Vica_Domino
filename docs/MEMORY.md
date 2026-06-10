@@ -1,5 +1,53 @@
 # Vica Domino Project Memory
-**Last Updated**: June 9, 2026 — A-Z game "shifted rows" corruption: root-cause + the recovery + prevention plan
+**Last Updated**: June 9, 2026 — Foundation notes (MathGrain pipeline + card-art live-link decision) + A-Z corruption post-mortem
+
+---
+
+## 🏗️ June 9, 2026 — Foundation / data-model design notes (READ for the big picture)
+
+The user is building a **multi-layer pipeline**, not a single tool. Decisions in the
+Studio data model propagate up through every layer, so foundation cleanliness matters
+and is cheapest to fix BEFORE the upper layers exist. The chain (user's words):
+
+- **Studio** — (a) create/edit game-cards, place them in rows representing some kind of
+  EQUIVALENCE; (b) make "games" = chosen sets of cards (their family = "same row
+  belonging") + "probs" assigning probabilities and in-game characteristics
+  (red/neutral/green) to the cards.
+- **Game Previewer** — (a) preview configurations of a game on a board; (b) save a
+  favorable configuration as a **"mini game"**.
+- **Big Game** — (a) create "rules of advance"; (b) collect mini-games + transitions
+  into **Big Games** (puzzle-like); (c) preview + publish.
+- **FinalPreview** — (a) individualized dynamic probabilities + transition rules per
+  user; (b) publish individualized Big Game; (c) collect Big Games into a **Game Flow**.
+
+**Adopted principle:** ONE source of truth / clean data model. Redundant per-card state
+(like `_gameRow`) is foundation debt that every layer would serialize and re-read — so we
+remove it now (#4) rather than migrate it out of mini-games/Big-Games later.
+
+### ⚠️ OPEN design question — card art is a LIVE link (decide at the publish layer)
+A game card stores **no picture of its own** — it holds a `stableId` that points to the
+Card Maker set card, and the art is looked up LIVE at render time
+(`getGameCardSVGWithFallback` → PRIMARY: `_findCardDataByStableId`; a frozen `svgMarkup`
+snapshot is only used if the source card is missing). **Consequence: editing a card's
+appearance in the Card Maker changes it in EVERY game that uses it, instantly** (variations
+too). Great for development; risky for *published* artifacts. Decision to make when the
+Big Game / publish layer is built:
+- **Live** (current): games always show the latest art; published games aren't stable.
+- **Snapshot-on-publish**: freeze each card's art into the mini-game/Big-Game at publish
+  time (reuse the existing `svgMarkup` snapshot path) so later Studio edits don't disturb
+  published work; unpublished games stay live.
+Not built yet — flagged so it's decided before the publish layer locks it in.
+
+### #4 progress (eliminate redundant `_gameRow`) — in flight
+The card's **label** is the single source of truth for its row. Done + shipped: Stage 1
+(saveGameViewOrder re-files by label — `3cb9ce3`), Stage 2 (`_effectiveRowLetter` reads the
+label — `684cef1`), Stage 3a (the 2 grid-grouping lines read the label, `_gameRow` drives
+nothing — `2b45a42`, user-verified all games render correctly incl. A-Z across Probs).
+Remaining: convert `_autoPromoteAddedCards` to label-based, remove the dead
+`_gameRow`/`_gameValue` writes, strip the field from saved data. NON-A-ROW games + copied
+games + Card-Maker-added cards all derive their row from the LABEL, so removing `_gameRow`
+removes no real feature (the only thing it uniquely allowed — a card living in a row that
+disagrees with its label — the user chose to drop: "a card stays in its letter").
 
 ---
 

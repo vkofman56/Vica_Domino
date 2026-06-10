@@ -53,17 +53,28 @@ saves cards across rows" is the most dangerous of these.)
    perfect; N–Z rows are clean but a few still DRAW a shifted letter (the bad
    `stableId` pointers) — user opted to finish those manually.
 
-### PREVENTION (TODO — none built yet)
-1. **Back up `savedCustomGames`** (+ catch/combined) in the card-backup system
-   (`_getCardBackupData`, sync.js ~556) — the #1 gap; this would make recovery a
-   one-click restore instead of a console archaeology dig.
-2. **Games consistency check/repair** — analogous to `repairRowsFromArt` (sets):
-   detect when `label` / `stableId` / `_gameRow` disagree and offer a one-click
-   re-file (by label, the cleanest truth). Surface it on opening a Game Creator view.
-3. **Make the shift-drag safe** — confirm before moving cards ACROSS rows; keep the
-   three identity fields in sync atomically on every row-move.
-4. **Long term**: stop storing `_gameRow` redundantly — derive the row from ONE
-   authoritative field at render time so there's nothing to drift.
+### PREVENTION (1–3 BUILT June 9 2026)
+1. **✅ Back up games** (`b78dd0a`) — `savedCustomGames` / `savedCatchGames` /
+   `savedCombinedGames` added to `_getCardBackupData` (sync.js ~556), so the last-3
+   timestamped Firebase `card_backups` now include games. `syncRestoreCardBackup`
+   writes every key back generically, so restore needed no change. sync.js
+   cache-buster → **`local-wins-4`**. **Recovery now = one-click restore** via
+   `syncListCardBackups()` / `syncRestoreCardBackup(id)` instead of console surgery.
+2. **✅ Games auto-repair** (`a1fae1a`) — `_repairGameRowsFromLabels(game)` re-files
+   every card by its **label** row key (`_gameValue`=key, `_gameRow`=sequential
+   index; leaves labels/stableIds/art/freeze/probabilities alone). Helper
+   `_rowKeyRank`. `_maybeOfferGameRowRepair(game, gameIndex)` detects `_gameValue` ≠
+   label-rowkey drift and OFFERS a one-click re-file on opening the game (letter-
+   keyed games only, ≥1 mis-filed card, once per game per session, behind a confirm);
+   hooked into `openGameView` before the migration passes. Exposed
+   `window.repairGameRowsFromLabels` for console use. Mirrors `repairRowsFromArt`.
+3. **✅ Safer shift-drag** (this commit) — `_gvPointerUp` now **confirms before a
+   cross-LETTER move** (`dragOverRow.dataset.rowLetter !== dragSourceRow`'s). Moving
+   between ZONES of the same letter (top/neutral/bottom — the freeze-state change)
+   is normal and NOT guarded. Cancel aborts cleanly (`cleanupGvDragState` keeps the
+   selection).
+4. **TODO (long term)**: stop storing `_gameRow` redundantly — derive the row from
+   ONE authoritative field at render time so there's nothing to drift.
 
 ---
 

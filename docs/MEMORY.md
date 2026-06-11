@@ -5,6 +5,9 @@
 
 ## 🏗️ June 9, 2026 — Foundation / data-model design notes (READ for the big picture)
 
+**Roadmap:** the full build-out plan + the detailed **Phase 1** stages live in
+`docs/ROADMAP.md`. Read it before starting pipeline work.
+
 The user is building a **multi-layer pipeline**, not a single tool. Decisions in the
 Studio data model propagate up through every layer, so foundation cleanliness matters
 and is cheapest to fix BEFORE the upper layers exist. The chain (user's words):

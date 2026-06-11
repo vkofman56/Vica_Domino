@@ -1,0 +1,112 @@
+# MathGrain — Build-out Roadmap
+**Created:** June 9, 2026. Living document — update as phases land.
+
+## The pipeline (big picture)
+Studio → Game Previewer (mini-games) → Big Game (rules + transitions + publish) →
+FinalPreview (individualized) → Game Flow. See `MEMORY.md` (June 9 foundation notes)
+for the full chain and the standing principle (one source of truth / clean data model).
+
+**Foundation already done:** Studio (Card Maker + Game Creator: cards → equivalence rows,
+probs, red/neutral/green, groups, IC), a working previewer, sync + **games backup +
+auto-repair + safer drag**, and the **#4 clean data model** (a card's row is derived purely
+from its label — single source of truth).
+
+## Phase overview
+- **Phase 1 — Cross-set foundation** (shared-art library + game-as-template) ← *detailed below*
+- **Phase 2 — Game Previewer: mini-games** (config explorer + save favorable config as a mini-game)
+- **Phase 3 — Big Game** (rules of advance + transitions + compose + preview/**publish**; decide
+  live-vs-snapshot art here)
+- **Phase 4 — FinalPreview + Game Flow** (per-user dynamic probs/rules; publish individualized;
+  collect Big Games into a Game Flow)
+
+---
+
+# Phase 1 — Cross-set foundation (DETAILED)
+
+**Goal.** Make card **art reusable across sets** while each set keeps its own **equivalence
+meaning**, and make a **game reusable as a template** across sets.
+
+**Core insight (from the user).** One drawing — e.g. "one bear" — can live in many sets with a
+different role in each (spelling: row **B**; numbers: row **1**; forest animals: row **bear**).
+The *art* is shared; the *equivalence/row* is per-set. Editing shared art uses a **copy-on-write
+scope choice** (apply to **all** / **chosen…** / **only this one** → fork into a new card).
+
+**Why now.** Mini-games / Big-Games will serialize references to cards and games; settling the
+shared-art identity + template model before those layers exist avoids migrating serialized
+artifacts later.
+
+## Decisions to lock BEFORE building
+1. **Art-identity model:**
+   - **(A) Central art library** — one `artId → svgContent` store; sets hold instances that
+     reference it. Purest single-source; biggest refactor.
+   - **(B) Per-card art + `sharedArtId` link** — art stays per-card; a shared id links instances
+     so edits can propagate to siblings. Incremental; storage-duplicated but edit-synced.
+   - **Recommendation: B first** (incremental, enables the UX with least disruption), with A as an
+     optional later consolidation once the model proves out.
+2. **Default edit-scope button** — recommend the safest: **"only this one"**, so an accidental edit
+   can never silently change other sets. (Alternative: no default, force an explicit pick.)
+3. **Role definition** — is a line/card's semantic role free text or a controlled list?
+
+## Stages (each shipped + self-tested + user-verified, #4-style — small and reversible)
+
+### 1.1 — Shared-art identity (data model)
+- Add a **`sharedArtId`** to each card. One-time migration: every existing card gets its **own
+  unique** id (existing independent copies stay **unlinked** — we don't guess which old copies are
+  "the same"; linking happens going forward).
+- Register `sharedArtId` in the **backup / sync / local-wins** set (reuse the existing pattern).
+- *Verify:* cards carry the id; nothing renders/saves differently.
+
+### 1.2 — Copy-to-set creates a LINKED instance
+- Today `_copyCardToSet` makes an **independent duplicate** (fresh id). Change it so the copy
+  **shares the source's `sharedArtId`** — it still gets its own per-set **uid / row / label**, but
+  the same art identity. (`_moveCardToSet` likewise keeps the id.)
+- Now "one bear" copied into 3 sets = **3 linked instances**.
+- *Verify:* copy a card to another set → both share `sharedArtId`; the copy has its own row/label;
+  the original is untouched.
+
+### 1.3 — Edit-scope dialog (the "bear" edit UX)
+- On editing a card's **ART** (the drawing), if it has linked siblings (same `sharedArtId`
+  elsewhere), show: **Apply to — all / chosen… / only this one.**
+  - **only this one** → **fork**: edited card gets a **new** `sharedArtId` (detached); art changes
+    here only.
+  - **all** → update `svgContent` on every sibling.
+  - **chosen…** → a small picker (*"this bear appears in: Spelling, Numbers, Forest Animals"*);
+    the selected subset gets the new art under a **new shared id** (a sub-lineage); the rest keep
+    the old.
+- **Per-set metadata edits (row, label, probability, group, red/neutral/green) stay LOCAL** — no
+  dialog. Variations (flips/rotations) **follow the shared base**.
+- *Verify:* edit a shared bear → each option behaves correctly; metadata edits never prompt.
+
+### 1.4 — Per-set equivalence / role clarity (Q1)
+- Make a row's identity **set-aware** so two different sets' "A" lines don't silently merge when
+  combined into a game: tag lines with their **source set**; keep them distinct (or warn) on mix.
+- Optional: a per-instance **role/name** ("doubles", "the 1") separate from the display letter.
+- *Verify:* combining same-letter lines from two sets keeps them as distinct rows.
+
+### 1.5 — Game-as-template: apply a game to a set (Q2)
+- **"Apply game → set":** pick a game + a target set.
+  - **Same shape** (same #lines, same #cards/line) → **1:1 positional map**: clone the game's
+    structure onto the target set's cards, carrying probs / groups / roles.
+  - **Different shape** → **reconciliation dialog**: surface deviations (missing line, extra card,
+    count diff) for the user to resolve, then map the rest.
+- Builds on portable identity (**position + role**, label as display) — the #4 model is the
+  stepping-stone.
+- *Verify:* apply to a same-shape set (clean), and to a slightly-different set (reconcile).
+
+## Cross-cutting (whole phase)
+- Every stage: shipped separately, self-tested, **user-verified in the live Studio** (login-gated —
+  I verify at the data/parse level, the user clicks through), revertible by one `git revert`.
+- New fields (`sharedArtId`, role) → backup / sync / local-wins.
+- **Delete is local** (remove the instance from this set; shared art survives if used elsewhere).
+- Keep the staged, single-source-of-truth discipline.
+
+## Existing code to build on
+- **`_copyCardToSet` / `_moveCardToSet`** (`pm-studio-DrV.html`) — cross-set copy ALREADY exists
+  (duplicate-based via right-click "Copy/Move to set…"); 1.2 makes it linked.
+- Card storage `customDrawnCards_<set>`, card identity `stableId` / `cardSet`, art `svgContent`.
+- The #4 label-as-row model (`_effectiveRowLetter`, `_rowKeyParse`) — portable identity base.
+- The card-edit save path in the Card Maker — where 1.3's scope dialog hooks in.
+
+## Open question deferred to later phases
+- **Live vs snapshot-on-publish** for card art is resolved at the *set* level here (shared art +
+  edit-scope), but the *Big-Game publish* freeze decision still lands in **Phase 3**.

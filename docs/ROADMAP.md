@@ -76,11 +76,22 @@ artifacts later.
   dialog. Variations (flips/rotations) **follow the shared base**.
 - *Verify:* edit a shared bear → each option behaves correctly; metadata edits never prompt.
 
-### 1.4 — Per-set equivalence / role clarity (Q1)
-- Make a row's identity **set-aware** so two different sets' "A" lines don't silently merge when
-  combined into a game: tag lines with their **source set**; keep them distinct (or warn) on mix.
-- Optional: a per-instance **role/name** ("doubles", "the 1") separate from the display letter.
-- *Verify:* combining same-letter lines from two sets keeps them as distinct rows.
+### 1.4 — Per-set equivalence / role clarity (Q1) — decisions LOCKED June 11, 2026
+- **Roles attach at BOTH levels** (user's call, from his worked example: line 1 = answer 15 +
+  2 multiplication + 2 addition problems; line 2 = same shape for 20):
+  - **Line role** = the equivalence meaning of the row ("equals 15").
+  - **Card role** = the kind of card within the row ("answer" / "multiplication" / "addition") —
+    the same few names repeat across lines and sets.
+- **Roles are 100% OPTIONAL** — no prompts/nagging; unlabeled sets/lines/cards behave exactly as
+  today. The "vocabulary" is just the remembered list of role names already used, so labels stay
+  consistent (pick from list or type a new name, which joins the list). Free-text notes allowed too.
+- **Cross-set same-letter merge: ASK the user** (locked). When a line whose letter matches an
+  existing row arrives from a DIFFERENT set, prompt: **"Add as a new line at the end" (default)**
+  vs "Add into the existing <letter> row".
+- Sub-steps: **1.4a** role vocabulary (storage + helpers) → **1.4b** assign/show roles on lines +
+  cards (opt-in UI, e.g. context menu) → **1.4c** the cross-set add-cards prompt.
+- *Verify:* roles save/recall + vocabulary grows; same-letter line from another set triggers the
+  end-vs-merge prompt; default lands it as a separate row at the end.
 
 ### 1.5 — Game-as-template: apply a game to a set (Q2)
 - **"Apply game → set":** pick a game + a target set.

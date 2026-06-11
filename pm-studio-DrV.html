@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:10 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:10 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:10 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:23 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1216,6 +1216,11 @@
             </div>
             <div class="domino-library-content compact-view">
                 <h1 class="library-title">Card Maker - <span id="card-maker-set-title">Numbers and Dots</span></h1>
+                <div style="max-width:640px;margin:2px 0 12px 0;">
+                    <textarea id="card-maker-set-desc" placeholder="The cards of this set ..." oninput="_saveSetDescriptionFromField()"
+                        title="Description of this set — shown in the set-info popup. Edit freely."
+                        style="width:100%;min-height:36px;resize:vertical;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#ddd;font-size:13px;line-height:1.4;padding:7px 10px;font-family:inherit;box-sizing:border-box;"></textarea>
+                </div>
 
                 <div id="card-set-numbers" class="card-set-content"></div>
 
@@ -3666,6 +3671,43 @@
             if (activeCardSet === 'numbers') return 'Numbers and Dots';
             return activeCardSet;
         }
+
+        // ===== Per-set DESCRIPTION (keyed by display name; default text shown until
+        // edited on the Card Maker page; surfaced in the set-info popup). =====
+        var SET_DESC_DEFAULT = 'The cards of this set ...';
+        function _getSetDescription(name) {
+            var map = {}; try { map = JSON.parse(localStorage.getItem('cardSetDescriptions') || '{}'); } catch(e) {}
+            var v = name ? map[name] : '';
+            return (typeof v === 'string' && v.length) ? v : SET_DESC_DEFAULT;
+        }
+        function _setSetDescription(name, text) {
+            if (!name) return;
+            var map = {}; try { map = JSON.parse(localStorage.getItem('cardSetDescriptions') || '{}'); } catch(e) {}
+            map[name] = text;
+            try { localStorage.setItem('cardSetDescriptions', JSON.stringify(map)); } catch(e) {}
+        }
+        if (typeof window !== 'undefined') window._getSetDescription = _getSetDescription;
+        function _refreshSetDescriptionField() {
+            var ta = document.getElementById('card-maker-set-desc');
+            if (!ta) return;
+            var name = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
+            ta.value = _getSetDescription(name);   // default text when unset; saved text otherwise
+        }
+        function _saveSetDescriptionFromField() {
+            var ta = document.getElementById('card-maker-set-desc');
+            if (!ta) return;
+            var name = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
+            if (name) _setSetDescription(name, ta.value);
+        }
+        // Keep the field synced to the active set via the title span (it updates from
+        // every set-switch path, so observing it covers them all).
+        document.addEventListener('DOMContentLoaded', function() {
+            var titleSpan = document.getElementById('card-maker-set-title');
+            if (titleSpan && window.MutationObserver) {
+                try { new MutationObserver(function() { _refreshSetDescriptionField(); }).observe(titleSpan, { childList: true, characterData: true, subtree: true }); } catch(e) {}
+            }
+            _refreshSetDescriptionField();
+        });
 
         // Persist UIDs that were generated during DOM build back to localStorage
         function _persistNewUIDs(storageKey, container) {

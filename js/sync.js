@@ -306,6 +306,13 @@
      *
      * Returns a Promise that resolves when data is ready.
      */
+    // Fire once the cloud pull (or offline restore) has settled, so the app can run
+    // post-sync work (e.g. Phase 1 sharedArtId migration) on the FINAL data — a
+    // parse-time pass alone would be clobbered by the login pull. Reusable hook.
+    function _fireDataReady() {
+        try { window.dispatchEvent(new CustomEvent('vica-data-ready')); } catch (e) {}
+    }
+
     window.syncLogin = function (userId) {
         // Sanitize reserved Firestore ids (e.g. legacy "__player__")
         if (userId && userId.indexOf('__') === 0) {
@@ -436,6 +443,7 @@
             .then(function () {
                 // Start periodic card backup after successful login
                 if (_userRole === 'superuser') _startCardBackupTimer();
+                _fireDataReady(); // cloud pull/restore settled — run post-sync migrations
             })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
@@ -453,6 +461,7 @@
                 });
 
                 _setSyncStatus('error');
+                _fireDataReady(); // offline: local data restored — still "ready"
             });
     };
 

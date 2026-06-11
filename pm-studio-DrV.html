@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:32 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:32 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:14 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:32 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5938,8 +5938,8 @@
                     ? _findArtSiblings(_artId, loupeSourceCard.dataset.uid, loupeSourceCard.dataset.stableId) : [];
                 if (_sibs.length > 0) {
                     var _newSvg = cleanSvg.innerHTML, _editedCard = loupeSourceCard;
-                    _showEditScopeDialog(_sibs, function(scope) {
-                        try { _applyEditScope(scope, _artId, _newSvg, _editedCard); }
+                    _showEditScopeDialog(_sibs, function(scope, chosenKeys) {
+                        try { _applyEditScope(scope, _artId, _newSvg, _editedCard, chosenKeys); }
                         catch(e) { console.error('[drawSave] scope error', e); }
                         _drawFinishSave();
                     });
@@ -6028,7 +6028,23 @@
         // instance; 'fork' = detach the active card with a new sharedArtId (others keep
         // the old art + id). Runs BEFORE _drawFinishSave (so the active set save picks
         // up the forked id via safeSaveCards' stableId/uid carry-over).
-        function _applyEditScope(scope, artId, newSvg, activeCard) {
+        // Re-id the ACTIVE set's stored card (matched by stableId/uid) to newId, and
+        // mirror onto the DOM card so saveVariations carries it through.
+        function _reidActiveCard(activeCard, newId) {
+            var aKey = (typeof _getSetStorageKey === 'function') ? _getSetStorageKey(activeCardSet) : ('customDrawnCards_' + activeCardSet);
+            var aStable = activeCard.dataset && activeCard.dataset.stableId;
+            var aUid = activeCard.dataset && activeCard.dataset.uid;
+            try {
+                var arr = JSON.parse(localStorage.getItem(aKey) || '[]'); var dirty = false;
+                arr.forEach(function(c) {
+                    if (c && ((aStable && c.stableId === aStable) || (aUid && c.uid === aUid))) { c.sharedArtId = newId; dirty = true; }
+                });
+                if (dirty) localStorage.setItem(aKey, JSON.stringify(arr));
+            } catch(e) {}
+            if (activeCard.dataset) activeCard.dataset.sharedArtId = newId;
+        }
+
+        function _applyEditScope(scope, artId, newSvg, activeCard, chosenKeys) {
             if (scope === 'all') {
                 _eachCardSetKey(function(key) {
                     var arr; try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) { return; }
@@ -6038,20 +6054,21 @@
                     if (dirty) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e) {} }
                 });
             } else if (scope === 'fork') {
+                // Detach the active card; siblings keep the old art + id.
+                _reidActiveCard(activeCard, 'art_' + generateCardUID());
+            } else if (scope === 'choose') {
+                // The edited card + the chosen sibling sets become a NEW shared lineage
+                // (new id + new drawing); unchosen siblings keep the old art + id.
                 var newId = 'art_' + generateCardUID();
-                var aKey = (typeof _getSetStorageKey === 'function') ? _getSetStorageKey(activeCardSet) : ('customDrawnCards_' + activeCardSet);
-                var aStable = activeCard.dataset && activeCard.dataset.stableId;
-                var aUid = activeCard.dataset && activeCard.dataset.uid;
-                var arr; try { arr = JSON.parse(localStorage.getItem(aKey) || '[]'); } catch(e) { arr = []; }
-                var dirty = false;
-                arr.forEach(function(c) {
-                    if (!c) return;
-                    if ((aStable && c.stableId === aStable) || (aUid && c.uid === aUid)) { c.sharedArtId = newId; dirty = true; }
+                _reidActiveCard(activeCard, newId); // svg comes from saveVariations (DOM)
+                (chosenKeys || []).forEach(function(key) {
+                    var arr; try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) { return; }
+                    if (!Array.isArray(arr)) return;
+                    var dirty = false;
+                    arr.forEach(function(c) { if (c && c.sharedArtId === artId) { c.sharedArtId = newId; c.svgContent = newSvg; dirty = true; } });
+                    if (dirty) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e) {} }
                 });
-                if (dirty) { try { localStorage.setItem(aKey, JSON.stringify(arr)); } catch(e) {} }
-                if (activeCard.dataset) activeCard.dataset.sharedArtId = newId;
             }
-            // (1.3b-ii will add 'choose' — a subset picker.)
         }
 
         // The edit-scope modal. cb(scope) with scope in {'fork','all'} (and later 'choose').
@@ -6061,27 +6078,57 @@
             var names = Object.keys(seen);
             var total = sibs.length + 1; // include the active card
             var done = false;
-            function finish(scope) { if (done) return; done = true; if (ov.parentNode) document.body.removeChild(ov); document.removeEventListener('keydown', onKey); cb(scope); }
+            function finish(scope, extra) { if (done) return; done = true; if (ov.parentNode) document.body.removeChild(ov); document.removeEventListener('keydown', onKey); cb(scope, extra); }
             function onKey(e) { if (e.key === 'Escape') finish('fork'); }
             var ov = document.createElement('div');
             ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:4000;display:flex;align-items:center;justify-content:center;';
             var box = document.createElement('div');
-            box.style.cssText = 'background:#2a2a3e;color:#fff;border-radius:14px;padding:22px 24px;max-width:430px;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
-            box.innerHTML = '<div style="font-size:1.05rem;font-weight:600;margin-bottom:6px;">This drawing is shared</div>' +
-                '<div style="font-size:13px;color:#cfcfe0;margin-bottom:16px;">The same card is also in ' + names.length + ' other set' + (names.length > 1 ? 's' : '') +
-                ': <b>' + names.join(' · ') + '</b>.<br>Apply this drawing change to…</div>';
-            function mkBtn(title, sub, scope, primary, disabled) {
+            box.style.cssText = 'background:#2a2a3e;color:#fff;border-radius:14px;padding:22px 24px;max-width:430px;min-width:320px;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
+            function mkBtn(title, sub, onClick, primary) {
                 var b = document.createElement('button');
                 b.style.cssText = 'display:block;width:100%;text-align:left;margin:8px 0;padding:10px 14px;border-radius:9px;border:1.5px solid ' +
-                    (primary ? '#4CAF50' : 'rgba(255,255,255,0.2)') + ';background:' + (primary ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)') +
-                    ';color:#fff;cursor:' + (disabled ? 'default' : 'pointer') + ';opacity:' + (disabled ? '0.45' : '1') + ';';
-                b.innerHTML = '<div style="font-weight:600;font-size:14px;">' + title + '</div><div style="font-size:12px;color:#bbb;">' + sub + '</div>';
-                if (!disabled) b.addEventListener('click', function() { finish(scope); });
+                    (primary ? '#4CAF50' : 'rgba(255,255,255,0.2)') + ';background:' + (primary ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)') + ';color:#fff;cursor:pointer;';
+                b.innerHTML = '<div style="font-weight:600;font-size:14px;">' + title + '</div>' + (sub ? '<div style="font-size:12px;color:#bbb;">' + sub + '</div>' : '');
+                b.addEventListener('click', onClick);
                 return b;
             }
-            box.appendChild(mkBtn('Only this card', 'Fork a new drawing here; the other sets keep the old one.', 'fork', true, false));
-            box.appendChild(mkBtn('Choose sets…', 'Pick which sets to update. (coming soon)', 'choose', false, true));
-            box.appendChild(mkBtn('All ' + total + ' cards', 'Update the drawing everywhere it is used.', 'all', false, false));
+            function renderMain() {
+                box.innerHTML = '<div style="font-size:1.05rem;font-weight:600;margin-bottom:6px;">This drawing is shared</div>' +
+                    '<div style="font-size:13px;color:#cfcfe0;margin-bottom:16px;">The same card is also in ' + names.length + ' other set' + (names.length > 1 ? 's' : '') +
+                    ': <b>' + names.join(' · ') + '</b>.<br>Apply this drawing change to…</div>';
+                box.appendChild(mkBtn('Only this card', 'Fork a new drawing here; the other sets keep the old one.', function() { finish('fork'); }, true));
+                box.appendChild(mkBtn('Choose sets…', 'Pick which sets to update.', renderPicker, false));
+                box.appendChild(mkBtn('All ' + total + ' cards', 'Update the drawing everywhere it is used.', function() { finish('all'); }, false));
+            }
+            function renderPicker() {
+                box.innerHTML = '<div style="font-size:1.05rem;font-weight:600;margin-bottom:6px;">Choose which sets to update</div>' +
+                    '<div style="font-size:13px;color:#cfcfe0;margin-bottom:14px;">The edited card is always updated. Tick the other sets that should get the new drawing.</div>';
+                var checks = [];
+                sibs.forEach(function(s) {
+                    var row = document.createElement('label');
+                    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;margin:6px 0;border-radius:8px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:14px;';
+                    var ck = document.createElement('input'); ck.type = 'checkbox';
+                    var nm = document.createElement('span'); nm.textContent = s.setName;
+                    row.appendChild(ck); row.appendChild(nm);
+                    box.appendChild(row);
+                    checks.push({ ck: ck, key: s.key });
+                });
+                var bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:10px;margin-top:16px;';
+                var back = document.createElement('button');
+                back.textContent = '← Back';
+                back.style.cssText = 'flex:0 0 auto;padding:9px 16px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#fff;cursor:pointer;';
+                back.addEventListener('click', renderMain);
+                var apply = document.createElement('button');
+                apply.textContent = 'Apply to selected';
+                apply.style.cssText = 'flex:1 1 auto;padding:9px 16px;border-radius:9px;border:none;background:#4CAF50;color:#fff;font-weight:600;cursor:pointer;';
+                apply.addEventListener('click', function() {
+                    var chosen = checks.filter(function(c) { return c.ck.checked; }).map(function(c) { return c.key; });
+                    finish('choose', chosen);
+                });
+                bar.appendChild(back); bar.appendChild(apply);
+                box.appendChild(bar);
+            }
+            renderMain();
             ov.appendChild(box);
             ov.addEventListener('click', function(e) { if (e.target === ov) finish('fork'); });
             document.addEventListener('keydown', onKey);

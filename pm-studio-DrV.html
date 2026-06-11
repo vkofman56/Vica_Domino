@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:17 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:35 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:17 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:35 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:17 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:35 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -9700,6 +9700,31 @@
         // DOM is only touched on the source side, since the target set
         // isn't currently rendered. Returns true on success so multi-card
         // callers can count successful moves.
+        // Phase 1.2: find a DOM card's `sharedArtId` (its ART identity) so a
+        // copy/move can be a LINKED instance. Prefer a dataset tag, else look the
+        // source card up in the ACTIVE set by stableId / uid / label. NOTE: this is
+        // separate from stableId/uid — copies still get their OWN of those (per the
+        // _doCopySet rule); only the art identity is shared.
+        function _srcSharedArtId(card) {
+            try {
+                if (card.dataset && card.dataset.sharedArtId) return card.dataset.sharedArtId;
+                var srcCards = getCardsFromStorage(activeCardSet);
+                var sid = card.dataset && card.dataset.stableId;
+                var uid = card.dataset && card.dataset.uid;
+                var lblEl = card.querySelector('.library-label');
+                var lbl = lblEl ? lblEl.textContent : '';
+                for (var i = 0; i < srcCards.length; i++) {
+                    var c = srcCards[i];
+                    if (sid && c.stableId === sid) return c.sharedArtId || '';
+                    if (uid && c.uid === uid) return c.sharedArtId || '';
+                }
+                for (var j = 0; j < srcCards.length; j++) {
+                    if (lbl && srcCards[j].label === lbl) return srcCards[j].sharedArtId || '';
+                }
+            } catch (e) {}
+            return '';
+        }
+
         function _moveCardToSet(card, targetSetName, optLabel) {
             if (!targetSetName) return false;
             if (targetSetName === 'Safe Haven') _ensureSafeHavenExists();
@@ -9724,6 +9749,8 @@
             };
             if (card.dataset.stableId) cardData.stableId = card.dataset.stableId;
             if (card.dataset.origin) cardData.origin = card.dataset.origin;
+            // Phase 1.2: a move keeps the card's existing art identity.
+            cardData.sharedArtId = _srcSharedArtId(card) || ('art_' + (cardData.stableId || cardData.uid || newLabel));
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 cardData.cardShape = card.dataset.cardShape;
                 cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -9783,6 +9810,10 @@
                     ? generateStableId(newLabel, targetSetName)
                     : ''
             };
+            // Phase 1.2: LINK the copy to the source's ART identity (the copy keeps its
+            // OWN uid/stableId/label, but shares sharedArtId — so editing the drawing can
+            // later propagate across sets). Fresh id only if the source somehow lacks one.
+            cardData.sharedArtId = _srcSharedArtId(card) || ('art_' + (cardData.stableId || cardData.uid || newLabel));
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 cardData.cardShape = card.dataset.cardShape;
                 cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;

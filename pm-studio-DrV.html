@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:10 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:10 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3471,15 +3471,12 @@
             if (!game || !game.cards) return { changed: 0, rows: 0 };
             var letters = {};
             game.cards.forEach(function (c) { var k = _rowKeyParse(c.label); if (k) letters[k] = true; });
-            var sorted = Object.keys(letters).sort(function (a, b) { return _rowKeyRank(a) - _rowKeyRank(b); });
-            var idxOf = {}; sorted.forEach(function (k, i) { idxOf[k] = i; });
             var changed = 0;
             game.cards.forEach(function (c) {
                 var k = _rowKeyParse(c.label); if (!k) return;
-                if (c._gameValue !== k) { c._gameValue = k; changed++; }
-                if (c._gameRow !== idxOf[k]) { c._gameRow = idxOf[k]; changed++; }
+                if (c._gameValue !== k) { c._gameValue = k; changed++; }   // #4 Step 2: _gameRow no longer stored — derived from the label
             });
-            return { changed: changed, rows: sorted.length };
+            return { changed: changed, rows: Object.keys(letters).length };
         }
         if (typeof window !== 'undefined') window.repairGameRowsFromLabels = _repairGameRowsFromLabels;
 
@@ -9183,7 +9180,6 @@
                         isVariation: false,
                         cardSet: sourceInfo ? sourceInfo.cardSet : (activeCardSet === 'abc' ? 'ABC' : activeCardSet === 'numbers' ? 'Numbers and Dots' : activeCardSet),
                         svgMarkup: clonedSvg.innerHTML,
-                        _gameRow: sourceInfo ? sourceInfo._gameRow : undefined,
                         _gameValue: sourceInfo ? sourceInfo._gameValue : copyLabel.charAt(0)
                     };
                     if (card.dataset.stableId) newCardInfo.stableId = card.dataset.stableId;
@@ -13541,7 +13537,6 @@
                         if (!lbl) return;
                         var labelText = lbl.textContent;
                         if (selectedByLabel[labelText]) {
-                            selectedByLabel[labelText]._gameRow = rowIdx;
                             ordered.push(selectedByLabel[labelText]);
                             delete selectedByLabel[labelText];
                             foundInRow = true;
@@ -15712,10 +15707,9 @@
             // renumbering keeps every same-bucket card in one row group.
             var flat = [];
             var changed = false;
-            sortedLetters.forEach(function(L, rowIdx) {
+            sortedLetters.forEach(function(L) {
                 buckets[L].forEach(function(c) {
-                    if (c._gameRow !== rowIdx) { c._gameRow = rowIdx; changed = true; }
-                    if (c._gameValue !== L) { c._gameValue = L; changed = true; }
+                    if (c._gameValue !== L) { c._gameValue = L; changed = true; }   // #4 Step 2: _gameRow no longer stored
                     flat.push(c);
                 });
             });
@@ -16549,8 +16543,7 @@
                         }
                         if (isAddedRow) card._addedToGame = true;
                         if (!isAddedRow) {
-                            card._gameRow = rowIdx;
-                            card._gameValue = rowValueLetter;
+                            card._gameValue = rowValueLetter;   // #4 Step 2: _gameRow no longer stored (the Stage-1 re-file below re-derives _gameValue from the label anyway)
                             // Stage 2: zone determines freeze state. If the
                             // card has moved to a different zone (drag-and-
                             // drop between columns), reset the per-card

@@ -38,16 +38,40 @@ Big Game / publish layer is built:
   published work; unpublished games stay live.
 Not built yet — flagged so it's decided before the publish layer locks it in.
 
-### #4 progress (eliminate redundant `_gameRow`) — in flight
-The card's **label** is the single source of truth for its row. Done + shipped: Stage 1
-(saveGameViewOrder re-files by label — `3cb9ce3`), Stage 2 (`_effectiveRowLetter` reads the
-label — `684cef1`), Stage 3a (the 2 grid-grouping lines read the label, `_gameRow` drives
-nothing — `2b45a42`, user-verified all games render correctly incl. A-Z across Probs).
-Remaining: convert `_autoPromoteAddedCards` to label-based, remove the dead
-`_gameRow`/`_gameValue` writes, strip the field from saved data. NON-A-ROW games + copied
-games + Card-Maker-added cards all derive their row from the LABEL, so removing `_gameRow`
-removes no real feature (the only thing it uniquely allowed — a card living in a row that
-disagrees with its label — the user chose to drop: "a card stays in its letter").
+### #4 DONE (eliminated redundant `_gameRow`) — the label is the single source of truth
+A card's **row is now derived purely from its label** (`_rowKeyParse` → `_effectiveRowLetter`);
+the redundant `_gameRow` field is gone from code AND cleaned from data. Shipped in stages,
+each self-tested + user-verified:
+- Stage 1 — `saveGameViewOrder` re-files by label (`3cb9ce3`).
+- Stage 2 — `_effectiveRowLetter` reads the label, not `_gameValue` (`684cef1`).
+- Stage 3a — the 2 grid-grouping lines (Find render @ `openGameView` + row-count UI @
+  `openCatchGameView`) group by `_effectiveRowLetter`; `_gameRow` drives nothing (`2b45a42`,
+  user-verified A-Z across Probs).
+- Step 1 — `_autoPromoteAddedCards` (add-cards-from-Card-Maker logic, runs for Find AND Catch)
+  is label-based; `keeperLetters` set replaced the `_gameRow`-derived map (`2965e9a`,
+  user-verified add-cards on non-A-row Find T-Z + Catch).
+- Step 2 — stopped WRITING `_gameRow` everywhere (5 sites: repair, sort, save, copy,
+  selection); kept `_gameValue` as the `_effectiveRowLetter` fallback for label-less cards
+  (`dfb3704`).
+- Step 3 — `_stripGameRow(game)` removes leftover `_gameRow` on open (Find + Catch), persisted
+  (`201b785`).
+
+**Kept:** `_gameValue` (row letter) is still written/read as the fallback when a label has no
+letter row-key. `_rowKeyRank` is now unused (left as a harmless pure helper). Behaviour change
+(user's explicit choice): a card **stays in its own letter's row** — cross-letter drag snaps
+back, and `_gameRow`/`_gameValue` no longer let a card live in a row that disagrees with its
+label. Non-A-row / copied / Card-Maker-added games all derive their row from the LABEL, so this
+removed no real feature.
+
+### Connected open question (cross-set identity — future, NOT built)
+Rows are identified by **letter alone**, set-agnostic: an "A" line from set ABC and an "A" line
+from another set would collapse into one row (per-card `cardSet`/`stableId` are preserved, but
+the row identity isn't set-aware). And a game can't yet be **applied to another card set**
+(games are bound to specific `stableId`s). For the pipeline's reuse goal, a "game = template"
+applied across sets needs line/card identity by **ordinal position + semantic role**, not the
+set-local letter (same-shape set = 1:1 positional map; different-shape = map + reconcile
+deviations with the user). #4's label-as-row model is a compatible stepping-stone, not a
+dead-end. Decide before the Big Game / publish layer.
 
 ---
 

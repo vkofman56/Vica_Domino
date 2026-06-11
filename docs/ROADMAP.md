@@ -35,17 +35,16 @@ scope choice** (apply to **all** / **chosen…** / **only this one** → fork in
 shared-art identity + template model before those layers exist avoids migrating serialized
 artifacts later.
 
-## Decisions to lock BEFORE building
-1. **Art-identity model:**
-   - **(A) Central art library** — one `artId → svgContent` store; sets hold instances that
-     reference it. Purest single-source; biggest refactor.
-   - **(B) Per-card art + `sharedArtId` link** — art stays per-card; a shared id links instances
-     so edits can propagate to siblings. Incremental; storage-duplicated but edit-synced.
-   - **Recommendation: B first** (incremental, enables the UX with least disruption), with A as an
-     optional later consolidation once the model proves out.
-2. **Default edit-scope button** — recommend the safest: **"only this one"**, so an accidental edit
-   can never silently change other sets. (Alternative: no default, force an explicit pick.)
-3. **Role definition** — is a line/card's semantic role free text or a controlled list?
+## Decisions — LOCKED (June 10, 2026)
+1. **Art-identity model: (B) per-card art + `sharedArtId` link.** Art stays on each card; a
+   shared id links instances across sets so edits can propagate. Incremental. (A) central
+   art library is deferred as an optional later consolidation. ← **stage 1.1 builds this.**
+2. **Edit-scope dialog default = "only this one" (fork).** The dialog ALWAYS presents all
+   three options (only this one / chosen… / all); the default is just the pre-selected SAFE
+   one — the user can pick any of the three each time. (stage 1.3)
+3. **Role = extensible controlled list + free text.** A managed list of role names the user
+   can ADD to, PLUS a free-text field for extra notes/categories beyond the main ones.
+   (stage 1.4)
 
 ## Stages (each shipped + self-tested + user-verified, #4-style — small and reversible)
 

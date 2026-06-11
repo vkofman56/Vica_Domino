@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:41 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:41 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:41 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:48 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3764,6 +3764,121 @@
             window._getRoleVocab = _getRoleVocab; window._getLineRole = _getLineRole;
             window._setLineRole = _setLineRole; window._getCardRole = _getCardRole; window._setCardRole = _setCardRole;
         }
+
+        // ===== Phase 1.4b — opt-in ROLE UI =====
+        // Picker modal: vocabulary as clickable chips + free-text input.
+        // cb(role) on Save ('' on Clear); Cancel/Esc/backdrop = no callback at all.
+        function _showRolePicker(title, currentRole, cb) {
+            var done = false;
+            function close(fire, val) {
+                if (done) return; done = true;
+                if (ov.parentNode) document.body.removeChild(ov);
+                document.removeEventListener('keydown', onKey);
+                if (fire) cb(val);
+            }
+            function onKey(e) { if (e.key === 'Escape') close(false); }
+            var ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:4000;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2a2a3e;color:#fff;border-radius:14px;padding:20px 22px;width:380px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
+            box.innerHTML = '<div style="font-size:1.02rem;font-weight:600;margin-bottom:4px;">' + _siEsc(title) + '</div>' +
+                '<div style="font-size:12px;color:#aaa;margin-bottom:10px;">Optional — pick a name you used before, or type a new one (it joins the list). Ctrl+Z undoes.</div>';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentRole || '';
+            input.placeholder = 'e.g. answer, multiplication, equals 15';
+            input.style.cssText = 'width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:14px;margin-bottom:10px;';
+            box.appendChild(input);
+            var vocab = _getRoleVocab();
+            if (vocab.length) {
+                var chips = document.createElement('div');
+                chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;max-height:110px;overflow-y:auto;';
+                vocab.forEach(function(name) {
+                    var ch = document.createElement('button');
+                    ch.type = 'button'; ch.textContent = name;
+                    ch.style.cssText = 'padding:4px 10px;border-radius:999px;border:1px solid rgba(255,215,0,0.45);background:rgba(255,215,0,0.10);color:#ffe9a8;font-size:12.5px;cursor:pointer;';
+                    ch.addEventListener('click', function() { input.value = name; input.focus(); });
+                    chips.appendChild(ch);
+                });
+                box.appendChild(chips);
+            }
+            var bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;gap:8px;';
+            function mkB(label, css, fn) {
+                var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = css;
+                b.addEventListener('click', fn); return b;
+            }
+            bar.appendChild(mkB('Save', 'flex:1;padding:9px 14px;border-radius:9px;border:none;background:#4CAF50;color:#fff;font-weight:600;cursor:pointer;', function() { close(true, input.value); }));
+            if (currentRole) bar.appendChild(mkB('Clear role', 'flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,120,120,0.5);background:rgba(255,80,80,0.12);color:#ffb3b3;cursor:pointer;', function() { close(true, ''); }));
+            bar.appendChild(mkB('Cancel', 'flex:0 0 auto;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.06);color:#fff;cursor:pointer;', function() { close(false); }));
+            bar.lastChild && input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); close(true, input.value); } });
+            box.appendChild(bar);
+            ov.appendChild(box);
+            ov.addEventListener('click', function(e) { if (e.target === ov) close(false); });
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(ov);
+            setTimeout(function() { try { input.focus(); input.select(); } catch(e) {} }, 0);
+        }
+
+        // Role badge: a small amber dot (with tooltip) on cards that HAVE a role; row
+        // letters with a line role get an amber tint + tooltip. Re-applied after every
+        // Card Maker build (the 3 set builders call this), so it survives rebuilds/undo.
+        function _applyRoleBadges() {
+            try {
+                var setName = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
+                if (!setName) return;
+                var roleByStable = {}, roleByUid = {}, hasAny = false;
+                try {
+                    JSON.parse(localStorage.getItem(_roleStorageKeyFor(setName)) || '[]').forEach(function(c) {
+                        if (c && c.role) { hasAny = true; if (c.stableId) roleByStable[c.stableId] = c.role; if (c.uid) roleByUid[c.uid] = c.role; }
+                    });
+                } catch(e) {}
+                var content = document.querySelector('#domino-library-screen .domino-library-content');
+                if (!content) return;
+                content.querySelectorAll('.library-card').forEach(function(card) {
+                    var role = (card.dataset.stableId && roleByStable[card.dataset.stableId]) ||
+                               (card.dataset.uid && roleByUid[card.dataset.uid]) || '';
+                    var dot = card.querySelector(':scope > .role-dot');
+                    if (role) {
+                        if (!dot) {
+                            dot = document.createElement('div');
+                            dot.className = 'role-dot';
+                            dot.style.cssText = 'position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#FFC83D;box-shadow:0 0 3px rgba(0,0,0,0.6);pointer-events:none;z-index:3;';
+                            card.appendChild(dot);
+                        }
+                        dot.title = 'Role: ' + role;
+                        card.title = 'Role: ' + role;
+                    } else if (dot) {
+                        dot.remove();
+                        if (card.title && card.title.indexOf('Role: ') === 0) card.removeAttribute('title');
+                    }
+                });
+                // Row letters: amber tint + tooltip when the line has a role.
+                content.querySelectorAll('.library-row').forEach(function(row) {
+                    var span = row.querySelector(':scope > .library-row-letter');
+                    if (!span) return;
+                    var lr = _getLineRole(setName, row.dataset.rowLetter || '');
+                    if (lr) { span.title = 'Line role: ' + lr; span.style.textShadow = '0 0 6px rgba(255,200,61,0.9)'; }
+                    else { span.style.textShadow = ''; if (span.title && span.title.indexOf('Line role:') === 0) span.removeAttribute('title'); }
+                });
+            } catch(e) {}
+        }
+        if (typeof window !== 'undefined') window._applyRoleBadges = _applyRoleBadges;
+        // Re-apply role badges after every Card Maker (re)build — covers set switches
+        // AND the undo path (Ctrl+Z restores storage then rebuilds the DOM). The three
+        // builders are hoisted function declarations in this same script, so wrapping
+        // here is safe; every call site resolves the wrapped name at call time.
+        (function() {
+            ['buildCustomCardSet', 'buildAbcCardSet', 'buildNumbersCardSet'].forEach(function(name) {
+                var orig = window[name];
+                if (typeof orig !== 'function') return;
+                window[name] = function() {
+                    var r = orig.apply(this, arguments);
+                    try { _applyRoleBadges(); } catch(e) {}
+                    return r;
+                };
+            });
+        })();
 
         // Trajectory ("Folder ▸ Sub ▸ Set") from the set's folder field. Built-in
         // sets (ABC, Numbers) have no folder, so it's just the name.
@@ -8115,6 +8230,18 @@
                     openLoupe(card);
                     if (!drawModeActive) toggleDrawMode();
                 }));
+                // Phase 1.4b: optional card ROLE ("answer", "multiplication", \u2026).
+                (function() {
+                    var _rSet = getCurrentCardSetName();
+                    var _rCur = _getCardRole(_rSet, card.dataset.stableId, card.dataset.uid);
+                    menu.appendChild(_ctxItem('\u2691', _rCur ? ('Role: ' + _rCur + '\u2026') : 'Role\u2026', function() {
+                        _showRolePicker('Role of card ' + ((card.querySelector('.library-label') || {}).textContent || ''), _rCur, function(role) {
+                            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
+                            _setCardRole(_rSet, card.dataset.stableId, card.dataset.uid, role);
+                            _applyRoleBadges();
+                        });
+                    }));
+                })();
                 // Detect "right-click on a card that's part of an active
                 // multi-selection" \u2014 when true, Delete and Move-to act on the
                 // whole selection and the labels show the count so it's
@@ -8237,6 +8364,20 @@
                 menu.appendChild(moveSetItem);
                 menu.appendChild(_ctxSep());
                 var _ieRow = card.closest('.library-row');
+                // Phase 1.4b: optional LINE role (the row's equivalence meaning, "equals 15").
+                (function() {
+                    var _lrSet = getCurrentCardSetName();
+                    var _lrKey = (_ieRow && _ieRow.dataset.rowLetter) || '';
+                    if (!_lrKey) return;
+                    var _lrCur = _getLineRole(_lrSet, _lrKey);
+                    menu.appendChild(_ctxItem('⚑', _lrCur ? ('Line role: ' + _lrCur + '…') : 'Line role…', function() {
+                        _showRolePicker('Role of line ' + _lrKey, _lrCur, function(role) {
+                            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
+                            _setLineRole(_lrSet, _lrKey, role);
+                            _applyRoleBadges();
+                        });
+                    }));
+                })();
                 menu.appendChild(_ctxItem('↑', 'Insert empty line(s) above…', function() { _promptInsertLines(_ieRow, 'above'); }));
                 menu.appendChild(_ctxItem('↓', 'Insert empty line(s) below…', function() { _promptInsertLines(_ieRow, 'below'); }));
                 menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(_ieRow); }, 'danger'));
@@ -10854,7 +10995,11 @@
             'cardMakerVariations',
             'savedCustomGames',
             'savedCatchGames',
-            'abcCardSnapshot'
+            'abcCardSnapshot',
+            // Phase 1.4: role data is undoable (Ctrl+Z) — line roles + the name list.
+            // (Card roles live inside customDrawnCards_*, captured below already.)
+            'cardSetLineRoles',
+            'roleVocabulary'
         ];
 
         function _undoCollectKeys() {

@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:36 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:36 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:23 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:36 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3699,6 +3699,59 @@
             var name = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
             if (name) _setSetDescription(name, ta.value);
         }
+        // Trajectory ("Folder ▸ Sub ▸ Set") from the set's folder field. Built-in
+        // sets (ABC, Numbers) have no folder, so it's just the name.
+        function _setTrajectory(setName) {
+            var folder = '';
+            try {
+                var sets = (typeof loadCardSets === 'function') ? loadCardSets() : [];
+                for (var i = 0; i < sets.length; i++) {
+                    var nm = (typeof sets[i] === 'string') ? sets[i] : sets[i].name;
+                    if (nm === setName) { folder = (sets[i] && typeof sets[i] === 'object' && sets[i].folder) ? sets[i].folder : ''; break; }
+                }
+            } catch(e) {}
+            var parts = folder ? folder.split('/') : [];
+            parts.push(setName);
+            return parts.join(' ▸ ');
+        }
+        function _siEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+        function _setInfoOutside(e) { var p = document.getElementById('_set-info-popover'); if (p && !p.contains(e.target)) _closeSetInfoPopover(); }
+        function _setInfoEsc(e) { if (e.key === 'Escape') _closeSetInfoPopover(); }
+        function _closeSetInfoPopover() {
+            var p = document.getElementById('_set-info-popover'); if (p && p.parentNode) p.parentNode.removeChild(p);
+            document.removeEventListener('click', _setInfoOutside, true);
+            document.removeEventListener('keydown', _setInfoEsc, true);
+        }
+        // Popover (folder trajectory + description) anchored to a ⓘ button. Used by the
+        // FLAT set lists (edit-scope picker, Add-Cards) where the folder tree isn't shown.
+        function _showSetInfoPopover(anchorEl, setName) {
+            _closeSetInfoPopover();
+            var pop = document.createElement('div');
+            pop.id = '_set-info-popover';
+            pop.style.cssText = 'position:fixed;z-index:5000;background:#1e1e2e;color:#eee;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:12px 14px;max-width:300px;box-shadow:0 6px 24px rgba(0,0,0,0.5);font-size:13px;';
+            pop.innerHTML = '<div style="font-size:12px;color:#9fd0ff;margin-bottom:6px;word-break:break-word;">' + _siEsc(_setTrajectory(setName)) + '</div>' +
+                '<div style="color:#ddd;line-height:1.45;white-space:pre-wrap;word-break:break-word;">' + _siEsc(_getSetDescription(setName)) + '</div>';
+            document.body.appendChild(pop);
+            var r = anchorEl.getBoundingClientRect();
+            pop.style.top = (r.bottom + 6) + 'px';
+            pop.style.left = r.left + 'px';
+            var pr = pop.getBoundingClientRect();
+            if (pr.right > window.innerWidth - 8) pop.style.left = Math.max(8, window.innerWidth - 8 - pr.width) + 'px';
+            if (pr.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, r.top - 6 - pr.height) + 'px';
+            setTimeout(function() { document.addEventListener('click', _setInfoOutside, true); document.addEventListener('keydown', _setInfoEsc, true); }, 0);
+        }
+        // A small ⓘ button that opens the set-info popover (stops propagation so it
+        // doesn't toggle/select the set it sits on).
+        function _makeSetInfoBtn(setName) {
+            var b = document.createElement('span'); // span, not button — safe inside a <label> AND a <button>
+            b.textContent = 'ⓘ';
+            b.title = 'Set info — folder path + description';
+            b.setAttribute('role', 'button');
+            b.style.cssText = 'flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#cfe6ff;font-size:14px;cursor:pointer;';
+            b.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); _showSetInfoPopover(b, setName); });
+            return b;
+        }
+
         // Keep the field synced to the active set via the title span (it updates from
         // every set-switch path, so observing it covers them all).
         document.addEventListener('DOMContentLoaded', function() {
@@ -6171,8 +6224,8 @@
                     var row = document.createElement('label');
                     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;margin:6px 0;border-radius:8px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:14px;';
                     var ck = document.createElement('input'); ck.type = 'checkbox';
-                    var nm = document.createElement('span'); nm.textContent = s.setName;
-                    row.appendChild(ck); row.appendChild(nm);
+                    var nm = document.createElement('span'); nm.textContent = s.setName; nm.style.flex = '1';
+                    row.appendChild(ck); row.appendChild(nm); row.appendChild(_makeSetInfoBtn(s.setName));
                     box.appendChild(row);
                     checks.push({ ck: ck, key: s.key });
                 });
@@ -15340,8 +15393,10 @@
 
             sets.forEach(function(s) {
                 var btn = document.createElement('button');
-                btn.textContent = s.name;
-                btn.style.cssText = 'padding:6px 14px;border-radius:8px;border:1.5px solid rgba(255,215,0,0.4);background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:13px;';
+                btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:8px;border:1.5px solid rgba(255,215,0,0.4);background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:13px;';
+                var _nmSpan = document.createElement('span'); _nmSpan.textContent = s.name; _nmSpan.style.cssText = 'flex:1;text-align:center;';
+                btn.appendChild(_nmSpan);
+                btn.appendChild(_makeSetInfoBtn(s.name));
                 btn.addEventListener('click', function() {
                     // Highlight active set button
                     btnContainer.querySelectorAll('button').forEach(function(b) {

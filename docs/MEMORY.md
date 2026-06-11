@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: June 9, 2026 — Foundation notes (MathGrain pipeline + card-art live-link decision) + A-Z corruption post-mortem
+**Last Updated**: June 9, 2026 — Add Cards dialog UX · Foundation notes + ROADMAP (Phase 1) · #4 `_gameRow` eliminated · A-Z corruption recovery + prevention. **NEXT: implement Phase 1** (see `docs/ROADMAP.md` + STATUS_NOTES.md)
 
 ---
 
@@ -75,6 +75,33 @@ applied across sets needs line/card identity by **ordinal position + semantic ro
 set-local letter (same-shape set = 1:1 positional map; different-shape = map + reconcile
 deviations with the user). #4's label-as-row model is a compatible stepping-stone, not a
 dead-end. Decide before the Big Game / publish layer.
+
+---
+
+## 🧩 June 9, 2026 — "Add Cards to Game" dialog UX (Studio)
+
+The dialog (`#add-card-overlay`, built by `openAddCardToGame` → `showCardsFromSet`,
+confirmed by `confirmAddCards`) was reworked:
+- **Two "Add Selected" buttons** — one at the TOP next to the title (`#add-card-confirm-top`)
+  + the original at the bottom; both toggled together with the selection via
+  `_showAddCardConfirm(show)`.
+- **Cards shown BY ROW** — grouped by `_rowKeyParse(label)`, sorted by `_rowKeyRank`.
+- **Adjustable dialog width** — sized to the LONGEST addable row, **capped at 10 cards**
+  (and at viewport): `cap = min(longestRow, 10, viewportFit)`, box width ≈
+  `16 + cap*72 + 64`. No half-cards.
+- **Rows longer than `cap` are BROKEN into stacked sub-lines** of `cap` cards (pre-chunked,
+  `flex-wrap:nowrap`), separated by a thin **DASHED** line; **SOLID** divider between
+  different letter rows; the row letter shows on the **first sub-line only**. No horizontal
+  scrolling anywhere.
+- **Wheel scroll** — handled by a **capture-phase `wheel` listener on the overlay** (bound
+  once via `overlay._wheelBound`) that does `grid.scrollTop += deltaY` (line/page deltas →
+  px). Needed because native wheel landed on the wrong element in the fixed nested-scroll
+  dialog (it only worked after grabbing the scrollbar). The dialog box is a flex column
+  (`max-height: calc(100vh - 80px)`, `overflow:hidden`); the grid is `flex:1;min-height:0;
+  overflow-y:auto`. Final tip `24dfe78`.
+- **Cross-set copy already exists** (discovered): `_copyCardToSet` / `_moveCardToSet`
+  (right-click "Copy/Move to set…") — duplicate-based today; Phase 1 makes it a linked
+  instance.
 
 ---
 

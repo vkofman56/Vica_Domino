@@ -1,9 +1,53 @@
 # Vica Domino - Project Status Notes
-**Date**: June 8, 2026 — TOGGLE-DRIVEN player count (1/2/3 from GP 0; Start Game on Setup; count buttons + Start page removed)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `b105a97` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1360+
+**Date**: June 9, 2026 — #4 `_gameRow` eliminated · A-Z corruption recovery + prevention · ROADMAP/Phase 1 planned · Add Cards UX
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `24dfe78` as of this update; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1390+
 **Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-3`
+**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
+
+---
+
+## ▶▶ NEXT CHAT: start implementing **Phase 1** — read `docs/ROADMAP.md` first
+**Phase 1 = cross-set foundation: shared-art library + "apply a game to a set" template.**
+The user approved the plan and wants to **start building Phase 1 next chat**. Pick up at:
+1. **Lock the 3 decisions** (give the user a recommended set to approve):
+   - Art-identity model — **(A)** central art library vs **(B)** per-card art + a
+     `sharedArtId` link. **Recommend B first** (incremental).
+   - Default edit-scope button — **recommend "only this one"** (safest).
+   - Role definition — free text vs controlled list.
+2. Then build the staged sub-steps **1.1 → 1.5** (sharedArtId → copy-to-set as linked
+   instance → edit-scope dialog → per-set role clarity → apply-game-to-set). Each stage
+   shipped + self-tested + user-verified, #4-style. **Full detail in `docs/ROADMAP.md`.**
+Context for the model: a card's ART is reusable across sets, the EQUIVALENCE/row is
+per-set; editing shared art offers apply-to **all / chosen / only-this (→ fork)**.
+
+---
+
+## June 9, 2026 (latest) — corruption recovery, #4 DONE, foundation/roadmap, Add Cards UX
+
+Working tree clean; everything shipped to the 3 canonical branches (tip `24dfe78`).
+
+- **A-Z "shifted rows" corruption** — recovered via console (re-file by label). Root
+  cause: a card's row lived in **3 redundant fields** (`label` / `stableId` /
+  `_gameValue`,`_gameRow`) that drifted apart. Full post-mortem in **MEMORY.md**.
+- **3 prevention measures shipped** — (1) **back up games** (`savedCustomGames` etc. added
+  to the Firebase card-backup set, `b78dd0a`); (2) **games auto-repair** offer on open
+  (`a1fae1a`); (3) **safer shift-drag** (confirm before a cross-letter move, `8600a02`).
+- **#4 DONE — eliminated redundant `_gameRow`** (the LABEL is now the single source of
+  truth for a card's row). Shipped in stages/steps `3cb9ce3` `684cef1` `2b45a42` `2965e9a`
+  `dfb3704` `201b785`. Kept `_gameValue` as the fallback for label-less cards. See
+  MEMORY.md "#4 DONE".
+- **Freeze-MODE dead code removed** from the Studio (`310e1b9`).
+- **Foundation notes + ROADMAP** — `docs/ROADMAP.md` (pipeline + detailed Phase 1);
+  MEMORY.md foundation section (live-art-link decision, cross-set identity, the
+  "one source of truth" principle). `sync.js` bumped to **`local-wins-4`**.
+- **"Add Cards to Game" dialog UX** (in `openAddCardToGame` / `showCardsFromSet` / the
+  `#add-card-overlay` modal): (a) a **second "Add Selected" button at the top** (toggled
+  with selection via `_showAddCardConfirm`); (b) cards shown **BY ROW** (grouped by label
+  row-key); (c) **adjustable width** = fits the longest row, **capped at 10 cards** (no
+  half-cards); (d) a row **>10 cards is broken into stacked sub-lines of 10** with a
+  **DASHED** separator (SOLID between letter-rows, label on first sub-line only); (e)
+  **vertical wheel-scroll** via an **overlay capture-phase** handler. Final tip `24dfe78`.
 
 ---
 

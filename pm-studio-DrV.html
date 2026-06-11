@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:22 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:22 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:11 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:22 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -15214,37 +15214,39 @@
                 if (!_addRowBuckets[L]) { _addRowBuckets[L] = []; _addRowOrder.push(L); }
                 _addRowBuckets[L].push(wrapper);
             });
-            // Layout chosen by the LONGEST row: <=10 cards -> rows WRAP with a
-            // divider between them (so a wrapped row stays distinguishable from the
-            // next); >10 cards -> each row stays on ONE line that scrolls sideways.
             _addRowOrder.sort(function(a, b) { return (typeof _rowKeyRank === 'function') ? _rowKeyRank(a) - _rowKeyRank(b) : (a < b ? -1 : a > b ? 1 : 0); });
             var _addMaxRow = 0;
             _addRowOrder.forEach(function(L) { if (_addRowBuckets[L].length > _addMaxRow) _addMaxRow = _addRowBuckets[L].length; });
-            var _oneLine = _addMaxRow > 10;
-            // Adjustable dialog width: fit the LONGEST row's card count. Each card is
-            // 60px + 2px borders + 8px gap = 72px; plus the row label (~16) + box
-            // padding (40) + a scrollbar/slack allowance (~70 total). Capped at a
-            // 10-card width (beyond that rows scroll sideways) and at the viewport;
-            // floored so the set buttons/title still look right.
-            var _wN = _oneLine ? 10 : Math.max(1, _addMaxRow);
-            var _wBox = Math.max(360, Math.min(16 + _wN * 72 + 70, window.innerWidth - 40));
+            // "cap" = cards per line: the longest row, HARD-CAPPED at 10 and at what
+            // the viewport can fit. The dialog width is sized to exactly `cap` cards
+            // (no half-cards, no horizontal scroll). A row longer than `cap` is BROKEN
+            // into stacked sub-lines of `cap`, separated by a thin DASHED line;
+            // different letter rows are separated by a SOLID line. Only the grid
+            // scrolls (vertically).
+            var _cardUnit = 72, _labelW = 16, _chrome = 58; // card(60+2*2 border)+8 gap, label, padding+scrollbar
+            var _viewFit = Math.floor((window.innerWidth - 40 - _chrome - _labelW) / _cardUnit);
+            var _cap = Math.max(1, Math.min(_addMaxRow || 1, 10, _viewFit));
+            var _wBox = Math.max(360, _labelW + _cap * _cardUnit + _chrome + 6); // +6 so cap cards never clip
             var _boxEl = grid.parentElement;
             if (_boxEl) _boxEl.style.maxWidth = _wBox + 'px';
             _addRowOrder.forEach(function(L, ri) {
-                var rowDiv = document.createElement('div');
-                if (_oneLine) {
-                    rowDiv.style.cssText = 'display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;align-items:center;';
-                } else {
-                    rowDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;' +
-                        (ri < _addRowOrder.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:8px;' : '');
+                var rowCont = document.createElement('div');
+                rowCont.style.cssText = 'display:flex;flex-direction:column;gap:6px;' +
+                    (ri < _addRowOrder.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.18);padding-bottom:8px;' : '');
+                var rowCards = _addRowBuckets[L];
+                for (var ci = 0; ci < rowCards.length; ci += _cap) {
+                    var chunk = rowCards.slice(ci, ci + _cap);
+                    var line = document.createElement('div');
+                    line.style.cssText = 'display:flex;flex-wrap:nowrap;gap:8px;align-items:center;' +
+                        (ci > 0 ? 'border-top:1px dashed rgba(255,255,255,0.30);padding-top:6px;' : '');
+                    var rl = document.createElement('div');
+                    rl.style.cssText = 'min-width:16px;font-size:12px;font-weight:700;color:#FFD700;flex:0 0 auto;';
+                    rl.textContent = (ci === 0) ? L : '';   // label on first sub-line; indent on continuations
+                    line.appendChild(rl);
+                    chunk.forEach(function(w) { line.appendChild(w); });
+                    rowCont.appendChild(line);
                 }
-                var rl = document.createElement('div');
-                rl.textContent = L;
-                rl.style.cssText = 'min-width:16px;font-size:12px;font-weight:700;color:#FFD700;flex:0 0 auto;' +
-                    (_oneLine ? 'position:sticky;left:0;background:#2a2a3e;padding-right:4px;z-index:1;' : '');
-                rowDiv.appendChild(rl);
-                _addRowBuckets[L].forEach(function(w) { rowDiv.appendChild(w); });
-                grid.appendChild(rowDiv);
+                grid.appendChild(rowCont);
             });
 
             if (grid.children.length === 0) {

@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:38 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:38 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:33 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:38 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8515,24 +8515,35 @@
                 menu.appendChild(_ctxItem('↓', 'Insert empty line(s) below…', function() { _promptInsertLines(_ieRow, 'below'); }));
                 menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(_ieRow); }, 'danger'));
                 if (groupEditSelected.length > 0 || !card.classList.contains('ge-selected')) {
-                    // 'Do as Reference': sets the reference AND opens the selection
-                    // toolbar where the menu was (its top-left corner \u2014 next to
-                    // the clicked card). Wired manually (not via the _ctxItem
-                    // onClick) so the menu's rect can be captured before
-                    // _ctxClose removes it from the DOM.
+                    // 'Do as Reference', in two steps. First click (toolbar
+                    // closed): only OPENS the selection toolbar where the menu
+                    // was \u2014 no reference is assigned a priori; the status line
+                    // asks the user to choose one, and the ref-gated buttons
+                    // stay disabled. Second right-click + star on a card:
+                    // THAT card becomes the reference and the action can start.
+                    // Wired manually (not via the _ctxItem onClick) so the
+                    // menu's rect can be captured before _ctxClose removes it
+                    // from the DOM.
                     var _refItem = _ctxItem('\u2B50', 'Do as Reference', null);
                     _refItem.addEventListener('click', function(ev) {
                         ev.stopPropagation();
                         var _refRect = menu.getBoundingClientRect();
+                        var _tb = document.getElementById('group-edit-toolbar');
+                        var _boxOpen = _tb && _tb.style.display !== 'none' && _tb.style.display !== '';
                         _ctxClose();
                         if (!card.classList.contains('ge-selected')) {
                             card.classList.add('ge-selected');
                             groupEditSelected.push(card);
                         }
-                        if (groupEditReference) groupEditReference.classList.remove('ge-reference');
-                        groupEditReference = card;
-                        card.classList.add('ge-reference');
-                        _showGEToolbarNextTo(_refRect);
+                        if (!_boxOpen) {
+                            _geToolbarRequested = true;
+                            _showGEToolbarNextTo(_refRect);
+                        } else {
+                            if (groupEditReference) groupEditReference.classList.remove('ge-reference');
+                            groupEditReference = card;
+                            card.classList.add('ge-reference');
+                            _updateGroupEditStatus();
+                        }
                     });
                     menu.appendChild(_refItem);
                 }
@@ -13730,6 +13741,9 @@
         var groupEditActive = false;
         var groupEditSelected = [];
         var groupEditReference = null;
+        // True once the user clicked 'Do as Reference' for the current passive
+        // selection — gates the toolbar so it opens on request, not on select.
+        var _geToolbarRequested = false;
 
         function toggleGroupEditMode() {
             if (groupEditActive) { exitGroupEditMode(); return; }
@@ -13783,7 +13797,7 @@
             // Passive (shift-click / marquee) selection no longer auto-opens the
             // toolbar — it appears via 'Do as Reference' in the right-click menu
             // (see _showGEToolbarNextTo). Gr mode still shows it immediately.
-            var shouldShow = groupEditActive || (groupEditSelected.length >= 1 && !!groupEditReference);
+            var shouldShow = groupEditActive || (groupEditSelected.length >= 1 && _geToolbarRequested);
             if (shouldShow) {
                 if (toolbar.style.display === 'none' || !toolbar.style.display) {
                     toolbar.style.display = 'block';
@@ -13792,6 +13806,7 @@
                 _updateGroupEditStatus();
             } else {
                 toolbar.style.display = 'none';
+                _geToolbarRequested = false;
             }
         }
 
@@ -13858,6 +13873,7 @@
             _syncModeBodyClasses();
             groupEditSelected = [];
             groupEditReference = null;
+            _geToolbarRequested = false;
             document.querySelectorAll('#domino-library-screen .library-card.ge-selected').forEach(function(c) {
                 c.classList.remove('ge-selected');
                 c.classList.remove('ge-reference');

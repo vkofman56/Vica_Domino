@@ -76,7 +76,15 @@ artifacts later.
   dialog. Variations (flips/rotations) **follow the shared base**.
 - *Verify:* edit a shared bear → each option behaves correctly; metadata edits never prompt.
 
-### 1.4 — Per-set equivalence / role clarity (Q1) — decisions LOCKED June 11, 2026
+### 1.4 — Per-set equivalence / role clarity (Q1) — ✅ DONE June 11, 2026
+Shipped: **1.4a** role storage + vocabulary (`c549fdd`); **1.4b** opt-in role UI — right-click
+card → Role…, right-click → Line role…, Group Edit ⚑ bulk/reference assign, per-role-colored
+dots (vocab-index palette) + hover tooltips on cards AND row letters, all Ctrl+Z-able
+(`0851623`, `1100449`, `4168ccc`, `7a6acfe`); **1.4c** cross-set add-cards prompt — same letter
+from a different set asks "new line(s) at the end" (default) vs "into the existing row(s)"
+(`32c5bd6`). Original decisions below.
+
+#### (original) decisions LOCKED June 11, 2026
 - **Roles attach at BOTH levels** (user's call, from his worked example: line 1 = answer 15 +
   2 multiplication + 2 addition problems; line 2 = same shape for 20):
   - **Line role** = the equivalence meaning of the row ("equals 15").

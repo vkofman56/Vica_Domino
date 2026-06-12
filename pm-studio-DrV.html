@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:17 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:24 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:17 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:24 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:17 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:24 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -15861,68 +15861,149 @@
 
             var cardSetLabel = _addCardActiveSetName;
 
-            var skippedCards = [];
-            _addCardSelectedCards.forEach(function(cardData) {
-                var hasStableId = !!(cardData.stableId);
-                var markup = hasStableId ? '' : (cardData.svgContent || cardData.svgMarkup || '');
-                // Warn if SVG is very large (>500KB) — may exceed localStorage quota
-                if (!hasStableId && markup.length > 500000) {
-                    skippedCards.push(cardData.label + ' (' + Math.round(markup.length/1024) + 'KB)');
-                    return;
-                }
-                var cardEntry = {
-                    label: cardData.label,
-                    uid: cardData.uid || '',
-                    stableId: cardData.stableId || '',
-                    isVariation: false,
-                    cardSet: cardSetLabel,
-                    _addedToGame: true
-                };
-                if (!hasStableId) cardEntry.svgMarkup = markup;
-                game.cards.push(cardEntry);
+            // Phase 1.4c: detect CROSS-SET letter conflicts — a selected card's row
+            // letter matches an existing game row that has NO cards from the set being
+            // added. Same-set additions never prompt. (Missing cardSet on legacy game
+            // cards counts as same-set, so old games don't nag.)
+            var _rowHasSameSet = {}, _rowExists = {};
+            game.cards.forEach(function(c) {
+                if (!c) return;
+                var L = _rowKeyParse(c.label); if (!L) return;
+                _rowExists[L] = true;
+                if (!c.cardSet || c.cardSet === cardSetLabel) _rowHasSameSet[L] = true;
+            });
+            var conflictLetters = [];
+            _addCardSelectedCards.forEach(function(cd) {
+                var L = _rowKeyParse(cd.label);
+                if (L && _rowExists[L] && !_rowHasSameSet[L] && conflictLetters.indexOf(L) === -1) conflictLetters.push(L);
             });
 
-            if (skippedCards.length > 0) {
-                alert('Skipped cards (SVG too large for storage):\n' + skippedCards.join('\n') + '\n\nTip: Re-import the SVG file and use a smaller scale.');
-            }
+            function doAdd(relabel) {
+                var skippedCards = [];
+                _addCardSelectedCards.forEach(function(cardData) {
+                    var hasStableId = !!(cardData.stableId);
+                    var markup = hasStableId ? '' : (cardData.svgContent || cardData.svgMarkup || '');
+                    // Warn if SVG is very large (>500KB) — may exceed localStorage quota
+                    if (!hasStableId && markup.length > 500000) {
+                        skippedCards.push(cardData.label + ' (' + Math.round(markup.length/1024) + 'KB)');
+                        return;
+                    }
+                    var L = _rowKeyParse(cardData.label);
+                    var entryLabel = (relabel && L && relabel[L])
+                        ? relabel[L] + String(cardData.label).slice(L.length)  // new row letter, keep number/suffix
+                        : cardData.label;
+                    var cardEntry = {
+                        label: entryLabel,
+                        uid: cardData.uid || '',
+                        stableId: cardData.stableId || '',
+                        isVariation: false,
+                        cardSet: cardSetLabel,
+                        _addedToGame: true
+                    };
+                    if (!hasStableId) cardEntry.svgMarkup = markup;
+                    game.cards.push(cardEntry);
+                });
 
-            // Save and refresh
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(games));
-            } catch(e) {
-                console.error('[AddCard] Save error:', e);
-                if (e.name === 'QuotaExceededError') {
-                    alert('Storage full! The game data is too large to save. Try removing some cards with large SVG images.');
-                    // Revert the additions
-                    game.cards = game.cards.filter(function(c) {
-                        var isNew = false;
-                        _addCardSelectedCards.forEach(function(sel) {
-                            if (sel.label === c.label && c.cardSet === cardSetLabel) isNew = true;
-                        });
-                        return !isNew;
-                    });
-                    try { localStorage.setItem(storageKey, JSON.stringify(games)); } catch(e2) {}
+                if (skippedCards.length > 0) {
+                    alert('Skipped cards (SVG too large for storage):\n' + skippedCards.join('\n') + '\n\nTip: Re-import the SVG file and use a smaller scale.');
                 }
-            }
-            // Check if dominos were visible before refresh
-            var dominoArea = document.getElementById('game-view-dominos-area');
-            var dominosWereVisible = dominoArea && dominoArea.style.display === 'block';
-            closeAddCardOverlay();
-            try {
-                _reopenCurrentView();
-                // Restore dominos visibility and rebuild (Find games only)
-                if (!isCatch && dominosWereVisible) {
-                    var newDominoArea = document.getElementById('game-view-dominos-area');
-                    if (newDominoArea) {
-                        rebuildGameViewDominos();
-                        newDominoArea.style.display = 'block';
-                        var showBtn = document.querySelector('.show-dominos-btn');
-                        if (showBtn) showBtn.textContent = 'Hide Dominos';
+
+                // Save and refresh
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(games));
+                } catch(e) {
+                    console.error('[AddCard] Save error:', e);
+                    if (e.name === 'QuotaExceededError') {
+                        alert('Storage full! The game data is too large to save. Try removing some cards with large SVG images.');
+                        // Revert the additions: the just-pushed entries still carry the
+                        // _addedToGame flag (promote runs on the next view open), so
+                        // drop exactly those from this set — relabel-safe.
+                        game.cards = game.cards.filter(function(c) {
+                            return !(c && c._addedToGame && c.cardSet === cardSetLabel);
+                        });
+                        try { localStorage.setItem(storageKey, JSON.stringify(games)); } catch(e2) {}
                     }
                 }
-            } catch(e) {
-                console.error('[AddCard] Error refreshing game view:', e);
+                // Check if dominos were visible before refresh
+                var dominoArea = document.getElementById('game-view-dominos-area');
+                var dominosWereVisible = dominoArea && dominoArea.style.display === 'block';
+                closeAddCardOverlay();
+                try {
+                    _reopenCurrentView();
+                    // Restore dominos visibility and rebuild (Find games only)
+                    if (!isCatch && dominosWereVisible) {
+                        var newDominoArea = document.getElementById('game-view-dominos-area');
+                        if (newDominoArea) {
+                            rebuildGameViewDominos();
+                            newDominoArea.style.display = 'block';
+                            var showBtn = document.querySelector('.show-dominos-btn');
+                            if (showBtn) showBtn.textContent = 'Hide Dominos';
+                        }
+                    }
+                } catch(e) {
+                    console.error('[AddCard] Error refreshing game view:', e);
+                }
             }
+
+            if (conflictLetters.length === 0) { doAdd(null); return; }
+
+            // Ask (locked decision): "add at the end" (default) vs "add into existing".
+            _showCrossSetAddDialog(conflictLetters, cardSetLabel, game, function(choice) {
+                if (choice === 'merge') { doAdd(null); return; }
+                // 'end' — allocate fresh row letters BEYOND the game's last row, one
+                // per conflicted letter (also avoiding incoming non-conflicted letters).
+                var used = {};
+                game.cards.forEach(function(c) { var L = _rowKeyParse(c && c.label || ''); if (L) used[L] = true; });
+                _addCardSelectedCards.forEach(function(cd) { var L = _rowKeyParse(cd.label); if (L) used[L] = true; });
+                var maxKey = null;
+                Object.keys(used).forEach(function(k) { if (maxKey === null || _rowKeyRank(k) > _rowKeyRank(maxKey)) maxKey = k; });
+                var relabel = {};
+                var cand = maxKey ? _rowKeyNext(maxKey) : 'A';
+                conflictLetters.forEach(function(L) {
+                    while (cand && used[cand]) cand = _rowKeyNext(cand);
+                    relabel[L] = cand || L;
+                    if (cand) { used[cand] = true; cand = _rowKeyNext(cand); }
+                });
+                doAdd(relabel);
+            });
+        }
+
+        // Phase 1.4c modal: same-letter rows from a DIFFERENT set are about to merge.
+        // Default (Esc/backdrop) = 'end' (separate new lines) per the locked decision.
+        function _showCrossSetAddDialog(letters, fromSet, game, cb) {
+            // Name the set(s) the existing rows came from (for the message).
+            var otherSets = {};
+            game.cards.forEach(function(c) {
+                if (!c || !c.cardSet || c.cardSet === fromSet) return;
+                var L = _rowKeyParse(c.label);
+                if (L && letters.indexOf(L) !== -1) otherSets[c.cardSet] = true;
+            });
+            var otherNames = Object.keys(otherSets);
+            var done = false;
+            function finish(choice) { if (done) return; done = true; if (ov.parentNode) document.body.removeChild(ov); document.removeEventListener('keydown', onKey); cb(choice); }
+            function onKey(e) { if (e.key === 'Escape') finish('end'); }
+            var ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:4100;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2a2a3e;color:#fff;border-radius:14px;padding:20px 22px;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
+            box.innerHTML = '<div style="font-size:1.02rem;font-weight:600;margin-bottom:6px;">Same letter, different set</div>' +
+                '<div style="font-size:13px;color:#cfcfe0;margin-bottom:14px;">Row' + (letters.length > 1 ? 's' : '') + ' <b>' + letters.map(_siEsc).join(', ') + '</b> already exist' + (letters.length > 1 ? '' : 's') + ' in this game' +
+                (otherNames.length ? ' (cards from <b>' + otherNames.map(_siEsc).join(', ') + '</b>)' : '') +
+                '. The cards you are adding come from <b>' + _siEsc(fromSet) + '</b> — a different set, so the same letter may mean something different.</div>';
+            function mkBtn(title, sub, choice, primary) {
+                var b = document.createElement('button');
+                b.style.cssText = 'display:block;width:100%;text-align:left;margin:8px 0;padding:10px 14px;border-radius:9px;border:1.5px solid ' +
+                    (primary ? '#4CAF50' : 'rgba(255,255,255,0.2)') + ';background:' + (primary ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)') + ';color:#fff;cursor:pointer;';
+                b.innerHTML = '<div style="font-weight:600;font-size:14px;">' + title + '</div><div style="font-size:12px;color:#bbb;">' + sub + '</div>';
+                b.addEventListener('click', function() { finish(choice); });
+                return b;
+            }
+            box.appendChild(mkBtn('Add as new line' + (letters.length > 1 ? 's' : '') + ' at the end', 'Keeps the sets\' rows separate (recommended).', 'end', true));
+            box.appendChild(mkBtn('Add into the existing row' + (letters.length > 1 ? 's' : ''), 'Merge the cards into the same-letter row' + (letters.length > 1 ? 's' : '') + '.', 'merge', false));
+            ov.appendChild(box);
+            ov.addEventListener('click', function(e) { if (e.target === ov) finish('end'); });
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(ov);
         }
 
         function closeAddCardOverlay() {

@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:10 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:25 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:10 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:25 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:10 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:25 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -883,6 +883,7 @@
                 <button class="zoom-btn" id="var-tool-btn" onclick="toggleVariationToolbar()" title="Variation tools: open toolbar to create card variations (reflections, rotations, symbol swaps).">V</button>
                 <button class="zoom-btn" id="toggle-var-btn" onclick="toggleVariationVisibility()" title="Show/hide variations: toggle visibility of all variation cards. When hidden, only original cards are shown." style="font-size:11px;">V+</button>
                 <button class="zoom-btn" id="new-card-btn" onclick="toggleNewCardMode()" title="New card mode: click to create a new blank card. To edit an existing card, double-click it." style="font-size:22px; color:#7eff7e;">+</button>
+                <button class="zoom-btn" id="copy-from-set-btn" onclick="openCopyFromSetDialog()" title="Copy from set: pick another card set and copy cards or whole lines into this set. Copies get fresh ids, keep their role and shared-art link; same-letter lines ask end-vs-merge." style="font-size:16px;color:#7eff7e;">⇤</button>
                 <button class="zoom-btn" id="ic-btn" onclick="toggleIconsRow()" title="IC (Icons' Creator): show/hide the Icons row at the top of the card set. Icons are dedicated small/large pictures designed to appear in the round bubbles on the game start page." style="font-size:11px;color:#FFD54F;font-weight:bold;">IC</button>
                 <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker: open the list of games to add cards to or create new games.">GM</button>
                 <button class="zoom-btn" id="import-word-btn" onclick="document.getElementById('docx-file-input').click()" title="Import from Word: upload a .docx file with a table to auto-create cards." style="font-size:11px;color:#7eff7e;">W</button>
@@ -7075,6 +7076,7 @@
                 cleanSvg.style.width = svgSize + 'px';
                 cleanSvg.style.height = svgSize + 'px';
             }
+            return card;
         }
 
         function applyLibZoom() {
@@ -7931,6 +7933,12 @@
             try { JSON.parse(localStorage.getItem(targetKey) || '[]').forEach(function(c) { var k = _rowKeyParse(c && c.label || ''); if (k) existing[k] = true; }); } catch(e) {}
             var conflicts = [];
             groups.forEach(function(grp) { var L = _grpRowLetter(grp); if (L && existing[L] && conflicts.indexOf(L) === -1) conflicts.push(L); });
+            _setSideCopyPromptUI(conflicts, groups.length, targetSetName, isMove, proceed);
+        }
+        // The dialog half, callable with PRE-COMPUTED conflicts — shared by the
+        // copy/move-to-set flows (DOM groups) and copy-FROM-set (data groups).
+        function _setSideCopyPromptUI(conflicts, nGroups, targetSetName, isMove, proceed) {
+            var groups = { length: nGroups };
             if (!conflicts.length) { proceed('end'); return; }
             var done = false;
             function finish(choice) { if (done) return; done = true; if (ov.parentNode) document.body.removeChild(ov); document.removeEventListener('keydown', onKey); proceed(choice); }
@@ -7969,6 +7977,287 @@
                 }
             }
             return { letter: _rowKeyParse(_nextBottomRowLabel(targetKey)) || 'A', seq: 1 };
+        }
+
+        // ===== Copy FROM set (user request June 13, 2026) =====
+        // Mirror of "Copy to set…": pick a SOURCE set, select cards / whole
+        // lines, copy them into the CURRENT set. Copies get fresh ids (no
+        // twins), keep the sharedArtId link AND the role (user decision:
+        // carry the role), and land per the locked 1.4c rules — own new
+        // line(s) at the end by default; same-letter conflict asks end-vs-merge.
+
+        // Storage key of the set currently open in the Card Maker.
+        function _cfsCurrentStorageKey() {
+            if (activeCardSet === 'abc') return 'customDrawnCards_abc';
+            if (!isCustomCardSet(activeCardSet)) return getNumbersStorageKey();
+            return (typeof _getSetStorageKey === 'function')
+                ? _getSetStorageKey(activeCardSet) : ('customDrawnCards_' + activeCardSet);
+        }
+        // Display name -> storage key, for the source-set list.
+        function _cfsSetList() {
+            var cur = getCurrentCardSetName();
+            var out = [];
+            ((typeof _getAllCardStorageKeys === 'function') ? _getAllCardStorageKeys() : []).forEach(function(k) {
+                var name;
+                if (k === 'customDrawnCards_abc') name = 'ABC';
+                else if (typeof getNumbersStorageKey === 'function' && k === getNumbersStorageKey()) name = 'Numbers and Dots';
+                else name = k.replace(/^customDrawnCards_/, '');
+                if (name === cur) return;
+                var n = 0;
+                try { n = (JSON.parse(localStorage.getItem(k) || '[]') || []).length; } catch (e) {}
+                if (n > 0) out.push({ name: name, key: k, count: n });
+            });
+            return out;
+        }
+
+        // The import engine: `entries` = source STORAGE entries (in storage
+        // order). Groups them by source line, runs the 1.4c end-vs-merge
+        // prompt against the current set, builds real DOM cards (fresh ids)
+        // via addNewDrawnCard, saves, then patches role + sharedArtId onto
+        // the new storage entries (safeSaveCards only carries those for
+        // cards it has seen before).
+        function _cfsImportEntries(sourceSetName, entries) {
+            if (!entries || !entries.length) return;
+            // Group by SOURCE line, preserving order.
+            var groups = [], byKey = {};
+            entries.forEach(function(e) {
+                var k = _rowKeyParse(e && e.label || '') || '?';
+                if (!byKey[k]) { byKey[k] = { letter: k, entries: [] }; groups.push(byKey[k]); }
+                byKey[k].entries.push(e);
+            });
+            // Conflicts vs the CURRENT set's rows (DOM is the open set's truth).
+            var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
+            if (!container) return;
+            var occupied = {};
+            container.querySelectorAll('.library-row').forEach(function(r) {
+                var L = getRowLetter(r) || '';
+                if (L && r.querySelector('.library-card')) occupied[L] = true;
+            });
+            var conflicts = [];
+            groups.forEach(function(g) { if (occupied[g.letter] && conflicts.indexOf(g.letter) === -1) conflicts.push(g.letter); });
+
+            _setSideCopyPromptUI(conflicts, groups.length, getCurrentCardSetName(), false, function(choice) {
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                _undoSuspended = true;
+                var copied = 0, newIds = {}; // stableId -> {role, sharedArtId}
+                try {
+                    // Track keys taken during THIS import so several new lines
+                    // get consecutive fresh rows.
+                    var taken = {};
+                    container.querySelectorAll('.library-row').forEach(function(r) {
+                        var L = getRowLetter(r) || '';
+                        if (L) taken[L] = true;
+                    });
+                    function nextFreeKey() {
+                        var k = 'A';
+                        var last = null;
+                        Object.keys(taken).forEach(function(L) { if (last === null || L > last) last = L; });
+                        if (last) { k = _rowKeyNext(last) || last; }
+                        while (k && taken[k]) k = _rowKeyNext(k);
+                        return k || 'A';
+                    }
+                    groups.forEach(function(g) {
+                        var letter, seq;
+                        if (choice === 'merge' && occupied[g.letter]) {
+                            letter = g.letter;
+                            var row = null;
+                            container.querySelectorAll('.library-row').forEach(function(r) {
+                                if ((getRowLetter(r) || '') === letter) row = r;
+                            });
+                            seq = row ? row.querySelectorAll('.library-card:not(.variation)').length + 1 : 1;
+                        } else {
+                            letter = nextFreeKey();
+                            taken[letter] = true;
+                            seq = 1;
+                        }
+                        g.entries.forEach(function(e) {
+                            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                            svg.setAttribute('viewBox', '0 0 60 60');
+                            svg.innerHTML = (typeof e.svgContent === 'string') ? e.svgContent : '';
+                            var card = addNewDrawnCard(svg, letter + seq);
+                            if (card) {
+                                card.dataset.origin = 'copy';
+                                var descEl = card.querySelector('.library-desc');
+                                if (descEl && e.desc) descEl.textContent = e.desc;
+                                if (e.cardShape && e.cardShape !== 'square') {
+                                    card.dataset.cardShape = e.cardShape;
+                                    card.dataset.cardShapeW = e.cardShapeW || 60;
+                                    card.dataset.cardShapeH = e.cardShapeH || 60;
+                                    card.dataset.cardCornerR = e.cardCornerR || 0;
+                                    if (typeof _applyShapeToPreview === 'function') { try { _applyShapeToPreview(card); } catch (ex) {} }
+                                }
+                                newIds[card.dataset.stableId] = {
+                                    role: e.role || '',
+                                    sharedArtId: e.sharedArtId || ''
+                                };
+                                copied++;
+                                seq++;
+                            }
+                        });
+                    });
+                } finally {
+                    _undoSuspended = _prev;
+                }
+                if (!copied) return;
+                saveVariations();
+                // Post-save patch: carry role + sharedArtId onto the new entries.
+                try {
+                    var key = _cfsCurrentStorageKey();
+                    var arr = JSON.parse(localStorage.getItem(key) || '[]');
+                    var dirty = false;
+                    arr.forEach(function(c) {
+                        var src = c && c.stableId && newIds[c.stableId];
+                        if (!src) return;
+                        if (src.role) { c.role = src.role; dirty = true; if (typeof _addRoleToVocab === 'function') _addRoleToVocab(src.role); }
+                        if (src.sharedArtId) { c.sharedArtId = src.sharedArtId; dirty = true; }
+                    });
+                    if (dirty) localStorage.setItem(key, JSON.stringify(arr));
+                } catch (e) {}
+                if (typeof _applyRoleBadges === 'function') { try { _applyRoleBadges(); } catch (e) {} }
+                if (typeof _geFlash === 'function') {
+                    _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' from ' + sourceSetName);
+                }
+            });
+        }
+
+        // The picker dialog: source set list -> by-line card browser with
+        // card-click and line-letter-click selection -> Copy selected here.
+        function openCopyFromSetDialog() {
+            var old = document.getElementById('cfs-overlay');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'cfs-overlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:21000;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2a2a3e;color:#fff;border:2px solid #7c4dff;border-radius:14px;padding:18px 20px;width:min(720px,94vw);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
+            ov.appendChild(box);
+            function close() { ov.remove(); document.removeEventListener('keydown', onKey); }
+            function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+            document.addEventListener('keydown', onKey);
+            ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+
+            function showSetList() {
+                box.innerHTML = '<div style="font-size:16px;font-weight:bold;color:#b39ddb;margin-bottom:10px;">Copy cards from another set into “' + _siEsc(getCurrentCardSetName()) + '”</div>' +
+                    '<div style="color:#999;font-size:12.5px;margin-bottom:10px;">Pick the source set:</div>';
+                var list = document.createElement('div');
+                list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
+                _cfsSetList().forEach(function(s) {
+                    var b = document.createElement('button');
+                    b.style.cssText = 'text-align:left;padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#eee;cursor:pointer;font-size:14px;';
+                    b.textContent = s.name + '  (' + s.count + ' cards)';
+                    b.addEventListener('click', function() { showCards(s); });
+                    list.appendChild(b);
+                });
+                box.appendChild(list);
+                var cancel = document.createElement('button');
+                cancel.style.cssText = 'margin-top:14px;align-self:flex-end;padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#ddd;cursor:pointer;';
+                cancel.textContent = 'Cancel';
+                cancel.addEventListener('click', close);
+                box.appendChild(cancel);
+            }
+
+            function showCards(s) {
+                var entries = [];
+                try { entries = JSON.parse(localStorage.getItem(s.key) || '[]') || []; } catch (e) {}
+                var selected = []; // entries, in click order
+                box.innerHTML = '';
+                var hdr = document.createElement('div');
+                hdr.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;';
+                var back = document.createElement('button');
+                back.style.cssText = 'padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#ddd;cursor:pointer;';
+                back.textContent = '‹ Sets';
+                back.addEventListener('click', showSetList);
+                hdr.appendChild(back);
+                var title = document.createElement('div');
+                title.style.cssText = 'font-size:15px;font-weight:bold;color:#b39ddb;';
+                title.textContent = 'From “' + s.name + '” — click cards, or a line letter for the whole line';
+                hdr.appendChild(title);
+                box.appendChild(hdr);
+                var counter = document.createElement('div');
+                counter.style.cssText = 'color:#FFD700;font-size:12.5px;margin-bottom:8px;min-height:16px;';
+                box.appendChild(counter);
+                function updCounter() {
+                    counter.textContent = selected.length ? (selected.length + ' card' + (selected.length !== 1 ? 's' : '') + ' selected') : '';
+                    copyBtn.disabled = !selected.length;
+                    copyBtn.style.opacity = selected.length ? '1' : '0.4';
+                }
+                var grid = document.createElement('div');
+                grid.style.cssText = 'overflow-y:auto;flex:1;min-height:120px;';
+                // group entries by line, storage order
+                var lines = [], byL = {};
+                entries.forEach(function(e) {
+                    var L = _rowKeyParse(e && e.label || '') || '?';
+                    if (!byL[L]) { byL[L] = []; lines.push(L); }
+                    byL[L].push(e);
+                });
+                lines.forEach(function(L) {
+                    var rowEl = document.createElement('div');
+                    rowEl.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
+                    var letterBtn = document.createElement('div');
+                    letterBtn.textContent = L;
+                    letterBtn.title = 'Select / deselect the whole line ' + L;
+                    letterBtn.style.cssText = 'flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(124,77,255,0.25);color:#FFD700;font-weight:bold;cursor:pointer;';
+                    rowEl.appendChild(letterBtn);
+                    var cardEls = [];
+                    byL[L].forEach(function(e) {
+                        var c = document.createElement('div');
+                        c.style.cssText = 'width:52px;cursor:pointer;display:flex;flex-direction:column;align-items:center;border-radius:7px;padding:3px;border:2px solid transparent;';
+                        var face = document.createElement('div');
+                        face.style.cssText = 'width:44px;height:44px;background:#f5edd7;border:1.5px solid #c9a86a;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;';
+                        if (typeof e.svgContent === 'string' && e.svgContent.trim()) {
+                            face.innerHTML = '<svg viewBox="0 0 60 60" width="40" height="40">' + e.svgContent + '</svg>';
+                        }
+                        c.appendChild(face);
+                        var lab = document.createElement('div');
+                        lab.style.cssText = 'font-size:9.5px;color:#bbb;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                        lab.textContent = e.label || '';
+                        c.appendChild(lab);
+                        function setSel(on) {
+                            var i = selected.indexOf(e);
+                            if (on && i === -1) selected.push(e);
+                            if (!on && i !== -1) selected.splice(i, 1);
+                            c.style.borderColor = on ? '#FFD700' : 'transparent';
+                            c.style.background = on ? 'rgba(255,215,0,0.12)' : '';
+                        }
+                        c._setSel = setSel;
+                        c._isSel = function() { return selected.indexOf(e) !== -1; };
+                        c.addEventListener('click', function() { setSel(!c._isSel()); updCounter(); });
+                        cardEls.push(c);
+                        rowEl.appendChild(c);
+                    });
+                    letterBtn.addEventListener('click', function() {
+                        var all = cardEls.every(function(c) { return c._isSel(); });
+                        cardEls.forEach(function(c) { c._setSel(!all); });
+                        updCounter();
+                    });
+                    grid.appendChild(rowEl);
+                });
+                box.appendChild(grid);
+                var foot = document.createElement('div');
+                foot.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:12px;';
+                var cancel = document.createElement('button');
+                cancel.style.cssText = 'padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#ddd;cursor:pointer;';
+                cancel.textContent = 'Cancel';
+                cancel.addEventListener('click', close);
+                foot.appendChild(cancel);
+                var copyBtn = document.createElement('button');
+                copyBtn.style.cssText = 'padding:7px 20px;border-radius:7px;border:none;background:#7c4dff;color:#fff;font-weight:bold;cursor:pointer;';
+                copyBtn.textContent = 'Copy selected here';
+                copyBtn.addEventListener('click', function() {
+                    if (!selected.length) return;
+                    // keep STORAGE order regardless of click order
+                    var ordered = entries.filter(function(e) { return selected.indexOf(e) !== -1; });
+                    close();
+                    _cfsImportEntries(s.name, ordered);
+                });
+                foot.appendChild(copyBtn);
+                box.appendChild(foot);
+                updCounter();
+            }
+
+            showSetList();
+            document.body.appendChild(ov);
         }
 
         function _ctxMoveCardOrSelectionToSet(card, targetSetName) {

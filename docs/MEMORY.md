@@ -1,5 +1,27 @@
 # Vica Domino Project Memory
-**Last Updated**: June 9, 2026 — Add Cards dialog UX · Foundation notes + ROADMAP (Phase 1) · #4 `_gameRow` eliminated · A-Z corruption recovery + prevention. **NEXT: implement Phase 1** (see `docs/ROADMAP.md` + STATUS_NOTES.md)
+**Last Updated**: June 11, 2026 — Studio is MOUSE-ONLY (Gr mode removed) · "Edit group" two-step flow · twin-clone cards (same stableId+uid) exist in real data + twin-guard delete. **NEXT: Phase 1.5** (see STATUS_NOTES.md — re-discuss the plan with the user first)
+
+---
+
+## 🖱️ June 11, 2026 — durable facts/decisions from the multi-select overhaul
+
+- **The Studio is MOUSE-ONLY by design (user's call); the GAMES stay touch+mouse.** This
+  justified removing the Gr (Group Edit) mode + button entirely — selection is passive:
+  Shift+click, marquee drag, row-letter click (whole line), Ctrl+A. Don't re-add
+  touch-only affordances to the Studio without asking.
+- **The canonical group-edit flow** ("Edit group", two-step): selection → right-click →
+  ⭐ Edit group → toolbar opens (in the menu's place, never covering the chosen cards)
+  with NO reference assigned → user right-clicks a selected card to make it the
+  reference → ref-gated actions enable. The toolbar NEVER opens from selection alone
+  (`_geToolbarRequested` gate). The user shaped this flow across 5 iterations — keep its
+  semantics (ask-then-act, no a-priori reference) when touching it.
+- **⚠️ TWIN-CLONE cards exist in real data**: cards that share the SAME `stableId` AND
+  `uid` (e.g. C2/C3 in *Multiply by 4*; an old duplication anomaly — normal Copy mints
+  fresh ids). Games reference cards by stableId, and storage is rebuilt from the DOM on
+  save — so deleting ONE twin never hurts games (`_hasSurvivingTwin` guard in
+  `confirmDeleteCard` / `geActionErase` skips the used-in-games warning when a twin
+  survives). If similar id-collision weirdness shows up elsewhere (relabel propagation,
+  role lookups), suspect twin clones first.
 
 ---
 

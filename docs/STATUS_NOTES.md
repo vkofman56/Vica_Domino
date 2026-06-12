@@ -1,29 +1,73 @@
 # Vica Domino - Project Status Notes
-**Date**: June 9, 2026 — #4 `_gameRow` eliminated · A-Z corruption recovery + prevention · ROADMAP/Phase 1 planned · Add Cards UX
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `24dfe78` as of this update; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1390+
+**Date**: June 11, 2026 — Card Maker multi-select overhaul (Gr mode removed, "Edit group" flow) · twin-guard delete fix · Enter-to-login
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `d50ac83` + this doc commit; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1400+
 **Codebase Size**: ~18,000 lines across 4 main files
 **Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
 
 ---
 
-## ▶▶ NEXT CHAT: start implementing **Phase 1** — read `docs/ROADMAP.md` first
-**Phase 1 = cross-set foundation: shared-art library + "apply a game to a set" template.**
-The user approved the plan and wants to **start building Phase 1 next chat**. Pick up at:
-1. **Lock the 3 decisions** (give the user a recommended set to approve):
-   - Art-identity model — **(A)** central art library vs **(B)** per-card art + a
-     `sharedArtId` link. **Recommend B first** (incremental).
-   - Default edit-scope button — **recommend "only this one"** (safest).
-   - Role definition — free text vs controlled list.
-2. Then build the staged sub-steps **1.1 → 1.5** (sharedArtId → copy-to-set as linked
-   instance → edit-scope dialog → per-set role clarity → apply-game-to-set). Each stage
-   shipped + self-tested + user-verified, #4-style. **Full detail in `docs/ROADMAP.md`.**
-Context for the model: a card's ART is reusable across sets, the EQUIVALENCE/row is
-per-set; editing shared art offers apply-to **all / chosen / only-this (→ fork)**.
+## ▶▶ NEXT CHAT: Phase **1.5 — apply a game to a set** (plan drafted; user wants to re-discuss first)
+Phase 1 stages **1.1–1.4 are DONE** (commit ledger in `docs/ROADMAP.md`). 1.5 is the last
+open Phase-1 stage. A 3-step plan was presented and the user said **"I do not have a
+clear picture yet — we will do it later"** — so START BY WALKING HIM THROUGH IT AGAIN
+(ideally with a concrete example from his data) before building anything:
+- **1.5a** — mapping engine, no UI: read a game's shape (lines × cards, derived from
+  labels per the #4 model) + a target set's shape; compare; produce the new game object
+  for the same-shape case. Verify read-only in preview on real data.
+- **1.5b** — "Apply to set…" action on each game in the Library GAMES list → set picker →
+  same-shape confirm ("8 lines × 4 cards → mapped 1:1, probs/colors carried") → a NEW
+  game is saved (additive; the source game untouched). The user clicks through this stage.
+- **1.5c** — reconciliation dialog for almost-similar sets (missing line / extra card /
+  count diff): list the deviations, the user resolves each (skip / partial / pick
+  manually), the rest maps automatically. No silent guessing (locked roadmap behavior).
+- Scope of the first pass: Find + Catch games. **OPEN QUESTION for the user:** which
+  game → which target set as the first real test pair (one same-shape, one slightly-off)?
 
 ---
 
-## June 9, 2026 (latest) — corruption recovery, #4 DONE, foundation/roadmap, Add Cards UX
+## June 11, 2026 (latest) — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
+
+Working tree clean; everything shipped (tip `d50ac83` + this doc commit). One session,
+~12 ships; each change verified in the live preview (login Vica) before shipping.
+
+- **Multi-select "Edit group" flow** (replaces both the auto-popping toolbar and Gr mode):
+  select cards (Shift+click / marquee / **row-letter click** / Ctrl+A) → right-click →
+  big menu → **⭐ Edit group** (label history: Set as Reference → Do as Reference →
+  Follow the reference → Edit group) → the small toolbar opens **in place of the menu**,
+  positioned to **never cover the chosen cards** (`_showGEToolbarNextTo` candidate walk),
+  with **no reference pre-assigned** — status asks "right-click one to make it the
+  reference"; right-clicking a selected card then sets/moves the reference **directly**
+  (no menu in between); ref-gated buttons enable only after that choice. The toolbar opens
+  ONLY via Edit group (`_geToolbarRequested` gate).
+- **Gr (Group Edit) mode + button REMOVED** (`51c3e87`) — user decision: the Studio is
+  **mouse-only**; games stay touch+mouse. Ported first: row-letter click toggles the whole
+  line into the passive selection (no mode needed); Ctrl+A = passive select-all.
+  `exitGroupEditMode` survives as clear-selection + close-box (the toolbar's Exit button).
+- **Context menus are draggable** — dotted handle strip on top of the card AND row menus
+  (`_ctxAddDragHandle`; pointer capture keeps the post-drag click on the handle so the
+  document click-to-close doesn't fire).
+- **The big menu is multi-aware**: "Edit in Loupe" hidden for a multi-selection;
+  **Properties (N)…** opens a picker listing every selected card (on-screen order) —
+  per-card properties open on top, the list stays open; **Role (N)…** sets the role of
+  every selected card with one picker (single undo + toast) — the toolbar's flag button
+  (`geActionRole`) removed as redundant.
+- **Menu wording**: "Insert line(s) above/below…" (was "empty line(s)").
+- **TWIN-GUARD delete fix** (`455fb6a`): the user couldn't delete one of the identical
+  C2/C3 in *Multiply by 4* — a false "used in 2 games" warning. Root cause: those two
+  cards **share the same `stableId` AND `uid`** (an old duplication anomaly; normal Copy
+  mints fresh ids), and games reference cards by stableId. Deleting ONE twin is harmless
+  (storage rebuilds from the DOM; the survivor keeps the id alive), so the new
+  `_hasSurvivingTwin` skips the warning in `confirmDeleteCard` and `geActionErase`
+  (selecting BOTH twins for erase keeps them protected). The duplicate itself is still
+  there — the user will delete it himself, which also heals the anomaly.
+- **Admin login: Enter submits** the superuser ID field (no Login click needed).
+- **Tooling note**: `.claude/launch.json` gained a `vica-domino-preview` config on port
+  **8011** (the user's own server holds port 8000).
+
+---
+
+## June 9, 2026 — corruption recovery, #4 DONE, foundation/roadmap, Add Cards UX
 
 Working tree clean; everything shipped to the 3 canonical branches (tip `24dfe78`).
 

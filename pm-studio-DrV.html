@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:04 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:04 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:40 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:04 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3763,6 +3763,87 @@
         if (typeof window !== 'undefined') {
             window._getRoleVocab = _getRoleVocab; window._getLineRole = _getLineRole;
             window._setLineRole = _setLineRole; window._getCardRole = _getCardRole; window._setCardRole = _setCardRole;
+        }
+
+        // ===== r→p (role → probability) — Stage A: grouping engine =====
+        // Decisions locked June 12, 2026 (user): cards without a role group
+        // under '(no role)'; the representative of each role = the FIRST card
+        // carrying it in game.cards order (i.e. the first row available);
+        // counts include every member (variations too). Roles resolve per
+        // card's OWN set (games can mix sets). Read-only — never mutates the
+        // game. Returns { groups: [ { role, count, repIdx, rep, memberIdxs } ] }
+        // in first-seen order.
+        function _rpGroupGameCardsByRole(game) {
+            var byRole = {};
+            var order = [];
+            ((game && game.cards) || []).forEach(function(c, idx) {
+                if (!c) return;
+                var role = _getCardRole(c.cardSet || '', c.stableId || '', c.uid || '') || '';
+                var key = role || '(no role)';
+                var g = byRole[key];
+                if (!g) {
+                    g = byRole[key] = { role: key, count: 0, repIdx: idx, rep: c, memberIdxs: [] };
+                    order.push(key);
+                }
+                g.count++;
+                g.memberIdxs.push(idx);
+            });
+            return { groups: order.map(function(k) { return byRole[k]; }) };
+        }
+        if (typeof window !== 'undefined') window._rpGroupGameCardsByRole = _rpGroupGameCardsByRole;
+
+        // ===== Twin-card warning (user request, June 12, 2026) =====
+        // Twin clones — two cards sharing one stableId (the old C2/C3
+        // anomaly) — have no legitimate reason to exist in a set or a game.
+        // Warn once per set/game per session when one is detected; deleting
+        // one twin is always safe (see _hasSurvivingTwin).
+        var _twinWarned = {};
+        function _twinToast(msg, memoKey) {
+            if (_twinWarned[memoKey]) return;
+            _twinWarned[memoKey] = true;
+            var t = document.createElement('div');
+            t.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:30000;' +
+                'background:#4a3a10;border:1.5px solid #FFD700;color:#ffe082;border-radius:10px;' +
+                'padding:10px 18px;font-family:Segoe UI,sans-serif;font-size:13px;max-width:80vw;' +
+                'box-shadow:0 6px 24px rgba(0,0,0,0.5);cursor:pointer;';
+            t.textContent = msg;
+            t.title = 'Click to dismiss';
+            t.addEventListener('click', function() { t.remove(); });
+            document.body.appendChild(t);
+            setTimeout(function() { t.remove(); }, 8000);
+        }
+        function _twinDupGroups(list) { // list: [{id, label}]
+            var byId = {};
+            list.forEach(function(e) { if (e.id) (byId[e.id] = byId[e.id] || []).push(e.label); });
+            return Object.keys(byId).filter(function(id) { return byId[id].length >= 2; })
+                .map(function(id) { return byId[id].join(' = '); });
+        }
+        function _twinScanCardMaker() {
+            var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
+            if (!container) return;
+            var list = [];
+            container.querySelectorAll('.library-card').forEach(function(c) {
+                if (c.classList.contains('variation')) return;
+                list.push({ id: c.dataset.stableId || '', label: (c.querySelector('.library-label') || {}).textContent || '?' });
+            });
+            var dups = _twinDupGroups(list);
+            if (dups.length) {
+                _twinToast('⚠ Twin cards (same internal id) in this set: ' + dups.join(', ') +
+                    ' — they are clones of one card; consider deleting the extra copy.', 'set:' + activeCardSet);
+            }
+        }
+        function _twinScanGame(game, memoKey) {
+            if (!game || !game.cards) return;
+            var list = [];
+            game.cards.forEach(function(c) {
+                if (!c || c.isVariation) return;
+                list.push({ id: c.stableId || '', label: c.label || '?' });
+            });
+            var dups = _twinDupGroups(list);
+            if (dups.length) {
+                _twinToast('⚠ The same card appears more than once in game "' + (game.name || '') + '": ' +
+                    dups.join(', '), memoKey);
+            }
         }
 
         // ===== Phase 1.4b — opt-in ROLE UI =====
@@ -16197,6 +16278,7 @@
             var catchGames = loadCatchGames();
             var game = catchGames[catchIndex];
             if (!game) return;
+            if (typeof _twinScanGame === 'function') _twinScanGame(game, 'catch:' + (game.name || catchIndex));
 
             // Promote any staging-area Added cards into their natural letter
             // rows BEFORE rendering, then normalize row order alphabetically.
@@ -16846,6 +16928,7 @@
             var games = loadCustomGames();
             var game = games[gameIndex];
             if (!game) return;
+            if (typeof _twinScanGame === 'function') _twinScanGame(game, 'find:' + (game.name || gameIndex));
 
             // Detect row-field drift vs the card labels (the A-Z "shifted rows"
             // class of corruption) and OFFER a one-click re-file. Mutates game in
@@ -23139,6 +23222,8 @@
             snapshotCardMakerState();
             document.getElementById('card-library-screen').style.display = 'none';
             document.getElementById('domino-library-screen').style.display = 'block';
+            // Twin-clone check (once per set per session) — after the build above.
+            setTimeout(function() { if (typeof _twinScanCardMaker === 'function') _twinScanCardMaker(); }, 0);
         }
 
         // Built-in picture icons for ABC card set (slot 3 of each letter row)

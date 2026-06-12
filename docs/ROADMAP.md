@@ -101,15 +101,30 @@ from a different set asks "new line(s) at the end" (default) vs "into the existi
 - *Verify:* roles save/recall + vocabulary grows; same-letter line from another set triggers the
   end-vs-merge prompt; default lands it as a separate row at the end.
 
-### 1.5 — Game-as-template: apply a game to a set (Q2)
-- **"Apply game → set":** pick a game + a target set.
-  - **Same shape** (same #lines, same #cards/line) → **1:1 positional map**: clone the game's
-    structure onto the target set's cards, carrying probs / groups / roles.
-  - **Different shape** → **reconciliation dialog**: surface deviations (missing line, extra card,
-    count diff) for the user to resolve, then map the rest.
-- Builds on portable identity (**position + role**, label as display) — the #4 model is the
-  stepping-stone.
-- *Verify:* apply to a same-shape set (clean), and to a slightly-different set (reconcile).
+### 1.5 — ~~Game-as-template: apply a game to a set~~ → SUPERSEDED June 12, 2026 by **r→p**
+**User decision:** applying an existing game to another (especially non-equivalent) set is too
+messy. Instead: a **role → probability shortcut in the Game Creator** — set the game's
+red/neutral/green columns + probabilities **once per ROLE**, not per card.
+
+**r→p design (locked June 12, 2026):**
+- New **r→p** button in the game view. It swaps the grid for ONE synthetic line holding one
+  **representative card per role** (the first card of that role in game.cards order), all in
+  **neutral** on first use; the **role name** + member **count** (when >1) under each card.
+- A representative behaves like a normal game card: **drag** to red/neutral/green, set probability
+  with the **existing per-card prob editor**. Exit via explicit **Apply / Cancel** (locked — no
+  apply-on-leave).
+- **Apply**: every card inherits its role's column + probabilities (one Ctrl+Z point), cards
+  **regrouped by role within each line** (locked), snapshot stored on the game; user then
+  fine-tunes per card as usual. Writes into the **active Prob** chip (locked; from BasicS this
+  creates a new Prob per the existing rule).
+- **Re-entry**: shows the **saved snapshot** (locked) + warning "Applying this will overwrite
+  your per-card changes". Cards without a role group under **"(no role)"** (locked).
+- **Stages:** **A** grouping engine (`_rpGroupGameCardsByRole`, shipped + verified read-only
+  June 12) → **B** the r→p mode UI (Find first) → **C** Apply semantics + snapshot + warning →
+  **D** Catch + Prob-chip integration.
+- Side decision (same session): **twin clones** (one stableId on two cards) get a warning toast
+  in Card Maker (set open) and Game Creator (game open) — `_twinScanCardMaker` /
+  `_twinScanGame`; user wants none anywhere.
 
 ## Cross-cutting (whole phase)
 - Every stage: shipped separately, self-tested, **user-verified in the live Studio** (login-gated —

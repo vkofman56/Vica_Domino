@@ -468,7 +468,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +486,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +728,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:40 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:45 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7655,6 +7655,62 @@
             return groups;
         }
 
+        // Phase 1.4c (set side): the source line's row letter, read from its first
+        // labeled card (DOM elements).
+        function _grpRowLetter(grp) {
+            for (var i = 0; i < grp.length; i++) {
+                var l = grp[i] && grp[i].querySelector && grp[i].querySelector('.library-label');
+                if (l) { var k = _rowKeyParse(l.textContent); if (k) return k; }
+            }
+            return '';
+        }
+        // Detect which source lines' letters already exist in the target SET; if any,
+        // ask end-vs-merge (default end), else proceed('end') directly.
+        function _setSideCopyPrompt(groups, targetKey, targetSetName, isMove, proceed) {
+            var existing = {};
+            try { JSON.parse(localStorage.getItem(targetKey) || '[]').forEach(function(c) { var k = _rowKeyParse(c && c.label || ''); if (k) existing[k] = true; }); } catch(e) {}
+            var conflicts = [];
+            groups.forEach(function(grp) { var L = _grpRowLetter(grp); if (L && existing[L] && conflicts.indexOf(L) === -1) conflicts.push(L); });
+            if (!conflicts.length) { proceed('end'); return; }
+            var done = false;
+            function finish(choice) { if (done) return; done = true; if (ov.parentNode) document.body.removeChild(ov); document.removeEventListener('keydown', onKey); proceed(choice); }
+            function onKey(e) { if (e.key === 'Escape') finish('end'); }
+            var ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:4100;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2a2a3e;color:#fff;border-radius:14px;padding:20px 22px;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,0.5);';
+            box.innerHTML = '<div style="font-size:1.02rem;font-weight:600;margin-bottom:6px;">Same letter already in “' + _siEsc(targetSetName) + '”</div>' +
+                '<div style="font-size:13px;color:#cfcfe0;margin-bottom:14px;">Row' + (conflicts.length > 1 ? 's' : '') + ' <b>' + conflicts.map(_siEsc).join(', ') + '</b> already exist' + (conflicts.length > 1 ? '' : 's') + ' in that set. ' +
+                'Where should the ' + (isMove ? 'moved' : 'copied') + ' line' + (groups.length > 1 ? 's' : '') + ' go?</div>';
+            function mkBtn(title, sub, choice, primary) {
+                var b = document.createElement('button');
+                b.style.cssText = 'display:block;width:100%;text-align:left;margin:8px 0;padding:10px 14px;border-radius:9px;border:1.5px solid ' +
+                    (primary ? '#4CAF50' : 'rgba(255,255,255,0.2)') + ';background:' + (primary ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)') + ';color:#fff;cursor:pointer;';
+                b.innerHTML = '<div style="font-weight:600;font-size:14px;">' + title + '</div><div style="font-size:12px;color:#bbb;">' + sub + '</div>';
+                b.addEventListener('click', function() { finish(choice); });
+                return b;
+            }
+            box.appendChild(mkBtn('Add as new line' + (groups.length > 1 ? 's' : '') + ' at the end', 'Keeps the lines separate (recommended).', 'end', true));
+            box.appendChild(mkBtn('Add into the existing row' + (conflicts.length > 1 ? 's' : ''), 'Append the cards to the same-letter row' + (conflicts.length > 1 ? 's' : '') + '.', 'merge', false));
+            ov.appendChild(box);
+            ov.addEventListener('click', function(e) { if (e.target === ov) finish('end'); });
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(ov);
+        }
+        // Per-group target row under the chosen mode: 'merge' + the letter exists ->
+        // continue numbering inside that row; otherwise a fresh full row key at the end.
+        function _setSideAlloc(grp, targetKey, choice) {
+            if (choice === 'merge') {
+                var L = _grpRowLetter(grp);
+                if (L) {
+                    var count = 0, found = false;
+                    try { JSON.parse(localStorage.getItem(targetKey) || '[]').forEach(function(c) { if (_rowKeyParse(c && c.label || '') === L) { count++; found = true; } }); } catch(e) {}
+                    if (found) return { letter: L, seq: count + 1 };
+                }
+            }
+            return { letter: _rowKeyParse(_nextBottomRowLabel(targetKey)) || 'A', seq: 1 };
+        }
+
         function _ctxMoveCardOrSelectionToSet(card, targetSetName) {
             if (!targetSetName) return;
             var isGroup = (groupEditSelected.length >= 2 && groupEditSelected.indexOf(card) !== -1)
@@ -7669,30 +7725,34 @@
             // and advances to the next free one (continue-after-highest = model A).
             var list = isGroup ? groupEditSelected.slice() : [card];
             var groups = _groupCardsBySourceRow(list);
-            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
-            var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
-            _undoSuspended = true;
-            var moved = 0, rowsMade = 0;
-            try {
-                groups.forEach(function(grp) {
-                    var letter = _rowKeyParse(_nextBottomRowLabel(targetKey)) || 'A'; // FULL row key (charAt(0) truncated two-char keys like aA -> merged into row A)
-                    var seq = 1, any = false;
-                    grp.forEach(function(c) {
-                        if (_moveCardToSet(c, targetSetName, letter + seq)) { moved++; seq++; any = true; }
+            // Phase 1.4c (set side): if a source line's letter already exists in the
+            // target set, ASK end-vs-merge (default end); then run the move.
+            _setSideCopyPrompt(groups, targetKey, targetSetName, true, function(choice) {
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                _undoSuspended = true;
+                var moved = 0, rowsMade = 0;
+                try {
+                    groups.forEach(function(grp) {
+                        var plan = _setSideAlloc(grp, targetKey, choice);
+                        var letter = plan.letter, seq = plan.seq, any = false;
+                        grp.forEach(function(c) {
+                            if (_moveCardToSet(c, targetSetName, letter + seq)) { moved++; seq++; any = true; }
+                        });
+                        if (any) rowsMade++;
                     });
-                    if (any) rowsMade++;
-                });
-            } finally {
-                _undoSuspended = _prev;
-            }
-            if (moved > 0) {
-                if (isGroup) { groupEditSelected = []; groupEditReference = null; }
-                saveVariations();
-                if (typeof _geFlash === 'function') {
-                    _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + targetSetName +
-                        ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
+                } finally {
+                    _undoSuspended = _prev;
                 }
-            }
+                if (moved > 0) {
+                    if (isGroup) { groupEditSelected = []; groupEditReference = null; }
+                    saveVariations();
+                    if (typeof _geFlash === 'function') {
+                        _geFlash('Moved ' + moved + ' card' + (moved !== 1 ? 's' : '') + ' to ' + targetSetName +
+                            ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
+                    }
+                }
+            });
         }
 
         // Sibling to _ctxShowMoveSubmenu — lists every saved card set as a
@@ -7771,26 +7831,30 @@
             // source line. Copies get fresh ids inside _copyCardToSet.
             var list = isGroup ? groupEditSelected.slice() : [card];
             var groups = _groupCardsBySourceRow(list);
-            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
-            var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
-            _undoSuspended = true;
-            var copied = 0, rowsMade = 0;
-            try {
-                groups.forEach(function(grp) {
-                    var letter = _rowKeyParse(_nextBottomRowLabel(targetKey)) || 'A'; // FULL row key (charAt(0) truncated two-char keys like aA -> merged into row A)
-                    var seq = 1, any = false;
-                    grp.forEach(function(c) {
-                        if (c && _copyCardToSet(c, targetSetName, letter + seq)) { copied++; seq++; any = true; }
+            // Phase 1.4c (set side): if a source line's letter already exists in the
+            // target set, ASK end-vs-merge (default end); then run the copy.
+            _setSideCopyPrompt(groups, targetKey, targetSetName, false, function(choice) {
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                var _prev = (typeof _undoSuspended !== 'undefined') ? _undoSuspended : false;
+                _undoSuspended = true;
+                var copied = 0, rowsMade = 0;
+                try {
+                    groups.forEach(function(grp) {
+                        var plan = _setSideAlloc(grp, targetKey, choice);
+                        var letter = plan.letter, seq = plan.seq, any = false;
+                        grp.forEach(function(c) {
+                            if (c && _copyCardToSet(c, targetSetName, letter + seq)) { copied++; seq++; any = true; }
+                        });
+                        if (any) rowsMade++;
                     });
-                    if (any) rowsMade++;
-                });
-            } finally {
-                _undoSuspended = _prev;
-            }
-            if (copied > 0 && typeof _geFlash === 'function') {
-                _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName +
-                    ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
-            }
+                } finally {
+                    _undoSuspended = _prev;
+                }
+                if (copied > 0 && typeof _geFlash === 'function') {
+                    _geFlash('Copied ' + copied + ' card' + (copied !== 1 ? 's' : '') + ' to ' + targetSetName +
+                        ' (' + rowsMade + ' row' + (rowsMade !== 1 ? 's' : '') + ')');
+                }
+            });
         }
 
         // Sibling to _ctxShowMoveToSetSubmenu — same listing logic, just

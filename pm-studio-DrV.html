@@ -330,6 +330,9 @@
         .ctx-menu-item.disabled { color: #666; pointer-events: none; }
         .ctx-menu-sep { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0; }
         .ctx-menu-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 14px; }
+        .ctx-menu-drag { display: flex; justify-content: center; padding: 2px 0 4px; cursor: grab; color: rgba(255,255,255,0.45); }
+        .ctx-menu-drag:hover { color: #b39ddb; }
+        .ctx-menu-drag:active { cursor: grabbing; }
         .ctx-menu-sub { position: fixed; z-index: 25001; min-width: 140px;
             background: #2a2a4a; border: 1.5px solid #7c4dff; border-radius: 8px;
             padding: 4px 0; font-family: 'Segoe UI', sans-serif; font-size: 13px;
@@ -468,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:24 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -486,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:24 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -728,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:24 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1194,7 +1197,6 @@
                             <line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
                     </button>
-                    <button class="ge-action-btn" id="ge-role-btn" onclick="geActionRole()" title="Role — copy the reference card's role to all selected (no reference role: pick a role for the whole selection). Ctrl+Z undoes.">&#x2691;</button>
                 </div>
                 <div class="ge-erase-row">
                     <button class="ge-action-btn ge-erase-btn" id="ge-erase-btn" onclick="geActionErase()" title="Erase selected cards (cards used in games are skipped)">&#x1F5D1; Erase</button>
@@ -7189,6 +7191,36 @@
             return el;
         }
         function _ctxSep() { var s = document.createElement('div'); s.className = 'ctx-menu-sep'; return s; }
+        // Slim dotted strip at the top of a context menu — drag it to move the
+        // menu aside when it covers the cards it acts on. Pointer capture keeps
+        // the synthesized click on the handle, so the document-level click
+        // handler doesn't close the menu when the drag ends.
+        function _ctxAddDragHandle(menu) {
+            var h = document.createElement('div');
+            h.className = 'ctx-menu-drag';
+            h.title = 'Drag to move';
+            h.innerHTML = '<svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>';
+            h.addEventListener('click', function(ev) { ev.stopPropagation(); });
+            h.addEventListener('pointerdown', function(ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                try { h.setPointerCapture(ev.pointerId); } catch(e) {}
+                var startX = ev.clientX, startY = ev.clientY;
+                var rect = menu.getBoundingClientRect();
+                var baseL = rect.left, baseT = rect.top;
+                function mv(e2) {
+                    menu.style.left = Math.min(Math.max(0, baseL + e2.clientX - startX), window.innerWidth - 40) + 'px';
+                    menu.style.top = Math.min(Math.max(0, baseT + e2.clientY - startY), window.innerHeight - 24) + 'px';
+                }
+                function up(e3) {
+                    h.removeEventListener('pointermove', mv);
+                    h.removeEventListener('pointerup', up);
+                    try { h.releasePointerCapture(e3.pointerId); } catch(e) {}
+                }
+                h.addEventListener('pointermove', mv);
+                h.addEventListener('pointerup', up);
+            });
+            menu.appendChild(h);
+        }
         function _ctxPosition(menu, x, y) {
             menu.style.left = x + 'px'; menu.style.top = y + 'px';
             document.body.appendChild(menu);
@@ -8237,6 +8269,7 @@
             _ctxClose();
             var menu = document.createElement('div');
             menu.className = 'ctx-menu';
+            _ctxAddDragHandle(menu);
 
             {
                 // Normal / passive selection menu
@@ -8258,8 +8291,36 @@
                     }));
                 }
                 // Phase 1.4b: optional card ROLE ("answer", "multiplication", \u2026).
+                // Multi-selection: ONE picker sets the role of every chosen card
+                // (this replaced the flag button that used to sit in the
+                // selection toolbar).
                 (function() {
                     var _rSet = getCurrentCardSetName();
+                    if (_ctxIsGroup) {
+                        // Pre-fill with the shared role if every selected card agrees.
+                        var _rShared = null;
+                        groupEditSelected.forEach(function(c) {
+                            var r = _getCardRole(_rSet, c.dataset.stableId, c.dataset.uid) || '';
+                            if (_rShared === null) _rShared = r;
+                            else if (_rShared !== r) _rShared = '';
+                        });
+                        _rShared = _rShared || '';
+                        menu.appendChild(_ctxItem('\u2691', (_rShared ? 'Role: ' + _rShared : 'Role') + ' (' + _ctxN + ')\u2026', function() {
+                            _showRolePicker('Role for ' + _ctxN + ' selected cards', _rShared, function(role) {
+                                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
+                                var n = 0;
+                                groupEditSelected.forEach(function(c) {
+                                    if (_setCardRole(_rSet, c.dataset.stableId, c.dataset.uid, role)) n++;
+                                });
+                                _applyRoleBadges();
+                                if (typeof _geFlash === 'function') {
+                                    _geFlash(role ? ('Role "' + role + '" set on ' + n + ' card' + (n !== 1 ? 's' : ''))
+                                                  : ('Role cleared on ' + n + ' card' + (n !== 1 ? 's' : '')));
+                                }
+                            });
+                        }));
+                        return;
+                    }
                     var _rCur = _getCardRole(_rSet, card.dataset.stableId, card.dataset.uid);
                     menu.appendChild(_ctxItem('\u2691', _rCur ? ('Role: ' + _rCur + '\u2026') : 'Role\u2026', function() {
                         _showRolePicker('Role of card ' + ((card.querySelector('.library-label') || {}).textContent || ''), _rCur, function(role) {
@@ -8453,6 +8514,7 @@
             _ctxClose();
             var menu = document.createElement('div');
             menu.className = 'ctx-menu';
+            _ctxAddDragHandle(menu);
             var letter = getRowLetter(row) || '';
             var isEmpty = row.querySelectorAll('.library-card').length === 0;
             var hdr = document.createElement('div');
@@ -13918,31 +13980,8 @@
         // copy it to every selected card (like Font/Color/Shape). Otherwise open the
         // role picker and apply the chosen role to the WHOLE selection (reference
         // included). One undo snapshot per action — a single Ctrl+Z reverts it all.
-        function geActionRole() {
-            if (!groupEditSelected.length) return;
-            var setName = getCurrentCardSetName();
-            function applyToSelection(role, includeRef) {
-                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
-                var n = 0;
-                groupEditSelected.forEach(function(card) {
-                    if (!includeRef && card === groupEditReference) return;
-                    if (_setCardRole(setName, card.dataset.stableId, card.dataset.uid, role)) n++;
-                });
-                _applyRoleBadges();
-                _geFlash(role ? ('Role "' + role + '" set on ' + n + ' card' + (n !== 1 ? 's' : ''))
-                              : ('Role cleared on ' + n + ' card' + (n !== 1 ? 's' : '')));
-            }
-            var refRole = groupEditReference
-                ? _getCardRole(setName, groupEditReference.dataset.stableId, groupEditReference.dataset.uid)
-                : '';
-            if (refRole) {
-                applyToSelection(refRole, false); // match-to-reference, like Font/Color
-            } else {
-                _showRolePicker('Role for ' + groupEditSelected.length + ' selected card' + (groupEditSelected.length !== 1 ? 's' : ''), '', function(role) {
-                    applyToSelection(role, true);
-                });
-            }
-        }
+        // geActionRole removed — the context menu's 'Role (N)…' item now sets
+        // the role of every selected card, so the toolbar flag was redundant.
 
         // Match card shape (shape type + W + H + corner radius) from the reference
         // card to every other selected card. Uses the same dataset fields that

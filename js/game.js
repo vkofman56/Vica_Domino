@@ -312,10 +312,7 @@ class VicaDominoGame {
     }
 
     initEventListeners() {
-        // Player count selection
-        document.querySelectorAll('.player-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.selectPlayerCount(e));
-        });
+        // (Player-count selection removed — count comes from the GP 0 toggle.)
 
         // Start game button
         document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
@@ -751,6 +748,51 @@ class VicaDominoGame {
         return container;
     }
 
+    // STEP 2 (read global): pre-fill the just-built per-game player rows from the
+    // global Icons-Players config (localStorage 'vica_global_players'). Purely
+    // additive and guarded — with no saved config this is a no-op and the game
+    // behaves exactly as before. It pre-selects each player's icon and pre-fills
+    // the name box; startGame() then reads these inputs unchanged. Only touches
+    // the first `count` real player rows (the Xeno row is added later).
+    _applyGlobalPlayerConfig(count) {
+        let cfg = null;
+        try { cfg = JSON.parse(localStorage.getItem('vica_global_players')) || null; }
+        catch (e) { cfg = null; }
+        if (!cfg || !Array.isArray(cfg.players)) return;
+
+        const rows = document.querySelectorAll('#name-inputs .player-input-row');
+        for (let i = 0; i < count; i++) {
+            const gp = cfg.players[i];
+            const row = rows[i];
+            if (!gp || !row) continue;
+
+            // Icon: select the global icon (global set is distinct, so no
+            // .icon-taken guard needed; availability is recomputed at the end).
+            if (gp.icon && CHARACTER_ICONS[gp.icon]) {
+                const sel = row.querySelector('.icon-selector');
+                const btn = sel && sel.querySelector('.icon-btn[data-icon="' + gp.icon + '"]');
+                if (btn) {
+                    sel.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    this.playerIcons[i] = gp.icon;
+                    const firstBtn = sel.querySelector('.icon-btn');
+                    if (firstBtn && firstBtn !== btn) sel.insertBefore(btn, firstBtn);
+                }
+            }
+
+            // Name: only override when the saved name is non-empty. Keep the
+            // input's prefix so startGame()'s prefix-strip still works.
+            if (gp.name && gp.name.trim()) {
+                const input = row.querySelector('.name-section input');
+                if (input) {
+                    const prefix = input.dataset.prefix || '';
+                    input.value = prefix + gp.name.trim();
+                }
+            }
+        }
+        this.updateIconAvailability();
+    }
+
     updateIconAvailability() {
         // Get all icon selectors
         const allSelectors = document.querySelectorAll('.icon-selector');
@@ -782,239 +824,6 @@ class VicaDominoGame {
             const takenBtns = selector.querySelectorAll('.icon-btn.icon-taken');
             takenBtns.forEach(btn => selector.appendChild(btn));
         });
-    }
-
-    selectPlayerCount(e) {
-        const count = parseInt(e.target.dataset.players);
-        // OR with the Find-page Timer switch state. Find player buttons
-        // no longer carry data-xeno=true (the timer variants p1x/p2x got
-        // dropped); window._currentTimerOn drives whether the picked
-        // player count runs as a timed (xeno) round. Catch pages set
-        // _currentTimerOn=false on entry, so the OR is a no-op there.
-        const includeXeno = (e.target.dataset.xeno === 'true')
-                         || !!window._currentTimerOn;
-        this.includeXeno = includeXeno;
-        this.playerIcons = {}; // Reset icon selections
-
-        // Update button states
-        document.querySelectorAll('.player-btn').forEach(btn => btn.classList.remove('selected'));
-        e.target.classList.add('selected');
-
-        // Show name inputs
-        const nameInputs = document.getElementById('name-inputs');
-        const playerNamesDiv = document.getElementById('player-names');
-        playerNamesDiv.style.display = 'block';
-
-        // Hide the old heading - we'll use inline labels instead
-        const heading = playerNamesDiv.querySelector('h3');
-        heading.style.display = 'none';
-
-        // Hide "Choose your game:" and "How many players?" headings
-        const setupPanel = document.querySelector('.setup-panel');
-        const h3Elements = setupPanel.querySelectorAll('h3');
-        h3Elements.forEach(h3 => h3.style.display = 'none');
-
-        // Hide original containers
-        document.querySelector('.setup-columns').style.display = 'none';
-        document.querySelector('.game-level-select').style.display = 'none';
-        document.querySelector('.player-select').style.display = 'none';
-
-        // Create a row with selected level icon + label (e.g. "4 dominos").
-        // This chip belongs in BOX 1 (developer-configured: shows what level
-        // the player picked). Box 2 already has its own game-icon (the 3-
-        // dominos clone) — putting the chip in Box 2 too would render two
-        // domino icons in the player area, which is confusing. Insert into
-        // Box 1; if Box 1 isn't found (e.g. legacy single-panel layouts),
-        // fall back to inserting before #player-names as before.
-        let selectedRow = document.getElementById('selected-options-row');
-        if (!selectedRow) {
-            selectedRow = document.createElement('div');
-            selectedRow.id = 'selected-options-row';
-            selectedRow.className = 'selected-options-row';
-        }
-        const box1 = document.querySelector('.setup-box-1');
-        if (box1) {
-            if (selectedRow.parentElement !== box1) box1.appendChild(selectedRow);
-        } else if (!selectedRow.parentElement) {
-            const playerNamesEl = document.getElementById('player-names');
-            const playerNamesParent = playerNamesEl && playerNamesEl.parentElement;
-            if (playerNamesParent) {
-                playerNamesParent.insertBefore(selectedRow, playerNamesEl);
-            }
-        }
-        selectedRow.innerHTML = '';
-        selectedRow.style.display = 'flex';
-
-        // Clone the selected level button wrapper — but only if there's
-        // actually a visible level option to represent. When admin disables
-        // every level in Game Settings, the entire .setup-left column is
-        // already hidden upstream (in _applyGameSetupToPlayerScreen). The
-        // selected-options-row should follow suit and not flash a stale
-        // domino icon for `this.selectedLevel`.
-        const _anyVisibleLevel = Array.prototype.some.call(
-            document.querySelectorAll('#start-screen .level-btn-wrapper'),
-            function(w) { return w.style.display !== 'none'; }
-        );
-        if (_anyVisibleLevel) {
-            const selectedLevelWrapper = document.querySelector(`.level-btn[data-level="${this.selectedLevel}"]`).parentElement.cloneNode(true);
-            selectedLevelWrapper.style.display = 'flex';
-            selectedRow.appendChild(selectedLevelWrapper);
-        }
-
-        // No cloned player-btn chip at the top of the selected-options
-        // row for any variant. Per the user's explicit pass: 1-player
-        // (with or without timer), 2 players (± timer), and 3 players
-        // (± timer) all suppress the title — the player-name inputs
-        // below are self-evident.
-
-        // Preserve start button if it was moved into name-inputs (from Xeno row)
-        const startBtn = document.getElementById('start-game-btn');
-        if (startBtn && startBtn.closest('#name-inputs')) {
-            document.getElementById('player-names').appendChild(startBtn);
-        }
-
-        nameInputs.innerHTML = '';
-        for (let i = 0; i < count; i++) {
-            // Create player row container
-            const playerRow = document.createElement('div');
-            playerRow.className = 'player-input-row';
-
-            const iconSection = document.createElement('div');
-            iconSection.className = 'input-section';
-            const iconSelector = this.createIconSelector(i);
-            iconSection.appendChild(iconSelector);
-            playerRow.appendChild(iconSection);
-
-            const nameSection = document.createElement('div');
-            nameSection.className = 'input-section name-section';
-
-            // Create name input
-            const input = document.createElement('input');
-            input.type = 'text';
-            // Single-player variants (with or without Xeno) → use the
-            // unprefixed "Player's Name" placeholder so the box reads
-            // the same way regardless of which 1-player option the
-            // admin enabled. 2-player drops the "1. ... name" prefix
-            // but keeps the per-player "Player N" tag. 3-player keeps
-            // the prefixed "1. Player 1 name" form so the inputs are
-            // distinguishable from each other.
-            const isSinglePlayer = (count === 1);
-            const noPrefix = isSinglePlayer || count === 2;
-            const placeholderName = isSinglePlayer ? "Player's Name" : `Player ${i + 1}`;
-            input.placeholder = noPrefix ? placeholderName : `${i + 1}. ${placeholderName} name`;
-            input.value = '';
-            input.dataset.playerIndex = i;
-            input.dataset.prefix = noPrefix ? '' : `${i + 1}.  `;
-
-            // On focus, set the prefix and place cursor after it
-            input.addEventListener('focus', (e) => {
-                const prefix = e.target.dataset.prefix;
-                if (e.target.value === '' || !e.target.value.startsWith(prefix)) {
-                    e.target.value = prefix;
-                }
-                // Place cursor at the end (after prefix)
-                setTimeout(() => {
-                    e.target.setSelectionRange(prefix.length, prefix.length);
-                }, 0);
-            });
-
-            input.addEventListener('input', (e) => {
-                const prefix = e.target.dataset.prefix;
-                let value = e.target.value;
-
-                // If value doesn't start with prefix and has content
-                if (value.length > 0 && !value.startsWith(prefix)) {
-                    // Remove any existing prefix pattern at start
-                    value = value.replace(/^\d+\.\s*/, '');
-                    e.target.value = prefix + value;
-                }
-                // If value is just the prefix or less, clear it
-                if (value === prefix || value.length < prefix.length) {
-                    if (value.length === 0) {
-                        e.target.value = '';
-                    }
-                }
-            });
-
-            nameSection.appendChild(input);
-            playerRow.appendChild(nameSection);
-            nameInputs.appendChild(playerRow);
-        }
-
-        // Update icon availability after all selectors are created
-        this.updateIconAvailability();
-
-        // Defensive: make sure the Start Game button exists as a direct
-        // child of #player-names. Reported bug: on some GPt Cxx pages the
-        // button was missing entirely. This catches every path that
-        // accidentally removes the button — recreating it costs nothing.
-        if (!includeXeno) this._ensureStartButton(playerNamesDiv);
-
-        // Show Xeno indicator if selected
-        if (includeXeno) {
-            const xenoNumber = count + 1;
-            const xenoRow = document.createElement('div');
-            xenoRow.className = 'player-input-row xeno-row';
-
-            // Xeno icon section with label
-            const xenoIconSection = document.createElement('div');
-            xenoIconSection.className = 'input-section';
-            const xenoIconLabel = document.createElement('div');
-            xenoIconLabel.className = 'input-label';
-            xenoIconLabel.textContent = ' '; // Empty label for alignment
-            xenoIconSection.appendChild(xenoIconLabel);
-            const xenoIconContainer = document.createElement('div');
-            xenoIconContainer.className = 'xeno-icon-container';
-            xenoIconContainer.innerHTML = XENO_ICON_SVG;
-            xenoIconSection.appendChild(xenoIconContainer);
-            xenoRow.appendChild(xenoIconSection);
-
-            // Xeno name section with label
-            const xenoNameSection = document.createElement('div');
-            xenoNameSection.className = 'input-section name-section';
-            const xenoNameLabel = document.createElement('div');
-            xenoNameLabel.className = 'input-label';
-            xenoNameLabel.textContent = ' '; // Empty label for alignment
-            xenoNameSection.appendChild(xenoNameLabel);
-
-            // Xeno name input (disabled)
-            const xenoInput = document.createElement('input');
-            xenoInput.type = 'text';
-            xenoInput.value = 'Xeno ⏳';
-            xenoInput.disabled = true;
-            xenoInput.className = 'xeno-input';
-            xenoInput.style.cssText = `
-                height: 36px;
-                min-height: 36px;
-                line-height: 36px;
-                padding: 0 20px;
-                font-size: 1rem;
-                border: 2px solid #FF69B4;
-                border-radius: 10px;
-                background: rgba(255,255,255,0.9);
-                color: #FF69B4;
-                font-weight: bold;
-                cursor: not-allowed;
-                width: calc(56% - 23pt) !important;
-                max-width: calc(56% - 23pt) !important;
-                box-sizing: border-box;
-                margin-left: 4px;
-                margin-top: -3px;
-            `;
-            // Create a row wrapper for Xeno input + Start Game button
-            const xenoContentRow = document.createElement('div');
-            xenoContentRow.style.cssText = 'display: flex; align-items: center; gap: 15px; width: 100%;';
-            xenoContentRow.appendChild(xenoInput);
-
-            // Move Start Game button into the Xeno row
-            const startBtn = document.getElementById('start-game-btn');
-            startBtn.style.margin = '0';
-            xenoContentRow.appendChild(startBtn);
-
-            xenoNameSection.appendChild(xenoContentRow);
-            xenoRow.appendChild(xenoNameSection);
-            nameInputs.appendChild(xenoRow);
-        }
     }
 
     // Render the name/icon inputs + Start button directly on the GP Setup
@@ -1247,6 +1056,10 @@ class VicaDominoGame {
             if (!nameInput) return;
 
             const rowRect = playerRow.getBoundingClientRect();
+            // The per-game player rows are hidden now (step 4 — icons/names moved
+            // to the global config). A hidden row measures 0×0; skip alignment so
+            // we don't push the Xeno input / Start button to garbage positions.
+            if (rowRect.width === 0 || rowRect.height === 0) return;
             const cat = iconBtns[1].getBoundingClientRect();
             const nameRect = nameInput.getBoundingClientRect();
             const xenoRow = xenoInput.closest('.xeno-row');
@@ -1309,10 +1122,22 @@ class VicaDominoGame {
         this.recentDoublePositions = {};
         this._playerClickBuffers = {};
         this._playerClickTimers = {};
+        // The per-game icon/name pickers were removed (step 4) — players now come
+        // from the GLOBAL Icons-Players config. Read it once; prefer it for each
+        // player's name + icon, falling back to the (hidden) DOM input and the
+        // default when nothing is saved. Player COUNT still comes from the rows.
+        let _gcfg = null;
+        try { _gcfg = JSON.parse(localStorage.getItem('vica_global_players')) || null; }
+        catch (e) { _gcfg = null; }
+
         let playerIndex = 0;
         inputs.forEach((input) => {
             // Skip the Xeno input (disabled)
             if (input.disabled) return;
+
+            const _g = (_gcfg && _gcfg.players && _gcfg.players[playerIndex]) ? _gcfg.players[playerIndex] : null;
+            const _gName = (_g && _g.name && _g.name.trim()) ? _g.name.trim() : null;
+            const _gIcon = (_g && _g.icon && CHARACTER_ICONS[_g.icon]) ? _g.icon : null;
 
             let name = input.value;
             const prefix = input.dataset.prefix;
@@ -1320,13 +1145,14 @@ class VicaDominoGame {
             if (name.startsWith(prefix)) {
                 name = name.substring(prefix.length);
             }
-            // Check if player actually entered a name
-            const hasCustomName = name.trim().length > 0;
-            // Use default name if empty
-            name = name.trim() || `Player ${playerIndex + 1}`;
+            const _domName = name.trim();
+            // Custom name = a saved global name OR a typed DOM name.
+            const hasCustomName = !!_gName || _domName.length > 0;
+            // Prefer global name, then DOM, then default.
+            name = _gName || _domName || `Player ${playerIndex + 1}`;
 
-            // Get selected icon for this player
-            const iconKey = this.playerIcons[playerIndex] || 'star';
+            // Prefer global icon, then the (default) per-row selection, then star.
+            const iconKey = _gIcon || this.playerIcons[playerIndex] || 'star';
 
             this.players.push({
                 id: playerIndex,
@@ -1432,6 +1258,10 @@ class VicaDominoGame {
         // Show current game name temporarily next to title
         this.showGameName();
 
+        // Fill the Board identity bar's game-name span (name + ✋/🖱 glyph) from
+        // the Game Preview subtitle, so the board shows the same game identity.
+        if (window._gpFillGameName) window._gpFillGameName('board-id-game');
+
         // Check if Find the Double level is selected (all levels use this mode now)
         if (this.selectedLevel === 'circle' || this.selectedLevel === 'triangle' || this.selectedLevel === 'star') {
             this.startSunLevelGame();
@@ -1451,11 +1281,18 @@ class VicaDominoGame {
         const subtitle = document.querySelector('#start-screen .subtitle');
         let gameName = '';
         if (subtitle) {
-            const text = subtitle.textContent;
+            // Read the name WITHOUT the trailing input-mode glyph span that
+            // the Game Preview appends (✋/🖱) — that's decoration, not name.
+            const glyph = subtitle.querySelector('.subtitle-mode-glyph');
+            const text = glyph
+                ? Array.from(subtitle.childNodes)
+                    .filter(n => n !== glyph)
+                    .map(n => n.textContent).join('')
+                : subtitle.textContent;
             // Extract name from "Game: <name>" or "Combined: <name>"
             const match = text.match(/(?:Game|Combined):\s*(.+)/);
             if (match && match[1] !== 'Find the Double!') {
-                gameName = match[1];
+                gameName = match[1].trim();
             }
         }
 

@@ -306,6 +306,13 @@
      *
      * Returns a Promise that resolves when data is ready.
      */
+    // Fire once the cloud pull (or offline restore) has settled, so the app can run
+    // post-sync work (e.g. Phase 1 sharedArtId migration) on the FINAL data — a
+    // parse-time pass alone would be clobbered by the login pull. Reusable hook.
+    function _fireDataReady() {
+        try { window.dispatchEvent(new CustomEvent('vica-data-ready')); } catch (e) {}
+    }
+
     window.syncLogin = function (userId) {
         // Sanitize reserved Firestore ids (e.g. legacy "__player__")
         if (userId && userId.indexOf('__') === 0) {
@@ -386,7 +393,7 @@
                     // its work. A FRESH device (empty local) still pulls cloud
                     // normally. Trade-off: edits to these keys don't propagate
                     // device→device (acceptable for single-superuser editing).
-                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames'];
+                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'vica_global_players'];
                     _localWinsKeys.forEach(function (lk) {
                         var lv = _origGetItem(lk);
                         if (!lv) return;
@@ -436,6 +443,7 @@
             .then(function () {
                 // Start periodic card backup after successful login
                 if (_userRole === 'superuser') _startCardBackupTimer();
+                _fireDataReady(); // cloud pull/restore settled — run post-sync migrations
             })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
@@ -453,6 +461,7 @@
                 });
 
                 _setSyncStatus('error');
+                _fireDataReady(); // offline: local data restored — still "ready"
             });
     };
 
@@ -474,6 +483,13 @@
         return _pullFromServer(superusers[0])
             .then(function (data) {
                 if (Object.keys(data).length > 0) {
+                    // Preserve the device-local global player config: it's the
+                    // user's OWN player setup (names/icons/count), not shared
+                    // authored content, so it must survive the cloud pull for
+                    // players too (local-wins). A fresh device (empty local)
+                    // still falls through to the cloud value below.
+                    var _localCfg = _origGetItem('vica_global_players');
+
                     // Load the superuser's shared data (games, cards, etc.)
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
@@ -485,6 +501,17 @@
                     Object.keys(data).forEach(function (k) {
                         _origSetItem(k, data[k]);
                     });
+
+                    // Restore the local global player config when it has data.
+                    if (_localCfg) {
+                        try {
+                            var _p = JSON.parse(_localCfg);
+                            var _has = _p && typeof _p === 'object' &&
+                                (Array.isArray(_p.players) ? _p.players.length > 0
+                                                           : Object.keys(_p).length > 0);
+                            if (_has) _origSetItem('vica_global_players', _localCfg);
+                        } catch (e) {}
+                    }
                 }
                 _setSyncStatus('saved');
             })
@@ -545,7 +572,15 @@
                 k.indexOf('cardArrangement') === 0 ||
                 k === 'abcCardSnapshot' ||
                 k === 'savedCardSets' ||
-                k === 'deletedBuiltinSets') {
+                k === 'deletedBuiltinSets' ||
+                // GAMES (added June 9 2026): these were NOT backed up before, so a
+                // game-data corruption (e.g. the A-Z "shifted rows" incident) had no
+                // restore point. Now the last-3 timestamped card_backups include the
+                // games too. They're local-wins keys (see sync _localWinsKeys), so a
+                // restore here is the authoritative recovery path.
+                k === 'savedCustomGames' ||
+                k === 'savedCatchGames' ||
+                k === 'savedCombinedGames') {
                 backup[k] = _origGetItem(k);
             }
         }

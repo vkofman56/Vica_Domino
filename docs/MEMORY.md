@@ -1,5 +1,536 @@
 # Vica Domino Project Memory
-**Last Updated**: June 5, 2026 — uncommitted-work crisis RESOLVED (committed + pushed)
+**Last Updated**: June 11, 2026 — Studio is MOUSE-ONLY (Gr mode removed) · "Edit group" two-step flow · twin-clone cards (same stableId+uid) exist in real data + twin-guard delete. **NEXT: Phase 1.5** (see STATUS_NOTES.md — re-discuss the plan with the user first)
+
+---
+
+## 🖱️ June 11, 2026 — durable facts/decisions from the multi-select overhaul
+
+- **The Studio is MOUSE-ONLY by design (user's call); the GAMES stay touch+mouse.** This
+  justified removing the Gr (Group Edit) mode + button entirely — selection is passive:
+  Shift+click, marquee drag, row-letter click (whole line), Ctrl+A. Don't re-add
+  touch-only affordances to the Studio without asking.
+- **The canonical group-edit flow** ("Edit group", two-step): selection → right-click →
+  ⭐ Edit group → toolbar opens (in the menu's place, never covering the chosen cards)
+  with NO reference assigned → user right-clicks a selected card to make it the
+  reference → ref-gated actions enable. The toolbar NEVER opens from selection alone
+  (`_geToolbarRequested` gate). The user shaped this flow across 5 iterations — keep its
+  semantics (ask-then-act, no a-priori reference) when touching it.
+- **⚠️ TWIN-CLONE cards exist in real data**: cards that share the SAME `stableId` AND
+  `uid` (e.g. C2/C3 in *Multiply by 4*; an old duplication anomaly — normal Copy mints
+  fresh ids). Games reference cards by stableId, and storage is rebuilt from the DOM on
+  save — so deleting ONE twin never hurts games (`_hasSurvivingTwin` guard in
+  `confirmDeleteCard` / `geActionErase` skips the used-in-games warning when a twin
+  survives). If similar id-collision weirdness shows up elsewhere (relabel propagation,
+  role lookups), suspect twin clones first.
+
+---
+
+## 🏗️ June 9, 2026 — Foundation / data-model design notes (READ for the big picture)
+
+**Roadmap:** the full build-out plan + the detailed **Phase 1** stages live in
+`docs/ROADMAP.md`. Read it before starting pipeline work.
+
+The user is building a **multi-layer pipeline**, not a single tool. Decisions in the
+Studio data model propagate up through every layer, so foundation cleanliness matters
+and is cheapest to fix BEFORE the upper layers exist. The chain (user's words):
+
+- **Studio** — (a) create/edit game-cards, place them in rows representing some kind of
+  EQUIVALENCE; (b) make "games" = chosen sets of cards (their family = "same row
+  belonging") + "probs" assigning probabilities and in-game characteristics
+  (red/neutral/green) to the cards.
+- **Game Previewer** — (a) preview configurations of a game on a board; (b) save a
+  favorable configuration as a **"mini game"**.
+- **Big Game** — (a) create "rules of advance"; (b) collect mini-games + transitions
+  into **Big Games** (puzzle-like); (c) preview + publish.
+- **FinalPreview** — (a) individualized dynamic probabilities + transition rules per
+  user; (b) publish individualized Big Game; (c) collect Big Games into a **Game Flow**.
+
+**Adopted principle:** ONE source of truth / clean data model. Redundant per-card state
+(like `_gameRow`) is foundation debt that every layer would serialize and re-read — so we
+remove it now (#4) rather than migrate it out of mini-games/Big-Games later.
+
+### ⚠️ OPEN design question — card art is a LIVE link (decide at the publish layer)
+A game card stores **no picture of its own** — it holds a `stableId` that points to the
+Card Maker set card, and the art is looked up LIVE at render time
+(`getGameCardSVGWithFallback` → PRIMARY: `_findCardDataByStableId`; a frozen `svgMarkup`
+snapshot is only used if the source card is missing). **Consequence: editing a card's
+appearance in the Card Maker changes it in EVERY game that uses it, instantly** (variations
+too). Great for development; risky for *published* artifacts. Decision to make when the
+Big Game / publish layer is built:
+- **Live** (current): games always show the latest art; published games aren't stable.
+- **Snapshot-on-publish**: freeze each card's art into the mini-game/Big-Game at publish
+  time (reuse the existing `svgMarkup` snapshot path) so later Studio edits don't disturb
+  published work; unpublished games stay live.
+Not built yet — flagged so it's decided before the publish layer locks it in.
+
+### #4 DONE (eliminated redundant `_gameRow`) — the label is the single source of truth
+A card's **row is now derived purely from its label** (`_rowKeyParse` → `_effectiveRowLetter`);
+the redundant `_gameRow` field is gone from code AND cleaned from data. Shipped in stages,
+each self-tested + user-verified:
+- Stage 1 — `saveGameViewOrder` re-files by label (`3cb9ce3`).
+- Stage 2 — `_effectiveRowLetter` reads the label, not `_gameValue` (`684cef1`).
+- Stage 3a — the 2 grid-grouping lines (Find render @ `openGameView` + row-count UI @
+  `openCatchGameView`) group by `_effectiveRowLetter`; `_gameRow` drives nothing (`2b45a42`,
+  user-verified A-Z across Probs).
+- Step 1 — `_autoPromoteAddedCards` (add-cards-from-Card-Maker logic, runs for Find AND Catch)
+  is label-based; `keeperLetters` set replaced the `_gameRow`-derived map (`2965e9a`,
+  user-verified add-cards on non-A-row Find T-Z + Catch).
+- Step 2 — stopped WRITING `_gameRow` everywhere (5 sites: repair, sort, save, copy,
+  selection); kept `_gameValue` as the `_effectiveRowLetter` fallback for label-less cards
+  (`dfb3704`).
+- Step 3 — `_stripGameRow(game)` removes leftover `_gameRow` on open (Find + Catch), persisted
+  (`201b785`).
+
+**Kept:** `_gameValue` (row letter) is still written/read as the fallback when a label has no
+letter row-key. `_rowKeyRank` is now unused (left as a harmless pure helper). Behaviour change
+(user's explicit choice): a card **stays in its own letter's row** — cross-letter drag snaps
+back, and `_gameRow`/`_gameValue` no longer let a card live in a row that disagrees with its
+label. Non-A-row / copied / Card-Maker-added games all derive their row from the LABEL, so this
+removed no real feature.
+
+### Connected open question (cross-set identity — future, NOT built)
+Rows are identified by **letter alone**, set-agnostic: an "A" line from set ABC and an "A" line
+from another set would collapse into one row (per-card `cardSet`/`stableId` are preserved, but
+the row identity isn't set-aware). And a game can't yet be **applied to another card set**
+(games are bound to specific `stableId`s). For the pipeline's reuse goal, a "game = template"
+applied across sets needs line/card identity by **ordinal position + semantic role**, not the
+set-local letter (same-shape set = 1:1 positional map; different-shape = map + reconcile
+deviations with the user). #4's label-as-row model is a compatible stepping-stone, not a
+dead-end. Decide before the Big Game / publish layer.
+
+---
+
+## 🧩 June 9, 2026 — "Add Cards to Game" dialog UX (Studio)
+
+The dialog (`#add-card-overlay`, built by `openAddCardToGame` → `showCardsFromSet`,
+confirmed by `confirmAddCards`) was reworked:
+- **Two "Add Selected" buttons** — one at the TOP next to the title (`#add-card-confirm-top`)
+  + the original at the bottom; both toggled together with the selection via
+  `_showAddCardConfirm(show)`.
+- **Cards shown BY ROW** — grouped by `_rowKeyParse(label)`, sorted by `_rowKeyRank`.
+- **Adjustable dialog width** — sized to the LONGEST addable row, **capped at 10 cards**
+  (and at viewport): `cap = min(longestRow, 10, viewportFit)`, box width ≈
+  `16 + cap*72 + 64`. No half-cards.
+- **Rows longer than `cap` are BROKEN into stacked sub-lines** of `cap` cards (pre-chunked,
+  `flex-wrap:nowrap`), separated by a thin **DASHED** line; **SOLID** divider between
+  different letter rows; the row letter shows on the **first sub-line only**. No horizontal
+  scrolling anywhere.
+- **Wheel scroll** — handled by a **capture-phase `wheel` listener on the overlay** (bound
+  once via `overlay._wheelBound`) that does `grid.scrollTop += deltaY` (line/page deltas →
+  px). Needed because native wheel landed on the wrong element in the fixed nested-scroll
+  dialog (it only worked after grabbing the scrollbar). The dialog box is a flex column
+  (`max-height: calc(100vh - 80px)`, `overflow:hidden`); the grid is `flex:1;min-height:0;
+  overflow-y:auto`. Final tip `24dfe78`.
+- **Cross-set copy already exists** (discovered): `_copyCardToSet` / `_moveCardToSet`
+  (right-click "Copy/Move to set…") — duplicate-based today; Phase 1 makes it a linked
+  instance.
+
+---
+
+## 🐞 June 9, 2026 — "A-Z game rows got shifted" — corruption post-mortem
+
+The A-Z game (Game Creator / Find the Doubles, set "ABC") rendered with rows
+shifted/mixed — e.g. a "C" card sitting at the top of row D, a "d" leaking into
+row E, etc. **No code change caused it** (the only commit that day, the
+freeze-MODE cleanup `310e1b9`, was audited and touches no card data / render /
+save). It was pre-existing **data** corruption in `savedCustomGames`, surfaced
+while looking at the grid.
+
+### A game card's identity is THREE redundant fields that can drift apart
+Each entry in `game.cards` (a game inside `savedCustomGames`) carries:
+- **`label`** — e.g. `C2_C` (`<RowKey><Idx>_<drawnLetter>`). Parsed for the row by
+  `_rowKeyParse` (`/^([a-z]?[A-Z])/`).
+- **`stableId`** — e.g. `1776228033142_ABC_C2_ody5` = `<ts>_<SET>_<cardId>_<rnd>`.
+  This is the POINTER used to draw the art: `getGameCardSVGWithFallback` →
+  `_findCardDataByStableId` is the PRIMARY lookup (falls back to label/DOM/`svgMarkup`).
+- **`_gameValue`** (row letter) + **`_gameRow`** (numeric row index). The RENDERER
+  files cards into grid rows by **`_gameRow`** (then `_gameValue`/`_effectiveRowLetter`).
+  `_gameRow` for a single letter = `letter.charCodeAt(0) - 65` (A=0…Z=25).
+
+When healthy all three agree. The corruption was that they **drifted apart**:
+- **Rows A–M**: `label` & `stableId` agreed (correct); only `_gameValue`/`_gameRow`
+  had drifted **+1 row** on ONE card per row (e.g. `C2_C` had `gv=D/gr=3`). The
+  renderer groups by `_gameRow`, so that card got dragged into the next row and
+  drew its letter there → the "shifted by one" look.
+- **Rows N–Z** (24 cards): a SEPARATE, OLDER corruption — the `stableId` POINTERS
+  point at the wrong source card (`O→N`, `P→O`, `Q→P`, the four `N` cards → `M5`,
+  `Y→X5`, `Z→Y5/X5`). Timestamps differ (some `1776520…`, `1779420…` vs the base
+  `1776228033142`), i.e. cards added later, then a `rowKey+N` relabel re-stamped
+  clean sequential labels on top of shifted pointers.
+
+### Likely cause
+The **shift-drag / row-move / insert-delete-relabel** operations in Game Creator
+that move cards between rows update `_gameRow`/`_gameValue` and can renumber
+labels, but do **not atomically keep label / stableId / _gameRow,_gameValue in
+sync**. Over many edits they drift. (The "dashed shift-drag silently moves +
+saves cards across rows" is the most dangerous of these.)
+
+### How it was recovered (console, while logged in as superuser on the Studio)
+1. There is **no games backup** — the Firebase `card_backups` collection
+   (`_getCardBackupData`) backs up card SETS only, NOT `savedCustomGames`; the main
+   sync OVERWRITES with no history; the Studio `_undoStack` is in-memory; git has
+   only code. The cloud copy of A-Z was **also corrupted** (already synced up).
+2. Fixing the card-array ORDER does **nothing** — the renderer re-flattens from
+   `_gameRow` on every render. Must fix `_gameRow`/`_gameValue` themselves.
+3. Final repair: **re-file every card by its `label` row-key** (`_rowKeyParse`),
+   setting `_gameValue=L`, `_gameRow=L.charCodeAt(0)-65`, then reload. A–M came back
+   perfect; N–Z rows are clean but a few still DRAW a shifted letter (the bad
+   `stableId` pointers) — user opted to finish those manually.
+
+### PREVENTION (1–3 BUILT June 9 2026)
+1. **✅ Back up games** (`b78dd0a`) — `savedCustomGames` / `savedCatchGames` /
+   `savedCombinedGames` added to `_getCardBackupData` (sync.js ~556), so the last-3
+   timestamped Firebase `card_backups` now include games. `syncRestoreCardBackup`
+   writes every key back generically, so restore needed no change. sync.js
+   cache-buster → **`local-wins-4`**. **Recovery now = one-click restore** via
+   `syncListCardBackups()` / `syncRestoreCardBackup(id)` instead of console surgery.
+2. **✅ Games auto-repair** (`a1fae1a`) — `_repairGameRowsFromLabels(game)` re-files
+   every card by its **label** row key (`_gameValue`=key, `_gameRow`=sequential
+   index; leaves labels/stableIds/art/freeze/probabilities alone). Helper
+   `_rowKeyRank`. `_maybeOfferGameRowRepair(game, gameIndex)` detects `_gameValue` ≠
+   label-rowkey drift and OFFERS a one-click re-file on opening the game (letter-
+   keyed games only, ≥1 mis-filed card, once per game per session, behind a confirm);
+   hooked into `openGameView` before the migration passes. Exposed
+   `window.repairGameRowsFromLabels` for console use. Mirrors `repairRowsFromArt`.
+3. **✅ Safer shift-drag** (this commit) — `_gvPointerUp` now **confirms before a
+   cross-LETTER move** (`dragOverRow.dataset.rowLetter !== dragSourceRow`'s). Moving
+   between ZONES of the same letter (top/neutral/bottom — the freeze-state change)
+   is normal and NOT guarded. Cancel aborts cleanly (`cleanupGvDragState` keeps the
+   selection).
+4. **TODO (long term)**: stop storing `_gameRow` redundantly — derive the row from
+   ONE authoritative field at render time so there's nothing to drift.
+
+---
+
+## ✅ June 8, 2026 — Player count comes from the GP 0 toggle (Start page eliminated)
+
+The big one. Player count is now chosen ONCE on GP 0 (a 1/2/3 toggle) and applies
+to every game; the per-game "1 player / 2 players" buttons and the separate Start
+page are gone — you click a game → Setup page (with a **Start Game** button) →
+play. Shipped across many commits (latest tip `b105a97`). Cache-busters now:
+**`game.js?v=global-players-3`**, **`style.css?v=dgx-redesign-41`**,
+`sync.js?v=local-wins-3`. Builds on the global Icons-Players config (June 7).
+
+### The GP 0 player toggle (1/2/3) — `#intro-player-toggle`
+- `data-players` = 1/2/3. Redesigned look: the **white thumb holds 1 dark figure
+  and sits in the MIDDLE = 1 player**; the **left flank = 2 figures** (slide left =
+  2 players); the **right flank = 3 figures** (slide right = 3 players). Track tints
+  amber/purple/teal. SVGs `_GP_PLAYER_SVG_1/2/3` + `_gpPlayerSvg(n)`.
+- **Click-by-ZONE** (not cycle), in `_setupIntroPlayerToggle`: the 1-PLAYER zone =
+  the circle + 20% of its radius on the left + 25% on the right (centered on the
+  track center); **clicking the current circle (wherever it's displaced) also
+  resets to 1**; left of the zone → 2; right → 3.
+- The 1/2/3 stick-figure glyph also shows in the Setup/Board subtitle
+  (`_gpSetSubtitleMode`, reads the toggle).
+
+### Count flows from the toggle — single source `window._gpCurrentPlayerCount()`
+- **`window._gpCurrentPlayerCount()`** = the one source of the chosen count (reads
+  the toggle). Replaced the old "read `.player-btn.selected`" everywhere.
+- **`_applyGameSetupToPlayerScreen`** (index.html) now renders the setup INLINE for
+  Find AND Catch: `renderInlinePlayerNames(count, includeXeno)` where count =
+  `_gpCurrentPlayerCount()` (catch clamped to 1, or 2 only in touch), includeXeno =
+  `_currentTimerOn`. It no longer uses the count buttons at all. The (hidden, via
+  step-4 CSS) player rows feed `startGame()` the count; names/icons come from the
+  global `vica_global_players` config.
+- **Catch**: the start-game interceptor (capture-phase `#start-game-btn` handler)
+  and `openCatchPlayModal` read `_gpCurrentPlayerCount()` → `_catchNumPlayers`. The
+  catch board shows the global icon+name (`_catchPlayerLabelEl`).
+
+### GP 0 "won't open it" guard (the gatekeeper)
+Clicking a game that doesn't support the current mode shakes the tile + shows a
+brief red note and STAYS on GP 0 (no navigation). In `_bypassTileClick` +
+`_showModeWarning`:
+- **Input mode** (`_gameSupportsMode`) → "Not available in hand/mouse mode".
+- **Player count** (`_gameSupportsPlayerCount`) → "No 1 player option!" /
+  "No 2 player option!" / "No 3 player option!" (all singular "player").
+- `_gameSupportsPlayerCount` mirrors `_applyGameSetupToPlayerScreen`'s setup
+  resolution: a Find game with **no own `setup`** falls back to the **template**
+  (`_loadDefaultFindGameSetup` → Match 0-4). Option id → count via
+  `parseInt(id.slice(1))` (p2x→2). This guard guarantees the Setup page never gets
+  an impossible count, so the inline render can trust the toggle.
+- The mode-warning note is right-aligned to the game box's right edge, nudged.
+
+### What got REMOVED (Stage 3 full refactor)
+- The **6 `.player-btn` count buttons** (static HTML). An **empty hidden
+  `.player-select` container is intentionally KEPT** so the ~6 scattered
+  `document.querySelector('.player-select').style…` refs don't null-crash
+  (cheaper than guarding each). 
+- **`selectPlayerCount`** (game.js, ~236 lines) + its click binding — gone.
+- `_applyFallbackPlayerButtons` now renders inline too.
+- The separate **Start page (player-names view) is eliminated** — it renders
+  inline on the Setup page; the **Legend** lives on the Setup page (gated on
+  Level-buttons-visible).
+
+### Gotchas for future chats
+- Player count source is the TOGGLE (`_gpCurrentPlayerCount`), never the buttons
+  (they don't exist). Don't reintroduce `.player-btn.selected` reads.
+- `_catchNumPlayers` for catch = `(touch && toggleCount===2) ? 2 : 1` (catch is
+  1/2 only; mouse = 1).
+- A game with no own `setup` runs on the **Match 0-4 template** — so its player
+  options (and the 3-player warning) reflect the template, not the Studio view.
+- 3-player games: the toggle supports 3, but few games enable a 3-player option —
+  the guard warns "No 3 player option!" for those.
+
+---
+
+## ✅ June 7, 2026 (cont.) — Global player config + eliminating the Start page
+
+Big session. Two intertwined threads. All shipped via `scripts/ship.sh` (latest
+tip `98f2806`). Cache-busters now: **`style.css?v=dgx-redesign-35`**,
+**`game.js?v=global-players-2`**, **`sync.js?v=local-wins-3`** (bump these when
+those files change). Everything below is on the canonical branches.
+
+### THREAD A — "Icons-Players" is now the GLOBAL player config
+
+The Icons-Players panel (GP 0 → Misc → "Icons-Players") is the single source of
+players. Storage key **`vica_global_players`**, shape
+`{count, players:[{icon, name}, …]}` where `icon` = a CHARACTER_ICONS key
+(star/cat/robot/dino/unicorn). The agreed plan was: (1) persist → (2) games read
+it → (3) Start-on-Setup → (4) remove per-game pickers. **Steps 1, 2, 4 are DONE;
+step 3 is NOT.**
+
+- **Step 1 — persist** (index.html): helpers `_ipLoadConfig` / `_ipSaveConfig` /
+  `_ipSaveAndClose`. The panel button is now an enabled **"Save"** (was a dimmed
+  "Start"); on open it **pre-fills** each row's icon+name from the saved config;
+  Save shows "Saved ✓" then returns to intro.
+- **Step 2 — games READ it.** game.js `_applyGlobalPlayerConfig(count)` pre-fills
+  the per-game rows in `selectPlayerCount`; and **`startGame()` reads name+icon
+  straight from `vica_global_players`** (prefers global, falls back to the DOM
+  input then default; player COUNT still from the rows). Catch BOARD shows the
+  global icon+name via **`_catchPlayerLabelEl(idx)`** (2P per-zone labels + 1P
+  `.catch-hud-player`). All **additive/guarded** — no saved config ⇒ original
+  defaults (P1=star, P2=cat).
+- **⚠️ sync.js — `vica_global_players` is LOCAL-WINS in BOTH paths.** It's
+  per-device user config, not shared content. Added to `_localWinsKeys` (the
+  superuser pull) AND explicitly preserved in **`_loadSharedData`** (the
+  guest/player pull, which otherwise wipes local and restores the superuser's
+  cloud copy). Without BOTH, a reload rolled the config back to a stale cloud
+  value (the classic CLAUDE.md LOCAL-WINS bug). The preview browser is a guest
+  `player-guest`; the superuser is `Vica` (see firebase-config SUPERUSERS).
+- **Step 4 — per-game pickers REMOVED.** CSS hides
+  `#name-inputs .player-input-row:not(.xeno-row)` (covers Find + Catch touch +
+  Catch mouse). The **player-COUNT buttons stay** (user chose to keep count
+  per-game; that feature is removed "much later"). `_alignXenoRowToPlayerRow`
+  now early-returns when the player row is hidden (0×0) so +timer Start pages
+  don't get garbage positions.
+- **Icons & Players panel chrome:** a **dimmed, non-working "Start the Game"**
+  button sits LEFT of Save, spanning exactly the five icons (overlays the hidden
+  icon-clone spacer via absolute `left:0/right:0`; `.ip-start-row .ip-startgame-
+  dim` is a 2-class selector to beat the mobile `.btn{width:200px}` rule). Same
+  height as Save (42px). UI only.
+
+### THREAD B — eliminating the Start page (move its bits elsewhere)
+
+The Start page (player-names view) is being emptied so it can go away. Its pieces
+now live on GP 0 / the Setup page:
+
+- **Misc → "Xeno-Icon" box** (renamed from "Xeno-box") opens `#xeno-box-screen`
+  showing the Xeno icon + "Xeno ⏳" box (exact copy of the Start page's xeno row:
+  canonical `XENO_ICON_SVG` in `.xeno-icon-container` + the pink `.xeno-input`).
+  Parked for later use.
+- **Game-icon eye popup:** RIGHT-click a game's eye on GP 0 → `#game-icon-popup`
+  (a small modal) shows that game's icon. `_openGameIconPopup(iconSVG, title)` /
+  `_setupGameIconPopup`; close via ×/backdrop/Esc. **LEFT-click unchanged** (the
+  cards-library overlay). The icon comes from the tile builders (no navigation):
+  Find = `_introFindIconSVG`; **Catch = new `_catchSetupIconSVG(game)`** which
+  builds the **Medium (triangle) bubble cluster** (1 big + 3 small bubbles filled
+  with the game's pictures) off-DOM, mirroring `_fillCatchLevelBubbles` then
+  `_pbUniqueIds()` to avoid id collisions — so the catch tile + popup match the
+  Start/Setup page (the old 2-bubble `_introCatchIconSVG` is no longer used for
+  tiles).
+- **+timer Start pages:** the Xeno icon + "Xeno ⏳" box are removed (CSS hides
+  `.xeno-row .input-section:not(.name-section)` + `.xeno-row .xeno-input`); the
+  Start Game button stays.
+- **Setup/Start lower box:** the game icon `#setup-game-icon` is hidden (it's in
+  the eye popup now), and the player-options **TITLE** `#setup-h3-players` is
+  hidden — but the player-option **buttons** (`.player-select`) STAY (removed much
+  later, per user).
+- **The "Legend"** = the read-only options chart `#selected-options-row`, built by
+  **`_renderStartSummary`** (Timer / Probability / Level / Type). It now has a
+  centered **"Legend"** title and lives on the **SETUP page**, not the Start page.
+  Gate: it shows whenever the **Level buttons are visible** (`#start-screen
+  .game-level-select`) — the reliable "Setup page" signal that works for Find AND
+  Catch mouse/touch (where player-names renders inline on the setup). The gate is
+  centralized inside `_renderStartSummary`; it **live-updates** as the user
+  changes options (delegated click listener on `.level-btn`/`.player-prob-chip`/
+  `.setup-type-line`/`#setup-timer-toggle`, plus a render at the end of
+  `_applyGameSetupToPlayerScreen`). Known minor cosmetic: catch Level row can read
+  "Medium Medium" (difficulty + level label coincide) — not yet de-duped.
+
+### Gotchas worth remembering
+- The same `#selected-options-row` is written by game.js (a "N dominos" level
+  chip) AND `_renderStartSummary` (the Legend). A Box-1 childList observer
+  re-asserts the Legend when game.js overwrites it; guarded by `#start-summary-
+  inner` to avoid loops.
+- "Setup page" vs "Start page" is NOT player-names visibility (Catch shows
+  player-names inline on the setup). Use **Level-buttons-visible**.
+- Catch gameplay (`_catchGame.players`) still only has `{lives,coins,fallingCards}`
+  — the board icon+name is display-only, read straight from `vica_global_players`.
+
+---
+
+## ✅ June 7, 2026 — GP 0 player toggle, "Miscellaneous" column, "Icons-Players" panel
+
+All shipped via `scripts/ship.sh` to the 3 canonical branches (latest tip this
+session: `0b19863`). Working tree clean. All of this lives in `index.html` +
+`css/style.css` (the Game Previewer / `GP 0` intro). Cache-buster ended at
+`style.css?v=dgx-redesign-22`.
+
+### The big-picture VISION the user is building toward (important context)
+"Icons-Players" is becoming the **single, global** place to set player count
+(via the GP 0 toggle), assign icons to players, and enter names — and those
+settings will **persist across every game** launched from GP 0. Eventually the
+**per-game 1/2-player picking, icon picking, and name entry get REMOVED** from
+each game's setup, because this panel replaces them. Separately/much later, an
+**"Aligning the Games"** tool will combine "Icons-Players" with several
+Game-Preview games into a final **GameLine**. For NOW everything below is
+**UI-only**: nothing persists yet and nothing is wired to game logic (the
+"Start" button is deliberately dimmed/disabled). Persistence + per-game-setup
+removal is the next step.
+
+### GP 0 intro — 1/2-player toggle (`93c9ead`, `0b19863`)
+- A **second toggle** next to the hand/mouse one: **1 player / 2 players**, with
+  **SVG stick-figure** icons (1 figure / 2 figures), mirrors `.intro-input-toggle`
+  structure driven by `data-players`. `#intro-player-toggle`,
+  `_setupIntroPlayerToggle()`. UI only — flips its own visual state, not wired to
+  game behavior. Default 1 player.
+- The toggle's stick figures are nudged **down 3px** (`.intro-player-toggle-icon-
+  left/right { top:3px }`) to align with the ✋/🖱 emoji (the SVG fills its box
+  while emoji sit low in their line box).
+
+### GP 0 intro — "Miscellaneous" column (`a5eeeec`, `7e0b307`, `92ccce3`)
+- A fixed **narrow column** LEFT of the game-type columns, header "Miscellaneous",
+  containing one clickable box **"Icons-Players"** (`#misc-icons-players`). Built
+  in `_renderIntroColumns()`. The grid uses `--game-cols` (set in JS) so the
+  `<700px` single-column mobile stack still works. (Label went "Icons and
+  Players" → "Icons-Player" → "Icons-Players" — the last fits one line in the box.)
+
+### "Icons-Players" standalone panel (`6386e11` + many tweaks)
+Clicking the Misc box opens `#icons-players-screen` (a new `.screen`), built by
+`window._openIconsAndPlayers()`. Self-contained — reuses `CHARACTER_ICONS` +
+`.icon-selector`/`.icon-btn`/`.player-input-row` styling but holds its OWN
+selection state and touches NO game logic.
+- Shows **1 or 2 player rows** per the GP 0 toggle, each = icon picker + name box.
+  **No game icons** (no dominoes/timer). Back/home return to intro.
+- **Name boxes share the per-game design** — extended `#name-inputs input` styling
+  to `#ip-rows input` (one rule, near-white rounded box, `#333` text, gold focus).
+- **Placeholders**: "Player 1" / "Player 2" (not "… name").
+- **Heading** `#ip-heading`: text is singular "… for the player" at 1 player,
+  plural "… for each player:" at 2; **unbold**; **left-aligned to the 2nd icon**
+  (`padding-left: calc(50px+12px)`); **lifted 7px up** off the icon row
+  (`position:relative; top:-7px`). Title `#icons-players-screen h1` moved up 10px.
+- **Start button** (`#ip-start-btn`) is **dimmed + disabled** (UI only). It is
+  left-aligned AND width-matched to the player name box by placing it in a flex
+  row that mirrors the player rows, using a **hidden clone of the icon section**
+  as a spacer (`.ip-start-row` / `.ip-start-btn-section`, `width:100%`). This was
+  the robust fix after grid `justify-self`/margin/transform all fought the
+  2-column `.player-names` grid — see commit `19fd6cb`. The button is re-homed
+  into that row on each open (rescued before `#ip-rows.innerHTML=''`).
+- **2-player icon defaults are DISTINCT** (`5f7c347`): default = first icon NOT
+  already taken by an earlier player → P1=star (first, like 1-player), P2=cat.
+  Fixes the earlier bug where both defaulted to star. Mutual exclusion (can't pick
+  the same icon for two players) is enforced by `_ipUpdateTaken` + the click guard
+  (`if (.icon-taken) return`); picking a free icon frees the old one dynamically.
+
+### Setup + Board pages — player-mode glyph (`172f9c0`, `6f83c72`)
+- Next to the ✋/🖱 input glyph, a **1/2-player stick-figure glyph** reflecting the
+  GP 0 toggle now shows. Added in `_gpSetSubtitleMode()` (the Game Preview
+  subtitle) via `.subtitle-player-glyph` (SVGs `_GP_PLAYER_SVG_1/2`); it
+  **propagates to the board pills automatically** because `_gpFillGameName()`
+  clones the subtitle's children. Carries **no text**, so the js/game.js
+  subtitle name-reader is unaffected. Nudged **up 2px** (`top:-2px`) there to
+  match the emoji (opposite direction from the GP 0 toggle because the
+  vertical-align context differs).
+
+### Layout note worth remembering
+`.player-names` (shared by the per-game Start page AND the Icons-Players panel) is
+a 2-column grid `1fr auto` (inputs left, Start button right). Aligning a button to
+the name COLUMN inside it via grid/justify-self/margin is unreliable — the flex-
+row-with-hidden-clone-spacer trick is the dependable pattern. Also: measuring
+element positions at panel-open time is unstable; defer with `requestAnimationFrame`
+or settle, or (best) align by DOM construction instead of measuring.
+
+---
+
+## ✅ June 6, 2026 — board identity pill + Studio probability badges + group repairs
+
+All shipped via `scripts/ship.sh` to the 3 canonical branches (latest tip this
+session: `2718449`). Working tree clean.
+
+### Game boards (Previewer / `index.html` + `js/game.js`, `css/style.css`)
+- **Game Preview subtitle** now shows the **input-mode glyph** after the game
+  name — **✋ touch / 🖱 mouse** (HTML entities `&#9995;` / `&#128433;`, matching
+  the intro toggle). Helper `window._gpSetSubtitleMode(mode)` appends a separate
+  `.subtitle-mode-glyph` span (NOT merged into the name, so name-parsers stay
+  clean). Find / Catch / Combined.
+- **Unified Board identity pill (Tier A)** — one centered pill `.board-id-bar` at
+  the very top of EVERY board (Find `#game-screen`, Catch `#catch-game-overlay`,
+  future types): **page name · game name · glyph**. The editable page-name label
+  lives inside it (same id/key → editing & persistence unchanged). Game name +
+  glyph filled by `window._gpFillGameName(targetEl)` (clones the Preview
+  subtitle's children). Separator is a CSS `::before` that auto-hides when no
+  game name. Catch overlay builds the same pill in JS (`board-id-game-catch`).
+- **Removed the "MathGrain Domino" brand title** from game boards. Header now
+  carries only the combined-game stage-stones + turn indicator, with the "bar"
+  styling stripped so it collapses when empty (single-player Find). Removed the
+  redundant `game-name-display` fade. `js/game.js` `showGameName()` no-ops
+  safely (element gone). Cache-busters bumped: `style.css?v=dgx-redesign-2`,
+  `game.js?v=page-name-persist-6`.
+
+### Studio per-card probability badges (`pm-studio-DrV.html`)
+The lost "see a card's probability" feature, rebuilt from the data model
+(`_probRed`/`_probGreen` per card + `_freezeState`; defaults frozen/floating=100,
+neutral=50). Key new fns: `_cardProbBadgeInfo(c)`, `_applyProbNumberBadges()`,
+`_setProbBadgeContent(el,bi)` (called in both game-view render paths after
+`_applyPModeFlags`).
+- **Show the probability NUMBER** on every non-default card (grouped + ungrouped,
+  Find + Catch). Default cards keep a dot. Click a badge → edit popup.
+- **Color = GROUP** (user's choice): real multi-card groups keep their group
+  color; lone cards (size-1 groups / per-card probs) go **grey**
+  (`_PROB_SINGLE_GREY = rgba(84,84,100,0.96)`) and their fake size-1 underline is
+  stripped. `_cardGroupSize` uses the legacy-aware `_cardMatchesIdent`.
+- **Group badges** (default grouped cards) show a **dot only** — the group-INDEX
+  number was dropped (grouping is read from color + underline). Non-default
+  grouped cards still get their number painted over the dot.
+- **Two-channel (red/green) numbers stack VERTICALLY** ("90"/"20") via
+  `_setProbBadgeContent`.
+- **100 → roman "C"** on ALL games (narrow glyph, covers less art); hover shows
+  "100". `_roman100 = (bi.text === '100')`.
+- **All probability flags wired into the instant custom tooltip** — added
+  `.prob-num-badge, .mcard-badge, .pmode-flag` to the `initStudioTips()` `SEL`
+  list (it lazily moves `title`→`data-tip`, suppressing the slow native one).
+- Fixed: grey p-mode dot stacking on top of a colored number (`_applyPModeFlags`
+  now skips cards that already have a `.prob-num-badge`).
+
+### Group data repairs / fixes (the important ones)
+- **Self-healing mGroup re-bind** (`_migrateMGroupsToUidForm`): older groups
+  stored members as **legacy bare labels** (e.g. `"D7"`) that no longer matched
+  the current cards (relabeled with value suffixes, `D7 → D7_6x4`), so they
+  rendered **0 badges/underlines** ("groups are broken"). Now, when a legacy
+  label has **exactly one** card matching `label === m || label.startsWith(m+'_')`,
+  it's rewritten to that card's stable `u:<uid>`. Only unambiguous matches;
+  deleted-card members (0 matches) are left as-is and logged
+  (`[mGroup re-bind] …`). Runs on game open, persisted by the open/save path.
+  Verified: x2 x4 21 groups, 0-4 A 12, Multiply by 4 23 all render again.
+- **Catch group/card probability SAVE was broken** — `_showGroupPopup`'s Save
+  handler was hardcoded to `loadCustomGames`/`currentGameViewIndex`/
+  `savedCustomGames`, so on a Catch view (index −1) it looked up `games[-1]` →
+  undefined → silently bailed. Now catch-aware (`savedCatchGames` when
+  `currentGameViewIndex < 0`). Find path byte-identical.
+- **Couldn't make a group in Find** — cards with per-card probabilities are each
+  in a **size-1 mGroup**, and the grouping guard counted those as real groups →
+  "cards from different groups — ungroup first" with no visible group to ungroup.
+  `updateMCardUI` now has `_realGroupOf(ident)` that only returns a group index
+  for **2+ member** groups, so size-1 groups never block grouping or show
+  "ungroup first" (createMCardGroup absorbs them). Real multi-card protection
+  (2+ distinct real groups → still blocked) preserved. Find + Catch.
+
+### Workflow note
+Per-change verification was done by driving the Studio in the Claude Preview
+(localhost:8000). The Studio gates its editor behind a superuser login overlay —
+DON'T log in; verify via the rendered DOM (hide `#sync-login-overlay` to
+screenshot). Any test mutation written to `savedCustomGames`/`savedCatchGames`
+was restored afterward.
 
 ---
 
@@ -7,23 +538,44 @@
 
 The whole week's work is now **committed and pushed**. All 3 canonical branches
 (`claude/review-project-docs-JOOeh`, `…general-session-yVBQq`,
-`…resume-vica-domin-UOJun`) are byte-identical at **`c712fb1`** on GitHub. History
-from the May 28 baseline `b76930f`:
+`…resume-vica-domin-UOJun`) stay **byte-identical** on GitHub — the tip advances
+with each `bash scripts/ship.sh` (the crisis was resolved at `c712fb1`; later
+doc + `ship.sh`/`.gitignore` commits have since advanced it — run `git log` for
+the live tip). History from the May 28 baseline `b76930f`:
 - `c13b8cd` — WIP snapshot of the full pre-recovery state (the 244-edit week).
 - `fb66cac` / `8b48bf7` / `c712fb1` — new **Card Maker copy/move-rows** feature
   (menu distribute + insert/shift + drag-with-Move/Copy popup), built & verified
   this session.
 
-**Safety net still on disk** (if we revisit the rollback idea): branches
+**Safety/recovery assets still on disk — KEEP, do NOT delete** (user wants them
+retained; we may go back to inspect/use them — NOT a cleanup target): branches
 `wip/full-20260604` (full pre-fix state) and `recovery/replay` (May 30 11:04 PM
 reconstruction `c49a602`), plus `_recovery_transcripts_backup/` (transcripts + change
 tables). Transcript-based recovery (reconstruct→verify→commit per time-point) is still
 available — but the DATA (localStorage) can't be time-traveled, so testing OLD code
 needs an isolated origin.
 
-**STILL TODO:** prevention setup — (#1) a `SessionEnd`/`Stop` auto-commit hook,
-(#2) `scripts/ship.sh` (bump + add + commit + push to 3 branches). Also the
-**`sync.js` games-not-protected gap** (June 2 entries) is still unfixed.
+**Prevention setup — DONE (June 5):** (#1) the 2-hourly `wip/auto-snapshot`
+launchd agent (`scripts/auto-snapshot.sh`) is the passive backstop; (#2)
+`scripts/ship.sh` is built & verified — the active one-step shipper run after
+every change: bump banner + `git add -A` (strips `.DS_Store`) + commit + push
+the SAME commit to all 3 canonical branches + print each tip with ✓/✗. Refuses
+on detached HEAD or with no commit message. Usage: `bash scripts/ship.sh
+"message"`. This replaces the old manual push-trio / bump-trial ritual that
+"only felt like shipping." Also fixed in the same pass: `.DS_Store` is now
+gitignored and ship.sh strips it from the index so it can't be committed.
+
+**RESOLVED — `sync.js` games-protection gap (verified June 5):** the June 2
+"games-not-protected" gap is **FIXED**, committed in `c13b8cd`. `js/sync.js`
+now has a **LOCAL-WINS** block — `_localWinsKeys = ['pageNameLabels_gp2',
+'savedCustomGames', 'savedCatchGames', 'savedCombinedGames']` — that snapshots
+any of those keys that hold local data, performs the cloud overwrite, then
+restores them (logs `[Sync] Kept local data for "<key>"`). A stale cloud copy
+can no longer roll back games or page-name labels. The fix was written during
+the May 30–Jun 4 uncommitted week, which is why the June 2 entry still said
+"unfixed." **Trade-off (by design):** these 4 keys are device-local-
+authoritative, so edits to them do NOT propagate device→device; a fresh/empty
+device still pulls cloud normally. Acceptable for single-superuser editing.
 
 ---
 
@@ -149,7 +701,12 @@ STATUS_NOTES June 2 (cont.).
 - The three deletion scopes are intentionally separate: **chip ×** = one Prob,
   **⚙ Manage** = bulk prune (keep game), **Delete Game** = picker incl. all→game.
 
-### ⚠️ Sync gap — games are NOT protected from a stale cloud (UNFIXED)
+### ⚠️ Sync gap — games are NOT protected from a stale cloud  →  RESOLVED June 5
+> **THIS GAP IS FIXED** (committed `c13b8cd`; verified June 5). `js/sync.js` now
+> has a LOCAL-WINS block (`_localWinsKeys`) that preserves `pageNameLabels_gp2`
+> / `savedCustomGames` / `savedCatchGames` / `savedCombinedGames` across a sync.
+> See the "RESOLVED — sync.js games-protection gap" entry at the top of this file.
+> The text below is the ORIGINAL June 2 diagnosis, kept for history.
 - **Symptom seen:** Previewer showed only 2 Find games while the Studio library
   showed 6 (games "deleted from GP 0, still in A-L"). It self-resolved (stale
   tab), data was never lost.

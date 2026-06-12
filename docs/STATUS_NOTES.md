@@ -1,8 +1,298 @@
 # Vica Domino - Project Status Notes
-**Date**: June 5, 2026 — uncommitted-work crisis RESOLVED; copy/move-rows feature shipped
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors at `c712fb1`, pushed)
-**Total Commits**: 644+
+**Date**: June 11, 2026 — Card Maker multi-select overhaul (Gr mode removed, "Edit group" flow) · twin-guard delete fix · Enter-to-login
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `d50ac83` + this doc commit; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1400+
 **Codebase Size**: ~18,000 lines across 4 main files
+**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
+
+---
+
+## ▶▶ NEXT CHAT: Phase **1.5 — apply a game to a set** (plan drafted; user wants to re-discuss first)
+Phase 1 stages **1.1–1.4 are DONE** (commit ledger in `docs/ROADMAP.md`). 1.5 is the last
+open Phase-1 stage. A 3-step plan was presented and the user said **"I do not have a
+clear picture yet — we will do it later"** — so START BY WALKING HIM THROUGH IT AGAIN
+(ideally with a concrete example from his data) before building anything:
+- **1.5a** — mapping engine, no UI: read a game's shape (lines × cards, derived from
+  labels per the #4 model) + a target set's shape; compare; produce the new game object
+  for the same-shape case. Verify read-only in preview on real data.
+- **1.5b** — "Apply to set…" action on each game in the Library GAMES list → set picker →
+  same-shape confirm ("8 lines × 4 cards → mapped 1:1, probs/colors carried") → a NEW
+  game is saved (additive; the source game untouched). The user clicks through this stage.
+- **1.5c** — reconciliation dialog for almost-similar sets (missing line / extra card /
+  count diff): list the deviations, the user resolves each (skip / partial / pick
+  manually), the rest maps automatically. No silent guessing (locked roadmap behavior).
+- Scope of the first pass: Find + Catch games. **OPEN QUESTION for the user:** which
+  game → which target set as the first real test pair (one same-shape, one slightly-off)?
+
+---
+
+## June 11, 2026 (latest) — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
+
+Working tree clean; everything shipped (tip `d50ac83` + this doc commit). One session,
+~12 ships; each change verified in the live preview (login Vica) before shipping.
+
+- **Multi-select "Edit group" flow** (replaces both the auto-popping toolbar and Gr mode):
+  select cards (Shift+click / marquee / **row-letter click** / Ctrl+A) → right-click →
+  big menu → **⭐ Edit group** (label history: Set as Reference → Do as Reference →
+  Follow the reference → Edit group) → the small toolbar opens **in place of the menu**,
+  positioned to **never cover the chosen cards** (`_showGEToolbarNextTo` candidate walk),
+  with **no reference pre-assigned** — status asks "right-click one to make it the
+  reference"; right-clicking a selected card then sets/moves the reference **directly**
+  (no menu in between); ref-gated buttons enable only after that choice. The toolbar opens
+  ONLY via Edit group (`_geToolbarRequested` gate).
+- **Gr (Group Edit) mode + button REMOVED** (`51c3e87`) — user decision: the Studio is
+  **mouse-only**; games stay touch+mouse. Ported first: row-letter click toggles the whole
+  line into the passive selection (no mode needed); Ctrl+A = passive select-all.
+  `exitGroupEditMode` survives as clear-selection + close-box (the toolbar's Exit button).
+- **Context menus are draggable** — dotted handle strip on top of the card AND row menus
+  (`_ctxAddDragHandle`; pointer capture keeps the post-drag click on the handle so the
+  document click-to-close doesn't fire).
+- **The big menu is multi-aware**: "Edit in Loupe" hidden for a multi-selection;
+  **Properties (N)…** opens a picker listing every selected card (on-screen order) —
+  per-card properties open on top, the list stays open; **Role (N)…** sets the role of
+  every selected card with one picker (single undo + toast) — the toolbar's flag button
+  (`geActionRole`) removed as redundant.
+- **Menu wording**: "Insert line(s) above/below…" (was "empty line(s)").
+- **TWIN-GUARD delete fix** (`455fb6a`): the user couldn't delete one of the identical
+  C2/C3 in *Multiply by 4* — a false "used in 2 games" warning. Root cause: those two
+  cards **share the same `stableId` AND `uid`** (an old duplication anomaly; normal Copy
+  mints fresh ids), and games reference cards by stableId. Deleting ONE twin is harmless
+  (storage rebuilds from the DOM; the survivor keeps the id alive), so the new
+  `_hasSurvivingTwin` skips the warning in `confirmDeleteCard` and `geActionErase`
+  (selecting BOTH twins for erase keeps them protected). The duplicate itself is still
+  there — the user will delete it himself, which also heals the anomaly.
+- **Admin login: Enter submits** the superuser ID field (no Login click needed).
+- **Tooling note**: `.claude/launch.json` gained a `vica-domino-preview` config on port
+  **8011** (the user's own server holds port 8000).
+
+---
+
+## June 9, 2026 — corruption recovery, #4 DONE, foundation/roadmap, Add Cards UX
+
+Working tree clean; everything shipped to the 3 canonical branches (tip `24dfe78`).
+
+- **A-Z "shifted rows" corruption** — recovered via console (re-file by label). Root
+  cause: a card's row lived in **3 redundant fields** (`label` / `stableId` /
+  `_gameValue`,`_gameRow`) that drifted apart. Full post-mortem in **MEMORY.md**.
+- **3 prevention measures shipped** — (1) **back up games** (`savedCustomGames` etc. added
+  to the Firebase card-backup set, `b78dd0a`); (2) **games auto-repair** offer on open
+  (`a1fae1a`); (3) **safer shift-drag** (confirm before a cross-letter move, `8600a02`).
+- **#4 DONE — eliminated redundant `_gameRow`** (the LABEL is now the single source of
+  truth for a card's row). Shipped in stages/steps `3cb9ce3` `684cef1` `2b45a42` `2965e9a`
+  `dfb3704` `201b785`. Kept `_gameValue` as the fallback for label-less cards. See
+  MEMORY.md "#4 DONE".
+- **Freeze-MODE dead code removed** from the Studio (`310e1b9`).
+- **Foundation notes + ROADMAP** — `docs/ROADMAP.md` (pipeline + detailed Phase 1);
+  MEMORY.md foundation section (live-art-link decision, cross-set identity, the
+  "one source of truth" principle). `sync.js` bumped to **`local-wins-4`**.
+- **"Add Cards to Game" dialog UX** (in `openAddCardToGame` / `showCardsFromSet` / the
+  `#add-card-overlay` modal): (a) a **second "Add Selected" button at the top** (toggled
+  with selection via `_showAddCardConfirm`); (b) cards shown **BY ROW** (grouped by label
+  row-key); (c) **adjustable width** = fits the longest row, **capped at 10 cards** (no
+  half-cards); (d) a row **>10 cards is broken into stacked sub-lines of 10** with a
+  **DASHED** separator (SOLID between letter-rows, label on first sub-line only); (e)
+  **vertical wheel-scroll** via an **overlay capture-phase** handler. Final tip `24dfe78`.
+
+---
+
+## June 8, 2026 (latest) — toggle-driven player count, DONE
+
+Working tree clean; shipped to the 3 canonical branches. **Full detail in
+MEMORY.md's "June 8" section.** Player count is now chosen on the **GP 0 toggle
+(1/2/3)** and applies to every game; the per-game count buttons and the separate
+Start page are **gone** — click a game → Setup page (with a **Start Game** button)
+→ play. Built across 5 stages (all shipped + verified):
+
+- **Stage 0** — GP 0 player toggle extended to **1/2/3** (thumb=1 in the middle,
+  2 left, 3 right; click-by-zone; clicking the circle resets to 1).
+- **Stage 1** — Find games: count from the toggle, **Start Game on the Setup page**
+  (inline render), no count buttons.
+- **Stage 2** — Catch games: same (count → `_catchNumPlayers`; board shows global
+  icon+name).
+- **Stage 3** — full refactor: single `window._gpCurrentPlayerCount()` source;
+  **physically removed the 6 count buttons + the 236-line `selectPlayerCount`**
+  (kept an empty hidden `.player-select` container to avoid null-crashes).
+- **Stage 4** — verified Find/Catch × 1/2 × no-config/no-setup/+timer + the
+  3 warnings; docs updated.
+
+The **GP 0 guard** ("Not available in X mode" / "No N player option!") blocks
+opening a game that doesn't support the chosen mode/count, so the Setup page never
+gets an impossible count.
+
+**Open / next ideas (NOT started):**
+- The **empty `.player-select` container** could be fully removed if someone
+  guards the ~6 remaining `.player-select` style refs (low value).
+- A game with **no own setup** runs on the Match 0-4 **template** — if you want
+  per-game player options to truly persist, that's a Studio-save/sync follow-up.
+- Earlier roadmap still open: **"Aligning the Games"** → GameLines.
+
+No known regressions. `ship.sh` + auto-snapshot + sync LOCAL-WINS + KEEP-recovery
+notes all still apply.
+
+---
+
+## June 7, 2026 — global player config + Start-page prep (historical)
+
+Working tree clean; everything shipped to the 3 canonical branches. **Full detail
+is in MEMORY.md's "June 7 (cont.)" section.** Two threads, both live:
+
+**A) Global player config (`vica_global_players`).** Icons-Players is now the
+single source of players. **Steps 1 (persist), 2 (games read it), 4 (remove
+per-game icon/name pickers) are DONE.** Per-game player-COUNT buttons + Start
+Game button stay (removed much later). `vica_global_players` is **LOCAL-WINS in
+both sync.js paths** (don't regress this). Catch board shows the global icon+name.
+
+**B) Eliminating the Start page.** Its pieces moved out: the game icon → GP 0
+**eye popup** (RIGHT-click the eye; left-click still = cards library); Catch uses
+`_catchSetupIconSVG` so tile/popup match Setup. +timer Start pages lost the Xeno
+icon/box (kept in Misc → **Xeno-Icon**). The Setup/Start lower box lost the game
+icon + the player-options **title** (`#setup-h3-players`) — buttons stay. The
+**"Legend"** (read-only Timer/Probability/Level/Type chart) got a title and
+**moved to the Setup page** (gated on Level-buttons-visible; live-updates).
+
+**Next steps (NOT done):**
+- **Step 3** of the config plan — a "Start Game" on the Setup/GP-0 page driven by
+  the GP 0 toggle (lower priority; user is keeping per-game count for now).
+- Eventually **remove the per-game player-options buttons** (`.player-select`) —
+  "much later, after a couple of other steps" (user).
+- Then finish **eliminating the Start page** entirely.
+- Much later: **"Aligning the Games"** tool → combine Icons-Players + games into
+  **GameLines**.
+- Tiny cosmetic: Catch Legend "Level" row can read "Medium Medium" (de-dupe TODO).
+
+---
+
+## June 7, 2026 — earlier groundwork (historical)
+
+## June 7, 2026 — where we left off (Icons-Players groundwork)
+
+Working tree clean; all shipped to the 3 canonical branches. Full detail is in
+MEMORY.md's June 7 section. This session built the **UI groundwork** for a future
+global player-config feature on the Game Previewer (`GP 0`):
+
+- **GP 0 1/2-player toggle** (stick-figure icons) next to the hand/mouse toggle.
+- **"Miscellaneous" column** on GP 0 with a clickable **"Icons-Players"** box.
+- **"Icons-Players" panel** (`#icons-players-screen`): standalone icon-picker +
+  name boxes for 1/2 players, no game icons, **dimmed/disabled Start**. Lots of
+  layout polish (name-box design, heading text/position, Start button alignment +
+  full width, distinct 2-player icon defaults with mutual exclusion).
+- **Setup + Board pages** now show a **1/2-player stick-figure glyph** (from the
+  GP 0 toggle) next to the ✋/🖱 input glyph.
+
+**THE PLAN — make "Icons-Players" the GLOBAL player config** (agreed June 7,
+NOT built yet). End goal: its icon/name/count choices **persist and apply to
+every game** launched from GP 0, then the **per-game** 1/2-player picking, icon
+picking, and name entry get **removed**. Much later: an **"Aligning the Games"**
+tool combines "Icons-Players" with games into **GameLines**.
+
+Staged order (refined — do persist + read-from-global BEFORE the Setup-page
+Start button, since that button needs real player data to launch with; keep the
+old per-game flow working in parallel until the new one is proven, then delete):
+1. ✅ **DONE** — **Persist** the Icons-Players config (count + each player's icon
+   + name) to the global localStorage key **`vica_global_players`** (shape:
+   `{count, players:[{icon,name},…]}`, `icon` = a CHARACTER_ICONS key). The
+   panel's button is now an enabled **"Save"** (was a dimmed "Start"); on open the
+   panel **pre-fills** each row's icon + name from the saved config (falling back
+   to distinct defaults when none); Save shows "Saved ✓" then returns to intro.
+   Helpers `_ipLoadConfig` / `_ipSaveConfig` / `_ipSaveAndClose` in index.html.
+   **Now sync-protected** — see the sync.js note below.
+2. ✅ **DONE (Find/Combined)** — **game-launch READS the global config.** When the
+   per-game player rows are built (`selectPlayerCount`), a new guarded method
+   **`_applyGlobalPlayerConfig(count)`** (js/game.js) pre-selects each player's
+   saved icon and pre-fills the name from `vica_global_players`; the existing
+   `startGame()` then reads them unchanged → the game launches with the global
+   players. Purely **additive/guarded**: no saved config → original defaults
+   (P1=star, P2=cat, empty names), behavior identical to before. Verified e2e: set
+   config → Find game → pick 2 players → rows pre-filled → Start → `game.players`
+   has the right names+icons. **Catch BOARD also shows the global icon + name**
+   now (user-requested follow-on): a shared `_catchPlayerLabelEl(idx)` helper
+   reads `vica_global_players` and renders icon (CHARACTER_ICONS[icon].svg) + name
+   into the **2P per-zone labels** (`makeZone`, replacing the bare "Player N") and
+   the **1P HUD** (`.catch-hud-player`, prepended; hidden in 2P). Falls back to
+   "Player N"/no-icon when unsaved. Verified 1P + 2P on the board. (Catch
+   gameplay's `_catchGame.players` is still just `{lives,coins,fallingCards}` — the
+   label is display-only, read straight from the global config.) Player COUNT for
+   Catch is still its own `_catchNumPlayers` + mode (deferred to the “impossible-mode”
+   work in steps 3–4). The old per-game pickers are untouched (removed in step 4).
+
+   **sync.js fix (important):** `vica_global_players` is **device-local user
+   config, not shared authored content**, so it's now **local-wins in BOTH sync
+   paths** — added to `_localWinsKeys` (superuser pull) AND explicitly preserved in
+   `_loadSharedData` (the guest/player pull, which otherwise wipes local and
+   restores the superuser's cloud copy). Without this, the exact CLAUDE.md
+   LOCAL-WINS bug reappeared: a reload rolled the config back to a stale cloud
+   value. Verified: as a guest `player-guest`, the saved config now survives a full
+   reload. A FRESH device (empty local) still pulls the cloud value normally.
+3. **Add "Start Game" to the Setup page** that launches using the global config +
+   the GP 0 player-count toggle. *(Not done — and per user, the per-game
+   player-COUNT buttons are STAYING for now, so this is lower priority.)*
+4. ✅ **DONE (icons + names; count buttons kept by user choice)** — the per-game
+   **player icon pickers + name boxes are removed** from the Find/Catch Start
+   pages (GP t/m). Implementation:
+   - **`startGame()` now reads name+icon from the global config directly** (parses
+     `vica_global_players`), preferring it, falling back to the DOM input then the
+     default. Player COUNT still comes from the rows (the inputs stay in the DOM,
+     just hidden, so the count is unchanged).
+   - **CSS hides the rows:** `#name-inputs .player-input-row:not(.xeno-row){display:none}`
+     — covers Find (selectPlayerCount), Catch touch (renderInlinePlayerNames), and
+     Catch **mouse** (the inline 1-player row at index.html ~3147). The Xeno timer
+     row + the Start Game button stay; `#ip-rows` (the panel) is unaffected.
+   - **`_alignXenoRowToPlayerRow` guard:** returns early when the player row
+     measures 0×0 (hidden), so +timer games don't get garbage Xeno/Start
+     positions. Verified the timer Start page still lays out correctly.
+   Verified e2e: Find 2P launches with global players (rows hidden); no-config
+   falls back to "Player N"/star+cat; +timer Start page OK; Catch board shows the
+   global icon+name. The per-game count buttons + Start Game button remain (user
+   chose to keep count per-game). game.js cache-buster → global-players-2,
+   style.css → dgx-redesign-31.
+
+Decisions baked in:
+- **Player count = the GP 0 toggle.** When a game doesn't support the chosen
+  count (e.g. 2 players where there's no 2-player option), the EXISTING warning
+  **"Current mode does not have 2 player option."** is shown — we do NOT clamp the
+  toggle. (User-confirmed.)
+- **Defaults** when no global config is set yet come from the Icons-Players panel
+  defaults (P1=star "Player 1", P2=cat "Player 2", …).
+- Edge cases to handle in steps 2–4: the **Xeno/timer "extra player"** and
+  **Combined** games also read per-game setup today → must read global too.
+
+Also shipped this session: a **"Xeno Line" placeholder box** in the GP 0
+Miscellaneous column (`#misc-xeno-line`, Xeno icon + "Xeno-box" label) — UI only,
+no action wired, parked for possible later use.
+
+Everything so far is **UI-only** (Icons-Players Start is dimmed; nothing saved or
+wired to game logic). No known open regressions. Prevention tooling (`ship.sh` +
+auto-snapshot), the sync.js LOCAL-WINS protection, and the KEEP-recovery-assets
+note all still apply.
+
+---
+
+## June 6, 2026 — where we left off
+
+Working tree clean; everything shipped to the 3 canonical branches via
+`ship.sh`. See the matching MEMORY.md June 6 section for full detail. Summary of
+what landed this session:
+
+**Game boards** — input-mode glyph (✋/🖱) on the Game Preview subtitle; one
+unified **identity pill** (page name · game name · glyph) at the top of every
+board (Find + Catch + future); removed the "MathGrain Domino" brand title from
+boards.
+
+**Studio per-card probability badges** — rebuilt the "see a card's probability"
+feature: show the **number** on non-default cards (color = GROUP; lone cards
+grey), default grouped cards show a **dot**, two-channel numbers stack
+**vertically**, **100 → roman "C"** on all games (hover shows 100), and all
+probability flags use the **instant custom tooltip**.
+
+**Group repairs** — (1) **self-healing re-bind** of orphaned mGroups whose
+members were legacy labels the relabel had orphaned (→ stable uids); (2) fixed
+Catch group/card probability edits **silently not saving** (popup Save was
+find-only); (3) fixed **can't make a group in Find** (size-1 "groups" were
+falsely blocking with "ungroup first").
+
+**No known open regressions.** Prevention tooling (`ship.sh` + auto-snapshot)
+and the sync.js LOCAL-WINS protection remain in place. Recovery assets on disk
+are KEEP (do not delete).
 
 ---
 
@@ -21,9 +311,24 @@ arrangement save — so layout + blank changes didn't persist and undo re-showed
 stale blanks. Fix: `_saveCardSetActive()` (variations + arrangement + ABC snapshot)
 after the blank clean-up, inside one undo-suspended block.
 
-Safety net still on disk: `wip/full-20260604`, `recovery/replay` (`c49a602`),
-`_recovery_transcripts_backup/`. STILL TODO: prevention hooks/ship.sh + the
-sync.js games-protection gap.
+Safety/recovery assets still on disk — **KEEP, do NOT delete** (user wants them
+retained; may go back to inspect/use): `wip/full-20260604`, `recovery/replay`
+(`c49a602`), `_recovery_transcripts_backup/`.
+
+**Update (June 5 — verified):** the **sync.js games-protection gap is FIXED**
+(committed `c13b8cd`). `js/sync.js` now has a **LOCAL-WINS** block
+(`_localWinsKeys` = `pageNameLabels_gp2`, `savedCustomGames`, `savedCatchGames`,
+`savedCombinedGames`) that snapshots local data before the cloud overwrite and
+restores it after, so a stale cloud copy can't roll those keys back. The earlier
+"UNFIXED" note predated the fix being committed. Trade-off: those 4 keys are
+device-local-authoritative (edits don't propagate device→device; fresh device
+still pulls cloud).
+
+**Prevention tooling — DONE (June 5):** `scripts/ship.sh` is built and verified
+(bump + `git add -A` w/ `.DS_Store` strip + commit + push to all 3 canonical
+branches + ✓/✗ tip check; refuses on detached HEAD or no message). Use it after
+every change: `bash scripts/ship.sh "message"`. The `wip/auto-snapshot` launchd
+agent remains the passive backstop. Also: `.DS_Store` is now gitignored.
 
 ---
 

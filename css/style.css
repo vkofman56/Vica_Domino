@@ -229,6 +229,58 @@ body {
     left: 22px;
 }
 
+/* Players toggle (1 / 2) — reuses the input-toggle structure/look, driven by
+   [data-players] instead of [data-mode]. UI only; not yet wired to behavior. */
+.intro-player-toggle { margin-left: 6px; }
+/* The stick-figure SVG fills its box, while the ✋/🖱 emoji sit low in their
+   line box — so the figures look higher. Nudge them down to visually match. */
+.intro-player-toggle-icon-left,
+.intro-player-toggle-icon-right {
+    position: relative;
+    top: 3px;
+}
+/* The right icon is the dynamic count (1/2/3 figures) — keep both flank icons
+   fully visible; the thumb position + track tint indicate the value. */
+.intro-player-toggle .intro-player-toggle-icon-left,
+.intro-player-toggle .intro-player-toggle-icon-right {
+    opacity: 1;
+}
+/* Flank figures (2 on the left, 3 on the right) — the glyphs carry no
+   width/height attr, so size them here (else they collapse to 0). */
+.intro-player-toggle .intro-player-toggle-icon-left svg,
+.intro-player-toggle .intro-player-toggle-icon-right svg {
+    height: 18px;
+    width: auto;
+}
+/* 3-position slider: widen the track so the thumb has distinct left/mid/right. */
+.intro-player-toggle .intro-input-toggle-track {
+    width: 56px;
+}
+/* The thumb (white circle) holds 1 figure (dark, centered) = 1 player. */
+.intro-player-toggle .intro-input-toggle-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.intro-player-toggle .player-thumb-fig {
+    height: 13px;
+    width: auto;
+    display: block;
+}
+.intro-player-toggle[data-players="1"] .intro-input-toggle-track {
+    background: rgba(255, 167, 38, 0.6);   /* amber — 1 player */
+}
+.intro-player-toggle[data-players="2"] .intro-input-toggle-track {
+    background: rgba(171, 71, 188, 0.6);   /* purple — 2 players */
+}
+.intro-player-toggle[data-players="3"] .intro-input-toggle-track {
+    background: rgba(38, 166, 154, 0.65);  /* teal — 3 players */
+}
+/* Thumb position encodes the count: MIDDLE = 1, LEFT = 2, RIGHT = 3. */
+.intro-player-toggle[data-players="1"] .intro-input-toggle-thumb { left: 18px; }
+.intro-player-toggle[data-players="2"] .intro-input-toggle-thumb { left: 2px; }
+.intro-player-toggle[data-players="3"] .intro-input-toggle-thumb { left: 34px; }
+
 /* Tile dimming for games that don't support the currently-selected
    input mode. Applied to .intro-game-row (covers both the main button
    and the eye-action button beside it). The pointer-events:none on
@@ -391,9 +443,162 @@ body {
 /* GP 0: three-column game picker (Find / Catch / Spy) */
 .intro-columns {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    /* A narrower fixed "Miscellaneous" column on the left + one 1fr column per
+       game type. --game-cols is set by _renderIntroColumns() (defaults to 3). */
+    grid-template-columns: minmax(150px, 0.72fr) repeat(var(--game-cols, 3), 1fr);
     gap: 18px;
     margin-bottom: 10px;
+}
+/* Miscellaneous column: a clickable utility box (e.g. "Icons and Players"). */
+.intro-misc-item {
+    padding: 12px 12px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+.intro-misc-item:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.7);
+}
+.intro-misc-item:active { transform: scale(0.98); }
+.intro-misc-item:focus-visible { outline: 2px solid rgba(255,255,255,0.6); outline-offset: 2px; }
+/* Xeno-box screen: centered like the other screens; shows the Xeno icon +
+   "Xeno ⏳" pink box (same look as the Start page's xeno row). */
+#xeno-box-screen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+}
+.xeno-box-panel {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+/* The "Xeno ⏳" box — same look as the disabled .xeno-input on the Start page
+   (the Start page sets these inline; the icon uses the shared .xeno-icon-container). */
+/* Game-icon popup (right-click a game's eye on GP 0). */
+.game-icon-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+.game-icon-popup-box {
+    position: relative;
+    background: #fff;
+    border-radius: 16px;
+    padding: 26px 30px 22px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    max-width: 82vw;
+}
+.game-icon-popup-title {
+    font-weight: bold;
+    color: #333;
+    font-size: 1.1rem;
+    margin-bottom: 14px;
+}
+.game-icon-popup-icon svg {
+    width: 200px;
+    max-width: 70vw;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+.game-icon-popup-close {
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.7rem;
+    line-height: 1;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+}
+.game-icon-popup-close:hover { color: #333; }
+.xeno-box-input {
+    height: 50px; /* match the icon-xeno box height */
+    width: 150px;
+    padding: 0 20px;
+    font-size: 1rem;
+    border: 2px solid #FF69B4;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.9);
+    color: #FF69B4;
+    font-weight: bold;
+    cursor: not-allowed;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+/* Icons & Players screen: center its content like the intro/start screens
+   (display:flex is set inline when the screen is shown). */
+#icons-players-screen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+}
+#icons-players-screen h1 { margin-bottom: 18px; position: relative; top: -10px; }
+/* Panel heading: normal weight (not bold), shifted 3px UP relative to the
+   boxes below (relative positioning, so the rows don't move with it), and its
+   LEFT edge aligned with the 2nd icon in the row — i.e. indented by one icon
+   (50px) + one gap (12px) from the row's left. Same for 1 and 2 players. */
+#ip-heading {
+    font-weight: normal;
+    position: relative;
+    top: -7px; /* lift the text off the icon row (boxes stay put) */
+    text-align: left;
+    padding-left: calc(50px + 12px); /* = 62px: 2nd icon's left edge */
+}
+
+/* Start button sits in a flex row mirroring the player rows: a hidden icon-
+   section clone spaces it, and the button's name column lines up with the name
+   boxes. Left-align the button within that column. */
+.ip-start-row { margin-top: 6px; }
+.ip-start-row .ip-icon-spacer { visibility: hidden; pointer-events: none; position: relative; }
+/* Dimmed, non-working "Start the Game" button: overlays the hidden icon clone so
+   it spans exactly icon 1 → icon 5 (the five player-icons' width). */
+/* 2-class selector so it beats the mobile @media .btn { width:200px } rule. */
+.ip-start-row .ip-startgame-dim {
+    visibility: visible; /* parent spacer is visibility:hidden; re-show the button */
+    position: absolute;
+    top: 0;
+    /* No bottom:0 — let the button keep its NATURAL btn height so it matches the
+       Save button exactly (top-aligned). left/right:0 still set the width. */
+    left: 0;
+    right: 0;
+    width: auto; /* let left:0/right:0 stretch it to the full icon-row width */
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    white-space: nowrap;
+}
+.ip-start-btn-section { align-items: stretch !important; }
+.ip-start-btn-section #ip-start-btn { margin: 0; width: 100%; } /* match the name box width */
+/* Icons & Players panel: dimmed, non-functional Start button (UI only for now). */
+#ip-start-btn[disabled], .ip-start-dim {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.45);
+    box-shadow: none;
+}
+#ip-start-btn[disabled]:hover, .ip-start-dim:hover {
+    transform: none;
 }
 .intro-col {
     display: flex;
@@ -707,6 +912,78 @@ body {
     font-size: 1.5rem;
     opacity: 0.9;
     margin-bottom: 40px;
+}
+
+/* Unified Board identity bar (Tier A): one centered pill at the very top of
+   every board — Find, Catch, and future game types — holding the editable
+   page name + the game name + the ✋/🖱 input-mode glyph. Normal flow at the
+   top so it never overlaps the header/HUD below; shrink-to-fit and centered.
+   Readable on both the purple Find board and the dark Catch board. */
+.board-id-bar {
+    width: fit-content;
+    max-width: 86vw;
+    margin: 10px auto 12px;
+    padding: 6px 22px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 95;
+    position: relative; /* sit above sibling backgrounds without leaving flow */
+}
+/* The page-name label lives inside the bar now: drop its absolute corner
+   positioning and render it inline next to the game name. Editing and
+   persistence are unchanged (same id / gpKey / delegated handlers). */
+.board-id-bar .page-name-label {
+    position: static;
+    top: auto;
+    left: auto;
+    display: inline;
+    z-index: auto;
+    font-size: 24px;
+}
+/* Game name + glyph. The "·" separator is a ::before so it only appears when
+   a game name is present — an empty span collapses, leaving just the page
+   name (e.g. before a game starts). */
+.board-id-game {
+    display: inline;
+    font-size: 1.3rem;
+    color: #fff;
+    opacity: 0.95;
+}
+.board-id-game:empty {
+    display: none;
+}
+.board-id-game::before {
+    content: "·\00a0\00a0";
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: normal;
+}
+
+/* Input-mode glyph (✋ touch / 🖱 mouse) shown after the game name in the
+   Game Preview subtitle, so the player can see which mode the toggle is in. */
+.subtitle-mode-glyph {
+    margin-left: 10px;
+    font-size: 1.35rem;
+    vertical-align: baseline;
+    opacity: 0.95;
+}
+/* Player-mode glyph (1 / 2 stick figures) shown right after the mouse/hand
+   icon on Setup and Board pages, reflecting the GP 0 player toggle. */
+.subtitle-player-glyph {
+    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    opacity: 0.95;
+    position: relative;
+    top: -2px; /* nudge up to visually align with the mouse/hand glyph */
+}
+.subtitle-player-glyph svg {
+    height: 1.05em;
+    width: auto;
 }
 
 .setup-panel {
@@ -5046,7 +5323,10 @@ body.group-edit-active .library-row-letter:hover {
     margin: 20px 0;
 }
 
-#name-inputs input {
+/* Per-game player-name boxes AND the "Icons and Players" panel (#ip-rows)
+   share one design — same box + text + gold focus glow. */
+#name-inputs input,
+#ip-rows input {
     height: 50px !important;
     min-height: 50px !important;
     line-height: 50px !important;
@@ -5061,7 +5341,8 @@ body.group-edit-active .library-row-letter:hover {
     width: 100%;
 }
 
-#name-inputs input:focus {
+#name-inputs input:focus,
+#ip-rows input:focus {
     outline: 3px solid #ffd700;
 }
 
@@ -5755,14 +6036,18 @@ body.voice-round-active .voice-mic-indicator {
 }
 
 /* Game Screen Header */
+/* Game-board header: the "MathGrain Domino" brand title was removed, so the
+   header is now just a transparent row that carries the combined-game stage
+   stones and (multiplayer/combined) turn indicator. No background bar/padding,
+   and it collapses to nothing when those are empty/hidden — e.g. single-player
+   Find — so there's no empty bar under the identity pill. */
 header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    padding: 15px 30px 15px 115px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 15px;
-    margin-bottom: 23px;
+    gap: 16px;
+    min-height: 0;
+    margin: 0 0 6px;
 }
 
 header h1 {
@@ -8289,6 +8574,81 @@ main {
     color: #00BCD4;
     padding: 2px 0 4px;
     letter-spacing: 0.5px;
+}
+/* STEP 4: the per-game player icon pickers + name boxes are REMOVED from the
+   Find/Catch Start pages — players now come from the global Icons-Players config.
+   Hide the per-player rows (the inputs stay in the DOM so the launch still knows
+   the player COUNT). The Xeno timer row + the Start Game button stay; the
+   Icons-Players panel (#ip-rows) is a different container and is unaffected. */
+#name-inputs .player-input-row:not(.xeno-row) { display: none; }
+/* On +timer Start pages, also remove the Xeno icon + "Xeno ⏳" box from the Xeno
+   row (they're saved in Misc → Xeno-Icon for later use). Keep the Start Game
+   button, which lives in the Xeno row's name section. */
+.xeno-row .input-section:not(.name-section) { display: none; }
+.xeno-row .xeno-input { display: none; }
+/* The game icon now lives in the GP 0 eye popup → remove it from the Setup/Start
+   lower box. Also hide ONLY the player-options section TITLE (#setup-h3-players);
+   the player-option buttons (.player-select) stay (removed much later). */
+#setup-game-icon { display: none !important; }
+#setup-h3-players { display: none !important; }
+/* GP 0: clicking a game that doesn't support the current mode shakes the tile +
+   shows a brief red note beside it (no navigation). */
+.intro-game-row { position: relative; }
+@keyframes intro-game-shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-7px); }
+    30% { transform: translateX(6px); }
+    45% { transform: translateX(-5px); }
+    60% { transform: translateX(4px); }
+    75% { transform: translateX(-3px); }
+}
+.intro-game-btn.intro-game-shake {
+    animation: intro-game-shake 0.5s ease;
+    box-shadow: 0 0 0 2px rgba(255, 80, 80, 0.85), 0 0 12px rgba(255, 80, 80, 0.5);
+}
+.intro-mode-note {
+    position: absolute;
+    bottom: calc(100% - 1px); /* 4px lower than the previous +3px */
+    right: 0; /* JS sets the exact offset so the note's RIGHT edge lines up with
+                 the game box (tile) right edge, not the eye/row right edge. */
+    transform: translateY(4px);
+    background: rgba(214, 48, 48, 0.96);
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 5px 11px;
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 60;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.intro-mode-note.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+/* Global player icon + name on the Catch board (1P HUD + 2P zone labels). */
+.catch-player-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.catch-player-icon {
+    width: 1.5em;
+    height: 1.5em;
+    flex: 0 0 auto;
+    display: inline-flex;
+}
+.catch-player-icon svg { width: 100%; height: 100%; display: block; }
+.catch-hud-player {
+    display: inline-flex;
+    align-items: center;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1rem;
 }
 .catch-2p-hud {
     display: flex;

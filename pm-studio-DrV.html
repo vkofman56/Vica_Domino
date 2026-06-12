@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:35 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:40 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:35 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:40 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:35 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:40 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8227,14 +8227,61 @@
                     (destText ? ' <span style="color:#FFD700;font-size:13px;">(' + _siEsc(destText) + ')</span>' : '') + '</div>' +
                     '<div style="color:#999;font-size:12.5px;margin-bottom:10px;">Pick the source set:</div>';
                 var list = document.createElement('div');
-                list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:6px;';
+                list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:4px;';
+                // Mirror the Library's FOLDER organisation (user request): sets
+                // are grouped under their folders; folders start collapsed and
+                // open on click, so a large collection stays navigable.
+                var folderOf = {};
+                try {
+                    loadCardSets().forEach(function(s) {
+                        if (s && typeof s === 'object' && s.name) folderOf[s.name] = s.folder || '';
+                    });
+                } catch (e) {}
+                var root = { folders: {}, order: [], sets: [] };
                 _cfsSetList().forEach(function(s) {
+                    var node = root;
+                    var path = folderOf[s.name] || '';
+                    if (path) {
+                        path.split('/').forEach(function(f) {
+                            if (!node.folders[f]) { node.folders[f] = { folders: {}, order: [], sets: [] }; node.order.push(f); }
+                            node = node.folders[f];
+                        });
+                    }
+                    node.sets.push(s);
+                });
+                function mkSetBtn(s, depth) {
                     var b = document.createElement('button');
-                    b.style.cssText = 'text-align:left;padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#eee;cursor:pointer;font-size:14px;';
+                    b.style.cssText = 'text-align:left;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#eee;cursor:pointer;font-size:14px;margin-left:' + (depth * 18) + 'px;';
                     b.textContent = s.name + '  (' + s.count + ' cards)';
                     b.addEventListener('click', function() { showCards(s); });
-                    list.appendChild(b);
-                });
+                    return b;
+                }
+                function renderNode(node, parentEl, depth) {
+                    node.order.forEach(function(fname) {
+                        var sub = node.folders[fname];
+                        var hdr = document.createElement('div');
+                        hdr.style.cssText = 'display:flex;align-items:center;gap:7px;padding:7px 12px;margin-left:' + (depth * 18) + 'px;border-radius:7px;background:rgba(124,77,255,0.18);color:#cfe6ff;font-weight:600;font-size:12.5px;cursor:pointer;text-transform:uppercase;letter-spacing:0.4px;';
+                        var arrow = document.createElement('span');
+                        arrow.textContent = '▸';
+                        hdr.appendChild(arrow);
+                        var nm = document.createElement('span');
+                        nm.textContent = fname;
+                        hdr.appendChild(nm);
+                        parentEl.appendChild(hdr);
+                        var childWrap = document.createElement('div');
+                        childWrap.style.cssText = 'display:none;flex-direction:column;gap:4px;';
+                        parentEl.appendChild(childWrap);
+                        var built = false;
+                        hdr.addEventListener('click', function() {
+                            var open = childWrap.style.display !== 'none';
+                            if (!open && !built) { renderNode(sub, childWrap, depth + 1); built = true; }
+                            childWrap.style.display = open ? 'none' : 'flex';
+                            arrow.textContent = open ? '▸' : '▾';
+                        });
+                    });
+                    node.sets.forEach(function(s) { parentEl.appendChild(mkSetBtn(s, depth)); });
+                }
+                renderNode(root, list, 0);
                 box.appendChild(list);
                 var cancel = document.createElement('button');
                 cancel.style.cssText = 'margin-top:14px;align-self:flex-end;padding:7px 18px;border-radius:7px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#ddd;cursor:pointer;';
@@ -9090,8 +9137,7 @@
                 })();
                 menu.appendChild(_ctxItem('↑', 'Insert line(s) above…', function() { _promptInsertLines(_ieRow, 'above'); }));
                 menu.appendChild(_ctxItem('↓', 'Insert line(s) below…', function() { _promptInsertLines(_ieRow, 'below'); }));
-                menu.appendChild(_ctxItem('⇤', 'Insert cards from set above…', function() { openCopyFromSetDialog({ refRow: _ieRow, where: 'above' }); }));
-                menu.appendChild(_ctxItem('⇤', 'Insert cards from set below…', function() { openCopyFromSetDialog({ refRow: _ieRow, where: 'below' }); }));
+                menu.appendChild(_ctxItem('⇤', 'Insert from another set…', function() { openCopyFromSetDialog({ refRow: _ieRow, where: 'below' }); }));
                 menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(_ieRow); }, 'danger'));
                 if (groupEditSelected.length > 0 || !card.classList.contains('ge-selected')) {
                     // 'Edit group', in two steps. First click (toolbar
@@ -9156,8 +9202,7 @@
             menu.appendChild(_ctxSep());
             menu.appendChild(_ctxItem('↑', 'Insert line(s) above…', function() { _promptInsertLines(row, 'above'); }));
             menu.appendChild(_ctxItem('↓', 'Insert line(s) below…', function() { _promptInsertLines(row, 'below'); }));
-            menu.appendChild(_ctxItem('⇤', 'Insert cards from set above…', function() { openCopyFromSetDialog({ refRow: row, where: 'above' }); }));
-            menu.appendChild(_ctxItem('⇤', 'Insert cards from set below…', function() { openCopyFromSetDialog({ refRow: row, where: 'below' }); }));
+            menu.appendChild(_ctxItem('⇤', 'Insert from another set…', function() { openCopyFromSetDialog({ refRow: row, where: 'below' }); }));
             menu.appendChild(_ctxItem('🗑', 'Delete this line', function() { _deleteLine(row); }, 'danger'));
             _ctxMenu = menu;
             _ctxPosition(menu, x, y);

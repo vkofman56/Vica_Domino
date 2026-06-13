@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:43 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:06 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:43 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:06 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -3802,6 +3802,150 @@
             resetLevelDominoIcons();
         }
 
+        // ============================================================
+        // Phase 2a — MINI-GAME data model + capture (logic only; no UI)
+        // ============================================================
+        // A mini-game = a "legend" (one chosen configuration of a game's
+        // settings) + a frozen snapshot of the exact board it previewed.
+        // Mini-games live UNDER their parent game: game.miniGames = [ rec, … ]
+        // — a Game is a folder of mini-games (user model, June 13).
+        //
+        //   rec = {
+        //     id, name, createdAt,
+        //     legend: {           // the chosen config — REFERENCES the parent
+        //       gameType,         // 'find' | 'catch'
+        //       probOptionId,     // which Prob preset is active
+        //       level,            // selected level/difficulty (Find)
+        //       playerCount, includeXeno,
+        //       inputMode,        // 'touch' | 'mouse'
+        //       timerOn
+        //     },
+        //     board: {            // frozen literal — enables exact replay (A)
+        //       type: 'find' | 'catch',
+        //       find?:  { players: [ { name, hand: [card…] } ] },
+        //       catch?: { round, numPlayers, fallingCards: [ {label,isMatch,x,y,tilt,tiltDir,tiltSpeed,drift} ] }
+        //     }
+        //   }
+        //
+        // Boards are generated with un-seeded Math.random(), so an exact
+        // board can ONLY be reproduced from a literal snapshot — hence the
+        // frozen `board`. The A-vs-B choice (frozen vs regenerate) is made
+        // later at Big-Game time by the type-consistency check.
+
+        // Which game type is currently being previewed?
+        function _mgActiveType() {
+            if (typeof _catchGame !== 'undefined' && _catchGame && _catchGame.active) return 'catch';
+            if (typeof activeCustomGameIndex !== 'undefined' && activeCustomGameIndex >= 0) return 'find';
+            return null;
+        }
+        function _mgActiveIndex(type) {
+            if (type === 'catch') return (_catchGame ? _catchGame.catchIndex : -1);
+            if (type === 'find') return activeCustomGameIndex;
+            return -1;
+        }
+        function _mgActiveInputMode() {
+            if (typeof _catchInputMode !== 'undefined') return _catchInputMode || 'touch';
+            return 'touch';
+        }
+
+        // The legend: the chosen configuration. Small by design — it points at
+        // the parent game (cards/probs/art stay live) and pins only the
+        // run-time choices.
+        function _mgCaptureLegend() {
+            var type = _mgActiveType();
+            if (!type) return null;
+            var legend = {
+                gameType: type,
+                probOptionId: (typeof window._gpSelectedProbId !== 'undefined') ? (window._gpSelectedProbId || null) : null,
+                playerCount: (typeof window._gpCurrentPlayerCount === 'function') ? window._gpCurrentPlayerCount() : 1,
+                inputMode: _mgActiveInputMode(),
+                timerOn: !!window._currentTimerOn
+            };
+            if (type === 'find' && window.game) {
+                legend.level = window.game.selectedLevel || null;
+                legend.includeXeno = !!window.game.includeXeno;
+            }
+            return legend;
+        }
+
+        // The board: a literal, serializable snapshot of the LIVE board.
+        // Returns null if no board is currently dealt.
+        function _mgSnapshotBoard() {
+            var type = _mgActiveType();
+            if (type === 'find' && window.game && Array.isArray(window.game.players) && window.game.players.length) {
+                var anyHand = window.game.players.some(function(p) { return p && Array.isArray(p.hand) && p.hand.length; });
+                if (!anyHand) return null;
+                return {
+                    type: 'find',
+                    players: window.game.players.map(function(p) {
+                        return {
+                            name: p.name || '',
+                            hand: (p.hand || []).map(function(c) {
+                                return { id: c.id, left: c.left, right: c.right,
+                                         leftValue: c.leftValue, rightValue: c.rightValue,
+                                         _lockHalves: !!c._lockHalves };
+                            })
+                        };
+                    })
+                };
+            }
+            if (type === 'catch' && _catchGame && Array.isArray(_catchGame.fallingCards) && _catchGame.fallingCards.length) {
+                return {
+                    type: 'catch',
+                    round: _catchGame.round,
+                    numPlayers: _catchGame.numPlayers,
+                    fallingCards: _catchGame.fallingCards.map(function(fc) {
+                        return { label: fc.label || null, isMatch: !!fc.isMatch,
+                                 x: fc.x, y: fc.y, tilt: fc.tilt, tiltDir: fc.tiltDir,
+                                 tiltSpeed: fc.tiltSpeed, drift: fc.drift };
+                    })
+                };
+            }
+            return null;
+        }
+
+        // Assemble a full mini-game record from the current preview state.
+        // Returns null if nothing is being previewed.
+        function _mgBuildRecord(name) {
+            var legend = _mgCaptureLegend();
+            if (!legend) return null;
+            return {
+                id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                name: (name || '').trim() || 'Mini-game',
+                createdAt: Date.now(),
+                legend: legend,
+                board: _mgSnapshotBoard()  // may be null if no board dealt yet
+            };
+        }
+
+        // Storage: mini-games live on the parent game object. These read/write
+        // the right saved-games array by type. _mgListFor is read-only.
+        function _mgListFor(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            return (g && Array.isArray(g.miniGames)) ? g.miniGames : [];
+        }
+        function _mgAddTo(type, index, record) {
+            if (!record) return false;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            if (!g) return false;
+            if (!Array.isArray(g.miniGames)) g.miniGames = [];
+            g.miniGames.push(record);
+            localStorage.setItem(key, JSON.stringify(games));
+            return true;
+        }
+
+        if (typeof window !== 'undefined') {
+            window._mgActiveType = _mgActiveType;
+            window._mgCaptureLegend = _mgCaptureLegend;
+            window._mgSnapshotBoard = _mgSnapshotBoard;
+            window._mgBuildRecord = _mgBuildRecord;
+            window._mgListFor = _mgListFor;
+            window._mgAddTo = _mgAddTo;
+        }
+
         // === Level domino icon updates ===
 
         function updateLevelDominoIcons(origCards, svgPools, svgMarkupPools) {
@@ -5060,7 +5204,8 @@
                     el: el, isMatch: fc.isMatch, x: x, y: startY,
                     tilt: tilt, tiltDir: (Math.random() > 0.5 ? 1 : -1),
                     tiltSpeed: 2 + Math.random() * 3,
-                    drift: drift, clicked: false
+                    drift: drift, clicked: false,
+                    label: (fc.card && fc.card.label) || null  // for mini-game board snapshots (Phase 2a)
                 };
                 _catchGame.fallingCards.push(cardData);
                 el.onclick = (function(cd) { return function(e) {

@@ -1355,6 +1355,12 @@ class VicaDominoGame {
         // Render player hands first
         this.renderSunLevel();
 
+        // Phase 2b: refresh the Config Explorer panel now that a fresh board
+        // is dealt (also fires when "New board" re-runs startGame).
+        if (typeof window !== 'undefined' && typeof window._mgExplorerSync === 'function') {
+            try { window._mgExplorerSync(); } catch (e) {}
+        }
+
         // Tutorial: show a finger pointing to the double (first game / Win0)
         if (this.players.length === 1 && (this._singlePlayerWins || 0) < 1) {
             // Use requestAnimationFrame to ensure DOM is fully painted before appending tutorial elements

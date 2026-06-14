@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:06 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:11 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:11 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -3800,6 +3800,7 @@
             window._activeCombinedIndex = -1;
             document.querySelector('#start-screen .subtitle').textContent = 'Please select a game';
             resetLevelDominoIcons();
+            if (typeof window._mgExplorerSync === 'function') { try { window._mgExplorerSync(); } catch (e) {} } // hide explorer
         }
 
         // ============================================================
@@ -3945,6 +3946,93 @@
             window._mgListFor = _mgListFor;
             window._mgAddTo = _mgAddTo;
         }
+
+        // ============================================================
+        // Phase 2b — Config Explorer (view-only; no saving yet)
+        // ============================================================
+        // A compact panel shown over the board during preview: a plain-words
+        // readout of the current legend + a "New board" button that re-deals
+        // with the SAME settings, so you can flip through random boards hunting
+        // for a favorable one. (Save-as-mini-game is 2c.)
+
+        // Resolve the active Prob preset to a friendly name.
+        function _mgProbName(type, index, probId) {
+            if (!probId) return 'BasicS';
+            try {
+                var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+                var opts = (games[index] && games[index].probOptions) || [];
+                for (var i = 0; i < opts.length; i++) {
+                    if (opts[i] && opts[i].id === probId) return opts[i].name || ('Prob' + (i + 1));
+                }
+            } catch (e) {}
+            return 'Prob';
+        }
+        // Plain-words description of the current configuration (legend).
+        function _mgExplorerText() {
+            var lg = _mgCaptureLegend();
+            if (!lg) return '';
+            var type = lg.gameType;
+            var index = _mgActiveIndex(type);
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var name = (games[index] && games[index].name) || '(game)';
+            var parts = [(type === 'catch' ? 'Catch' : 'Find'), name];
+            if (type === 'find' && lg.level) parts.push('Level: ' + lg.level);
+            parts.push(lg.playerCount + (lg.playerCount === 1 ? ' player' : ' players') + (lg.includeXeno ? ' +Xeno' : ''));
+            parts.push(_mgProbName(type, index, lg.probOptionId));
+            parts.push('timer ' + (lg.timerOn ? 'ON' : 'OFF'));
+            return parts.join('  ·  ');
+        }
+        // Re-deal the board with the same settings.
+        function _mgExplorerNewBoard() {
+            var type = _mgActiveType();
+            if (type === 'find' && window.game && typeof window.game.startGame === 'function') {
+                window.game.startGame();           // re-deals; its hook re-syncs the panel
+            } else if (type === 'catch' && typeof _catchStartRound === 'function') {
+                if (typeof _catchClearFalling === 'function') _catchClearFalling();
+                _catchStartRound();
+            }
+        }
+        // Show/refresh or hide the panel based on whether a board is live.
+        function _mgExplorerSync() {
+            var panel = document.getElementById('mg-explorer');
+            if (!panel) return;
+            var board = _mgSnapshotBoard();   // non-null only when a board is dealt
+            if (!board) { panel.style.display = 'none'; return; }
+            var txtEl = document.getElementById('mg-explorer-text');
+            if (txtEl) txtEl.textContent = _mgExplorerText();
+            panel.style.display = 'flex';
+        }
+        // Build the panel once, on DOM ready.
+        function _mgExplorerInit() {
+            if (document.getElementById('mg-explorer')) return;
+            var p = document.createElement('div');
+            p.id = 'mg-explorer';
+            p.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:14000;' +
+                'display:none;align-items:center;gap:12px;padding:7px 14px;border-radius:11px;' +
+                'background:rgba(20,20,32,0.92);border:1px solid rgba(255,215,0,0.4);color:#eee;' +
+                'font-family:Segoe UI,sans-serif;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,0.5);max-width:92vw;';
+            var label = document.createElement('span');
+            label.style.cssText = 'color:#FFD700;font-weight:700;flex:0 0 auto;';
+            label.textContent = 'Explorer:';
+            var txt = document.createElement('span');
+            txt.id = 'mg-explorer-text';
+            txt.style.cssText = 'color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            var btn = document.createElement('button');
+            btn.id = 'mg-explorer-newboard';
+            btn.textContent = '↻ New board';
+            btn.style.cssText = 'flex:0 0 auto;padding:5px 14px;border:none;border-radius:8px;cursor:pointer;' +
+                'background:#7c4dff;color:#fff;font-weight:600;font-size:13px;';
+            btn.addEventListener('click', function(e) { e.stopPropagation(); _mgExplorerNewBoard(); });
+            p.appendChild(label); p.appendChild(txt); p.appendChild(btn);
+            document.body.appendChild(p);
+        }
+        if (typeof window !== 'undefined') {
+            window._mgExplorerSync = _mgExplorerSync;
+            window._mgExplorerNewBoard = _mgExplorerNewBoard;
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _mgExplorerInit);
+        } else { _mgExplorerInit(); }
 
         // === Level domino icon updates ===
 
@@ -5216,6 +5304,8 @@
             });
             _catchGame._lastTime = null;
             _catchGame.animFrameId = requestAnimationFrame(_catchAnimLoop);
+            // Phase 2b: refresh the Config Explorer now that a round's cards exist.
+            if (typeof window._mgExplorerSync === 'function') { try { window._mgExplorerSync(); } catch (e) {} }
         }
 
         function _catchAnimLoop(timestamp) {
@@ -5411,6 +5501,7 @@
             var overlay = document.getElementById('catch-game-overlay');
             if (overlay) overlay.remove();
             document.body.classList.remove('catch-active');
+            if (typeof window._mgExplorerSync === 'function') { try { window._mgExplorerSync(); } catch (e) {} } // hide explorer
         }
 
         // Catch pause: freeze the round in place and show a tap-to-continue

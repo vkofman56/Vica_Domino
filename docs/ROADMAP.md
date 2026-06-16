@@ -12,10 +12,17 @@ auto-repair + safer drag**, and the **#4 clean data model** (a card's row is der
 from its label — single source of truth).
 
 ## Phase overview
-- **Phase 1 — Cross-set foundation** (shared-art library + game-as-template) ← *detailed below*
-- **Phase 2 — Game Previewer: mini-games** (config explorer + save favorable config as a mini-game)
-- **Phase 3 — Big Game** (rules of advance + transitions + compose + preview/**publish**; decide
-  live-vs-snapshot art here)
+- **Phase 1 — Cross-set foundation** — ✅ DONE (1.1–1.4 shipped; 1.5 superseded by r→p, see below)
+- **Phase 2 — Game Previewer: mini-games** — ✅ DONE June 15, 2026. A mini-game = a LEGEND
+  (one config of a game's settings: `{timerOn, probOptionId, level, typeId}`), filed under
+  its parent game (`game.miniGames`). Per-game folder icon + count on the Choose-the-game
+  page → panel listing mini-games (legend in plain words) with a computed "Default" (count
+  starts at 1) + ⧉ Copy / ⚙ Edit / ✎ Rename / ✗ Delete; Add/Copy/Edit route to the Setup
+  page with a Save button + naming banner. **Board = the type's surface, NOT a deal** (an
+  early board-snapshot was built then stripped). Commit arc: `e6de30d`→`6c0e889` (ledger in
+  STATUS_NOTES June 13–15).
+- **Phase 3 — Big Game** (rules of advance + transitions + compose mini-games + preview/**publish**;
+  the board / type-mixing A-vs-B decision lives here) ← *NEXT; model NOT yet locked — discuss first*
 - **Phase 4 — FinalPreview + Game Flow** (per-user dynamic probs/rules; publish individualized;
   collect Big Games into a Game Flow)
 

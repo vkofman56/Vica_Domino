@@ -1,32 +1,86 @@
 # Vica Domino - Project Status Notes
-**Date**: June 11, 2026 — Card Maker multi-select overhaul (Gr mode removed, "Edit group" flow) · twin-guard delete fix · Enter-to-login
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `d50ac83` + this doc commit; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1400+
+**Date**: June 15, 2026 — Phase 2 (Game Previewer mini-games) COMPLETE · Studio cleanup (Gr mode gone, dead code, twin warnings) · loupe overhaul · 1.5 superseded by r→p
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `6c0e889` + this doc commit; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1430+
 **Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
+**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
 
 ---
 
-## ▶▶ NEXT CHAT: Phase **1.5 — apply a game to a set** (plan drafted; user wants to re-discuss first)
-Phase 1 stages **1.1–1.4 are DONE** (commit ledger in `docs/ROADMAP.md`). 1.5 is the last
-open Phase-1 stage. A 3-step plan was presented and the user said **"I do not have a
-clear picture yet — we will do it later"** — so START BY WALKING HIM THROUGH IT AGAIN
-(ideally with a concrete example from his data) before building anything:
-- **1.5a** — mapping engine, no UI: read a game's shape (lines × cards, derived from
-  labels per the #4 model) + a target set's shape; compare; produce the new game object
-  for the same-shape case. Verify read-only in preview on real data.
-- **1.5b** — "Apply to set…" action on each game in the Library GAMES list → set picker →
-  same-shape confirm ("8 lines × 4 cards → mapped 1:1, probs/colors carried") → a NEW
-  game is saved (additive; the source game untouched). The user clicks through this stage.
-- **1.5c** — reconciliation dialog for almost-similar sets (missing line / extra card /
-  count diff): list the deviations, the user resolves each (skip / partial / pick
-  manually), the rest maps automatically. No silent guessing (locked roadmap behavior).
-- Scope of the first pass: Find + Catch games. **OPEN QUESTION for the user:** which
-  game → which target set as the first real test pair (one same-shape, one slightly-off)?
+## ▶▶ NEXT CHAT: start **Phase 3 — BIG GAME composer** (read this + ROADMAP first; the model is NOT yet locked)
+Phases **1 and 2 are DONE**. Phase 3 is the biggest, most abstract phase and is defined so
+far by ONE sentence ("rules of advance + transitions + compose mini-games + preview/publish").
+**Do NOT build yet** — repeat the Phase-2 discipline: a read-only grounding pass + a
+discussion to LOCK the model with the user first. Key things to settle (the user has
+strong, specific opinions — ask, don't assume):
+1. How are mini-games **gathered** into a Big Game (drag from each game's folder? a picker?).
+2. What is a **"rule of advance"** (when/how the player moves to the next mini-game) and a
+   **"transition"** between them — concretely, in the user's words.
+3. The **board / type-mixing** rule he already stated: a Big Game of all-one-type shares one
+   board (Option **A** — the mini-games' frozen-by-type board); **mixed** types (Find+Catch)
+   need each type's board **dragged in** (Option **B**). This decision lives HERE.
+4. What **publish** produces — the published Big Game is the ONLY artifact that runs on
+   **touch OR mouse**; everything upstream (Studio, Previewer, mini-games, this composer)
+   is **mouse-only**.
+- **Existing asset to ground in:** the legacy **Combined Games** machinery (`savedCombinedGames`,
+  `loadCombinedGames`, `openCombineDialog`, the hidden combine checkboxes) — Phase 3 likely
+  supersedes/absorbs it. Examine it before proposing.
+- **Mini-game data model (Phase 2, for the composer to read):** each game has
+  `game.miniGames = [{ id, name, createdAt, legend }]`; legend = `{ timerOn, probOptionId,
+  level, typeId }` (the 4 Setup-page fields). LEGEND-ONLY (no board snapshot — board is the
+  type's surface). A game's folder also always shows an implicit "Default" = the game's own
+  configuration (count starts at 1; Default is computed, not stored).
 
 ---
 
-## June 11, 2026 (latest) — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
+## June 13–15, 2026 — Phase 2 mini-games COMPLETE + Studio/loupe cleanup arc
+
+Working tree clean; everything shipped (tip `6c0e889`). ~25 commits. All verified live in
+the preview before each ship. Highlights (full detail in each commit message):
+
+- **Phase 2 — Game Previewer mini-games, DONE.** A **mini-game = a LEGEND** (one chosen
+  configuration of a game's settings: `{timerOn, probOptionId, level, typeId}`), filed
+  UNDER its parent game (`game.miniGames`). A Game is a folder of mini-games. **Board =
+  the game TYPE's playing surface (Find layout / Catch layout), NOT a card deal** — it only
+  matters at Big-Game time when mixing types (corrected mid-build; the earlier 2a board
+  snapshot + 2b live floating explorer were STRIPPED). On the Previewer's Choose-the-game
+  page each Find/Catch game has a **gold folder icon + count badge** opening a panel that
+  lists its mini-games (each legend shown in plain words, naming the parent game). Always a
+  first **"Default" = the game's own configuration** (count starts at 1; computed, not
+  stored). Per saved mini-game: **⧉ Copy · ⚙ Edit · ✎ Rename · ✗ Delete**. Add/Copy/Edit
+  route to the Setup page (a "💾 Save as mini-game"/"Save changes" button is injected; a
+  purple banner names what you're on), Copy/Edit pre-load the legend via `_mgApplyLegend`
+  (clicks the matching timer/prob[data-prob-id]/level[data-level]/type[data-type-id]
+  controls). Commit arc: `e6de30d` (2a) → `f997c9c` (2b, later stripped) → `e4eb5d7`
+  (2c-i strip) → `d472b2a` (folder+panel) → `6ffd3f1` (Default) → `49ac414` (add/rename/
+  delete) → `60b5540` (copy) → `518e8f4` (edit) → `6c0e889` (edit banner).
+- **Phase 1.5 SUPERSEDED by r→p** — "apply a game to a set" was dropped as too messy;
+  replaced by the **role→probability** shortcut in Game Creator (set columns + probs once
+  per ROLE; representatives on one synthetic line; Apply writes to every card of the role
+  AND materializes them as M-groups). See ROADMAP 1.5.
+- **Studio mouse-only cleanup:** Gr (Group Edit) mode + button REMOVED (passive
+  shift/marquee/row-letter/Ctrl+A selection + the "Edit group" two-step reference flow
+  cover it); **~600 lines of dead code** removed (old variations system, Shape Mode stubs,
+  one-time migrations' bodies, etc.); the non-functional Library "combine" checkboxes
+  hidden (publishing is later). **Authoring is MOUSE-ONLY; only the published Big Game runs
+  touch+mouse.**
+- **Twin-clone warnings** (Card Maker + Game Creator): toast when two cards share a
+  stableId, or identical non-blank art in one row, or an orphaned game-card ref; blank
+  cards are intentional and exempt. The real C2/C3 twin in Multiply by 4 was the trigger.
+- **Loupe (card editor) overhaul:** panel no longer covers the card (offsetParent-null bug
+  on the fixed panel); panel is movable via a visible grab bar and may float over the card
+  after you move it (no-overlap only applies on open); handle-on-top for icon editing; the
+  big left toolbar is hidden during edit, leaving only the two relevant tools (▣ wide-border
+  + 🎤 sound for cards; just ▣ for icons).
+- **Data cleanup:** removed 8 legacy localStorage keys (6 ghost card storages incl. the
+  phantom 15-card "abc" + 2 dead keys); full snapshot kept in
+  `_recovery_deleted_legacy_storages_2026-06-13.json`. Games audited: exactly 11, no ghosts.
+- **Misc:** game ⓘ info popover (which sets a game uses + description, toggles closed on
+  second click); a real game description box; menu wording; Enter-to-login.
+
+---
+
+## June 11, 2026 — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
 
 Working tree clean; everything shipped (tip `d50ac83` + this doc commit). One session,
 ~12 ships; each change verified in the live preview (login Vica) before shipping.

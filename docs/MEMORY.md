@@ -1,5 +1,31 @@
 # Vica Domino Project Memory
-**Last Updated**: June 11, 2026 — Studio is MOUSE-ONLY (Gr mode removed) · "Edit group" two-step flow · twin-clone cards (same stableId+uid) exist in real data + twin-guard delete. **NEXT: Phase 1.5** (see STATUS_NOTES.md — re-discuss the plan with the user first)
+**Last Updated**: June 15, 2026 — Phase 2 (mini-games) DONE · corrected mini-game model (legend-only; board = type's surface) · whole authoring side is MOUSE-ONLY. **NEXT: Phase 3 — BIG GAME composer** (lock the model with the user first; see STATUS_NOTES.md)
+
+---
+
+## 🧩 June 15, 2026 — durable facts/decisions from Phase 2 (mini-games) + the pipeline
+
+- **A mini-game = a LEGEND, period.** One chosen configuration of a game's settings —
+  `{ timerOn, probOptionId, level, typeId }` (the 4 fields the Setup page's Legend box
+  shows). It references its parent game LIVE (cards/probs/art follow edits). It does NOT
+  store a card deal. Mini-games live UNDER their game: `game.miniGames = [...]`. A Game is a
+  folder of mini-games; its implicit "Default" (count starts at 1) = the game's own config,
+  computed not stored.
+- **"Board" = the game TYPE's playing surface** (Find layout vs Catch falling layout), NOT a
+  random deal. It only matters at BIG-GAME time: all-one-type Big Game shares one board
+  (Option A — the type's board); mixed types (Find+Catch) need each type's board dragged in
+  (Option B). The program decides A/B by type-consistency. (This corrected a wrong
+  assumption — an earlier "board snapshot" was built then STRIPPED.)
+- **The whole AUTHORING pipeline is MOUSE-ONLY** (Studio, Game Previewer, mini-games, the
+  future Big-Game composer). The ONLY artifact that runs on touch OR mouse is the **finished,
+  published Big Game**. Don't add touch affordances to authoring tools.
+- **The pipeline (user's words):** Studio (cards→equivalence rows + probs/colors + roles) →
+  Game Previewer (mini-games = saved legends per game) → BIG GAME (collect mini-games across
+  games + rules-of-advance + transitions → preview/publish) → FinalPreview (per-user dynamic
+  probs/rules) → Game Flow.
+- **Legacy Combined Games** (`savedCombinedGames` / `loadCombinedGames` / `openCombineDialog`,
+  combine checkboxes — now hidden) is a pre-existing game-combining feature that Phase 3
+  (Big Game) likely supersedes/absorbs. Ground in it before building Phase 3.
 
 ---
 

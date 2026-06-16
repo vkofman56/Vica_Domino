@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:07 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:25 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:07 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:25 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1660,6 +1660,10 @@
                 });
                 item.appendChild(cpy);
                 if (savedIdx !== null && savedIdx !== undefined) {
+                    var edt = document.createElement('span');
+                    edt.className = 'mg-item-act'; edt.textContent = '⚙'; edt.title = 'Edit settings';
+                    edt.addEventListener('click', function(e) { e.stopPropagation(); _mgClosePanel(); _mgStartEdit(type, index, savedIdx); });
+                    item.appendChild(edt);
                     var ren = document.createElement('span');
                     ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
                     ren.addEventListener('click', function(e) { e.stopPropagation(); _mgRename(type, index, savedIdx, anchorEl); });
@@ -1730,17 +1734,26 @@
 
         // Add-mode: clicking "+ Add" flags intent and navigates to the game's
         // Setup page, where _mgInjectSaveBtn shows a "Save as mini-game".
-        var _mgAddMode = null; // { type, index, defaultName? } | null
-        function _mgStartAdd(type, index, copyLegend, defaultName) {
-            _mgAddMode = { type: type, index: index, defaultName: defaultName || '' };
+        var _mgAddMode = null; // { type, index, defaultName?, editIdx? } | null
+        // editIdx === number → EDIT an existing saved mini-game in place
+        // (save overwrites its legend, keeping name+id). Otherwise → new record.
+        function _mgStartAdd(type, index, preloadLegend, defaultName, editIdx) {
+            _mgAddMode = { type: type, index: index, defaultName: defaultName || '',
+                           editIdx: (typeof editIdx === 'number' ? editIdx : undefined) };
             var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
             var tile = document.querySelectorAll(colId + ' .intro-game-btn')[index];
             if (!tile) { _mgAddMode = null; return; }
             tile.click(); // -> Setup page (mode/count gates apply)
             setTimeout(function() {
-                if (copyLegend) _mgApplyLegend(copyLegend); // Copy: pre-load the source settings
+                if (preloadLegend) _mgApplyLegend(preloadLegend); // Copy/Edit: pre-load settings
                 _mgInjectSaveBtn();
             }, 150);
+        }
+        // Edit: open an existing mini-game's settings on Setup, save back to it.
+        function _mgStartEdit(type, index, savedIdx) {
+            var list = _mgListFor(type, index);
+            var mg = list[savedIdx]; if (!mg) return;
+            _mgStartAdd(type, index, mg.legend, '', savedIdx);
         }
         // Apply a stored legend onto the live Setup controls (the reverse of
         // _mgCaptureSetupLegend) — used by Copy so you start from a mini-game's
@@ -1782,19 +1795,31 @@
             if (document.getElementById('mg-save-btn')) return;
             var startBtn = document.getElementById('start-game-btn');
             if (!startBtn || !startBtn.offsetParent) { setTimeout(_mgInjectSaveBtn, 120); return; }
+            var editing = (_mgAddMode.editIdx !== undefined);
             var b = document.createElement('button');
             b.id = 'mg-save-btn';
             b.className = 'btn';
-            b.textContent = '💾 Save as mini-game';
+            b.textContent = editing ? '💾 Save changes' : '💾 Save as mini-game';
             b.style.cssText = 'margin-left:10px;background:#7c4dff;color:#fff;';
             b.addEventListener('click', _mgSaveCurrentAsMiniGame);
             startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
         }
         function _mgSaveCurrentAsMiniGame() {
             if (!_mgAddMode) return;
-            var type = _mgAddMode.type, index = _mgAddMode.index;
+            var type = _mgAddMode.type, index = _mgAddMode.index, editIdx = _mgAddMode.editIdx;
             var legend = _mgCaptureSetupLegend(type, index);
             if (!legend) { _mgClearAddMode(); return; }
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            if (editIdx !== undefined) {
+                // EDIT: overwrite the existing mini-game's legend (keep name+id).
+                var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+                var mg = games[index] && games[index].miniGames && games[index].miniGames[editIdx];
+                if (mg) { mg.legend = legend; localStorage.setItem(key, JSON.stringify(games)); }
+                _mgClearAddMode();
+                _mgBackToIntro();
+                return;
+            }
+            // NEW: name it and file under the game.
             var name = prompt('Name this mini-game:', _mgAddMode.defaultName || '');
             if (name === null) return;            // cancelled — stay on Setup
             name = name.trim() || 'Mini-game';

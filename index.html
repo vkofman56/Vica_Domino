@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-48">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-49">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:34 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:58 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:34 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:58 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1631,25 +1631,52 @@
             var legendBox = document.createElement('div');
             legendBox.className = 'mg-panel-legend';
             legendBox.style.display = 'none';
-            function addItem(displayName, legend) {
+            // savedIdx: position in the saved list (for rename/delete); null
+            // for the protected Default.
+            function addItem(displayName, legend, savedIdx) {
                 var item = document.createElement('div');
                 item.className = 'mg-panel-item';
-                item.textContent = displayName;
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = displayName;
+                nameSpan.style.cssText = 'flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;';
+                item.appendChild(nameSpan);
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '6px';
                 item.addEventListener('click', function() {
                     p.querySelectorAll('.mg-panel-item.selected').forEach(function(el) { el.classList.remove('selected'); });
                     item.classList.add('selected');
                     legendBox.textContent = _mgFormatLegend(legend, type, index);
                     legendBox.style.display = 'block';
                 });
+                if (savedIdx !== null && savedIdx !== undefined) {
+                    var ren = document.createElement('span');
+                    ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
+                    ren.addEventListener('click', function(e) { e.stopPropagation(); _mgRename(type, index, savedIdx, anchorEl); });
+                    var del = document.createElement('span');
+                    del.className = 'mg-item-act'; del.textContent = '✗'; del.title = 'Delete';
+                    del.addEventListener('click', function(e) { e.stopPropagation(); _mgDelete(type, index, savedIdx, anchorEl); });
+                    item.appendChild(ren); item.appendChild(del);
+                }
                 p.appendChild(item);
                 return item;
             }
             // The Default = the game's own configuration; always first, count
             // starts at 1 (user, June 13). Pre-selected so its legend shows.
-            var defItem = addItem('Default (this game’s configuration)', _mgDefaultLegend(type, index));
+            var defItem = addItem('Default (this game’s configuration)', _mgDefaultLegend(type, index), null);
             defItem.click();
-            list.forEach(function(mg) { addItem(mg.name || 'Mini-game', mg.legend); });
+            list.forEach(function(mg, si) { addItem(mg.name || 'Mini-game', mg.legend, si); });
             p.appendChild(legendBox);
+            // "+ Add mini-game" — go to this game's Setup page in add-mode.
+            var addBtn = document.createElement('button');
+            addBtn.className = 'mg-panel-add';
+            addBtn.textContent = '+ Add mini-game';
+            addBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _mgClosePanel();
+                _mgStartAdd(type, index);
+            });
+            p.appendChild(addBtn);
             document.body.appendChild(p);
             // Anchor: below the button, clamped to viewport.
             var r = anchorEl.getBoundingClientRect();
@@ -1668,6 +1695,111 @@
             window._mgFormatLegend = _mgFormatLegend;
             window._mgDefaultLegend = _mgDefaultLegend;
             window._mgOpenPanel = _mgOpenPanel;
+        }
+
+        // ===== Phase 2c-iii-b1: add / rename / delete mini-games =====
+        // Capture the 4 legend fields from the LIVE Setup page (same sources
+        // the Legend box reads): timer toggle, selected Prob, selected Level,
+        // selected Type.
+        function _mgCaptureSetupLegend(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index]; if (!g) return null;
+            var tog = document.getElementById('setup-timer-toggle');
+            var timerOn = tog ? (tog.getAttribute('data-state') === 'on') : (type === 'find');
+            var probId = window._gpSelectedProbId || g.activeProbOptionId || null;
+            var level = (window.game && window.game.selectedLevel)
+                || (function(){ try { return localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { return 'circle'; } })();
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null, cur = window._currentTypeLabel || '';
+            var i;
+            for (i = 0; i < opts.length; i++) { if ((opts[i].label || '') === cur) { typeId = opts[i].id; break; } }
+            if (!typeId) { for (i = 0; i < opts.length; i++) { if (opts[i].on) { typeId = opts[i].id; break; } } if (!typeId && opts[0]) typeId = opts[0].id; }
+            return { timerOn: timerOn, probOptionId: probId, level: level, typeId: typeId };
+        }
+
+        // Add-mode: clicking "+ Add" flags intent and navigates to the game's
+        // Setup page, where _mgInjectSaveBtn shows a "Save as mini-game".
+        var _mgAddMode = null; // { type, index } | null
+        function _mgStartAdd(type, index) {
+            _mgAddMode = { type: type, index: index };
+            var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
+            var tile = document.querySelectorAll(colId + ' .intro-game-btn')[index];
+            if (!tile) { _mgAddMode = null; return; }
+            tile.click(); // -> Setup page (mode/count gates apply)
+            setTimeout(_mgInjectSaveBtn, 120);
+        }
+        function _mgClearAddMode() {
+            _mgAddMode = null;
+            var b = document.getElementById('mg-save-btn');
+            if (b && b.parentNode) b.parentNode.removeChild(b);
+        }
+        function _mgInjectSaveBtn() {
+            if (!_mgAddMode) return;
+            if (document.getElementById('mg-save-btn')) return;
+            var startBtn = document.getElementById('start-game-btn');
+            if (!startBtn || !startBtn.offsetParent) { setTimeout(_mgInjectSaveBtn, 120); return; }
+            var b = document.createElement('button');
+            b.id = 'mg-save-btn';
+            b.className = 'btn';
+            b.textContent = '💾 Save as mini-game';
+            b.style.cssText = 'margin-left:10px;background:#7c4dff;color:#fff;';
+            b.addEventListener('click', _mgSaveCurrentAsMiniGame);
+            startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
+        }
+        function _mgSaveCurrentAsMiniGame() {
+            if (!_mgAddMode) return;
+            var type = _mgAddMode.type, index = _mgAddMode.index;
+            var legend = _mgCaptureSetupLegend(type, index);
+            if (!legend) { _mgClearAddMode(); return; }
+            var name = prompt('Name this mini-game:', '');
+            if (name === null) return;            // cancelled — stay on Setup
+            name = name.trim() || 'Mini-game';
+            _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                    name: name, createdAt: Date.now(), legend: legend });
+            _mgClearAddMode();
+            _mgBackToIntro();
+        }
+        function _mgBackToIntro() {
+            document.getElementById('start-screen').style.display = 'none';
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+            if (typeof _renderIntroColumns === 'function') _renderIntroColumns();
+            else if (typeof populateIntroGames === 'function') populateIntroGames();
+        }
+        function _mgRename(type, index, savedIdx, anchorEl) {
+            var list = _mgListFor(type, index);
+            var cur = list[savedIdx]; if (!cur) return;
+            var name = prompt('Rename mini-game:', cur.name || '');
+            if (name === null) return;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            if (games[index] && games[index].miniGames && games[index].miniGames[savedIdx]) {
+                games[index].miniGames[savedIdx].name = name.trim() || 'Mini-game';
+                localStorage.setItem(key, JSON.stringify(games));
+            }
+            _mgOpenPanel(type, index, anchorEl); // refresh
+        }
+        function _mgDelete(type, index, savedIdx, anchorEl) {
+            var list = _mgListFor(type, index);
+            var cur = list[savedIdx]; if (!cur) return;
+            if (!confirm('Delete mini-game “' + (cur.name || 'Mini-game') + '”?')) return;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            if (games[index] && games[index].miniGames) {
+                games[index].miniGames.splice(savedIdx, 1);
+                localStorage.setItem(key, JSON.stringify(games));
+            }
+            // re-render the game list so the badge count drops, then reopen.
+            if (typeof populateIntroGames === 'function') populateIntroGames();
+            var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
+            var newAnchor = document.querySelectorAll(colId + ' .intro-game-mg')[index] || anchorEl;
+            _mgOpenPanel(type, index, newAnchor);
+        }
+        if (typeof window !== 'undefined') {
+            window._mgStartAdd = _mgStartAdd;
+            window._mgClearAddMode = _mgClearAddMode;
+            window._mgInjectSaveBtn = _mgInjectSaveBtn;
         }
 
         // ===== Game-type catalog + recency-stack render =====

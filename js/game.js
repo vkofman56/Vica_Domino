@@ -371,6 +371,7 @@ class VicaDominoGame {
 
         // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
+            if (typeof window._mgClearAddMode === 'function') window._mgClearAddMode(); // leaving Setup cancels add-mode
             var pn = document.getElementById('player-names');
             // For mouse-mode catch: player-names is shown on setup page, so back goes to intro
             var isCatchMouse = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0 &&

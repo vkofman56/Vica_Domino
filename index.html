@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:14 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:34 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:34 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1514,13 +1514,15 @@
                 var mgBtn = document.createElement('button');
                 mgBtn.type = 'button';
                 mgBtn.className = 'intro-game-mg';
-                var cnt = _mgListFor(mgInfo.type, mgInfo.index).length;
-                mgBtn.title = 'Mini-games of this game' + (cnt ? ' (' + cnt + ')' : ' — none yet');
+                // Count always includes the implicit Default (the game's own
+                // configuration) → starts at 1, never 0 (user, June 13).
+                var cnt = 1 + _mgListFor(mgInfo.type, mgInfo.index).length;
+                mgBtn.title = 'Mini-games of this game (' + cnt + ')';
                 mgBtn.innerHTML =
                     '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
                     '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" ' +
                     'fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' +
-                    '<span class="intro-game-mg-count' + (cnt ? '' : ' zero') + '">' + cnt + '</span>';
+                    '<span class="intro-game-mg-count">' + cnt + '</span>';
                 mgBtn.addEventListener('click', function(e) {
                     e.stopPropagation(); e.preventDefault();
                     _mgOpenPanel(mgInfo.type, mgInfo.index, mgBtn);
@@ -1531,17 +1533,73 @@
             return btn;
         }
 
-        // Plain-words description of a STORED legend (the mini-game's config),
-        // always naming its parent game (user's #1).
+        // A legend = the four Setup-page fields the user's Legend box shows:
+        // Timer, Probability, Level, Type. Stored as VALUES; formatted for
+        // display via _mgFormatLegend. (user, June 13)
+        var _MG_LEVEL_KEYS = ['circle', 'triangle', 'star'];
+        var _MG_LEVEL_DIFF = { circle: 'Easy', triangle: 'Medium', star: 'Hard' };
+        function _mgSetupMode(g) { return (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch'; }
+        function _mgProbLabel(type, index, probId) {
+            if (!probId) return 'BasicS';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var opts = (games[index] && games[index].probOptions) || [];
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i] && opts[i].id === probId) return (i + 1) + '. ' + (opts[i].name || ('Prob' + (i + 1)));
+            }
+            return 'Prob';
+        }
+        function _mgLevelLabel(g, levelKey) {
+            if (!levelKey) return '';
+            var idx = _MG_LEVEL_KEYS.indexOf(levelKey); if (idx < 0) idx = 0;
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].levels && g.setup[mode].levels.options) || [];
+            var label = opts[idx] ? (opts[idx].label || '') : '';
+            var diff = _MG_LEVEL_DIFF[levelKey] || '';
+            // Don't double the difficulty word if the label already carries it
+            // (e.g. a Catch level literally labelled "Hard").
+            if (diff && label.toLowerCase().indexOf(diff.toLowerCase()) !== -1) diff = '';
+            var out = (diff ? diff + ' ' : '') + label;
+            return out.trim();
+        }
+        function _mgTypeLabel(g, typeId) {
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var i;
+            for (i = 0; i < opts.length; i++) { if (opts[i].id === typeId) return opts[i].label || ''; }
+            for (i = 0; i < opts.length; i++) { if (opts[i].on) return opts[i].label || ''; }
+            return opts[0] ? (opts[0].label || '') : '';
+        }
+        // Derive a game's DEFAULT legend (its current configuration) from its
+        // own data + globals — matches what the Setup page's Legend box shows.
+        function _mgDefaultLegend(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index]; if (!g) return null;
+            // Timer default follows the runtime default (window._currentTimerOn):
+            // ON for Find, OFF for Catch. (For Catch, setup.timer is FALL TIME,
+            // not a countdown — so it must NOT be read as "timer on".)
+            var timerOn = (type === 'find');
+            var level;
+            try { level = localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { level = 'circle'; }
+            var mode = _mgSetupMode(g);
+            var tOpts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null;
+            for (var i = 0; i < tOpts.length; i++) { if (tOpts[i].on) { typeId = tOpts[i].id; break; } }
+            if (!typeId && tOpts[0]) typeId = tOpts[0].id;
+            return { isDefault: true, timerOn: timerOn, probOptionId: g.activeProbOptionId || null, level: level, typeId: typeId };
+        }
+        // Plain-words description of a legend, always naming its parent game.
         function _mgFormatLegend(legend, type, index) {
             if (!legend) return '';
             var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
-            var name = (games[index] && games[index].name) || '(game)';
+            var g = games[index];
+            var name = (g && g.name) || '(game)';
             var parts = [(type === 'catch' ? 'Catch' : 'Find'), name];
-            if (type === 'find' && legend.level) parts.push('Level: ' + legend.level);
-            parts.push(legend.playerCount + (legend.playerCount === 1 ? ' player' : ' players') + (legend.includeXeno ? ' +Xeno' : ''));
-            parts.push(_mgProbName(type, index, legend.probOptionId));
-            parts.push('timer ' + (legend.timerOn ? 'ON' : 'OFF'));
+            parts.push('Timer ' + (legend.timerOn ? 'on' : 'off'));
+            parts.push(_mgProbLabel(type, index, legend.probOptionId));
+            var lvl = g ? _mgLevelLabel(g, legend.level) : '';
+            if (lvl) parts.push(lvl);
+            var typ = g ? _mgTypeLabel(g, legend.typeId) : '';
+            if (typ) parts.push(typ);
             return parts.join('  ·  ');
         }
         // The mini-games panel (read-only in 2c-ii): lists a game's mini-games;
@@ -1573,25 +1631,24 @@
             var legendBox = document.createElement('div');
             legendBox.className = 'mg-panel-legend';
             legendBox.style.display = 'none';
-            if (!list.length) {
-                var empty = document.createElement('div');
-                empty.className = 'mg-panel-empty';
-                empty.textContent = 'No mini-games yet.';
-                p.appendChild(empty);
-            } else {
-                list.forEach(function(mg) {
-                    var item = document.createElement('div');
-                    item.className = 'mg-panel-item';
-                    item.textContent = mg.name || 'Mini-game';
-                    item.addEventListener('click', function() {
-                        p.querySelectorAll('.mg-panel-item.selected').forEach(function(el) { el.classList.remove('selected'); });
-                        item.classList.add('selected');
-                        legendBox.textContent = _mgFormatLegend(mg.legend, type, index);
-                        legendBox.style.display = 'block';
-                    });
-                    p.appendChild(item);
+            function addItem(displayName, legend) {
+                var item = document.createElement('div');
+                item.className = 'mg-panel-item';
+                item.textContent = displayName;
+                item.addEventListener('click', function() {
+                    p.querySelectorAll('.mg-panel-item.selected').forEach(function(el) { el.classList.remove('selected'); });
+                    item.classList.add('selected');
+                    legendBox.textContent = _mgFormatLegend(legend, type, index);
+                    legendBox.style.display = 'block';
                 });
+                p.appendChild(item);
+                return item;
             }
+            // The Default = the game's own configuration; always first, count
+            // starts at 1 (user, June 13). Pre-selected so its legend shows.
+            var defItem = addItem('Default (this game’s configuration)', _mgDefaultLegend(type, index));
+            defItem.click();
+            list.forEach(function(mg) { addItem(mg.name || 'Mini-game', mg.legend); });
             p.appendChild(legendBox);
             document.body.appendChild(p);
             // Anchor: below the button, clamped to viewport.
@@ -1609,6 +1666,7 @@
         }
         if (typeof window !== 'undefined') {
             window._mgFormatLegend = _mgFormatLegend;
+            window._mgDefaultLegend = _mgDefaultLegend;
             window._mgOpenPanel = _mgOpenPanel;
         }
 

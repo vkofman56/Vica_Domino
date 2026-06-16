@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-47">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-48">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:03 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:14 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:14 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1470,7 +1470,7 @@
         // freeze/float assignments saved on the game. Lets the user verify
         // that Studio's Game Creator content survived the round-trip into
         // localStorage and back into the Player's runtime.
-        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction) {
+        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction, mgInfo) {
             var row = document.createElement('div');
             row.className = 'intro-game-row';
             var btn = document.createElement('button');
@@ -1508,8 +1508,108 @@
                 eye.title = 'Left-click: cards in this game · Right-click: game icon';
                 row.appendChild(eye);
             }
+            // Phase 2c: mini-games folder button — opens this game's mini-games
+            // panel. mgInfo = { type:'find'|'catch', index } identifies the game.
+            if (mgInfo && typeof _mgListFor === 'function') {
+                var mgBtn = document.createElement('button');
+                mgBtn.type = 'button';
+                mgBtn.className = 'intro-game-mg';
+                var cnt = _mgListFor(mgInfo.type, mgInfo.index).length;
+                mgBtn.title = 'Mini-games of this game' + (cnt ? ' (' + cnt + ')' : ' — none yet');
+                mgBtn.innerHTML =
+                    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
+                    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" ' +
+                    'fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' +
+                    '<span class="intro-game-mg-count' + (cnt ? '' : ' zero') + '">' + cnt + '</span>';
+                mgBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                    _mgOpenPanel(mgInfo.type, mgInfo.index, mgBtn);
+                });
+                row.appendChild(mgBtn);
+            }
             listEl.appendChild(row);
             return btn;
+        }
+
+        // Plain-words description of a STORED legend (the mini-game's config),
+        // always naming its parent game (user's #1).
+        function _mgFormatLegend(legend, type, index) {
+            if (!legend) return '';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var name = (games[index] && games[index].name) || '(game)';
+            var parts = [(type === 'catch' ? 'Catch' : 'Find'), name];
+            if (type === 'find' && legend.level) parts.push('Level: ' + legend.level);
+            parts.push(legend.playerCount + (legend.playerCount === 1 ? ' player' : ' players') + (legend.includeXeno ? ' +Xeno' : ''));
+            parts.push(_mgProbName(type, index, legend.probOptionId));
+            parts.push('timer ' + (legend.timerOn ? 'ON' : 'OFF'));
+            return parts.join('  ·  ');
+        }
+        // The mini-games panel (read-only in 2c-ii): lists a game's mini-games;
+        // clicking one shows its legend below.
+        function _mgClosePanel() {
+            var p = document.getElementById('mg-panel');
+            if (p && p.parentNode) p.parentNode.removeChild(p);
+            document.removeEventListener('click', _mgPanelOutside, true);
+            document.removeEventListener('keydown', _mgPanelEsc, true);
+        }
+        function _mgPanelOutside(e) { var p = document.getElementById('mg-panel'); if (p && !p.contains(e.target) && e.target !== p._anchor && !(p._anchor && p._anchor.contains(e.target))) _mgClosePanel(); }
+        function _mgPanelEsc(e) { if (e.key === 'Escape') _mgClosePanel(); }
+        function _mgOpenPanel(type, index, anchorEl) {
+            // Toggle off if already open for this anchor.
+            var existing = document.getElementById('mg-panel');
+            if (existing && existing._anchor === anchorEl) { _mgClosePanel(); return; }
+            _mgClosePanel();
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var gameName = (games[index] && games[index].name) || '(game)';
+            var list = _mgListFor(type, index);
+            var p = document.createElement('div');
+            p.id = 'mg-panel';
+            p.className = 'mg-panel';
+            p._anchor = anchorEl;
+            var title = document.createElement('div');
+            title.className = 'mg-panel-title';
+            title.textContent = 'Mini-games · ' + gameName;
+            p.appendChild(title);
+            var legendBox = document.createElement('div');
+            legendBox.className = 'mg-panel-legend';
+            legendBox.style.display = 'none';
+            if (!list.length) {
+                var empty = document.createElement('div');
+                empty.className = 'mg-panel-empty';
+                empty.textContent = 'No mini-games yet.';
+                p.appendChild(empty);
+            } else {
+                list.forEach(function(mg) {
+                    var item = document.createElement('div');
+                    item.className = 'mg-panel-item';
+                    item.textContent = mg.name || 'Mini-game';
+                    item.addEventListener('click', function() {
+                        p.querySelectorAll('.mg-panel-item.selected').forEach(function(el) { el.classList.remove('selected'); });
+                        item.classList.add('selected');
+                        legendBox.textContent = _mgFormatLegend(mg.legend, type, index);
+                        legendBox.style.display = 'block';
+                    });
+                    p.appendChild(item);
+                });
+            }
+            p.appendChild(legendBox);
+            document.body.appendChild(p);
+            // Anchor: below the button, clamped to viewport.
+            var r = anchorEl.getBoundingClientRect();
+            var pr = p.getBoundingClientRect();
+            var left = Math.min(r.left, window.innerWidth - pr.width - 8);
+            var top = r.bottom + 6;
+            if (top + pr.height > window.innerHeight - 8) top = Math.max(8, r.top - pr.height - 6);
+            p.style.left = Math.max(8, left) + 'px';
+            p.style.top = top + 'px';
+            setTimeout(function() {
+                document.addEventListener('click', _mgPanelOutside, true);
+                document.addEventListener('keydown', _mgPanelEsc, true);
+            }, 0);
+        }
+        if (typeof window !== 'undefined') {
+            window._mgFormatLegend = _mgFormatLegend;
+            window._mgOpenPanel = _mgOpenPanel;
         }
 
         // ===== Game-type catalog + recency-stack render =====
@@ -1746,7 +1846,7 @@
                 games.forEach(function(game, i) {
                     // Publishing isn't implemented — show every game.
                     var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
-                        function() { _openCardsLibrary('find', i); });
+                        function() { _openCardsLibrary('find', i); }, { type: 'find', index: i });
                     _bypassTileClick(fbtn, 'custom-' + i);
                 });
 
@@ -1763,7 +1863,7 @@
                 catchGames.forEach(function(cg, ci) {
                     // Publishing isn't implemented — show every game.
                     var btn = _renderIntroGameBtn(catchList, cg.name, _catchSetupIconSVG(cg), null,
-                        function() { _openCardsLibrary('catch', ci); });
+                        function() { _openCardsLibrary('catch', ci); }, { type: 'catch', index: ci });
                     _bypassTileClick(btn, 'catch-' + ci);
                 });
             }

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:58 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:07 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:58 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:07 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1001,6 +1001,7 @@
                 chip.type = 'button';
                 var isSel = (prob.id === selId);
                 chip.className = 'player-prob-chip' + (isSel ? ' selected' : '');
+                chip.dataset.probId = prob.id; // for mini-game Copy (apply a stored legend)
                 // Widen each chip to the full column width so its left/right
                 // edges match the "Probabilities" title above (the column
                 // shrink-wraps to that title). Overrides the CSS width:65%.
@@ -1649,6 +1650,15 @@
                     legendBox.textContent = _mgFormatLegend(legend, type, index);
                     legendBox.style.display = 'block';
                 });
+                // Copy: start a new mini-game pre-loaded with THIS one's legend.
+                var cpy = document.createElement('span');
+                cpy.className = 'mg-item-act'; cpy.textContent = '⧉'; cpy.title = 'Copy to a new mini-game';
+                cpy.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _mgClosePanel();
+                    _mgStartAdd(type, index, legend, (displayName.replace(/\s*\(.*\)$/, '') || 'Mini-game') + ' copy');
+                });
+                item.appendChild(cpy);
                 if (savedIdx !== null && savedIdx !== undefined) {
                     var ren = document.createElement('span');
                     ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
@@ -1720,14 +1730,47 @@
 
         // Add-mode: clicking "+ Add" flags intent and navigates to the game's
         // Setup page, where _mgInjectSaveBtn shows a "Save as mini-game".
-        var _mgAddMode = null; // { type, index } | null
-        function _mgStartAdd(type, index) {
-            _mgAddMode = { type: type, index: index };
+        var _mgAddMode = null; // { type, index, defaultName? } | null
+        function _mgStartAdd(type, index, copyLegend, defaultName) {
+            _mgAddMode = { type: type, index: index, defaultName: defaultName || '' };
             var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
             var tile = document.querySelectorAll(colId + ' .intro-game-btn')[index];
             if (!tile) { _mgAddMode = null; return; }
             tile.click(); // -> Setup page (mode/count gates apply)
-            setTimeout(_mgInjectSaveBtn, 120);
+            setTimeout(function() {
+                if (copyLegend) _mgApplyLegend(copyLegend); // Copy: pre-load the source settings
+                _mgInjectSaveBtn();
+            }, 150);
+        }
+        // Apply a stored legend onto the live Setup controls (the reverse of
+        // _mgCaptureSetupLegend) — used by Copy so you start from a mini-game's
+        // settings and tweak. Clicks the matching controls so their own
+        // handlers + the Legend box update.
+        function _mgApplyLegend(legend) {
+            if (!legend) return;
+            try {
+                var tog = document.getElementById('setup-timer-toggle');
+                if (tog) {
+                    var cur = tog.getAttribute('data-state') === 'on';
+                    if (cur !== !!legend.timerOn) tog.click();
+                }
+                if (legend.probOptionId) {
+                    var chip = document.querySelector('.player-prob-chip[data-prob-id="' + legend.probOptionId + '"]');
+                    if (chip && !chip.classList.contains('selected')) chip.click();
+                }
+                if (legend.level) {
+                    var lvl = document.querySelector('.level-btn[data-level="' + legend.level + '"]');
+                    if (lvl && !lvl.classList.contains('selected')) lvl.click();
+                }
+                if (legend.typeId) {
+                    var tline = document.querySelector('.setup-type-line[data-type-id="' + legend.typeId + '"]');
+                    if (tline) {
+                        var radio = tline.querySelector('input[type=radio]');
+                        if (radio) { if (!radio.checked) radio.click(); } else { tline.click(); }
+                    }
+                }
+                if (typeof _renderStartSummary === 'function') _renderStartSummary();
+            } catch (e) {}
         }
         function _mgClearAddMode() {
             _mgAddMode = null;
@@ -1752,7 +1795,7 @@
             var type = _mgAddMode.type, index = _mgAddMode.index;
             var legend = _mgCaptureSetupLegend(type, index);
             if (!legend) { _mgClearAddMode(); return; }
-            var name = prompt('Name this mini-game:', '');
+            var name = prompt('Name this mini-game:', _mgAddMode.defaultName || '');
             if (name === null) return;            // cancelled — stay on Setup
             name = name.trim() || 'Mini-game';
             _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
@@ -3474,6 +3517,7 @@
                 if (soleT.label) {
                     var staticLine = document.createElement('div');
                     staticLine.className = 'setup-type-line setup-type-line-static';
+                    staticLine.dataset.typeId = soleT.id; // for mini-game Copy
                     var labelTxt0 = soleT.label;
                     if (soleT.voiceInput) labelTxt0 += ' 🎤';
                     staticLine.textContent = labelTxt0;
@@ -3485,6 +3529,7 @@
                 enabled.forEach(function(opt, i) {
                     var line = document.createElement('label');
                     line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
+                    line.dataset.typeId = opt.id; // for mini-game Copy
                     var radio = document.createElement('input');
                     radio.type = 'radio';
                     radio.name = 'setup-type-pick';

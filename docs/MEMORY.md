@@ -23,9 +23,16 @@
   Game Previewer (mini-games = saved legends per game) → BIG GAME (collect mini-games across
   games + rules-of-advance + transitions → preview/publish) → FinalPreview (per-user dynamic
   probs/rules) → Game Flow.
-- **Legacy Combined Games** (`savedCombinedGames` / `loadCombinedGames` / `openCombineDialog`,
-  combine checkboxes — now hidden) is a pre-existing game-combining feature that Phase 3
-  (Big Game) likely supersedes/absorbs. Ground in it before building Phase 3.
+- **Legacy Combined Games = the working Phase-3 prototype** (grounded June 15). Data:
+  `savedCombinedGames = [{ name, stages:[{ gameIndex, gameName, gemsNeeded }] }]` — chains
+  **Find games ONLY** (whole games, not mini-games, no `gameType`, no board) into gem-gated
+  stages. Play: `window.combinedGameConfig`/`combinedGameStage`; `checkGameProgression`
+  advances when `stageGems >= gemsNeeded` → "Level Up!" overlay → `loadGameDeckForStage` →
+  last stage → `showFinalCelebration`. Sequencing + per-player gem tracking + transition
+  overlay + celebration + by-name resilient refs already exist. **Big Game extends this:**
+  stages → mini-games (Find+Catch), gemsNeeded → "rules of advance", Level-Up → "transition",
+  + Find↔Catch board/surface switching, + a composer UI. (Recommended: fresh `savedBigGames`
+  store, don't extend `savedCombinedGames`.)
 
 ---
 

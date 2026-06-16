@@ -7,29 +7,56 @@
 
 ---
 
-## ▶▶ NEXT CHAT: start **Phase 3 — BIG GAME composer** (read this + ROADMAP first; the model is NOT yet locked)
-Phases **1 and 2 are DONE**. Phase 3 is the biggest, most abstract phase and is defined so
-far by ONE sentence ("rules of advance + transitions + compose mini-games + preview/publish").
-**Do NOT build yet** — repeat the Phase-2 discipline: a read-only grounding pass + a
-discussion to LOCK the model with the user first. Key things to settle (the user has
-strong, specific opinions — ask, don't assume):
-1. How are mini-games **gathered** into a Big Game (drag from each game's folder? a picker?).
-2. What is a **"rule of advance"** (when/how the player moves to the next mini-game) and a
-   **"transition"** between them — concretely, in the user's words.
-3. The **board / type-mixing** rule he already stated: a Big Game of all-one-type shares one
-   board (Option **A** — the mini-games' frozen-by-type board); **mixed** types (Find+Catch)
-   need each type's board **dragged in** (Option **B**). This decision lives HERE.
-4. What **publish** produces — the published Big Game is the ONLY artifact that runs on
-   **touch OR mouse**; everything upstream (Studio, Previewer, mini-games, this composer)
-   is **mouse-only**.
-- **Existing asset to ground in:** the legacy **Combined Games** machinery (`savedCombinedGames`,
-  `loadCombinedGames`, `openCombineDialog`, the hidden combine checkboxes) — Phase 3 likely
-  supersedes/absorbs it. Examine it before proposing.
-- **Mini-game data model (Phase 2, for the composer to read):** each game has
-  `game.miniGames = [{ id, name, createdAt, legend }]`; legend = `{ timerOn, probOptionId,
-  level, typeId }` (the 4 Setup-page fields). LEGEND-ONLY (no board snapshot — board is the
-  type's surface). A game's folder also always shows an implicit "Default" = the game's own
-  configuration (count starts at 1; Default is computed, not stored).
+## ▶▶ NEXT CHAT: **Phase 3 — BIG GAME composer.** Grounding + framing DONE; resume by getting the user's answers to 3 questions (do NOT build yet)
+Phases **1 and 2 are DONE**. On June 15 we did the read-only grounding + presented the
+framing, and **asked the user 3 questions + 1 structural choice — STILL UNANSWERED. Start
+tomorrow by getting his answers, then propose the staged plan.**
+
+**The framing presented (his to confirm/reshape):** Big Game = the evolution of the legacy
+**Combined Games** prototype (which already chains Find games into gem-gated stages with a
+"Level Up!" transition + final celebration — see the grounding below). Big Game generalizes
+it: stages become **mini-games** (Find AND Catch), the gem count becomes his **"rules of
+advance,"** the Level-Up becomes his **"transition,"** and mixing types means playback
+**switches the board surface** between stages (his A/B rule — all-one-type shares one board;
+mixed types each bring their own).
+
+**Questions asked, awaiting answers (his words matter — don't assume):**
+1. **Gathering + where the composer lives.** How does he gather mini-games into a Big Game
+   (drag from each game's folder? a checklist?) and where does the composer live (Studio /
+   Previewer / its own place)?
+2. **"Rule of advance."** Is the existing "collect N gems to advance" his rule (just per-
+   mini-game configurable), or richer (time / score / success-fail branching / manual)? Get
+   his definition of what moves the player to the next mini-game.
+3. **"Transition."** Just the visual Level-Up moment, or does it carry rules/meaning?
++ **Structural choice I recommended:** start a FRESH `savedBigGames` store (don't extend
+  `savedCombinedGames`) so the legacy combined games are left alone. His call.
+
+**Also still to settle (from the original framing):** board/type-mixing A-vs-B confirmation
+(he already stated it), and what **publish** produces (the published Big Game is the ONLY
+artifact that runs on **touch OR mouse**; all authoring upstream is **mouse-only**).
+
+### Grounding: legacy COMBINED GAMES = the Phase-3 prototype to extend (read-only findings, June 15)
+- **Data:** `savedCombinedGames` = `[{ name, stages: [{ gameIndex, gameName, gemsNeeded }] }]`.
+  Stages reference a **Find game by index (gameName fallback for resilience)** — **Find ONLY**,
+  whole games (NOT mini-games), no board embedded, no `gameType` field.
+- **Create (Studio):** the hidden combine checkboxes + `openCombineDialog` / `confirmCombineGames`
+  / `saveCombinedGames` / `loadCombinedGames` (pm-studio ~26060–26146). Pick 2+ Find games →
+  set per-stage gemsNeeded → name → save.
+- **Play (previewer / js/game.js):** `window.combinedGameConfig` + `combinedGameStage`;
+  `checkGameProgression` advances when a player's `stageGems >= stage.gemsNeeded` →
+  `pendingAdvance` → "Level Up!" overlay (~2.5s, shows next game label/name) →
+  `window.loadGameDeckForStage(next)`; last stage → `showFinalCelebration` (confetti).
+  Studio lists them under "Combined Games:" with delete; deleting a Find game shifts/ warns
+  referencing stages.
+- **Already exists (reuse):** sequencing, per-player gem tracking, the transition overlay,
+  final celebration, resilient by-name refs, localStorage persistence.
+- **Missing for Big Game:** Find↔Catch mixing + board/surface switching, **mini-game**
+  references (not whole games), per-stage `gameType`, richer advance rules, a composer UI.
+
+**Mini-game data model (Phase 2, for the composer to read):** `game.miniGames = [{ id, name,
+createdAt, legend }]`; legend = `{ timerOn, probOptionId, level, typeId }` (LEGEND-ONLY — no
+board; board is the type's surface). Each game's folder also shows an implicit computed
+"Default" = the game's own configuration (count starts at 1).
 
 ---
 

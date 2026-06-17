@@ -96,8 +96,36 @@ legend (by id, or compute the Default) → apply those settings → play it as o
   Verified in preview (edit→persist, labels, dividers; real data restored). No rule editor.
 - **3d — Embedded Play (meatiest/riskiest).** `?playBig=<id>` auto-launch hook in the
   Previewer; EXTEND the combined-game playback from Find-only-whole-games to mini-game stages
-  + Find/Catch surface switching (the A/B rule). Composer ▶ Play embeds the Previewer at that
-  URL. May sub-stage.
+  + Find/Catch surface switching (the A/B rule). Composer ▶ Play embeds the Previewer at that URL.
+
+  **Design pass DONE (June 16) — decisions LOCKED by the user:**
+  - **Auto-play, skip Setup**: each stage applies its mini-game legend automatically and starts
+    immediately (no Setup screen between stages — closest to a real published Big Game).
+  - **Play surface = the real Previewer, framed**: ▶ Play opens `index.html?playBig=<id>` in an
+    **iframe modal** inside `biggame.html`, so play looks/behaves identically to the Previewer
+    (user: "same as it plays in previewer"). Same launcher is reused by 3e.
+  - **Find-first, Catch last** (each sub-stage shipped + verified separately).
+
+  **Three technical gaps to close (grounded in the engine — see STATUS_NOTES June 16):**
+  1. **Headless legend apply** (keystone): today `_mgApplyLegend` *clicks* Setup DOM; for between-
+     stage auto-play I need a function that sets the RUNTIME state directly from a legend
+     `{timerOn,probOptionId,level,typeId}` — `game.selectedLevel`, `window._gpSelectedProbId` via
+     `_gpApplySelectedProb`, type label, timer flag — with no Setup page present.
+  2. **Big-Game→engine adapter**: map each `savedBigGames` stage (`gameType`, `gameRef.index`,
+     `miniGameId`, `advanceRule.value`) onto what the engine reads (it currently reads Find-only
+     `{gameIndex,gameName,gemsNeeded}` and `this.combinedGame={config,currentStage}` at game.js:1184;
+     threshold check at game.js:4127), so we REUSE `checkGameProgression`/`advanceToNextStage` not fork.
+  3. **Catch-in-sequence + board switching (A/B rule)**: Catch is an isolated `.catch-game-overlay`
+     on body (index.html:5113) with its OWN gems — never calls `checkGameProgression`. Need to hook
+     Catch's gem counter to advance + handle Find→Catch / Catch→Find surface teardown+setup.
+
+  **Sub-stages:**
+  - **3d-i** — `?playBig=<id>` launcher + iframe-modal ▶ Play in Composer + headless legend apply;
+    play stage 0 as Find, NO advance yet. Proves launch + embed + legend.
+  - **3d-ii** — Find→Find chaining (board A): adapter + per-stage legend on advance; gem-gated
+    advance, Level-Up overlay, final celebration — all reusing the existing engine.
+  - **3d-iii** — Catch stages + board switching (board B): Catch-gem→advance hook + surface swaps.
+  - **3d-iv** — Polish: win→back-to-Composer, guards for games/mini-games deleted mid-sequence.
 - **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot
   (reuses 3d).
 - **3f — Publish (deferred).** Define what publish produces + the live-vs-snapshot-art call.

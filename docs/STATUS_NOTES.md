@@ -28,6 +28,27 @@ Phases **1 and 2 DONE**. **Stages 3a (Foundation) + 3b (Compose) + 3c (reserved 
   "Win when" on last, 2 Level-Up dividers; real data ("Game one", 3 stages) restored exactly.
 - **NOT yet**: embedded play (3d), Previewer "Sequence" column (3e), publish (3f).
 
+### 3d design pass — engine grounding (read-only map, June 16)
+Verified the existing playback engine so 3d EXTENDS it rather than forks it:
+- **Chaining (Find-only today)**: `this.combinedGame = { config: window.combinedGameConfig, currentStage }`
+  built in the Game constructor (`js/game.js:1184`). `checkGameProgression(playerId)` sets
+  `pendingAdvance`/`pendingCelebration` when `stageGems[playerId] >= stage.gemsNeeded`
+  (`js/game.js:4127`). `advanceToNextStage()` (`:4166`) shows the "Level Up!" overlay (~2.5s) →
+  `window.loadGameDeckForStage(nextStage)` → clears board → `startSunLevelGame()` re-deals.
+  `showFinalCelebration()` ends it. Legacy stage shape = `{gameIndex, gameName, gemsNeeded}`.
+- **Launch**: `startCombinedGameFromMenu()` (`index.html:5065`) sets `window.combinedGameConfig`/
+  `window.combinedGameStage` then `startCustomGame(resolvedIdx)`. `loadGameDeckForStage` →
+  `resolveStageGameIndex` → `startCustomGame` is **Find-only** (`loadCustomGames`, `index.html:5093`).
+  No URL-param auto-launch exists yet → clean place to add `?playBig=<id>`.
+- **Catch is separate**: `openCatchPlayModal(idx)` (`index.html:5113`) builds an isolated
+  `.catch-game-overlay` on `document.body` with its OWN coins/gems/lives; `_catchCleanup()` removes
+  it. It never calls `checkGameProgression`. → 3d-iii must bridge Catch gems → advance + swap surfaces.
+- **Legend apply is DOM-driven today**: `_mgApplyLegend(legend)` (`index.html:1779`) *clicks* the
+  Setup controls (timer toggle, `.player-prob-chip[data-prob-id]`, `.level-btn[data-level]`,
+  `.setup-type-line[data-type-id]`). 3d needs a HEADLESS variant (set runtime state directly) so
+  stages auto-play with no Setup page. Capture counterpart: `_mgCaptureSetupLegend` (`:1719`).
+- Full sub-stage plan + locked decisions: **ROADMAP "3d — Embedded Play"**.
+
 ### ✅ Stage 3b (Compose: gather + order) — DONE (June 16)
 - **Compose view in `biggame.html`**: Open (✎) a Big Game → two columns. LEFT = library of every
   game (6 Find + 4 Catch on the user's box, color-tagged), each expandable to its mini-games

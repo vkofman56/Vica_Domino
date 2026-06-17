@@ -3,15 +3,32 @@
 **Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `6c0e889` + this doc commit; advances with each `bash scripts/ship.sh`)
 **Total Commits**: 1430+
 **Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
+**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-6`
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — BIG GAME composer. Model LOCKED. Start building stage 3a.**
-Phases **1 and 2 DONE**. June 15: grounding + the full model are LOCKED — the detailed plan
+## ▶▶ NEXT CHAT: **Phase 3 — stage 3a DONE. Next = stage 3b (compose: gather + order stages).**
+Phases **1 and 2 DONE**. **Stage 3a (Foundation) DONE June 16** — see below. The detailed plan
 (architecture, data model, all decisions, stages 3a–3f) lives in **`docs/ROADMAP.md` →
-"Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3a** (no more
-discussion needed to begin).
+"Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3b**.
+
+### ✅ Stage 3a (Foundation) — DONE (June 16)
+- **New Composer app: `biggame.html`** ("MathGrain Big Game Composer"). Shared chrome
+  (firebase SDK + `firebase-config.js` + `sync.js?v=local-wins-6` + `style.css?v=dgx-redesign-50`),
+  auto-logs-in with the stored uid (superuser → syncs; guest → local only, shown in the header).
+  Mouse-only authoring tool; footer links back to `index.html`.
+- **`savedBigGames` data model + helpers** (in `biggame.html`, also on `window`):
+  `bgLoad/bgSave/bgAdd/bgRename/bgDelete/bgNewRecord`. A record =
+  `{ id, name, createdAt, stages:[], transition:{kind:'levelup'} }`. Stages stay empty until 3b.
+- **Big-Games list UI**: rows with name + stage count + Rename (🏷) / Delete (✗); a disabled
+  Open (✎) placeholder for 3b; "+ New Big Game" prompts a name and persists.
+- **`sync.js` registration**: `savedBigGames` added to `_localWinsKeys` (line 396) AND the
+  `_getCardBackupData` backup condition (line 584). Cache-buster bumped `local-wins-5 → -6` in
+  `index.html` + `pm-studio-DrV.html`.
+- **Verified in preview**: page loads with no console errors; add/rename/delete round-trip
+  through localStorage; real data untouched (none existed yet — first Big Game feature).
+- **NOT yet**: composing stages, advance-rule/transition slots, embedded play, the Previewer
+  "Sequence" column, publish. Those are 3b–3f.
 
 **Architecture locked (his answers):** a NEW standalone Composer app (own HTML page/tab, like
 Previewer/Studio) that AUTHORS Big Games and PLAYS them via an **embedded Previewer engine**

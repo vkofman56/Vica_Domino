@@ -74,9 +74,11 @@ legend (by id, or compute the Default) → apply those settings → play it as o
 - **Publish** (what it produces + live-vs-snapshot art) is DEFERRED within Phase 3 (3f).
 
 ## Stages (each shipped + self-tested + user-verified, #4-style)
-- **3a — Foundation.** `savedBigGames` model + load/save/list helpers; register in `sync.js`
-  (backup + local-wins); the new Composer app shell (new HTML page, shared chrome, a
-  Big-Games list + "New Big Game", reads/writes the store). No composing/play yet.
+- **3a — Foundation. ✅ DONE (June 16).** `savedBigGames` model + `bgLoad/bgSave/bgAdd/bgRename/
+  bgDelete/bgNewRecord` helpers; registered in `sync.js` (backup + local-wins, `local-wins-6`);
+  new Composer app **`biggame.html`** (shared chrome, Big-Games list w/ Rename+Delete + "New Big
+  Game", reads/writes the store). Verified in preview (no errors, CRUD round-trips localStorage).
+  No composing/play yet.
 - **3b — Compose: gather + order.** Canvas for one Big Game: browse all games (Find+Catch) +
   their mini-games (incl. the implicit Default); add as STAGES; reorder. Save.
 - **3c — Reserved slots.** Per-stage simple advance rule (gem count, editable) + visible

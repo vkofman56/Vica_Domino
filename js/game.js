@@ -4327,6 +4327,8 @@ class VicaDominoGame {
     }
 
     resetToSetup() {
+        // Big Game: drop the play banner + body flag when leaving play.
+        if (window._bgEndPlayChrome) window._bgEndPlayChrome();
         // Cancel any running Non-stop countdown so it doesn't auto-start
         // a new round after the user has explicitly returned to setup.
         this._stopNonstopCountdown();

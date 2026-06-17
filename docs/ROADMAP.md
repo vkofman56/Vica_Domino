@@ -79,8 +79,13 @@ legend (by id, or compute the Default) → apply those settings → play it as o
   new Composer app **`biggame.html`** (shared chrome, Big-Games list w/ Rename+Delete + "New Big
   Game", reads/writes the store). Verified in preview (no errors, CRUD round-trips localStorage).
   No composing/play yet.
-- **3b — Compose: gather + order.** Canvas for one Big Game: browse all games (Find+Catch) +
-  their mini-games (incl. the implicit Default); add as STAGES; reorder. Save.
+- **3b — Compose: gather + order. ✅ DONE (June 16).** Compose view in `biggame.html`: Open (✎)
+  a Big Game → two columns. LEFT = library of every game (Find + Catch, color-tagged), each
+  expandable to its mini-games (implicit **Default** + saved ones, with a legend hint); "＋ Add"
+  appends a STAGE. RIGHT = ordered stage list with numbered badges + ↑/↓ reorder + ✗ remove
+  (ends disabled). STAGE = `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default',
+  miniGameName}`; changes persist instantly via `bgMutateStages` (no separate Save). Verified in
+  preview: add/reorder/remove round-trip, real data untouched. advanceRule/transition = 3c.
 - **3c — Reserved slots.** Per-stage simple advance rule (gem count, editable) + visible
   "more later" placeholder; transition fixed to the visual Level-Up. No rule editor.
 - **3d — Embedded Play (meatiest/riskiest).** `?playBig=<id>` auto-launch hook in the

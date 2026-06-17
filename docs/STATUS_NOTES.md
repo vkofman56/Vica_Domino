@@ -7,10 +7,24 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — stage 3a DONE. Next = stage 3b (compose: gather + order stages).**
-Phases **1 and 2 DONE**. **Stage 3a (Foundation) DONE June 16** — see below. The detailed plan
-(architecture, data model, all decisions, stages 3a–3f) lives in **`docs/ROADMAP.md` →
-"Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3b**.
+## ▶▶ NEXT CHAT: **Phase 3 — stages 3a + 3b DONE. Next = stage 3c (reserved advance-rule/transition slots).**
+Phases **1 and 2 DONE**. **Stages 3a (Foundation) + 3b (Compose) DONE June 16** — see below. The
+detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in **`docs/ROADMAP.md`
+→ "Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3c**.
+
+### ✅ Stage 3b (Compose: gather + order) — DONE (June 16)
+- **Compose view in `biggame.html`**: Open (✎) a Big Game → two columns. LEFT = library of every
+  game (6 Find + 4 Catch on the user's box, color-tagged), each expandable to its mini-games
+  (implicit **Default** + saved, e.g. Match 0-4 → "fast"), each with a legend hint + "＋ Add".
+  RIGHT = ordered stages with numbered badges + ↑/↓ reorder + ✗ remove (end arrows disabled).
+- **STAGE shape**: `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default', miniGameName}`.
+  Persists instantly via `bgMutateStages` (no separate Save button — matches the app's instant-save
+  convention). New readers: `bgFindGames/bgCatchGames/bgMiniGamesOf/bgFmtLegend`; `bgGet/bgMutateStages`.
+- **Verified in preview**: add (real Add-button clicks) → 3 stages, reorder + remove round-trip
+  localStorage, screenshots taken; real data ("Game one", 0 stages — user-created on the live deploy)
+  restored exactly, no test residue.
+- **NOT yet**: per-stage advance-rule + transition slots (3c), embedded play (3d), Previewer
+  "Sequence" column (3e), publish (3f).
 
 ### ✅ Stage 3a (Foundation) — DONE (June 16)
 - **New Composer app: `biggame.html`** ("MathGrain Big Game Composer"). Shared chrome

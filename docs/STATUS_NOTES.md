@@ -7,11 +7,37 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c done, 3d-i + 3d-ii done. Next = stage 3d-iii (Catch + board switching).**
+## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d-i/ii/iii DONE. Next = stage 3d-iv (polish) or 3e (Sequence column).**
 Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+embed+Find stage-0) +
-3d-ii (Find→Find chaining) DONE June 16** — see below. The detailed plan (architecture, data model,
-decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md` → "Phase 3 — BIG GAME
-composer"**. Read that, then **start with stage 3d-iii**.
+3d-ii (Find→Find chaining) + 3d-iii (Catch + board switching) DONE June 16** — see below. The detailed
+plan (architecture, data model, decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md`
+→ "Phase 3 — BIG GAME composer"**. Read that, then **start with stage 3d-iv** (polish) or **3e**.
+
+### ✅ Stage 3d-iii (Catch stages + board switching / A/B rule) — DONE (June 16)
+Big Games now play through with MIXED Find+Catch stages — the whole point of "Big Game". All in
+`index.html` (still gated behind `?playBig=`). The Catch engine (isolated `.catch-game-overlay` on
+body, own gems) is bridged into the sequence via a thin orchestrator + a single advance interception:
+- **`window.game.advanceToNextStage` is OVERRIDDEN** in Big Game mode (`_bgInstallAdvanceOverride`,
+  installed on launch) — the ONE place the sequence advances. It tears down a Catch surface if active,
+  then routes by NEXT stage type: Catch → `_bgLevelUpThen` + `_bgStartCatchStage`; Find → restore Find
+  screen + `_bgEnsureFindPlayer` + the ORIGINAL advance (which re-deals). Past the last stage →
+  `_bgCelebrate`. Legacy combined games (no `_isBigGame`) delegate to the original untouched.
+- **Catch gem → advance**: `_catchAddCoins` now calls `window._bgOnCatchGem()` after a gem is earned;
+  it advances when `_catchGame.gems >= stage.gemsNeeded` (guarded by `_bgCatchAdvanced` so it fires once).
+  For NON-Big-Game Catch, `_bgOnCatchGem` early-returns (verified no-op — normal Catch unaffected).
+- **`_bgStartCatchStage(idx)`** opens `openCatchPlayModal(stage.gameIndex)` with the stage's prob applied,
+  hides the Find screen, tracks `currentStage` in `combinedGame`. **Catch-FIRST** launch bootstraps
+  `combinedGame` + a single player manually (startGame() never runs) via `_bgEnsureFindPlayer`.
+- **`_bgEnsureFindPlayer`** gives `window.game` a single player + coin/gem buckets so a Find stage can
+  run after a Catch stage (the Catch→Find bootstrap — the trickiest piece).
+- **Verified in preview** (real "Game one" is now Find→Catch→Find after the user reordered): Find→Catch
+  board switch (Catch HUD/target shown), Catch→Find (final Find stage dealt w/ bootstrapped player),
+  final celebration; PLUS a temp Catch-FIRST game (Catch→Find) launched + advanced + dealt. Normal Catch
+  + Find play and the no-param Previewer unaffected (override not installed, hook no-ops). No console errors.
+- **Known small items (→3d-iv)**: Catch-first→Find shows the generic player name "Player" (startGame
+  didn't run, so no "Vica"); typeId-per-stage still not headless-applied; the blur-pause "tap to continue"
+  still appears in an unfocused iframe; after celebration "Finish" returns to Setup (embedded-return polish).
+- Composer ▶ Play hint updated to "Plays all stages (Find + Catch) with Level-Up transitions".
 
 ### ✅ Stage 3d-ii (Find→Find chaining / board A) — DONE (June 16)
 Extends the launcher (`index.html`, ~line 5098, all still gated behind `?playBig=`) to chain Find

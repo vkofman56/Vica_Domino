@@ -130,7 +130,12 @@ legend (by id, or compute the Default) → apply those settings → play it as o
     advance `_bgApplyLegendHeadless` (level/prob/timer), wrapped `loadGameDeckForStage` (Big-Game-aware,
     legacy untouched). Gem-gated advance + Level-Up overlay + final celebration via the existing engine.
     Verified end-to-end in preview. Catch mid-sequence graceful-stops (→3d-iii); typeId per stage →3d-iv.
-  - **3d-iii** — Catch stages + board switching (board B): Catch-gem→advance hook + surface swaps.
+  - **3d-iii** — ✅ DONE (June 16). Catch stages + board switching (board B): a thin orchestrator +
+    a single advance interception (`_bgInstallAdvanceOverride` overrides `game.advanceToNextStage` in
+    Big Game mode) routes by next-stage type and swaps surfaces (Find↔Catch). Catch gems bridge to
+    advance via `_bgOnCatchGem` (hooked in `_catchAddCoins`); `_bgEnsureFindPlayer` bootstraps a player
+    for Catch→Find and Catch-first. Verified end-to-end (Game one = Find→Catch→Find + a Catch-first temp);
+    normal play + no-param Previewer unaffected. Small polish (player name, typeId, return) → 3d-iv.
   - **3d-iv** — Polish: win→back-to-Composer, guards for games/mini-games deleted mid-sequence.
 - **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot
   (reuses 3d).

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:22 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:22 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5173,16 +5173,15 @@
         }
         // Wrap the deck loader so Big Game advances apply the stage legend before
         // building the deck. Legacy combined games (no _isBigGame) are untouched.
-        // A Catch stage mid-sequence graceful-stops (3d-iii).
         (function () {
             var _origLoadDeck = window.loadGameDeckForStage;
             window.loadGameDeckForStage = function (stage) {
                 var cfg = window.combinedGameConfig;
                 if (cfg && cfg._isBigGame) {
-                    if (stage && stage.gameType === 'catch') {
-                        _bgShowBanner('🎮 ' + (cfg.name || 'Big Game') + ' — next stage is Catch (Catch in a sequence arrives in 3d-iii). Stopping here.');
-                        return;
-                    }
+                    // Safety net: a Catch stage should be routed by the orchestrator
+                    // BEFORE this Find deck-loader is reached. If one slips through,
+                    // don't try to load a Catch game as a Find deck.
+                    if (stage && stage.gameType === 'catch') return;
                     _bgApplyLegendHeadless(stage.legend);
                     var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
                     _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
@@ -5190,6 +5189,114 @@
                 return _origLoadDeck(stage);
             };
         })();
+
+        // ---- 3d-iii: mixed Find/Catch orchestration + board switching (A/B rule) ----
+        function _bgStageAlpha(i) { return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][i] || '?'; }
+        // Ensure window.game has a single player + coin/gem buckets so a Find stage
+        // can run even when the sequence STARTED on Catch (startGame() never ran).
+        function _bgEnsureFindPlayer() {
+            var g = window.game; if (!g) return;
+            if (!g.players || !g.players.length) {
+                g.players = [{ id: 0, name: 'Player', icon: 'star', hand: [], isWinner: false, isComputer: false, hasCustomName: false }];
+            }
+            g.playerCoins = g.playerCoins || {}; g.playerGems = g.playerGems || {}; g.stageGems = g.stageGems || {};
+            g._consecutiveProtectedMistakes = g._consecutiveProtectedMistakes || {};
+            g.players.forEach(function (p) {
+                if (g.playerCoins[p.id] == null) g.playerCoins[p.id] = 0;
+                if (g.playerGems[p.id] == null) g.playerGems[p.id] = 0;
+                g.stageGems[p.id] = 0;
+                if (g._consecutiveProtectedMistakes[p.id] == null) g._consecutiveProtectedMistakes[p.id] = 0;
+            });
+        }
+        function _bgRestoreFindScreen() {
+            document.body.classList.remove('catch-active');
+            var ss = document.getElementById('start-screen'); if (ss) ss.style.display = 'none';
+            var is = document.getElementById('intro-screen'); if (is) is.style.display = 'none';
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = '';
+        }
+        // Show the Level-Up overlay (reuse the engine's visual), then run fn.
+        function _bgLevelUpThen(label, fn) {
+            var overlay = document.createElement('div');
+            overlay.className = 'stage-transition-overlay'; overlay.id = 'stage-transition-overlay';
+            overlay.innerHTML = '<div class="stage-transition-text">Level Up!</div>'
+                + '<div class="stage-transition-sub">' + label + '</div>'
+                + '<div style="margin-top:20px;font-size:2rem;">💎 → ⭐</div>';
+            document.body.appendChild(overlay);
+            setTimeout(function () { if (overlay.parentNode) overlay.remove(); fn(); }, 2500);
+        }
+        // Start a Catch stage on the Catch surface, tracking it in combinedGame.
+        function _bgStartCatchStage(idx) {
+            var cfg = window.combinedGameConfig; if (!cfg) return;
+            var stage = cfg.stages[idx];
+            if (window.game.combinedGame) {
+                window.game.combinedGame.currentStage = idx;
+                window.game.combinedGame.pendingAdvance = false;
+                window.game.combinedGame.pendingCelebration = false;
+            }
+            window._bgCatchAdvanced = false; // re-arm the gem hook for this stage
+            var legend = stage.legend || null;
+            window._gpSelectedProbId = (legend && legend.probOptionId) || null;
+            try { _catchInputMode = 'mouse'; } catch (e) {}
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = 'none';
+            var ss = document.getElementById('start-screen'); if (ss) ss.style.display = 'none';
+            _bgShowBanner(_bgStageBanner(cfg.name, idx, cfg.stages.length, stage));
+            if (typeof openCatchPlayModal === 'function') openCatchPlayModal(stage.gameIndex);
+        }
+        // Called from _catchAddCoins after a gem is earned (3d-iii): advance the
+        // sequence when this Catch stage's gem threshold is met.
+        window._bgOnCatchGem = function () {
+            var cfg = window.combinedGameConfig;
+            if (!cfg || !cfg._isBigGame || !window._catchActiveGuard()) return;
+            if (window._bgCatchAdvanced) return;
+            var stage = cfg.stages[window.game.combinedGame.currentStage];
+            if (!stage || stage.gameType !== 'catch') return;
+            var threshold = stage.gemsNeeded || 3;
+            if (_catchGameGems() >= threshold) {
+                window._bgCatchAdvanced = true;
+                window.game.advanceToNextStage();
+            }
+        };
+        function _catchGameGems() { return (typeof _catchGame !== 'undefined' && _catchGame) ? _catchGame.gems : 0; }
+        window._catchActiveGuard = function () { return (typeof _catchGame !== 'undefined' && !!_catchGame); };
+        function _bgCelebrate() {
+            if (window._catchActiveGuard() && typeof _catchCleanup === 'function') _catchCleanup();
+            _bgRestoreFindScreen();
+            if (window.game) {
+                if (window.game.stopSunLevelTimer) window.game.stopSunLevelTimer();
+                window.game.gamePhase = 'ended';
+                if (typeof window.game.showFinalCelebration === 'function') window.game.showFinalCelebration();
+            }
+        }
+        // Install a Big-Game-aware advanceToNextStage on the live game instance —
+        // the SINGLE interception point for advancing the sequence. Handles board
+        // switching: Find→Catch, Catch→Find, Catch→Catch, Find→Find, and the end.
+        function _bgInstallAdvanceOverride() {
+            var g = window.game; if (!g || g._bgAdvanceWrapped) return;
+            var _origAdvance = g.advanceToNextStage.bind(g);
+            g._bgAdvanceWrapped = true;
+            g.advanceToNextStage = function () {
+                var cfg = window.combinedGameConfig;
+                if (!(cfg && cfg._isBigGame)) return _origAdvance();
+                var cur = g.combinedGame ? g.combinedGame.currentStage : 0;
+                var next = cur + 1;
+                var wasCatch = window._catchActiveGuard();
+                if (wasCatch && typeof _catchCleanup === 'function') _catchCleanup();
+                if (next >= cfg.stages.length) { _bgCelebrate(); return; }
+                var nextStage = cfg.stages[next];
+                if (nextStage.gameType === 'catch') {
+                    _bgLevelUpThen('Starting Game ' + _bgStageAlpha(next) + ': ' + (nextStage.gameName || ''), function () {
+                        _bgStartCatchStage(next);
+                    });
+                } else {
+                    // Find next. Restore the Find surface + ensure a player (needed
+                    // when we came from a Catch stage), then let the original advance
+                    // do its Level-Up + deck load + re-deal (it reads currentStage+1).
+                    _bgRestoreFindScreen();
+                    _bgEnsureFindPlayer();
+                    _origAdvance();
+                }
+            };
+        }
         window.startBigGameFromId = function(id) {
             var bg = _bgLoadBigGames().filter(function (b) { return b.id === id; })[0];
             if (!bg) { _bgShowBanner('⚠ Big Game not found.'); return; }
@@ -5197,20 +5304,24 @@
             if (!stages.length) { _bgShowBanner('“' + (bg.name || 'Big Game') + '” has no stages yet.'); return; }
             var stage0 = stages[0];
             _bgShowBanner(_bgStageBanner(bg.name, 0, stages.length, stage0));
-            // 3d-ii chains Find stages; a Catch FIRST stage waits for 3d-iii.
+            window.combinedGameConfig = _bgBuildCombinedConfig(bg);
+            window.combinedGameStage = 0;
+            // ---- Catch FIRST stage: bootstrap combined tracking, open Catch ----
             if (stage0.gameType === 'catch') {
-                _bgShowBanner(_bgStageBanner(bg.name, 0, stages.length, stage0) + '   —   (Catch playback in a sequence arrives in 3d-iii)');
+                if (!window.game.combinedGame) window.game.combinedGame = { config: window.combinedGameConfig, currentStage: 0 };
+                else { window.game.combinedGame.config = window.combinedGameConfig; window.game.combinedGame.currentStage = 0; }
+                _bgEnsureFindPlayer();
+                _bgInstallAdvanceOverride();
+                _bgStartCatchStage(0);
                 return;
             }
-            // Auto-play: mouse / single player, skip manual Setup.
+            // ---- Find FIRST stage: go through Setup+Start so startGame() fully
+            // initializes window.game (players, combinedGame, coins/gems). ----
             try { _findInputMode = 'mouse'; } catch (e) {}
             var ptog = document.getElementById('intro-player-toggle');
             if (ptog) ptog.setAttribute('data-players', '1');
             selectedIntroGame = 'custom-' + (stage0.gameRef ? stage0.gameRef.index : 0);
-            goToMainPage(); // → Setup + startCustomGame (this calls clearCustomGame, which nulls combinedGameConfig)
-            // After goToMainPage: install combined (Big Game) mode, apply stage-0
-            // legend via the live Setup DOM, then Start → startGame() picks up
-            // combinedGameConfig and runs the chained engine.
+            goToMainPage(); // → Setup + startCustomGame (clearCustomGame nulls combinedGameConfig; reset below)
             setTimeout(function () {
                 window.combinedGameConfig = _bgBuildCombinedConfig(bg);
                 window.combinedGameStage = 0;
@@ -5218,6 +5329,9 @@
                 setTimeout(function () {
                     var startBtn = document.getElementById('start-game-btn');
                     if (startBtn) startBtn.click();
+                    // startGame() created this.combinedGame; now route advances
+                    // through the orchestrator so Find→Catch transitions work.
+                    setTimeout(_bgInstallAdvanceOverride, 80);
                 }, 160);
             }, 220);
         };
@@ -5536,6 +5650,8 @@
                         _catchGame._gemAddedAt = Date.now();
                         _catchGame._coinFallAt = 0;
                         _catchRenderCoins();
+                        // Big Game (3d-iii): a Catch stage advances on its gem count.
+                        if (window._bgOnCatchGem) window._bgOnCatchGem();
                     }, 800);
                 }, amount * 300 + 700);
             }

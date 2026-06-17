@@ -61,7 +61,14 @@
                        background: #7c4dff; color: #fff; font-weight: 700; font-size: 12px; }
         .bgc-add-btn:hover { background: #8d63ff; }
         .bgc-stage { display: flex; align-items: center; gap: 8px; padding: 9px 11px; margin: 6px 0;
-                     border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); }
+                     border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+                     border-top: 2px solid transparent; }
+        .bgc-stage.bgc-dragging { opacity: 0.4; }
+        .bgc-stage.bgc-drop-before { border-top: 2px solid #FFD54F; }
+        .bgc-stage.bgc-drop-after { border-bottom: 2px solid #FFD54F; }
+        .bgc-stage-grip { flex: 0 0 auto; cursor: grab; color: rgba(255,255,255,0.5); font-size: 14px;
+                          line-height: 1; padding: 0 2px; user-select: none; }
+        .bgc-stage-grip:active { cursor: grabbing; }
         .bgc-stage-num { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.25);
                          display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
         .bgc-stage-info { flex: 1 1 auto; min-width: 0; }
@@ -160,6 +167,11 @@
 
         // ===== view state =====
         var bgState = { view: 'list', editingId: null, openGameKey: null };
+        var bgDragIdx = null; // index of the stage being dragged (mouse reorder)
+        function bgClearDropHints() {
+            var hints = document.querySelectorAll('.bgc-stage.bgc-drop-before, .bgc-stage.bgc-drop-after');
+            for (var i = 0; i < hints.length; i++) hints[i].classList.remove('bgc-drop-before', 'bgc-drop-after');
+        }
 
         // ===== LIST VIEW =====
         function bgRenderList() {
@@ -272,6 +284,7 @@
             }
             stages.forEach(function (st, idx) {
                 var r = document.createElement('div'); r.className = 'bgc-stage';
+                var grip = document.createElement('span'); grip.className = 'bgc-stage-grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder';
                 var num = document.createElement('span'); num.className = 'bgc-stage-num'; num.textContent = (idx + 1);
                 var info = document.createElement('div'); info.className = 'bgc-stage-info';
                 var nm = document.createElement('div'); nm.className = 'bgc-stage-name';
@@ -282,7 +295,29 @@
                 var up = mkStageAct('↑', 'Move up', idx === 0, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx - 1]; ss[idx - 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var dn = mkStageAct('↓', 'Move down', idx === stages.length - 1, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx + 1]; ss[idx + 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var rm = mkStageAct('✗', 'Remove stage', false, function () { bgMutateStages(bg.id, function (ss) { ss.splice(idx, 1); }); bgRender(); });
-                r.appendChild(num); r.appendChild(info); r.appendChild(up); r.appendChild(dn); r.appendChild(rm);
+                // --- mouse drag-to-reorder (in addition to the arrows) ---
+                r.setAttribute('draggable', 'true');
+                r.dataset.idx = idx;
+                r.addEventListener('dragstart', function (e) {
+                    bgDragIdx = idx; r.classList.add('bgc-dragging');
+                    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); } catch (_) {}
+                });
+                r.addEventListener('dragend', function () { bgDragIdx = null; bgClearDropHints(); r.classList.remove('bgc-dragging'); });
+                r.addEventListener('dragover', function (e) {
+                    if (bgDragIdx === null || bgDragIdx === idx) return;
+                    e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
+                    bgClearDropHints();
+                    r.classList.add(idx < bgDragIdx ? 'bgc-drop-before' : 'bgc-drop-after');
+                });
+                r.addEventListener('dragleave', function () { r.classList.remove('bgc-drop-before', 'bgc-drop-after'); });
+                r.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    var from = bgDragIdx; bgDragIdx = null; bgClearDropHints();
+                    if (from === null || from === idx) return;
+                    bgMutateStages(bg.id, function (ss) { var moved = ss.splice(from, 1)[0]; ss.splice(idx, 0, moved); });
+                    bgRender();
+                });
+                r.appendChild(grip); r.appendChild(num); r.appendChild(info); r.appendChild(up); r.appendChild(dn); r.appendChild(rm);
                 stCol.appendChild(r);
             });
 

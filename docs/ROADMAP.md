@@ -82,7 +82,8 @@ legend (by id, or compute the Default) → apply those settings → play it as o
 - **3b — Compose: gather + order. ✅ DONE (June 16).** Compose view in `biggame.html`: Open (✎)
   a Big Game → two columns. LEFT = library of every game (Find + Catch, color-tagged), each
   expandable to its mini-games (implicit **Default** + saved ones, with a legend hint); "＋ Add"
-  appends a STAGE. RIGHT = ordered stage list with numbered badges + ↑/↓ reorder + ✗ remove
+  appends a STAGE. RIGHT = ordered stage list with numbered badges + a ⠿ grab handle for
+  **mouse drag-to-reorder** (HTML5 DnD, yellow drop-line hint) + ↑/↓ arrow reorder + ✗ remove
   (ends disabled). STAGE = `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default',
   miniGameName}`; changes persist instantly via `bgMutateStages` (no separate Save). Verified in
   preview: add/reorder/remove round-trip, real data untouched. advanceRule/transition = 3c.

@@ -16,7 +16,8 @@ detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in
 - **Compose view in `biggame.html`**: Open (✎) a Big Game → two columns. LEFT = library of every
   game (6 Find + 4 Catch on the user's box, color-tagged), each expandable to its mini-games
   (implicit **Default** + saved, e.g. Match 0-4 → "fast"), each with a legend hint + "＋ Add".
-  RIGHT = ordered stages with numbered badges + ↑/↓ reorder + ✗ remove (end arrows disabled).
+  RIGHT = ordered stages with numbered badges + a ⠿ grab handle for **mouse drag-to-reorder**
+  (HTML5 DnD, yellow drop-line hint) + ↑/↓ arrow reorder + ✗ remove (end arrows disabled).
 - **STAGE shape**: `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default', miniGameName}`.
   Persists instantly via `bgMutateStages` (no separate Save button — matches the app's instant-save
   convention). New readers: `bgFindGames/bgCatchGames/bgMiniGamesOf/bgFmtLegend`; `bgGet/bgMutateStages`.

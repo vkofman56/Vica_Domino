@@ -2644,21 +2644,12 @@ class VicaDominoGame {
             playersArea.classList.remove('single-player-layout');
         }
 
-        // Combined game: show stage progress as stones in the header next to game name
+        // Stage-progress "stones" REMOVED (user request, June 17): on the board
+        // they read like game coins/gems and added confusion instead of clarity.
+        // The container is just kept empty. Re-enable a (clearer) progress
+        // indicator here later if wanted — the combinedGame stage data is all here.
         const headerStones = document.getElementById('header-stage-stones');
-        if (headerStones) {
-            headerStones.innerHTML = '';
-            if (this.combinedGame) {
-                const config = this.combinedGame.config;
-                const totalStages = config.stages.length;
-                const currentStage = this.combinedGame.currentStage;
-                for (let i = totalStages - 1; i >= 0; i--) {
-                    const stone = document.createElement('span');
-                    stone.className = 'stage-stone-inline' + (i <= currentStage ? ' active' : '');
-                    headerStones.appendChild(stone);
-                }
-            }
-        }
+        if (headerStones) headerStones.innerHTML = '';
 
         this.players.forEach((player, playerIndex) => {
             const handEl = document.createElement('div');

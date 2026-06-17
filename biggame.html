@@ -74,6 +74,8 @@
         .bgc-stage-info { flex: 1 1 auto; min-width: 0; }
         .bgc-stage-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bgc-stage-sub { font-size: 11px; color: rgba(255,255,255,0.6); }
+        .bgc-stage-legend { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px;
+                            white-space: normal; line-height: 1.35; }
         .bgc-stage-act { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 12px;
                          display: inline-flex; align-items: center; justify-content: center;
                          background: rgba(255,255,255,0.08); color: #ddd; border: none; }
@@ -145,8 +147,12 @@
         function bgCatchGames() { try { return JSON.parse(localStorage.getItem('savedCatchGames') || '[]') || []; } catch (e) { return []; } }
         // Every game exposes an implicit "Default" mini-game (its own config,
         // miniGameId:'default') plus any saved ones under game.miniGames.
-        function bgMiniGamesOf(game) {
-            var out = [{ id: 'default', name: 'Default', legend: null, isDefault: true }];
+        // Default's legend is computed live (bgDefaultLegend) so it matches the
+        // Previewer's "Default" exactly.
+        function bgMiniGamesOf(type, index) {
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var game = games[index];
+            var out = [{ id: 'default', name: 'Default', legend: bgDefaultLegend(type, index), isDefault: true }];
             if (game && Array.isArray(game.miniGames)) {
                 game.miniGames.forEach(function (mg) {
                     out.push({ id: mg.id, name: mg.name || 'Mini-game', legend: mg.legend || null });
@@ -154,15 +160,82 @@
             }
             return out;
         }
-        // Compact, self-contained legend hint (the mini-game's NAME is primary).
-        function bgFmtLegend(legend) {
-            if (!legend) return 'the game’s own settings';
-            var p = [];
-            p.push('timer ' + (legend.timerOn ? 'on' : 'off'));
-            if (legend.level) p.push(String(legend.level));
-            if (legend.probOptionId) p.push('prob set');
-            if (legend.typeId) p.push('type set');
-            return p.join(' · ');
+
+        // ===== Legend formatting — ported verbatim from the Previewer (index.html
+        // _mg* helpers) so the Composer's legend text is IDENTICAL to the Previewer's
+        // mini-game folder. Resolves real prob/level/type labels from game.setup. =====
+        var BG_LEVEL_KEYS = ['circle', 'triangle', 'star'];
+        var BG_LEVEL_DIFF = { circle: 'Easy', triangle: 'Medium', star: 'Hard' };
+        function bgSetupMode(g) { return (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch'; }
+        function bgProbLabel(type, index, probId) {
+            if (!probId) return 'BasicS';
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var opts = (games[index] && games[index].probOptions) || [];
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i] && opts[i].id === probId) return (i + 1) + '. ' + (opts[i].name || ('Prob' + (i + 1)));
+            }
+            return 'Prob';
+        }
+        function bgLevelLabel(g, levelKey) {
+            if (!levelKey) return '';
+            var idx = BG_LEVEL_KEYS.indexOf(levelKey); if (idx < 0) idx = 0;
+            var mode = bgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].levels && g.setup[mode].levels.options) || [];
+            var label = opts[idx] ? (opts[idx].label || '') : '';
+            var diff = BG_LEVEL_DIFF[levelKey] || '';
+            if (diff && label.toLowerCase().indexOf(diff.toLowerCase()) !== -1) diff = '';
+            return ((diff ? diff + ' ' : '') + label).trim();
+        }
+        function bgTypeLabel(g, typeId) {
+            var mode = bgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var i;
+            for (i = 0; i < opts.length; i++) { if (opts[i].id === typeId) return opts[i].label || ''; }
+            for (i = 0; i < opts.length; i++) { if (opts[i].on) return opts[i].label || ''; }
+            return opts[0] ? (opts[0].label || '') : '';
+        }
+        function bgDefaultLegend(type, index) {
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[index]; if (!g) return null;
+            var timerOn = (type === 'find'); // Catch setup.timer is FALL TIME, not a countdown
+            var level; try { level = localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { level = 'circle'; }
+            var mode = bgSetupMode(g);
+            var tOpts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null;
+            for (var i = 0; i < tOpts.length; i++) { if (tOpts[i].on) { typeId = tOpts[i].id; break; } }
+            if (!typeId && tOpts[0]) typeId = tOpts[0].id;
+            return { isDefault: true, timerOn: timerOn, probOptionId: g.activeProbOptionId || null, level: level, typeId: typeId };
+        }
+        // Plain-words legend. includeGame=true prepends "Find · <name>" (full Previewer
+        // string); false omits it (the game is already shown in the row header).
+        function bgFormatLegend(legend, type, index, includeGame) {
+            if (!legend) return '';
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[index];
+            var parts = [];
+            if (includeGame) { parts.push(type === 'catch' ? 'Catch' : 'Find'); parts.push((g && g.name) || '(game)'); }
+            parts.push('Timer ' + (legend.timerOn ? 'on' : 'off'));
+            parts.push(bgProbLabel(type, index, legend.probOptionId));
+            var lvl = g ? bgLevelLabel(g, legend.level) : ''; if (lvl) parts.push(lvl);
+            var typ = g ? bgTypeLabel(g, legend.typeId) : ''; if (typ) parts.push(typ);
+            return parts.join('  ·  ');
+        }
+        // Resolve a stage's legend LIVE from its source mini-game (so it tracks
+        // edits / matches the Previewer), falling back to the snapshot stored on
+        // the stage if the game/mini-game no longer exists.
+        function bgResolveLegend(stage) {
+            var idx = stage.gameRef ? stage.gameRef.index : -1;
+            var games = (stage.gameType === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[idx];
+            if (g) {
+                if (stage.miniGameId === 'default') return bgDefaultLegend(stage.gameType, idx);
+                if (Array.isArray(g.miniGames)) {
+                    for (var j = 0; j < g.miniGames.length; j++) {
+                        if (g.miniGames[j].id === stage.miniGameId) return g.miniGames[j].legend || null;
+                    }
+                }
+            }
+            return stage.legend || null;
         }
 
         // ===== view state =====
@@ -253,15 +326,16 @@
                 wrap.appendChild(hd);
                 if (bgState.openGameKey === key) {
                     var mgWrap = document.createElement('div'); mgWrap.className = 'bgc-lib-mgs';
-                    bgMiniGamesOf(en.game).forEach(function (mg) {
+                    bgMiniGamesOf(en.type, en.index).forEach(function (mg) {
                         var r = document.createElement('div'); r.className = 'bgc-lib-mg';
                         var info = document.createElement('div'); info.className = 'bgc-lib-mg-info';
                         var nm = document.createElement('div'); nm.className = 'bgc-lib-mg-name'; nm.textContent = mg.name;
-                        var lg = document.createElement('div'); lg.className = 'bgc-lib-mg-legend'; lg.textContent = bgFmtLegend(mg.legend);
+                        var lg = document.createElement('div'); lg.className = 'bgc-lib-mg-legend';
+                        lg.textContent = bgFormatLegend(mg.legend, en.type, en.index, false) || 'the game’s own settings';
                         info.appendChild(nm); info.appendChild(lg);
                         var add = document.createElement('button'); add.className = 'bgc-add-btn'; add.textContent = '＋ Add';
                         add.addEventListener('click', function () {
-                            var stage = { gameType: en.type, gameRef: { name: (en.game && en.game.name) || '', index: en.index }, miniGameId: mg.id, miniGameName: mg.name };
+                            var stage = { gameType: en.type, gameRef: { name: (en.game && en.game.name) || '', index: en.index }, miniGameId: mg.id, miniGameName: mg.name, legend: mg.legend || null };
                             bgMutateStages(bg.id, function (stages) { stages.push(stage); });
                             bgRender();
                         });
@@ -292,6 +366,8 @@
                 var sub = document.createElement('div'); sub.className = 'bgc-stage-sub';
                 sub.textContent = 'Mini-game: ' + (st.miniGameName || st.miniGameId || 'Default');
                 info.appendChild(nm); info.appendChild(sub);
+                var legTxt = bgFormatLegend(bgResolveLegend(st), st.gameType, (st.gameRef ? st.gameRef.index : -1), false);
+                if (legTxt) { var legEl = document.createElement('div'); legEl.className = 'bgc-stage-legend'; legEl.textContent = legTxt; info.appendChild(legEl); }
                 var up = mkStageAct('↑', 'Move up', idx === 0, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx - 1]; ss[idx - 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var dn = mkStageAct('↓', 'Move down', idx === stages.length - 1, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx + 1]; ss[idx + 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var rm = mkStageAct('✗', 'Remove stage', false, function () { bgMutateStages(bg.id, function (ss) { ss.splice(idx, 1); }); bgRender(); });

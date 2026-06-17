@@ -24,6 +24,14 @@ detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in
 - **Verified in preview**: add (real Add-button clicks) → 3 stages, reorder + remove round-trip
   localStorage, screenshots taken; real data ("Game one", 0 stages — user-created on the live deploy)
   restored exactly, no test residue.
+- **Legend parity fix (June 16)**: the `_mg*` legend formatter (prob/level/type label
+  resolution from `game.setup`) is now ported verbatim into `biggame.html` as `bgProbLabel/
+  bgLevelLabel/bgTypeLabel/bgDefaultLegend/bgFormatLegend`, so Composer legends read IDENTICALLY
+  to the Previewer's mini-game folder (e.g. "Timer on · 1. Basic · Medium 3 dominos · Slow Pace"
+  instead of the old crude "timer on · triangle · prob set · type set"). The legend now shows on
+  BOTH the library mini-game rows AND every stage row (`bgResolveLegend` resolves a stage's legend
+  live from its source mini-game, falling back to a snapshot stored on the stage at add-time;
+  old stages without the snapshot still resolve live). Stage shape gained an optional `legend`.
 - **NOT yet**: per-stage advance-rule + transition slots (3c), embedded play (3d), Previewer
   "Sequence" column (3e), publish (3f).
 

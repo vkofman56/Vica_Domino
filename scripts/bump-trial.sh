@@ -31,7 +31,7 @@ NEW_BANNER="${NEW_TIME}"
 # legacy "TRIAL HH:MM AM/PM PDT" form — with the current LA time. The
 # (?:TRIAL\s+)? group makes the prefix optional so this script is
 # idempotent across the format transition.
-TARGETS=(index.html pm-studio-DrV.html)
+TARGETS=(index.html pm-studio-DrV.html biggame.html)
 TOTAL_REPLACED=0
 for f in "${TARGETS[@]}"; do
     [ -f "$f" ] || continue

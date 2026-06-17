@@ -7,33 +7,26 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — BIG GAME composer.** Grounding + framing DONE; resume by getting the user's answers to 3 questions (do NOT build yet)
-Phases **1 and 2 are DONE**. On June 15 we did the read-only grounding + presented the
-framing, and **asked the user 3 questions + 1 structural choice — STILL UNANSWERED. Start
-tomorrow by getting his answers, then propose the staged plan.**
+## ▶▶ NEXT CHAT: **Phase 3 — BIG GAME composer. Model LOCKED. Start building stage 3a.**
+Phases **1 and 2 DONE**. June 15: grounding + the full model are LOCKED — the detailed plan
+(architecture, data model, all decisions, stages 3a–3f) lives in **`docs/ROADMAP.md` →
+"Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3a** (no more
+discussion needed to begin).
 
-**The framing presented (his to confirm/reshape):** Big Game = the evolution of the legacy
-**Combined Games** prototype (which already chains Find games into gem-gated stages with a
-"Level Up!" transition + final celebration — see the grounding below). Big Game generalizes
-it: stages become **mini-games** (Find AND Catch), the gem count becomes his **"rules of
-advance,"** the Level-Up becomes his **"transition,"** and mixing types means playback
-**switches the board surface** between stages (his A/B rule — all-one-type shares one board;
-mixed types each bring their own).
+**Architecture locked (his answers):** a NEW standalone Composer app (own HTML page/tab, like
+Previewer/Studio) that AUTHORS Big Games and PLAYS them via an **embedded Previewer engine**
+(real engine in a frame, deep-linked `index.html?playBig=<id>` — one engine, no duplication,
+no tab-switching). Fresh **`savedBigGames`** store (register in `sync.js` backup + local-wins).
+The Previewer's **"Sequence" column** also lists/plays them. Advance rules = RESERVE an
+extensible per-stage slot with a simple gem default (editor LATER, his call). Transition =
+visual Level-Up for now (rules later). Board A/B = same-type shares one surface / mixed
+switches surfaces (handled in 3d). Publish = deferred (3f).
 
-**Questions asked, awaiting answers (his words matter — don't assume):**
-1. **Gathering + where the composer lives.** How does he gather mini-games into a Big Game
-   (drag from each game's folder? a checklist?) and where does the composer live (Studio /
-   Previewer / its own place)?
-2. **"Rule of advance."** Is the existing "collect N gems to advance" his rule (just per-
-   mini-game configurable), or richer (time / score / success-fail branching / manual)? Get
-   his definition of what moves the player to the next mini-game.
-3. **"Transition."** Just the visual Level-Up moment, or does it carry rules/meaning?
-+ **Structural choice I recommended:** start a FRESH `savedBigGames` store (don't extend
-  `savedCombinedGames`) so the legacy combined games are left alone. His call.
-
-**Also still to settle (from the original framing):** board/type-mixing A-vs-B confirmation
-(he already stated it), and what **publish** produces (the published Big Game is the ONLY
-artifact that runs on **touch OR mouse**; all authoring upstream is **mouse-only**).
+**Start here — stage 3a (Foundation):** the `savedBigGames` data model + load/save/list
+helpers; register `savedBigGames` in `sync.js` (backup + local-wins); the new Composer app
+shell (new HTML page + shared chrome + a Big-Games list + "New Big Game" reading/writing the
+store). No composing/play yet. Then 3b compose, 3c slots, 3d embedded play (the hard one),
+3e Sequence column, 3f publish. Full detail in ROADMAP.
 
 ### Grounding: legacy COMBINED GAMES = the Phase-3 prototype to extend (read-only findings, June 15)
 - **Data:** `savedCombinedGames` = `[{ name, stages: [{ gameIndex, gameName, gemsNeeded }] }]`.

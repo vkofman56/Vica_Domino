@@ -21,10 +21,81 @@ from its label — single source of truth).
   page with a Save button + naming banner. **Board = the type's surface, NOT a deal** (an
   early board-snapshot was built then stripped). Commit arc: `e6de30d`→`6c0e889` (ledger in
   STATUS_NOTES June 13–15).
-- **Phase 3 — Big Game** (rules of advance + transitions + compose mini-games + preview/**publish**;
-  the board / type-mixing A-vs-B decision lives here) ← *NEXT; model NOT yet locked — discuss first*
+- **Phase 3 — Big Game composer** ← *NEXT; model LOCKED June 15 (detailed below)*
 - **Phase 4 — FinalPreview + Game Flow** (per-user dynamic probs/rules; publish individualized;
   collect Big Games into a Game Flow)
+
+---
+
+# Phase 3 — BIG GAME composer (DETAILED) — model locked June 15, 2026
+
+**Goal.** Compose **mini-games** (across Find AND Catch) into a **Big Game** — a sequence of
+stages with rules of advance + transitions — and play it. The evolution of the legacy
+Combined Games prototype (chains Find games into gem-gated stages; see STATUS_NOTES grounding).
+
+## Architecture — LOCKED (June 15, 2026)
+1. **A NEW standalone app: the Big Game Composer** (a new top-level HTML page like
+   `index.html`/`pm-studio-DrV.html`, served from repo root, shared localStorage + Firebase
+   sync). User wants it separate so it can sit in its own browser tab. Authoring is
+   MOUSE-ONLY (only the published Big Game runs touch+mouse).
+2. **Embedded Previewer engine for Play** (NOT a 2nd engine). The Composer's ▶ Play runs the
+   game via the real Previewer engine embedded in a frame/overlay, deep-linked by a URL
+   param (`index.html?playBig=<id>`). One play engine, no duplication, no tab-switching.
+3. **The Previewer's "Sequence" column** also lists & plays Big Games (same data + engine).
+4. **Fresh `savedBigGames` store**, registered in `sync.js` backup + local-wins (protected
+   like `savedCustomGames`/`savedCatchGames`/`savedCombinedGames`). Do NOT extend the legacy
+   `savedCombinedGames`.
+
+## Data model (sketch)
+```
+savedBigGames = [{
+  id, name, createdAt,
+  stages: [{
+    gameType: 'find' | 'catch',          // enables Find/Catch mixing
+    gameRef: { name, index },            // resilient ref to the parent game (name-first, index fallback)
+    miniGameId: '<id>' | 'default',      // which mini-game legend; 'default' = the game's own config
+    advanceRule: { kind: 'gems', value: N }   // RESERVED/extensible; simple default now, editor later
+  }, ...],
+  transition: { kind: 'levelup' }        // RESERVED/extensible; just the visual now
+  // publish fields reserved for later
+}]
+```
+Play-time resolution per stage: find the game (gameType + gameRef) → get the mini-game's
+legend (by id, or compute the Default) → apply those settings → play it as one stage.
+
+## Decisions LOCKED (June 15, 2026)
+- **Advance rules** will be complex/multifunctional later (gems, time, score, branching…).
+  NOT building the rule editor now — just RESERVE an extensible per-stage `advanceRule` slot
+  with a simple default (gem count, reusing the existing mechanic). Editor drops in later
+  with no migration.
+- **Transitions**: just the visual "Level Up!" moment for now; their own rules come later.
+- **Board / type-mixing (A vs B)**: all-one-type Big Game = one shared board surface (A);
+  mixed types (Find+Catch) = switch the board surface between stages (B). Handled in 3d.
+- **Publish** (what it produces + live-vs-snapshot art) is DEFERRED within Phase 3 (3f).
+
+## Stages (each shipped + self-tested + user-verified, #4-style)
+- **3a — Foundation.** `savedBigGames` model + load/save/list helpers; register in `sync.js`
+  (backup + local-wins); the new Composer app shell (new HTML page, shared chrome, a
+  Big-Games list + "New Big Game", reads/writes the store). No composing/play yet.
+- **3b — Compose: gather + order.** Canvas for one Big Game: browse all games (Find+Catch) +
+  their mini-games (incl. the implicit Default); add as STAGES; reorder. Save.
+- **3c — Reserved slots.** Per-stage simple advance rule (gem count, editable) + visible
+  "more later" placeholder; transition fixed to the visual Level-Up. No rule editor.
+- **3d — Embedded Play (meatiest/riskiest).** `?playBig=<id>` auto-launch hook in the
+  Previewer; EXTEND the combined-game playback from Find-only-whole-games to mini-game stages
+  + Find/Catch surface switching (the A/B rule). Composer ▶ Play embeds the Previewer at that
+  URL. May sub-stage.
+- **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot
+  (reuses 3d).
+- **3f — Publish (deferred).** Define what publish produces + the live-vs-snapshot-art call.
+
+## Existing assets to build on
+- Legacy **Combined Games** (the prototype): sequencing, per-player gem tracking, the "Level
+  Up!" transition overlay, final celebration, by-name resilient refs — reuse these in 3d.
+  See STATUS_NOTES June 15 grounding for the exact functions
+  (`combinedGameConfig`/`checkGameProgression`/`loadGameDeckForStage`/`showFinalCelebration`).
+- **Mini-game model** (Phase 2): `game.miniGames = [{id,name,createdAt,legend}]`, legend =
+  `{timerOn,probOptionId,level,typeId}`, + the implicit computed Default.
 
 ---
 

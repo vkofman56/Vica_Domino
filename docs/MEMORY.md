@@ -23,6 +23,16 @@
   Game Previewer (mini-games = saved legends per game) → BIG GAME (collect mini-games across
   games + rules-of-advance + transitions → preview/publish) → FinalPreview (per-user dynamic
   probs/rules) → Game Flow.
+- **Phase 3 BIG GAME architecture — LOCKED June 15** (full plan in `docs/ROADMAP.md`): a NEW
+  standalone **Composer app** (own HTML page/tab, shared localStorage+sync) that authors Big
+  Games and PLAYS them via an **embedded Previewer engine** (real engine in a frame,
+  deep-linked `index.html?playBig=<id>` — ONE engine, no duplication). Fresh **`savedBigGames`**
+  store (must register in `sync.js` backup + local-wins). The Previewer's **"Sequence" column**
+  also lists/plays Big Games. Big Game = stages of **mini-games** (Find+Catch); each stage:
+  `{gameType, gameRef{name,index}, miniGameId|'default', advanceRule}`. **Advance rules**:
+  reserve an extensible slot, simple gem default now, EDITOR LATER (user not building it yet).
+  **Transition**: visual Level-Up now, rules later. **Board A/B**: same-type = one surface,
+  mixed = switch surfaces. **Publish** deferred. Authoring is mouse-only.
 - **Legacy Combined Games = the working Phase-3 prototype** (grounded June 15). Data:
   `savedCombinedGames = [{ name, stages:[{ gameIndex, gameName, gemsNeeded }] }]` — chains
   **Find games ONLY** (whole games, not mini-games, no `gameType`, no board) into gem-gated

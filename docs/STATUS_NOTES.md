@@ -7,6 +7,28 @@
 
 ---
 
+### Studio session (parallel, June 17) — Card loupe: corner-handle resize DONE
+Running alongside the Big Game session (which owns `biggame.html`/`index.html`/`game.js`); this
+session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for visibility.
+- **Feature**: in the Card Maker card loupe, a selected stamp / inserted picture / text now shows
+  **4 gold corner handles** on the dashed selection box. Dragging a corner resizes the element
+  **proportionally (aspect-locked) with the OPPOSITE corner pinned** (grows toward the cursor), and a
+  live **"×N"** label on the dragged corner shows the scale relative to grab-time, hiding on release.
+- **How**: reuses the existing `applySizeToElement` size pipeline (so every type scales correctly and
+  the size persists into the saved card); one drag = one undo step; handles/label are stripped on
+  deselect and in the save serializer (`.draw-resize-handle, .draw-scale-label`) so nothing leaks into
+  the card. New: `createSelHandles`/`removeSelHandles`/`updateSelHandles`/`_showScaleLabel`/
+  `_startHandleResize` + `selectionHandles`/`selectionScaleLabel` state. Verified in-page on
+  stamp/text/circle (all 4 corners, grow + shrink, correct ×N, pin, undo +1, zero leak).
+- **⚠ Git note**: these +195 lines landed in `pm-studio-DrV.html` but were swept into the Big Game
+  session's `ship.sh` (`git add -A`) commits (first appears in `12a2134`), NOT a Studio-labeled commit —
+  the two sessions share branch `work/cardmaker-rowcopy`, so `git add -A` is absorbing the other's
+  uncommitted work. Isolation needs fixing (per-path commits / separate worktree) to stop this.
+- **Deferred (user dismissed mid-design)**: edge/side handles for one-directional (non-proportional)
+  picture resize + a "you are changing the shape proportions" warning. Not started.
+
+---
+
 ## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d(i–iv) + 3e DONE. Only 3f (Publish, deferred) remains.**
 
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)

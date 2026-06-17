@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:18 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:14 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:14 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5094,6 +5094,88 @@
             var idx = resolveStageGameIndex(stage);
             if (idx >= 0) startCustomGame(idx, null);
         };
+
+        // ============================================================
+        // BIG GAME embedded play — Phase 3d-i (launcher, Find stage 0)
+        // ============================================================
+        // Gated ENTIRELY behind ?playBig=<id>: with no param this code never
+        // runs, so the normal Previewer is byte-for-byte unaffected. 3d-i plays
+        // ONLY the FIRST stage (Find) with its mini-game legend auto-applied,
+        // no advance yet. Catch stage-0 and chaining come in 3d-ii / 3d-iii.
+        function _bgLoadBigGames() {
+            try { return JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) { return []; }
+        }
+        // Resolve a stage's legend: prefer the snapshot on the stage, else look
+        // it up live from the source mini-game (mirrors biggame.html).
+        function _bgStageLegend(stage) {
+            if (stage.legend) return stage.legend;
+            var idx = stage.gameRef ? stage.gameRef.index : -1;
+            if (!stage.miniGameId || stage.miniGameId === 'default') return _mgDefaultLegend(stage.gameType, idx);
+            var list = _mgListFor(stage.gameType, idx) || [];
+            for (var i = 0; i < list.length; i++) { if (list[i].id === stage.miniGameId) return list[i].legend || null; }
+            return _mgDefaultLegend(stage.gameType, idx);
+        }
+        // A small banner so the author always sees they're inside a Big Game.
+        function _bgShowBanner(text) {
+            var b = document.getElementById('bg-play-banner');
+            if (!b) {
+                b = document.createElement('div');
+                b.id = 'bg-play-banner';
+                b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;text-align:center;'
+                    + 'font:600 13px/1.5 "Segoe UI",sans-serif;color:#fff;padding:6px 10px;'
+                    + 'background:linear-gradient(90deg,#6a74d8,#8a5fc0);box-shadow:0 2px 8px rgba(0,0,0,.25);';
+                document.body.appendChild(b);
+            }
+            b.textContent = text;
+        }
+        window.startBigGameFromId = function(id) {
+            var bg = _bgLoadBigGames().filter(function (b) { return b.id === id; })[0];
+            if (!bg) { _bgShowBanner('⚠ Big Game not found.'); return; }
+            var stages = bg.stages || [];
+            if (!stages.length) { _bgShowBanner('“' + (bg.name || 'Big Game') + '” has no stages yet.'); return; }
+            var stage0 = stages[0];
+            var label = '🎮 ' + (bg.name || 'Big Game') + ' — Stage 1/' + stages.length
+                + ': ' + (stage0.gameType === 'catch' ? 'Catch' : 'Find') + ' · ' + (stage0.gameRef && stage0.gameRef.name || '')
+                + ' · ' + (stage0.miniGameName || 'Default');
+            _bgShowBanner(label);
+            // 3d-i supports Find stage-0 only.
+            if (stage0.gameType === 'catch') {
+                _bgShowBanner(label + '   —   (Catch playback in a sequence arrives in 3d-iii)');
+                return;
+            }
+            // Auto-play: mouse / single player, skip manual Setup.
+            try { _findInputMode = 'mouse'; } catch (e) {}
+            var ptog = document.getElementById('intro-player-toggle');
+            if (ptog) ptog.setAttribute('data-players', '1');
+            selectedIntroGame = 'custom-' + (stage0.gameRef ? stage0.gameRef.index : 0);
+            goToMainPage(); // → Setup + startCustomGame for this game
+            // Let Setup render, apply the legend, then start.
+            setTimeout(function () {
+                _mgApplyLegend(_bgStageLegend(stage0));
+                setTimeout(function () {
+                    var startBtn = document.getElementById('start-game-btn');
+                    if (startBtn) startBtn.click();
+                }, 160);
+            }, 220);
+        };
+        // Load hook: auto-launch when ?playBig=<id> is present.
+        (function () {
+            var pid = null;
+            try { pid = new URLSearchParams(location.search).get('playBig'); } catch (e) {}
+            if (!pid) return;
+            function tryStart(tries) {
+                if (document.getElementById('start-game-btn') || document.getElementById('intro-screen')) {
+                    window.startBigGameFromId(pid);
+                } else if ((tries || 0) < 50) {
+                    setTimeout(function () { tryStart((tries || 0) + 1); }, 100);
+                }
+            }
+            if (document.readyState === 'loading') {
+                window.addEventListener('DOMContentLoaded', function () { setTimeout(function () { tryStart(0); }, 350); });
+            } else {
+                setTimeout(function () { tryStart(0); }, 350);
+            }
+        })();
 
         // Combined game confirmation stubs (admin creates these, player just plays)
         function confirmCombineGames() {}

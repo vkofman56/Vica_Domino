@@ -120,8 +120,11 @@ legend (by id, or compute the Default) → apply those settings → play it as o
      Catch's gem counter to advance + handle Find→Catch / Catch→Find surface teardown+setup.
 
   **Sub-stages:**
-  - **3d-i** — `?playBig=<id>` launcher + iframe-modal ▶ Play in Composer + headless legend apply;
-    play stage 0 as Find, NO advance yet. Proves launch + embed + legend.
+  - **3d-i** — ✅ DONE (June 16). `?playBig=<id>` launcher (`startBigGameFromId` in index.html, gated
+    behind the param) + iframe-modal ▶ Play in Composer (`bgOpenPlay`) + legend auto-apply via the
+    existing `_mgApplyLegend`; plays Find stage-0, Catch stage-0 shows a graceful "comes in 3d-iii"
+    message, NO advance. Verified: Find auto-launch w/ legend, iframe embed, no-param Previewer
+    untouched. (Used `_mgApplyLegend` for now; the fully-headless applier is folded into 3d-ii.)
   - **3d-ii** — Find→Find chaining (board A): adapter + per-stage legend on advance; gem-gated
     advance, Level-Up overlay, final celebration — all reusing the existing engine.
   - **3d-iii** — Catch stages + board switching (board B): Catch-gem→advance hook + surface swaps.

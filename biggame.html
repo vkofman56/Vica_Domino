@@ -38,6 +38,20 @@
         .bgc-row-act:disabled { opacity: 0.4; cursor: default; }
         .bgc-foot { text-align: center; margin-top: 26px; color: rgba(255,255,255,0.6); font-size: 12.5px; }
         .bgc-foot a { color: #FFD54F; }
+        .bgc-play-btn { flex: 0 0 auto; padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer;
+                        background: #2ecc71; color: #06351b; font-weight: 800; font-size: 13px; }
+        .bgc-play-btn:hover { background: #43e088; }
+        .bgc-play-btn:disabled { opacity: 0.4; cursor: default; }
+        /* embedded-play modal: the real Previewer in an iframe */
+        .bgc-play-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(20,16,40,0.92);
+                            display: flex; flex-direction: column; }
+        .bgc-play-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 9px 16px;
+                        background: rgba(0,0,0,0.35); color: #fff; font-weight: 700; font-size: 14px; }
+        .bgc-play-bar .sp { flex: 1 1 auto; }
+        .bgc-play-bar button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
+                               background: rgba(255,255,255,0.16); color: #fff; font-weight: 700; font-size: 13px; }
+        .bgc-play-bar button:hover { background: rgba(255,255,255,0.3); }
+        .bgc-play-frame { flex: 1 1 auto; width: 100%; border: 0; background: #6a74d8; }
         /* ---- compose view (two columns) ---- */
         .bgc-compose { display: flex; gap: 18px; align-items: flex-start; }
         .bgc-col { flex: 1 1 0; min-width: 0; }
@@ -228,6 +242,32 @@
             var typ = g ? bgTypeLabel(g, legend.typeId) : ''; if (typ) parts.push(typ);
             return parts.join('  ·  ');
         }
+        // 3d-i: play a Big Game by embedding the REAL Previewer in an iframe,
+        // deep-linked to ?playBig=<id>. Same engine, framed — "same as it plays
+        // in the Previewer". 3d-i plays the first (Find) stage only.
+        function bgOpenPlay(id, name) {
+            bgClosePlay();
+            var ov = document.createElement('div'); ov.className = 'bgc-play-overlay'; ov.id = 'bgc-play-overlay';
+            var bar = document.createElement('div'); bar.className = 'bgc-play-bar';
+            var t = document.createElement('span'); t.textContent = '▶ Playing: ' + (name || 'Big Game');
+            var sp = document.createElement('span'); sp.className = 'sp';
+            var hint = document.createElement('span'); hint.style.cssText = 'font-weight:400;font-size:12px;opacity:0.75;'; hint.textContent = 'Stage 1 only (chaining lands in 3d-ii)';
+            var close = document.createElement('button'); close.textContent = '✕ Close'; close.addEventListener('click', bgClosePlay);
+            bar.appendChild(t); bar.appendChild(sp); bar.appendChild(hint); bar.appendChild(close);
+            var frame = document.createElement('iframe'); frame.className = 'bgc-play-frame';
+            frame.src = 'index.html?playBig=' + encodeURIComponent(id);
+            frame.allow = 'autoplay';
+            ov.appendChild(bar); ov.appendChild(frame);
+            document.body.appendChild(ov);
+            document.addEventListener('keydown', bgPlayEsc);
+        }
+        function bgClosePlay() {
+            var ov = document.getElementById('bgc-play-overlay');
+            if (ov) ov.remove();
+            document.removeEventListener('keydown', bgPlayEsc);
+        }
+        function bgPlayEsc(e) { if (e.key === 'Escape') bgClosePlay(); }
+
         // Resolve a stage's legend LIVE from its source mini-game (so it tracks
         // edits / matches the Previewer), falling back to the snapshot stored on
         // the stage if the game/mini-game no longer exists.
@@ -278,10 +318,13 @@
                     var name = document.createElement('span'); name.className = 'bgc-row-name'; name.textContent = bg.name || 'Big Game';
                     var meta = document.createElement('span'); meta.className = 'bgc-row-meta';
                     var n = (bg.stages && bg.stages.length) || 0; meta.textContent = n + (n === 1 ? ' stage' : ' stages');
+                    var play = document.createElement('button'); play.className = 'bgc-play-btn'; play.textContent = '▶ Play';
+                    play.title = n ? 'Play this Big Game' : 'Add stages first'; play.disabled = !n;
+                    if (n) play.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
                     var open = mkAct('✎', 'Compose stages', function () { bgState.view = 'compose'; bgState.editingId = bg.id; bgState.openGameKey = null; bgRender(); });
                     var ren = mkAct('🏷', 'Rename', function () { var nm = prompt('Rename Big Game:', bg.name || ''); if (nm === null) return; bgRename(bg.id, nm); bgRenderList(); });
                     var del = mkAct('✗', 'Delete', function () { if (!confirm('Delete Big Game “' + (bg.name || 'Big Game') + '”?')) return; bgDelete(bg.id); bgRenderList(); });
-                    row.appendChild(name); row.appendChild(meta); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
+                    row.appendChild(name); row.appendChild(meta); row.appendChild(play); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
                     card.appendChild(row);
                 });
             }
@@ -307,6 +350,11 @@
             var h2 = document.createElement('h2'); h2.textContent = bg.name || 'Big Game';
             left.appendChild(back); left.appendChild(h2);
             head.appendChild(left);
+            var nStages = (bg.stages && bg.stages.length) || 0;
+            var playC = document.createElement('button'); playC.className = 'bgc-play-btn'; playC.textContent = '▶ Play';
+            playC.title = nStages ? 'Play this Big Game' : 'Add stages first'; playC.disabled = !nStages;
+            if (nStages) playC.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
+            head.appendChild(playC);
             card.appendChild(head);
 
             var cols = document.createElement('div'); cols.className = 'bgc-compose';

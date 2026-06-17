@@ -7,10 +7,37 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — stages 3a + 3b + 3c DONE. Next = stage 3d (embedded play — meatiest/riskiest).**
-Phases **1 and 2 DONE**. **Stages 3a (Foundation) + 3b (Compose) + 3c (reserved slots) DONE June 16**
-— see below. The detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in
-**`docs/ROADMAP.md` → "Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3d**.
+## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c done, 3d-i done. Next = stage 3d-ii (Find→Find chaining / board A).**
+Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launcher + embed + Find
+stage-0 play) DONE June 16** — see below. The detailed plan (architecture, data model, decisions,
+stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md` → "Phase 3 — BIG GAME composer"**.
+Read that, then **start with stage 3d-ii**.
+
+### ✅ Stage 3d-i (Launcher + embed + Find stage-0 play) — DONE (June 16)
+- **Launcher in `index.html`** (right after `loadGameDeckForStage`, ~line 5097): `startBigGameFromId(id)`
+  + a load hook reading `?playBig=<id>`. **Gated ENTIRELY behind the param** — with no `?playBig`,
+  none of it runs, so the normal Previewer is byte-for-byte unaffected (verified: plain `index.html`
+  shows the intro, no banner, no auto-launch).
+- **What 3d-i does**: loads the Big Game, shows a fixed top banner ("🎮 <name> — Stage 1/N: …"),
+  and for a **Find** stage-0 auto-plays it: sets mouse / 1-player, `selectedIntroGame='custom-<idx>'`,
+  `goToMainPage()`, then `_mgApplyLegend(legend)` (legend resolved via `_bgStageLegend` — snapshot or
+  live mini-game), then clicks `#start-game-btn`. NO advance yet. **Catch stage-0 → graceful banger
+  message** ("Catch playback in a sequence arrives in 3d-iii"), no crash.
+- **Composer ▶ Play in `biggame.html`**: green ▶ Play button on each Big-Game list row + the compose
+  header (disabled when 0 stages). `bgOpenPlay(id,name)` opens a full-screen overlay with the REAL
+  Previewer in an **iframe** (`index.html?playBig=<id>`) + a top bar (title + "Stage 1 only" hint +
+  ✕ Close; Esc also closes). "Same as it plays in the Previewer," framed.
+- **Verified in preview**: (1) Find auto-launch — temp Find Big Game (Match 0-4 / "fast") played with
+  the legend applied (triangle→3 dominos, timer on→20s, prob matched); (2) ▶ Play opens the iframe;
+  (3) "Game one" (Catch stage-0) shows the graceful message inside the iframe; (4) no-param Previewer
+  untouched. Real data ("Game one", 3 stages) intact throughout.
+- **Notes for 3d-ii**: (a) the launched Find game shows the **"Game paused / tap to continue"** overlay
+  when the iframe isn't focused — that's the normal blur-pause, a real player taps to start; fine, but
+  consider auto-resume-on-focus polish later. (b) **sync caveat**: a *synthetic* test Big Game not in
+  cloud can be replaced by the cloud copy when the iframe's `sync.js` runs — does NOT affect real
+  cloud-backed Big Games (they sync to the same data). (c) The iframe path uses the SAME launcher code
+  proven in the top-window test. (d) biggame.html had to be loaded with a cache-bust once in preview;
+  the no-cache meta tags handle real use.
 
 ### ✅ Stage 3c (Reserved slots) — DONE (June 16)
 - **Per-stage advance rule** in the compose view: `advanceRule:{kind:'gems',value:N}`, edited inline

@@ -7,11 +7,29 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d-i/ii/iii DONE. Next = stage 3d-iv (polish) or 3e (Sequence column).**
+## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d (i/ii/iii/iv) DONE. Next = stage 3e (Previewer Sequence column).**
 Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+embed+Find stage-0) +
 3d-ii (Find→Find chaining) + 3d-iii (Catch + board switching) DONE June 16** — see below. The detailed
 plan (architecture, data model, decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md`
 → "Phase 3 — BIG GAME composer"**. Read that, then **start with stage 3d-iv** (polish) or **3e**.
+
+### ✅ Stage 3d-iv (polish) — DONE (June 17)
+Polish on Big Game embedded play (all in `index.html` + `biggame.html`; game.js untouched):
+- **Player name** (`_bgEnsureFindPlayer`): a Catch-FIRST game's bootstrapped player now reads the
+  real name/icon from `vica_global_players` (e.g. "Va"/cat) instead of a generic "Player" — matches
+  what the Find-first path (startGame) shows. Verified: bootstrap → {name:"Va", icon:"cat"}.
+- **Per-stage type** (`_bgApplyLegendHeadless` now takes `(legend, gameType, index)`): resolves the
+  legend's `typeId` from the game setup and mirrors `_stashTypeChoice` — sets `_currentTypeBehavior`
+  / `_currentTypeLabel` / voice globals headlessly for advancing stages (was: default type only).
+  No double-auto-continue risk: `playAgain` calls `_stopNonstopCountdown`, so the Big Game
+  auto-continue (1.6s) cancels any nonstop countdown. Verified: typeId 'opt1' → "Slow Pace"/manual.
+- **Post-celebration return** (`close-celebration-btn`): on Finish in a Big Game it `postMessage`s
+  `{type:'bgPlayDone'}` to the parent; `biggame.html` (`bgPlayMsg` in `bgOpenPlay`) closes the play
+  modal → back to the Big Games list, instead of dropping the player on a stale Setup page. Verified.
+- **Blur-pause** (item not changed): the "Game paused / tap to continue" is `visibilitychange→hidden`
+  (whole TAB hidden) — correct behavior; it does NOT fire for a focused Composer tab (the earlier
+  sighting was a headless-preview artifact). Left as-is on purpose.
+- Regression: real Big Game launch (Game one, Catch-first) still starts clean, no console errors.
 
 ### ⚠️→✅ Stage 3d-iii PLAY FIXES (June 17) — Big Games now actually FLOW
 The 3d-iii ship "worked" in isolation but DIDN'T PLAY: my verification drove the engine

@@ -136,7 +136,11 @@ legend (by id, or compute the Default) → apply those settings → play it as o
     advance via `_bgOnCatchGem` (hooked in `_catchAddCoins`); `_bgEnsureFindPlayer` bootstraps a player
     for Catch→Find and Catch-first. Verified end-to-end (Game one = Find→Catch→Find + a Catch-first temp);
     normal play + no-param Previewer unaffected. Small polish (player name, typeId, return) → 3d-iv.
-  - **3d-iv** — Polish: win→back-to-Composer, guards for games/mini-games deleted mid-sequence.
+  - **3d-iv** — ✅ DONE (June 17). Polish: Catch-first bootstrap player uses the real name/icon
+    (`vica_global_players`); per-stage `typeId` applied headlessly (`_bgApplyLegendHeadless` mirrors
+    `_stashTypeChoice`); Finish on the celebration `postMessage`s the Composer to close the play
+    modal (back to the list, not a stale Setup). Blur-pause left as-is (correct tab-hidden behavior).
+    Plus the 3d-iii PLAY FIXES (auto-continue rounds + default 1 gem). Verified per-mechanism.
 - **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot
   (reuses 3d).
 - **3f — Publish (deferred).** Define what publish produces + the live-vs-snapshot-art call.

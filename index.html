@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:07 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:29 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:07 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:29 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5157,9 +5157,9 @@
         // Headless legend apply for ADVANCING stages (no Setup page present):
         // set the runtime state directly. level → game.selectedLevel; prob →
         // _gpSelectedProbId (startCustomGame materializes it); timer →
-        // _currentTimerOn + includeXeno. (typeId fidelity between stages is a
-        // 3d-iv refinement; the game's default type is used otherwise.)
-        function _bgApplyLegendHeadless(legend) {
+        // _currentTimerOn + includeXeno; type → the _currentType* globals
+        // (behavior + voice), resolved from the stage's game setup (3d-iv).
+        function _bgApplyLegendHeadless(legend, gameType, index) {
             if (!legend) return;
             try {
                 if (legend.level && window.game) {
@@ -5169,6 +5169,23 @@
                 window._gpSelectedProbId = legend.probOptionId || null;
                 window._currentTimerOn = !!legend.timerOn;
                 if (window.game) window.game.includeXeno = !!legend.timerOn;
+                // Type fidelity: mirror _stashTypeChoice from the live game setup.
+                if (legend.typeId && gameType != null && index != null) {
+                    var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+                    var g = games[index];
+                    var mode = (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch';
+                    var opts = (g && g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+                    var opt = null;
+                    for (var i = 0; i < opts.length; i++) { if (opts[i].id === legend.typeId) { opt = opts[i]; break; } }
+                    if (opt) {
+                        window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                        window._currentTypeLabel = opt.label || '';
+                        window._currentVoiceInput = !!opt.voiceInput;
+                        var lv = opt.voiceLang;
+                        window._currentVoiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
+                        window._currentVoiceSynonyms = (opt.voiceSynonyms && typeof opt.voiceSynonyms === 'object') ? opt.voiceSynonyms : null;
+                    }
+                }
             } catch (e) {}
         }
         // Wrap the deck loader so Big Game advances apply the stage legend before
@@ -5182,7 +5199,7 @@
                     // BEFORE this Find deck-loader is reached. If one slips through,
                     // don't try to load a Catch game as a Find deck.
                     if (stage && stage.gameType === 'catch') return;
-                    _bgApplyLegendHeadless(stage.legend);
+                    _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
                     var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
                     _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
                 }
@@ -5197,7 +5214,17 @@
         function _bgEnsureFindPlayer() {
             var g = window.game; if (!g) return;
             if (!g.players || !g.players.length) {
-                g.players = [{ id: 0, name: 'Player', icon: 'star', hand: [], isWinner: false, isComputer: false, hasCustomName: false }];
+                // Use the real player name/icon (same source startGame() reads:
+                // the global Icons-Players config) so a Catch-first game's Find
+                // stages show "Vica", not a generic "Player".
+                var _name = 'Player', _icon = 'star';
+                try {
+                    var _gcfg = JSON.parse(localStorage.getItem('vica_global_players'));
+                    var _p0 = _gcfg && _gcfg.players && _gcfg.players[0];
+                    if (_p0 && _p0.name && _p0.name.trim()) _name = _p0.name.trim();
+                    if (_p0 && _p0.icon) _icon = _p0.icon;
+                } catch (e) {}
+                g.players = [{ id: 0, name: _name, icon: _icon, hand: [], isWinner: false, isComputer: false, hasCustomName: true }];
             }
             g.playerCoins = g.playerCoins || {}; g.playerGems = g.playerGems || {}; g.stageGems = g.stageGems || {};
             g._consecutiveProtectedMistakes = g._consecutiveProtectedMistakes || {};
@@ -5363,7 +5390,13 @@
         // Close celebration handler
         document.getElementById('close-celebration-btn').addEventListener('click', function() {
             document.getElementById('combined-celebration-overlay').style.display = 'none';
+            // Big Game embedded play: tell the Composer (parent frame) to close the
+            // play modal — cleaner than dropping the player on a stale Setup page.
+            var _wasBig = window.combinedGameConfig && window.combinedGameConfig._isBigGame;
             if (window.game) window.game.resetToSetup();
+            if (_wasBig && window.parent && window.parent !== window) {
+                try { window.parent.postMessage({ type: 'bgPlayDone' }, '*'); } catch (e) {}
+            }
         });
 
         // ============================================

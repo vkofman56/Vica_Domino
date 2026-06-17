@@ -87,8 +87,13 @@ legend (by id, or compute the Default) → apply those settings → play it as o
   (ends disabled). STAGE = `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default',
   miniGameName}`; changes persist instantly via `bgMutateStages` (no separate Save). Verified in
   preview: add/reorder/remove round-trip, real data untouched. advanceRule/transition = 3c.
-- **3c — Reserved slots.** Per-stage simple advance rule (gem count, editable) + visible
-  "more later" placeholder; transition fixed to the visual Level-Up. No rule editor.
+- **3c — Reserved slots. ✅ DONE (June 16).** Per-stage `advanceRule:{kind:'gems',value:N}`,
+  editable inline ("Advance when [gems collected ▾] reach [N] 💎"; last stage reads "Win when").
+  The kind `<select>` reserves the slot — only "gems" is wired; a disabled "more rules… (coming)"
+  option signals future rule types (his "create an option" ask). Default 3 gems; persists instantly
+  (`bgRuleControl`/`bgStageRule`, default backfilled for old stages at read time). Transition =
+  fixed visual "⬆ Level Up" divider drawn between stages (display-only; custom transitions later).
+  Verified in preview (edit→persist, labels, dividers; real data restored). No rule editor.
 - **3d — Embedded Play (meatiest/riskiest).** `?playBig=<id>` auto-launch hook in the
   Previewer; EXTEND the combined-game playback from Find-only-whole-games to mini-game stages
   + Find/Catch surface switching (the A/B rule). Composer ▶ Play embeds the Previewer at that

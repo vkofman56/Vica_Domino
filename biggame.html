@@ -76,6 +76,14 @@
         .bgc-stage-sub { font-size: 11px; color: rgba(255,255,255,0.6); }
         .bgc-stage-legend { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px;
                             white-space: normal; line-height: 1.35; }
+        .bgc-stage-rule { display: flex; align-items: center; gap: 5px; margin-top: 6px; flex-wrap: wrap; font-size: 11.5px; }
+        .bgc-rule-label { color: rgba(255,255,255,0.55); }
+        .bgc-rule-select, .bgc-rule-num { background: rgba(0,0,0,0.28); color: #fff; border: 1px solid rgba(255,255,255,0.22);
+                                          border-radius: 6px; font-size: 11.5px; padding: 2px 5px; font-family: inherit; }
+        .bgc-rule-num { width: 44px; text-align: center; }
+        .bgc-transition { display: flex; align-items: center; gap: 8px; margin: 5px 26px; font-size: 10.5px;
+                          color: rgba(255,213,79,0.85); letter-spacing: .3px; }
+        .bgc-transition .line { flex: 1 1 auto; height: 1px; background: rgba(255,255,255,0.14); }
         .bgc-stage-act { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 12px;
                          display: inline-flex; align-items: center; justify-content: center;
                          background: rgba(255,255,255,0.08); color: #ddd; border: none; }
@@ -335,7 +343,7 @@
                         info.appendChild(nm); info.appendChild(lg);
                         var add = document.createElement('button'); add.className = 'bgc-add-btn'; add.textContent = '＋ Add';
                         add.addEventListener('click', function () {
-                            var stage = { gameType: en.type, gameRef: { name: (en.game && en.game.name) || '', index: en.index }, miniGameId: mg.id, miniGameName: mg.name, legend: mg.legend || null };
+                            var stage = { gameType: en.type, gameRef: { name: (en.game && en.game.name) || '', index: en.index }, miniGameId: mg.id, miniGameName: mg.name, legend: mg.legend || null, advanceRule: { kind: 'gems', value: 3 } };
                             bgMutateStages(bg.id, function (stages) { stages.push(stage); });
                             bgRender();
                         });
@@ -368,6 +376,8 @@
                 info.appendChild(nm); info.appendChild(sub);
                 var legTxt = bgFormatLegend(bgResolveLegend(st), st.gameType, (st.gameRef ? st.gameRef.index : -1), false);
                 if (legTxt) { var legEl = document.createElement('div'); legEl.className = 'bgc-stage-legend'; legEl.textContent = legTxt; info.appendChild(legEl); }
+                // --- 3c: per-stage advance rule (gems now; slot reserved for more) ---
+                info.appendChild(bgRuleControl(bg.id, idx, st, idx === stages.length - 1));
                 var up = mkStageAct('↑', 'Move up', idx === 0, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx - 1]; ss[idx - 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var dn = mkStageAct('↓', 'Move down', idx === stages.length - 1, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx + 1]; ss[idx + 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
                 var rm = mkStageAct('✗', 'Remove stage', false, function () { bgMutateStages(bg.id, function (ss) { ss.splice(idx, 1); }); bgRender(); });
@@ -375,6 +385,8 @@
                 r.setAttribute('draggable', 'true');
                 r.dataset.idx = idx;
                 r.addEventListener('dragstart', function (e) {
+                    // Don't start a drag when the gesture begins on an interactive control.
+                    if (e.target.closest && e.target.closest('input, select, button')) { e.preventDefault(); return; }
                     bgDragIdx = idx; r.classList.add('bgc-dragging');
                     try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); } catch (_) {}
                 });
@@ -395,6 +407,16 @@
                 });
                 r.appendChild(grip); r.appendChild(num); r.appendChild(info); r.appendChild(up); r.appendChild(dn); r.appendChild(rm);
                 stCol.appendChild(r);
+                // --- 3c: transition between stages — fixed visual Level-Up for now ---
+                if (idx < stages.length - 1) {
+                    var tr = document.createElement('div'); tr.className = 'bgc-transition';
+                    tr.title = 'Transition between stages — a visual “Level Up”. Custom transitions come later.';
+                    var l1 = document.createElement('span'); l1.className = 'line';
+                    var tlab = document.createElement('span'); tlab.textContent = '⬆ Level Up';
+                    var l2 = document.createElement('span'); l2.className = 'line';
+                    tr.appendChild(l1); tr.appendChild(tlab); tr.appendChild(l2);
+                    stCol.appendChild(tr);
+                }
             });
 
             cols.appendChild(libCol); cols.appendChild(stCol); card.appendChild(cols);
@@ -403,6 +425,37 @@
         function mkStageAct(label, title, disabled, fn) {
             var b = document.createElement('button'); b.className = 'bgc-stage-act'; b.textContent = label; b.title = title; b.disabled = !!disabled;
             if (!disabled) b.addEventListener('click', fn); return b;
+        }
+        // 3c: per-stage advance rule. Only "gems" is wired now (the kind <select>
+        // reserves the slot for richer rules later — his "create an option" ask).
+        // The rule gates moving to the NEXT stage; on the last stage it's the win
+        // condition. Default = 3 gems. Persists immediately.
+        var BG_DEFAULT_RULE = { kind: 'gems', value: 3 };
+        function bgStageRule(stage) {
+            var r = stage && stage.advanceRule;
+            if (r && r.kind === 'gems' && r.value != null) return r;
+            return { kind: 'gems', value: BG_DEFAULT_RULE.value };
+        }
+        function bgRuleControl(bgId, idx, stage, isLast) {
+            var rule = bgStageRule(stage);
+            var wrap = document.createElement('div'); wrap.className = 'bgc-stage-rule';
+            var lab = document.createElement('span'); lab.className = 'bgc-rule-label'; lab.textContent = isLast ? 'Win when' : 'Advance when';
+            var sel = document.createElement('select'); sel.className = 'bgc-rule-select'; sel.draggable = false;
+            var o1 = document.createElement('option'); o1.value = 'gems'; o1.textContent = 'gems collected'; sel.appendChild(o1);
+            var o2 = document.createElement('option'); o2.value = 'more'; o2.textContent = 'more rules… (coming)'; o2.disabled = true; sel.appendChild(o2);
+            sel.value = 'gems';
+            var reach = document.createElement('span'); reach.className = 'bgc-rule-label'; reach.textContent = 'reach';
+            var num = document.createElement('input'); num.type = 'number'; num.min = '1'; num.className = 'bgc-rule-num'; num.draggable = false;
+            num.value = rule.value;
+            var gem = document.createElement('span'); gem.textContent = '💎';
+            num.addEventListener('change', function () {
+                var v = Math.max(1, parseInt(num.value, 10) || 1); num.value = v;
+                bgMutateStages(bgId, function (ss) { if (ss[idx]) ss[idx].advanceRule = { kind: 'gems', value: v }; });
+            });
+            // keep clicks/drags on the controls from bubbling into row drag
+            [sel, num].forEach(function (el) { el.addEventListener('mousedown', function (e) { e.stopPropagation(); }); });
+            wrap.appendChild(lab); wrap.appendChild(sel); wrap.appendChild(reach); wrap.appendChild(num); wrap.appendChild(gem);
+            return wrap;
         }
 
         // ===== router =====

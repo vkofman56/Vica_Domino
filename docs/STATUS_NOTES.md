@@ -7,10 +7,26 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — stages 3a + 3b DONE. Next = stage 3c (reserved advance-rule/transition slots).**
-Phases **1 and 2 DONE**. **Stages 3a (Foundation) + 3b (Compose) DONE June 16** — see below. The
-detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in **`docs/ROADMAP.md`
-→ "Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3c**.
+## ▶▶ NEXT CHAT: **Phase 3 — stages 3a + 3b + 3c DONE. Next = stage 3d (embedded play — meatiest/riskiest).**
+Phases **1 and 2 DONE**. **Stages 3a (Foundation) + 3b (Compose) + 3c (reserved slots) DONE June 16**
+— see below. The detailed plan (architecture, data model, all decisions, stages 3a–3f) lives in
+**`docs/ROADMAP.md` → "Phase 3 — BIG GAME composer (DETAILED)"**. Read that, then **start with stage 3d**.
+
+### ✅ Stage 3c (Reserved slots) — DONE (June 16)
+- **Per-stage advance rule** in the compose view: `advanceRule:{kind:'gems',value:N}`, edited inline
+  — "Advance when [gems collected ▾] reach [N] 💎"; the LAST stage reads "Win when" (it's the win
+  condition). The kind `<select>` **reserves the slot** for richer rules later: only "gems" is wired,
+  a disabled "more rules… (coming)" option signals extensibility (the user's "create an option" ask).
+  Default 3 gems; persists instantly via `bgRuleControl`/`bgStageRule`; old stages without a rule
+  read the default and persist on first edit. New stages get `advanceRule` at add-time.
+- **Transition** = fixed visual **"⬆ Level Up"** divider drawn between consecutive stages
+  (display-only, tooltip notes custom transitions come later). Transition stays record-level
+  `{kind:'levelup'}`.
+- **Drag guard**: dragstart now bails if the gesture starts on an input/select/button, so editing
+  the gem count doesn't start a row drag.
+- **Verified in preview**: 3-stage Big Game → default 3 each, edit stage 2 → 7 persists `[3,7,3]`,
+  "Win when" on last, 2 Level-Up dividers; real data ("Game one", 3 stages) restored exactly.
+- **NOT yet**: embedded play (3d), Previewer "Sequence" column (3e), publish (3f).
 
 ### ✅ Stage 3b (Compose: gather + order) — DONE (June 16)
 - **Compose view in `biggame.html`**: Open (✎) a Big Game → two columns. LEFT = library of every

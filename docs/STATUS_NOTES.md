@@ -7,7 +7,27 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d (i/ii/iii/iv) DONE. Next = stage 3e (Previewer Sequence column).**
+## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d(i–iv) + 3e DONE. Only 3f (Publish, deferred) remains.**
+
+### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
+Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
+- **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3
+  in `_loadGameTypeRecency`/`_pushGameTypeRecency`); default `GAME_TYPE_RECENCY_DEFAULT = ['find','catch']`
+  (dropped `sequence`). The "Sequence" placeholder (and spy/scratch/nameit) stay RESERVED future game
+  types in `GAME_TYPE_CATALOG` — just not shown. Layout is now **Misc · Find · Catch · Big Games**.
+- **Big Games column** (NOT a recency game type — a dedicated column in the old Sequence slot, added at
+  the end of `_renderIntroColumns`; `--game-cols = stack.length + 1` so the CSS grid gets its track):
+  - **✎ Go to Big Game** button at the top → `window.location.href = 'biggame.html'` (the Composer).
+  - Lists saved `savedBigGames` that have stages; each tile (name + stage count) → `startBigGameFromId(id)`
+    to PLAY it right in the Previewer (reuses the 3d launcher — no iframe needed since the Previewer IS
+    index.html). Empty states: "(none yet)" / "(add stages in the Composer)".
+- CSS: `.intro-biggame-go` / `.intro-biggame-tile` / `.ibg-name` / `.ibg-meta` in `style.css`
+  (cache-buster bumped `dgx-redesign-50 → 51` in index.html + pm-studio + biggame.html).
+- **Verified in preview**: layout shows Find+Catch+Big Games (Sequence gone); clicking "Game one"
+  launched it (Catch board live w/ falling cards); "Go to Big Game" navigated to `/biggame.html`;
+  no console errors.
+
+### ✅ Stage 3d-iv (polish) — DONE (June 17)
 Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+embed+Find stage-0) +
 3d-ii (Find→Find chaining) + 3d-iii (Catch + board switching) DONE June 16** — see below. The detailed
 plan (architecture, data model, decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md`

@@ -141,8 +141,12 @@ legend (by id, or compute the Default) → apply those settings → play it as o
     `_stashTypeChoice`); Finish on the celebration `postMessage`s the Composer to close the play
     modal (back to the list, not a stale Setup). Blur-pause left as-is (correct tab-hidden behavior).
     Plus the 3d-iii PLAY FIXES (auto-continue rounds + default 1 gem). Verified per-mechanism.
-- **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot
-  (reuses 3d).
+- **3e — Previewer Big Games column. ✅ DONE (June 17).** Per the user's refinement: changed the
+  intro rule from 3→2 visible game-type columns (`GAME_TYPE_MAX_VISIBLE=2`, default `['find','catch']`),
+  and added a dedicated **Big Games** column where the "Sequence" placeholder was. The column has a
+  **✎ Go to Big Game** button (→ `biggame.html`) + tiles for each saved Big Game that PLAY it in the
+  Previewer via `startBigGameFromId` (reuses 3d). "Sequence"/spy/scratch/nameit remain reserved future
+  game types in the catalog. Verified in preview (play + navigate, no errors).
 - **3f — Publish (deferred).** Define what publish produces + the live-vs-snapshot-art call.
 
 ## Existing assets to build on

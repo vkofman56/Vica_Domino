@@ -2906,6 +2906,9 @@ class VicaDominoGame {
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
 
+        // Cancel any pending Big Game auto-continue so it can't double-fire.
+        if (this._bgAutoTimeout) { clearTimeout(this._bgAutoTimeout); this._bgAutoTimeout = null; }
+
         // If a Non-stop countdown is running, cancel it cleanly so this
         // restart isn't followed by the timer firing again.
         this._stopNonstopCountdown();
@@ -3021,6 +3024,19 @@ class VicaDominoGame {
             playersArea.parentNode.insertBefore(btnContainer, xenoTimerBox);
         } else {
             playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+        }
+
+        // Big Game (3d-iii fix): auto-continue between rounds so the sequence
+        // FLOWS like Catch — no manual "Play Again" click. The visible button
+        // still lets the player skip the wait or advance immediately. Only Big
+        // Games (config._isBigGame) opt in; legacy combined games are untouched.
+        if (this.combinedGame && this.combinedGame.config && this.combinedGame.config._isBigGame) {
+            const _self = this;
+            if (this._bgAutoTimeout) clearTimeout(this._bgAutoTimeout);
+            this._bgAutoTimeout = setTimeout(function () {
+                _self._bgAutoTimeout = null;
+                if (_self.gamePhase === 'sunLevelWon') _self.playAgain();
+            }, 1600);
         }
     }
 

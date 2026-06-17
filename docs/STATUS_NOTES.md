@@ -13,6 +13,30 @@ Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+em
 plan (architecture, data model, decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md`
 → "Phase 3 — BIG GAME composer"**. Read that, then **start with stage 3d-iv** (polish) or **3e**.
 
+### ⚠️→✅ Stage 3d-iii PLAY FIXES (June 17) — Big Games now actually FLOW
+The 3d-iii ship "worked" in isolation but DIDN'T PLAY: my verification drove the engine
+programmatically (set gems, called advance) instead of playing. Real play exposed two gaps the
+user hit ("not starting catch… waiting on player input"):
+1. **Find stages didn't auto-continue.** After a single-player Find win the game shows a "Play
+   Again" button and WAITS (only the Non-stop type auto-deals). So you won once and it sat there;
+   you never ground out the gems to reach the Catch stage. **Fix** (`js/game.js`,
+   `js/game.js?v=biggame-flow-1`): in `showEndGameButtons`, when `combinedGame.config._isBigGame`,
+   schedule `_bgAutoTimeout` (1.6s) → `playAgain()` so rounds auto-continue (flow like Catch); the
+   visible button still lets you skip the wait. Cleared in `playAgain` + the advance override.
+   Guarded so ONLY Big Games opt in — normal Find + legacy combined games are untouched (verified).
+2. **Advance bar too high.** Default was 3 gems = 30 coins ≈ 15 wins/stage — unreachable in play.
+   **Fix** (user's call: "lower default + keep editable"): default is now **1 gem** — `biggame.html`
+   `BG_DEFAULT_RULE`/`bgStageRule`/new-stage add all `value:1`; `index.html` `_bgBuildCombinedConfig`
+   fallback `|| 1`. Per-stage value stays editable in the composer (3c). NOTE: stages with an
+   EXPLICIT value keep it — e.g. "Game one"'s Catch stage was saved at 3 gems (≈30 catches); lower
+   it in the composer for a quicker Catch stage. Rule-less Find stages now use 1 gem (≈5 wins).
+- **Verified by PLAYING this time** (`sunLevelWin` on the real double, then letting the real timers
+  fire): Find win → `_bgAutoTimeout` set → auto-`playAgain` dealt a fresh round (same stage, coins
+  carried, end-buttons gone) — no manual click, not stuck; rule-less Find stage shows gemsNeeded 1;
+  Catch→Find advance (Game one is Catch-first in the cloud) works; normal play has no auto-continue;
+  no console errors. (Headless caveats: the 20s round timer expires between evals, async coin→gem
+  exchange, and sync resetting Game one's order — so I verified per-mechanism + let real timers fire.)
+
 ### ✅ Stage 3d-iii (Catch stages + board switching / A/B rule) — DONE (June 16)
 Big Games now play through with MIXED Find+Catch stages — the whole point of "Big Game". All in
 `index.html` (still gated behind `?playBig=`). The Catch engine (isolated `.catch-game-overlay` on

@@ -125,8 +125,11 @@ legend (by id, or compute the Default) → apply those settings → play it as o
     existing `_mgApplyLegend`; plays Find stage-0, Catch stage-0 shows a graceful "comes in 3d-iii"
     message, NO advance. Verified: Find auto-launch w/ legend, iframe embed, no-param Previewer
     untouched. (Used `_mgApplyLegend` for now; the fully-headless applier is folded into 3d-ii.)
-  - **3d-ii** — Find→Find chaining (board A): adapter + per-stage legend on advance; gem-gated
-    advance, Level-Up overlay, final celebration — all reusing the existing engine.
+  - **3d-ii** — ✅ DONE (June 16). Find→Find chaining (board A): adapter `_bgBuildCombinedConfig`
+    (advanceRule.value→gemsNeeded, gameRef→gameName/index, _isBigGame), headless legend apply on
+    advance `_bgApplyLegendHeadless` (level/prob/timer), wrapped `loadGameDeckForStage` (Big-Game-aware,
+    legacy untouched). Gem-gated advance + Level-Up overlay + final celebration via the existing engine.
+    Verified end-to-end in preview. Catch mid-sequence graceful-stops (→3d-iii); typeId per stage →3d-iv.
   - **3d-iii** — Catch stages + board switching (board B): Catch-gem→advance hook + surface swaps.
   - **3d-iv** — Polish: win→back-to-Composer, guards for games/mini-games deleted mid-sequence.
 - **3e — Previewer Sequence column.** List & play `savedBigGames` from the Sequence slot

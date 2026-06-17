@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:14 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:22 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -102,7 +102,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:22 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5096,12 +5096,15 @@
         };
 
         // ============================================================
-        // BIG GAME embedded play — Phase 3d-i (launcher, Find stage 0)
+        // BIG GAME embedded play — Phase 3d-i + 3d-ii
         // ============================================================
-        // Gated ENTIRELY behind ?playBig=<id>: with no param this code never
-        // runs, so the normal Previewer is byte-for-byte unaffected. 3d-i plays
-        // ONLY the FIRST stage (Find) with its mini-game legend auto-applied,
-        // no advance yet. Catch stage-0 and chaining come in 3d-ii / 3d-iii.
+        // Gated ENTIRELY behind ?playBig=<id>: with no param none of this runs,
+        // so the normal Previewer is byte-for-byte unaffected.
+        //   3d-i  : launch + embed + play Find stage 0 (legend auto-applied).
+        //   3d-ii : Find→Find CHAINING — gem-gated advance, Level-Up overlay,
+        //           per-stage legend (headless), final celebration. Reuses the
+        //           legacy combined-game engine via an adapter config.
+        //   (Catch stages still graceful-stop → 3d-iii.)
         function _bgLoadBigGames() {
             try { return JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) { return []; }
         }
@@ -5128,19 +5131,75 @@
             }
             b.textContent = text;
         }
+        function _bgStageBanner(name, stageIdx, total, stage) {
+            return '🎮 ' + (name || 'Big Game') + ' — Stage ' + (stageIdx + 1) + '/' + total
+                + ': ' + (stage.gameType === 'catch' ? 'Catch' : 'Find')
+                + ' · ' + ((stage.gameRef && stage.gameRef.name) || stage.gameName || '')
+                + ' · ' + (stage.miniGameName || 'Default');
+        }
+        // Adapter: a savedBigGames record → a config the legacy combined-game
+        // engine understands. The engine reads stage.gemsNeeded + gameName/
+        // gameIndex; we also carry gameType/miniGame/legend for our own hooks.
+        function _bgBuildCombinedConfig(bg) {
+            var stages = (bg.stages || []).map(function (s) {
+                return {
+                    gameIndex: s.gameRef ? s.gameRef.index : 0,
+                    gameName: s.gameRef ? s.gameRef.name : '',
+                    gemsNeeded: (s.advanceRule && s.advanceRule.value) || 3,
+                    gameType: s.gameType,
+                    miniGameId: s.miniGameId,
+                    miniGameName: s.miniGameName,
+                    legend: _bgStageLegend(s)
+                };
+            });
+            return { id: bg.id, name: bg.name, stages: stages, _isBigGame: true };
+        }
+        // Headless legend apply for ADVANCING stages (no Setup page present):
+        // set the runtime state directly. level → game.selectedLevel; prob →
+        // _gpSelectedProbId (startCustomGame materializes it); timer →
+        // _currentTimerOn + includeXeno. (typeId fidelity between stages is a
+        // 3d-iv refinement; the game's default type is used otherwise.)
+        function _bgApplyLegendHeadless(legend) {
+            if (!legend) return;
+            try {
+                if (legend.level && window.game) {
+                    window.game.selectedLevel = legend.level;
+                    try { localStorage.setItem('vicaSelectedLevel', legend.level); } catch (e) {}
+                }
+                window._gpSelectedProbId = legend.probOptionId || null;
+                window._currentTimerOn = !!legend.timerOn;
+                if (window.game) window.game.includeXeno = !!legend.timerOn;
+            } catch (e) {}
+        }
+        // Wrap the deck loader so Big Game advances apply the stage legend before
+        // building the deck. Legacy combined games (no _isBigGame) are untouched.
+        // A Catch stage mid-sequence graceful-stops (3d-iii).
+        (function () {
+            var _origLoadDeck = window.loadGameDeckForStage;
+            window.loadGameDeckForStage = function (stage) {
+                var cfg = window.combinedGameConfig;
+                if (cfg && cfg._isBigGame) {
+                    if (stage && stage.gameType === 'catch') {
+                        _bgShowBanner('🎮 ' + (cfg.name || 'Big Game') + ' — next stage is Catch (Catch in a sequence arrives in 3d-iii). Stopping here.');
+                        return;
+                    }
+                    _bgApplyLegendHeadless(stage.legend);
+                    var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
+                    _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
+                }
+                return _origLoadDeck(stage);
+            };
+        })();
         window.startBigGameFromId = function(id) {
             var bg = _bgLoadBigGames().filter(function (b) { return b.id === id; })[0];
             if (!bg) { _bgShowBanner('⚠ Big Game not found.'); return; }
             var stages = bg.stages || [];
             if (!stages.length) { _bgShowBanner('“' + (bg.name || 'Big Game') + '” has no stages yet.'); return; }
             var stage0 = stages[0];
-            var label = '🎮 ' + (bg.name || 'Big Game') + ' — Stage 1/' + stages.length
-                + ': ' + (stage0.gameType === 'catch' ? 'Catch' : 'Find') + ' · ' + (stage0.gameRef && stage0.gameRef.name || '')
-                + ' · ' + (stage0.miniGameName || 'Default');
-            _bgShowBanner(label);
-            // 3d-i supports Find stage-0 only.
+            _bgShowBanner(_bgStageBanner(bg.name, 0, stages.length, stage0));
+            // 3d-ii chains Find stages; a Catch FIRST stage waits for 3d-iii.
             if (stage0.gameType === 'catch') {
-                _bgShowBanner(label + '   —   (Catch playback in a sequence arrives in 3d-iii)');
+                _bgShowBanner(_bgStageBanner(bg.name, 0, stages.length, stage0) + '   —   (Catch playback in a sequence arrives in 3d-iii)');
                 return;
             }
             // Auto-play: mouse / single player, skip manual Setup.
@@ -5148,9 +5207,13 @@
             var ptog = document.getElementById('intro-player-toggle');
             if (ptog) ptog.setAttribute('data-players', '1');
             selectedIntroGame = 'custom-' + (stage0.gameRef ? stage0.gameRef.index : 0);
-            goToMainPage(); // → Setup + startCustomGame for this game
-            // Let Setup render, apply the legend, then start.
+            goToMainPage(); // → Setup + startCustomGame (this calls clearCustomGame, which nulls combinedGameConfig)
+            // After goToMainPage: install combined (Big Game) mode, apply stage-0
+            // legend via the live Setup DOM, then Start → startGame() picks up
+            // combinedGameConfig and runs the chained engine.
             setTimeout(function () {
+                window.combinedGameConfig = _bgBuildCombinedConfig(bg);
+                window.combinedGameStage = 0;
                 _mgApplyLegend(_bgStageLegend(stage0));
                 setTimeout(function () {
                     var startBtn = document.getElementById('start-game-btn');

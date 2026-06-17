@@ -7,11 +7,38 @@
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c done, 3d-i done. Next = stage 3d-ii (Find→Find chaining / board A).**
-Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launcher + embed + Find
-stage-0 play) DONE June 16** — see below. The detailed plan (architecture, data model, decisions,
-stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md` → "Phase 3 — BIG GAME composer"**.
-Read that, then **start with stage 3d-ii**.
+## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c done, 3d-i + 3d-ii done. Next = stage 3d-iii (Catch + board switching).**
+Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+embed+Find stage-0) +
+3d-ii (Find→Find chaining) DONE June 16** — see below. The detailed plan (architecture, data model,
+decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md` → "Phase 3 — BIG GAME
+composer"**. Read that, then **start with stage 3d-iii**.
+
+### ✅ Stage 3d-ii (Find→Find chaining / board A) — DONE (June 16)
+Extends the launcher (`index.html`, ~line 5098, all still gated behind `?playBig=`) to chain Find
+stages end-to-end by REUSING the legacy combined-game engine via an adapter — no engine fork:
+- **`_bgBuildCombinedConfig(bg)`** — maps a savedBigGames record → an engine config: each stage gets
+  `gemsNeeded` (from `advanceRule.value`), `gameName`/`gameIndex` (from `gameRef`), plus carried
+  `gameType`/`miniGame`/resolved `legend`; tags the config `_isBigGame:true`.
+- **`_bgApplyLegendHeadless(legend)`** — applies a stage's legend with NO Setup page (the keystone):
+  `level → game.selectedLevel` (+ vicaSelectedLevel), `prob → window._gpSelectedProbId` (startCustomGame
+  materializes it), `timer → window._currentTimerOn + game.includeXeno`. (typeId-between-stages fidelity
+  deferred to 3d-iv; the game's default type is used otherwise.)
+- **Wrapped `window.loadGameDeckForStage`** — in Big Game mode, applies the stage legend + updates the
+  banner before building the deck; a Catch stage mid-sequence graceful-stops (→3d-iii). Legacy combined
+  games (no `_isBigGame`) are byte-for-byte untouched (wrapper just calls the original).
+- **`startBigGameFromId`** now sets `window.combinedGameConfig = _bgBuildCombinedConfig(bg)` AFTER
+  `goToMainPage()` (which calls `clearCustomGame()` → nulls combinedGameConfig, so order matters),
+  applies stage-0 legend via the live Setup DOM (`_mgApplyLegend`), then clicks Start → `startGame()`
+  reads combinedGameConfig at game.js:1184 → runs the chained engine.
+- **Verified in preview** (drove the engine directly): launch → combined mode (currentStage 0, stage-0
+  legend applied); set stageGems→gemsNeeded → `checkGameProgression` set `pendingAdvance`;
+  `advanceToNextStage` showed "Level Up! Starting Game B: x2 x4" → loaded stage 1 (activeGameIdx 1) with
+  ITS legend (prob switched), banner → "Stage 2/2"; last-stage gems → `pendingCelebration` →
+  `showFinalCelebration` "Congratulations! You completed all games!". no-param Previewer unaffected;
+  real data ("Game one", 3 stages) restored.
+- **Limits**: full chaining is Find-only; a Catch stage anywhere → graceful stop (3d-iii). typeId per
+  stage not yet headless-applied (3d-iv). "Game one" still leads with Catch, so it shows the graceful
+  message until 3d-iii.
 
 ### ✅ Stage 3d-i (Launcher + embed + Find stage-0 play) — DONE (June 16)
 - **Launcher in `index.html`** (right after `loadGameDeckForStage`, ~line 5097): `startBigGameFromId(id)`

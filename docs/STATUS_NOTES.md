@@ -211,6 +211,21 @@ auto-starts so the framed game plays the chosen variant.
   touch+iPhone play = single device frame, legend rides the URL, applied inside, Find board auto-started at
   390px, no nesting; no console errors. css `dgx-redesign-57`.
 
+#### Phone-portrait Find board tweaks (June 18)
+New `@media (max-width: 430px)` block in `style.css` (phone PORTRAIT only — landscape phone width >430 is
+excluded; placed after the 700/768 blocks so it wins). Fixes the cramped iPhone-portrait single-player Find
+board ("GPt F1 Board") surfaced by the device preview:
+- **"to select" wraps UNDER the "Press [cards]" row** — `.sun-level-tiles-container{flex-wrap:wrap}` +
+  `.hint-select-right{flex-basis:100%;text-align:center}`. Also eliminates the 390→419px horizontal overflow.
+- **Page-name pill moved to ~2cm above the bottom** — `#board-id-bar{position:fixed;bottom:2cm;left:50%;
+  transform:translateX(-50%)}`. Fixed to the device viewport because `#game-screen` itself is only ~510px
+  tall (not full-height), so an absolute bottom would land mid-content.
+- **Pink "Xeno timer" box width −4%** — `.xeno-timer-box{transform:scaleX(0.96)}`.
+- Verified in the iPhone preview (390×844): to-select centered below Press, page pill at y≈725, xeno
+  `matrix(0.96,…)`, no overflow, no console errors. css `dgx-redesign-59`.
+- **Open (design):** showing the user icon options to replace the "Play Again" / "New Game" text buttons
+  (`#play-again-game-btn` / `#new-game-btn`) — not yet implemented, awaiting their pick.
+
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
 1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses

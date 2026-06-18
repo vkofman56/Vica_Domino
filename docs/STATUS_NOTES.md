@@ -29,6 +29,38 @@ session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for vis
 
 ---
 
+## 🤝 TWO-SESSION PROTOCOL (decided June 17 — read if a second session is running)
+Two parallel Claude sessions share ONE working tree + the local branch `work/cardmaker-rowcopy`,
+and both ship to the 3 canonical branches via `scripts/ship.sh`. Pushing works fine (the shared
+branch serializes commits), but `ship.sh` runs **`git add -A`**, which sweeps the OTHER session's
+**uncommitted** edits into your commit. Worst case: you commit + deploy the other session's
+half-written, broken code. Both sessions independently flagged this and proposed the same two
+fixes (per-path commits / separate worktree).
+
+**Decision: per-path staging.** Each session commits ONLY its own files; the worktree split is the
+escalation if overlap ever grows. **File ownership:**
+- **Big Game / Previewer session** → `index.html`, `biggame.html`, `js/game.js`, `js/sync.js`
+- **Studio session** → `pm-studio-DrV.html`
+- **SHARED (coordinate)** → `css/style.css`, `docs/*`, `scripts/ship.sh` + `scripts/bump-trial.sh`,
+  and the cache-buster strings inside the HTML files.
+
+**Interim discipline (until `ship.sh` is updated — change DEFERRED, must be coordinated):**
+1. **Before you ship, run `git status`.** If files you don't own show uncommitted changes, the
+   other session is mid-edit — do NOT run `ship.sh` (its `git add -A` would grab their work). Either
+   wait until the tree is clean of their edits, or commit only your own files explicitly:
+   `git add <your files> && git commit -m "…"` then push to the 3 branches (CLAUDE.md manual trio).
+2. **Commit frequently** so your uncommitted window is short and you don't block the other session.
+3. **Shared files** (`css/style.css`, `docs/*`): if both have uncommitted edits to the SAME file,
+   stage only your hunks with `git add -p`, or just commit promptly. A leak here is additive/mergeable,
+   never build-breaking — the dangerous case is CODE files, which per-path staging fully isolates.
+
+**Deferred tooling change (do NOT do unilaterally — `ship.sh` is shared by both sessions):** teach
+`ship.sh` a `ship.sh "msg" -- <paths>` form that stages only the listed paths (default = today's
+`git add -A`, for back-compat). **Escalation if needed:** separate `git worktree` per session, each on
+its own branch, with `fetch + rebase onto the canonical tip` before each push.
+
+---
+
 ## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d(i–iv) + 3e DONE. Only 3f (Publish, deferred) remains.**
 
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)

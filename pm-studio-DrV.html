@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:35 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:35 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:32 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:35 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4740,23 +4740,41 @@
         var _rzStartDiag = 0, _rzBaseSize = 0, _rzStarted = false;
         var _rzMoveH = null, _rzUpH = null;
 
-        // Get bounding box in SVG root coordinate space (handles <g> transforms)
-        function getSvgSpaceBBox(el) {
-            var bbox = el.getBBox();
-            if (el.tagName.toLowerCase() === 'g' && !el.hasAttribute('data-variation-transform')) {
-                var t = el.getAttribute('transform') || '';
-                var tm = t.match(/translate\(\s*([\d.e+-]+)\s*,\s*([\d.e+-]+)\s*\)/);
-                var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
-                if (tm && sm) {
-                    var tx = +tm[1], ty = +tm[2], s = +sm[1];
-                    bbox = {
-                        x: tx + bbox.x * s,
-                        y: ty + bbox.y * s,
-                        width: bbox.width * s,
-                        height: bbox.height * s
-                    };
-                }
+        // Consolidated matrix of an element's OWN transform attribute (maps the
+        // element's local user space → its parent space). null when there is no
+        // transform. Uses the SVG DOM so it handles ANY transform — translate,
+        // scale(s) or scale(sx,sy), matrix, rotate, and composites thereof
+        // (e.g. the non-proportional-stretch chain edge-resize applies).
+        function _ownTransformMatrix(el) {
+            try {
+                var bv = el.transform && el.transform.baseVal;
+                if (bv && bv.numberOfItems) { var c = bv.consolidate(); return c ? c.matrix : null; }
+            } catch (e) {}
+            return null;
+        }
+        function _applyMatrixToBBox(m, b) {
+            var pts = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]];
+            var xs = [], ys = [];
+            for (var i = 0; i < 4; i++) {
+                xs.push(m.a * pts[i][0] + m.c * pts[i][1] + m.e);
+                ys.push(m.b * pts[i][0] + m.d * pts[i][1] + m.f);
             }
+            var minx = Math.min.apply(null, xs), maxx = Math.max.apply(null, xs);
+            var miny = Math.min.apply(null, ys), maxy = Math.max.apply(null, ys);
+            return { x: minx, y: miny, width: maxx - minx, height: maxy - miny };
+        }
+        // bbox in the element's PARENT space (its own transform applied, but NOT
+        // any ancestor variation transform). This is the space a prepended
+        // stretch transform operates in.
+        function _parentBBox(el) {
+            var b = el.getBBox(); // local user space — excludes the element's own transform
+            var m = _ownTransformMatrix(el);
+            return m ? _applyMatrixToBBox(m, b) : { x: b.x, y: b.y, width: b.width, height: b.height };
+        }
+        // Get bounding box in SVG root coordinate space (transform-aware for ANY
+        // element + the variation <g> wrapper).
+        function getSvgSpaceBBox(el) {
+            var bbox = _parentBBox(el);
             // If inside a variation transform <g>, transform bbox to SVG root space
             if (isInsideVariationG(el)) {
                 bbox = variationBBoxToRoot(bbox);
@@ -4860,30 +4878,30 @@
                 cardSvg.appendChild(h);
                 selectionHandles.push(h);
             });
-            // Edge handles (pictures only) — one-directional / non-proportional resize
-            if (_isGeoResize(el)) {
-                var ept = _rzEdgePoints(b);
-                ['n', 's', 'e', 'w'].forEach(function(edge) {
-                    var p = ept[edge];
-                    var h = document.createElementNS(SVGNS, 'rect');
-                    h.setAttribute('width', RZ_HANDLE);
-                    h.setAttribute('height', RZ_HANDLE);
-                    h.setAttribute('x', p[0] - RZ_HANDLE / 2);
-                    h.setAttribute('y', p[1] - RZ_HANDLE / 2);
-                    h.setAttribute('rx', 0.4);
-                    h.setAttribute('fill', '#FFD700');
-                    h.setAttribute('stroke', '#7a5c00');
-                    h.setAttribute('stroke-width', 0.3);
-                    h.classList.add('draw-resize-handle');
-                    h.setAttribute('data-edge', edge);
-                    h.style.cursor = _rzEdgeCursor(edge);
-                    h.style.pointerEvents = 'all';
-                    h.addEventListener('mousedown', function(ev) { _startHandleResize(ev, { kind: 'edge', pos: edge }, el); });
-                    h.addEventListener('click', function(ev) { ev.stopPropagation(); });
-                    cardSvg.appendChild(h);
-                    selectionHandles.push(h);
-                });
-            }
+            // Edge handles — one-directional / non-proportional resize, on EVERY
+            // element (pictures stretch by width/height; everything else by a
+            // scale(sx,sy) transform). Each raises the "changing proportions" warning.
+            var ept = _rzEdgePoints(b);
+            ['n', 's', 'e', 'w'].forEach(function(edge) {
+                var p = ept[edge];
+                var h = document.createElementNS(SVGNS, 'rect');
+                h.setAttribute('width', RZ_HANDLE);
+                h.setAttribute('height', RZ_HANDLE);
+                h.setAttribute('x', p[0] - RZ_HANDLE / 2);
+                h.setAttribute('y', p[1] - RZ_HANDLE / 2);
+                h.setAttribute('rx', 0.4);
+                h.setAttribute('fill', '#FFD700');
+                h.setAttribute('stroke', '#7a5c00');
+                h.setAttribute('stroke-width', 0.3);
+                h.classList.add('draw-resize-handle');
+                h.setAttribute('data-edge', edge);
+                h.style.cursor = _rzEdgeCursor(edge);
+                h.style.pointerEvents = 'all';
+                h.addEventListener('mousedown', function(ev) { _startHandleResize(ev, { kind: 'edge', pos: edge }, el); });
+                h.addEventListener('click', function(ev) { ev.stopPropagation(); });
+                cardSvg.appendChild(h);
+                selectionHandles.push(h);
+            });
             // Live "×N" readout (hidden until a drag begins)
             var g = document.createElementNS(SVGNS, 'g');
             g.classList.add('draw-scale-label');
@@ -4982,13 +5000,18 @@
                     var ld = lpts[pos];
                     g0.startDiag = Math.max(0.001, Math.hypot(ld[0] - g0.anchor.x, ld[1] - g0.anchor.y));
                 }
-            } else {
+            } else if (kind === 'corner') {
                 var b = getSvgSpaceBBox(el);
                 var pts = _rzCornerPoints(b);
                 _rzAnchor = { x: pts[opp][0], y: pts[opp][1] };
                 var dragged = pts[pos];
                 _rzStartDiag = Math.max(0.001, Math.hypot(dragged[0] - _rzAnchor.x, dragged[1] - _rzAnchor.y));
                 _rzBaseSize = +el.getAttribute('data-draw-size') || getEffectiveSize() || 30;
+            } else {
+                // non-picture EDGE: stretch via a scale(sx,sy) transform prepended to
+                // the element's own transform, pivoting on the pinned edge (parent space).
+                g0.T0 = el.getAttribute('transform') || '';
+                g0.bp = _parentBBox(el);
             }
 
             _rzMoveH = function(ev) {
@@ -4999,7 +5022,6 @@
                     _loupeStartCoalesce('resize');
                     if (geo) {
                         _pushLoupeAttrHistory([el], ['x', 'y', 'width', 'height', 'preserveAspectRatio']);
-                        if (kind === 'edge') _twinToast('You are changing the shape proportions', 'loupe-proportions');
                     } else {
                         _pushLoupeAttrHistory([el], [
                             'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2', 'font-size', 'stroke-width',
@@ -5008,6 +5030,7 @@
                             'data-pos-x', 'data-pos-y'
                         ]);
                     }
+                    if (kind === 'edge') _twinToast('You are changing the shape proportions', 'loupe-proportions');
                 }
                 var labelText;
                 if (geo) {
@@ -5043,7 +5066,7 @@
                     var rb = getSvgSpaceBBox(el);
                     var lp = (kind === 'corner') ? _rzCornerPoints(rb)[pos] : _rzEdgePoints(rb)[pos];
                     _showScaleLabel(lp[0], lp[1] - 3, labelText);
-                } else {
+                } else if (kind === 'corner') {
                     var rect = container.getBoundingClientRect();
                     var px = ((ev.clientX - rect.left) / rect.width) * 60;
                     var py = ((ev.clientY - rect.top) / rect.height) * 60;
@@ -5065,6 +5088,23 @@
                     updateSelectionRing();
                     var fpts = _rzCornerPoints(getSvgSpaceBBox(el));
                     _showScaleLabel(fpts[pos][0], fpts[pos][1] - 3, '×' + effF.toFixed(2));
+                } else {
+                    // non-picture EDGE — non-uniform stretch via a scale(sx,sy)
+                    // transform prepended (in parent space) to the element's own
+                    // transform, pivoting on the pinned edge so it stays put.
+                    var pe = ptrLocal(ev);
+                    var bp = g0.bp;
+                    var sx = 1, sy = 1, pvx = bp.x, pvy = bp.y;
+                    if (pos === 'e') { sx = Math.max(MIN / bp.width, (pe.x - bp.x) / bp.width); pvx = bp.x; }
+                    else if (pos === 'w') { sx = Math.max(MIN / bp.width, (bp.x + bp.width - pe.x) / bp.width); pvx = bp.x + bp.width; }
+                    else if (pos === 's') { sy = Math.max(MIN / bp.height, (pe.y - bp.y) / bp.height); pvy = bp.y; }
+                    else if (pos === 'n') { sy = Math.max(MIN / bp.height, (bp.y + bp.height - pe.y) / bp.height); pvy = bp.y + bp.height; }
+                    var stretch = 'translate(' + pvx + ',' + pvy + ') scale(' + sx + ',' + sy + ') translate(' + (-pvx) + ',' + (-pvy) + ')';
+                    el.setAttribute('transform', g0.T0 ? (stretch + ' ' + g0.T0) : stretch);
+                    updateSelectionRing();
+                    var lp2 = _rzEdgePoints(getSvgSpaceBBox(el))[pos];
+                    var horiz = (pos === 'e' || pos === 'w');
+                    _showScaleLabel(lp2[0], lp2[1] - 3, (horiz ? '↔ ×' + sx.toFixed(2) : '↕ ×' + sy.toFixed(2)));
                 }
                 hasEditedExisting = true; justDragged = true;
                 ev.preventDefault();
@@ -5076,7 +5116,9 @@
                 document.removeEventListener('mouseup', _rzUpH);
                 if (_rzStarted) {
                     _loupeEndCoalesce();
-                    if (!geo) populatePropsFromElement(el); // image has no size-pipeline props to repopulate
+                    // Repopulate the size panel only after the uniform (corner) path
+                    // changed data-draw-size; geo + edge-stretch don't touch it.
+                    if (!geo && kind === 'corner') populatePropsFromElement(el);
                 }
                 if (selectionScaleLabel) selectionScaleLabel.style.display = 'none';
                 updateSelectionRing();

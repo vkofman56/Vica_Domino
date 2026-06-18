@@ -20,28 +20,32 @@ session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for vis
   the card. New: `createSelHandles`/`removeSelHandles`/`updateSelHandles`/`_showScaleLabel`/
   `_startHandleResize` + `selectionHandles`/`selectionScaleLabel` state. Verified in-page on
   stamp/text/circle (all 4 corners, grow + shrink, correct ×N, pin, undo +1, zero leak).
-### Studio session (parallel, June 17) — Card loupe: EDGE-handle picture resize DONE
-- **Feature**: a selected **picture (`<image>`)** now also shows **4 edge handles** (side midpoints)
-  in addition to the corners. Dragging a side resizes in ONE direction (E/W → width, N/S → height)
-  with the OPPOSITE edge pinned, sets `preserveAspectRatio="none"` so the stretch shows, and raises a
-  transient `_twinToast` warning **"You are changing the shape proportions"** (deduped). Corners on a
-  picture now resize it **proportionally** too (fixes the gap where `applySizeToElement` had no
-  `image` branch, so pictures didn't resize at all before). Labels: `×N` (corner), `↔ ×N` / `↕ ×N` (edge).
-- **How**: pictures resize by their own `width/height/x/y` geometry in LOCAL space (variation-aware),
-  separate from the uniform `applySizeToElement` path other types use; one drag = one undo step
-  (captures `x/y/width/height/preserveAspectRatio`); edge handles are picture-only (`_isGeoResize`).
-  New helpers `_rzEdgePoints`/`_rzEdgeCursor`/`_isGeoResize`; `_startHandleResize` now takes a
-  `{kind,pos}` handle descriptor. Verified in-page: edge-E width-only (left pinned, par=none, `↔ ×2.00`),
-  edge-N height-only (bottom pinned, `↕ ×1.30`), corner-BR proportional (`×2.00`, TL pinned), warning
-  toast fired, stamp/non-picture = 4 corners + 0 edges (corner resize intact), zero save-leak.
-- **⚠ Git note (RECURRING — now 3rd sweep)**: this feature's +219 lines landed in `pm-studio-DrV.html`
-  but were swept into Big Game commit `d1a7f4a` (labeled `-- index.html`) while my file sat UNCOMMITTED
-  during build+verify. The earlier corner-handle +195 lines were likewise swept (first in `12a2134`).
-  **Per-path discipline does NOT protect uncommitted work in a shared tree** — whichever session ships
-  while the other has uncommitted edits captures them. `ship.sh` per-path staging + `bump-trial.sh` are
-  correct (verified: no stray `git add -A`); the window is the problem. **Recommend escalating to the
-  documented fix: separate `git worktree` per session** (or Studio commits-by-path *before* each verify).
-  All swept code is intact in HEAD/deployed — only mislabeled.
+### Studio session (June 17, in worktree) — Card loupe: EDGE-handle resize on ALL element types DONE
+- **Feature**: a selected element of ANY type — stamp/clipart (`<g>`), text, circle/shape, picture
+  (`<image>`) — now shows **4 edge handles** (side midpoints) in addition to the 4 corners. Dragging a
+  side resizes in ONE direction (E/W → width, N/S → height) with the OPPOSITE edge pinned, and raises a
+  transient `_twinToast` warning **"You are changing the shape proportions"** (deduped). Corners still
+  resize proportionally. Labels: `×N` (corner), `↔ ×N` / `↕ ×N` (edge). (Earlier this was picture-only;
+  per user it now covers everything — yes, a stretched circle becomes an oval, text glyphs distort.)
+- **How**: two paths. **Pictures (`<image>`)** use width/height/x/y geometry (+ `preserveAspectRatio=none`
+  so the stretch shows). **Everything else** stretches via a `scale(sx,sy)` transform PREPENDED (in
+  parent space, pivoting the pinned edge) to the element's own transform — no per-type size-pipeline
+  surgery. Keystone: **`getSvgSpaceBBox` rewritten to be matrix-based** (`el.transform.baseVal.consolidate()`
+  → `_ownTransformMatrix`/`_applyMatrixToBBox`/`_parentBBox`), so the selection box tracks ANY transform
+  incl. `scale(sx,sy)`; subsumes the old g-only regex. Uniform corner resize unchanged (still
+  `applySizeToElement`). One drag = one undo step.
+- **Verified (worktree preview on :8021)**: matrix bbox regression exact (stamp `{20,40,20,20}`, circle
+  `{24,24,12,12}`, `scale(2,0.5)` → `{10,10,20,5}`); edge stretch one-axis + opposite-edge-pinned on
+  stamp/text/circle/image; warning fired; **corner uniform resize still works (regression)**; 4+4 handles
+  on every type; zero save-leak.
+- **Known interaction**: doing a uniform CORNER resize on a `<g>` stamp or a path AFTER a non-uniform
+  edge stretch resets the stretch (those types' size pipeline rewrites `transform`). circle/text/image
+  preserve it. Acceptable for v1; revisit if it bites.
+- **⚠ Git history note (resolved)**: the 1st (corner, `12a2134`) and 2nd (edge-picture, `d1a7f4a`)
+  Studio features were swept into Big Game commits by the cross-stamping pre-commit hook while my file
+  sat uncommitted. Now fixed two ways: scope-aware hook (`3fdc69b`) + this session runs in an isolated
+  **`work/studio` worktree** (`../Domino-studio`), so this feature ships cleanly from its own branch
+  (fetch → rebase onto canonical → push trio). Prior swept code is intact/deployed, just mislabeled.
 - **✅ FIXED (Big Game session, June 17) — corrected diagnosis.** The sweep was NOT `git add -A` and NOT
   inherent to a shared tree. The real bug: `ship.sh` per-path mode did `git add -- <paths>` then a FULL
   `git commit` — which commits the WHOLE index, so the OTHER session's already-`git add`ed file (pm-studio,

@@ -4048,6 +4048,19 @@ class VicaDominoGame {
         } else {
             this.checkGameProgression(playerId);
         }
+        // Big Game SCAN mode: advance after just ~3 coins THIS stage (rapid
+        // preview), regardless of the gem rule. Counter resets per stage in
+        // advanceToNextStage. No-op outside scan/combined play.
+        if (window._bgScanMode && this.combinedGame) {
+            if (!this._bgScanCoins) this._bgScanCoins = {};
+            this._bgScanCoins[playerId] = (this._bgScanCoins[playerId] || 0) + amount;
+            if (this._bgScanCoins[playerId] >= 3) {
+                const isLast = this.combinedGame.currentStage >= this.combinedGame.config.stages.length - 1;
+                if (isLast) this.combinedGame.pendingCelebration = true;
+                else this.combinedGame.pendingAdvance = true;
+                this._updateEndGameButtonText();
+            }
+        }
         // Note: display is rendered by caller's renderSunLevel(), not here
     }
 
@@ -4221,6 +4234,7 @@ class VicaDominoGame {
             // Reset stage gems for all players
             this.players.forEach(p => {
                 this.stageGems[p.id] = 0;
+                if (this._bgScanCoins) this._bgScanCoins[p.id] = 0; // SCAN: reset per-stage coin count
             });
 
             // Load next game's deck

@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:51 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:49 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:51 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:49 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:51 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:49 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1103,6 +1103,18 @@
                         <input type="color" id="custom-color-input" value="#FF0000">
                         <input type="text" id="custom-color-hex" value="#FF0000" maxlength="7" placeholder="#RRGGBB">
                         <button class="color-add-confirm" onclick="addCustomColor()">Add</button>
+                    </div>
+                </div>
+                <span class="draw-tool-sep">|</span>
+                <!-- Card background color (same palette + custom hex as the figure colors) -->
+                <div class="draw-color-section" id="draw-bg-section">
+                    <label class="draw-bg-label" title="Card background color" style="font-size:10px;color:#aaa;align-self:center;">BG</label>
+                    <div class="draw-color-swatches" id="draw-bg-swatches"></div>
+                    <button class="color-add-btn" id="bg-color-add-btn" onclick="toggleBgColorPicker(event)" title="Add custom background color">+</button>
+                    <div class="color-picker-panel" id="bg-color-picker-panel" style="display:none;">
+                        <input type="color" id="bg-custom-color-input" value="#FFFFFF">
+                        <input type="text" id="bg-custom-color-hex" value="#FFFFFF" maxlength="7" placeholder="#RRGGBB">
+                        <button class="color-add-confirm" onclick="addBgCustomColor()">Add</button>
                     </div>
                 </div>
                 <span class="draw-tool-sep">|</span>
@@ -4121,6 +4133,7 @@
                 attachDrawClickHandler();
                 selectDrawTool(drawTool);
                 initDrawColorSwatches();
+                initBgColorSwatches();
                 // L3.5: draw panel just opened with no selection — deactivate sliders
                 if (typeof _updateDrawSizeActivation === 'function') _updateDrawSizeActivation();
             } else {
@@ -4685,6 +4698,8 @@
             if (!cardSvg) return false;
             // Grid lines are not selectable
             if (el.closest('.loupe-grid')) return false;
+            // The card background rect is not a selectable/editable element
+            if (el.classList && el.classList.contains('card-bg')) return false;
             // The variation transform <g> wrapper is NOT selectable itself
             if (tag === 'g' && el.hasAttribute('data-variation-transform')) return false;
             // Any shape element inside the card SVG
@@ -6953,6 +6968,7 @@
                         var cols = loadCustomColors().filter(function(x) { return x !== c; });
                         saveCustomColors(cols);
                         renderCustomColors();
+                        if (typeof renderBgCustomColors === 'function') renderBgCustomColors();
                     }
                 };
                 row.appendChild(swatch);
@@ -6974,6 +6990,7 @@
             colors.push(hex.toUpperCase());
             saveCustomColors(colors);
             renderCustomColors();
+            if (typeof renderBgCustomColors === 'function') renderBgCustomColors();
             document.getElementById('color-picker-panel').style.display = 'none';
             // Also apply the color immediately
             applyColorInLoupe(hex.toUpperCase());
@@ -7018,6 +7035,7 @@
             var allTargets = [];
             for (var i = 0; i < all.length; i++) {
                 if (all[i].closest('.draw-sel-ring')) continue;
+                if (all[i].classList && all[i].classList.contains('card-bg')) continue; // never recolor the background
                 allTargets.push(all[i]);
             }
             var stampGroups = svg.querySelectorAll('g.draw-placed');
@@ -7058,6 +7076,119 @@
                 el.setAttribute('stroke', color);
             }
         }
+
+        // === Card background color (loupe) ===
+        // Reuses the figure palette (drawColorList) + the shared custom colors, plus
+        // a hex entry, but applies to a full-card <rect class="card-bg"> inserted
+        // BEHIND everything (first child of the card SVG). The rect persists on save
+        // (no editor-only class) and is non-selectable / never recolored as a figure.
+        function _loupeCardSvg() {
+            var c = document.getElementById('loupe-card-container');
+            return c ? c.querySelector('svg:not(.loupe-grid)') : null;
+        }
+        function initBgColorSwatches() {
+            var container = document.getElementById('draw-bg-swatches');
+            if (!container || container.children.length > 0) return;
+            // "None" — clears the background (transparent)
+            var none = document.createElement('button');
+            none.className = 'color-swatch bg-none-swatch';
+            none.style.cssText = 'background:transparent;position:relative;color:#aaa;font-size:11px;line-height:1;';
+            none.textContent = '⌀';
+            none.title = 'No background';
+            none.onclick = function(e) { e.stopPropagation(); applyBackgroundColor(null); };
+            container.appendChild(none);
+            drawColorList.forEach(function(c) {
+                var s = document.createElement('button');
+                s.className = 'color-swatch';
+                s.style.background = c.color;
+                if (c.color === '#FFFFFF') s.style.border = '1px solid #999';
+                s.title = c.name + ' background';
+                s.onclick = function(e) { e.stopPropagation(); applyBackgroundColor(c.color); };
+                container.appendChild(s);
+            });
+            renderBgCustomColors();
+        }
+        // Append the shared custom colors after the presets (rebuilds just that tail).
+        function renderBgCustomColors() {
+            var container = document.getElementById('draw-bg-swatches');
+            if (!container) return;
+            Array.prototype.slice.call(container.querySelectorAll('.bg-custom-swatch')).forEach(function(s) { s.remove(); });
+            loadCustomColors().forEach(function(c) {
+                var s = document.createElement('button');
+                s.className = 'color-swatch bg-custom-swatch';
+                s.style.background = c;
+                if (c.toUpperCase() === '#FFFFFF') s.style.border = '1px solid #999';
+                s.title = c + ' background';
+                s.onclick = function(e) { e.stopPropagation(); applyBackgroundColor(c); };
+                container.appendChild(s);
+            });
+        }
+        function applyBackgroundColor(color) {
+            var svg = _loupeCardSvg();
+            if (!svg) return;
+            _loupeEndCoalesce();
+            var bg = svg.querySelector('rect.card-bg');
+            if (!color || color === 'none') {
+                // Remove the background (undoable via a 'remove' entry)
+                if (bg && bg.parentNode) {
+                    var p = bg.parentNode, ns = bg.nextSibling;
+                    drawRedoStack.length = 0;
+                    drawHistory.push({ type: 'remove', items: [{ el: bg, parent: p, nextSibling: ns }], _removed: true });
+                    p.removeChild(bg);
+                    hasEditedExisting = true;
+                }
+                return;
+            }
+            if (bg) {
+                _pushLoupeAttrHistory([bg], ['fill']);
+                bg.setAttribute('fill', color);
+            } else {
+                bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                bg.setAttribute('class', 'card-bg');
+                bg.setAttribute('x', '0'); bg.setAttribute('y', '0');
+                bg.setAttribute('width', '60'); bg.setAttribute('height', '60');
+                var r = (typeof currentCardCornerRadius !== 'undefined' && currentCardCornerRadius > 0) ? currentCardCornerRadius : 0;
+                if (r) { bg.setAttribute('rx', r); bg.setAttribute('ry', r); }
+                bg.setAttribute('fill', color);
+                bg.style.pointerEvents = 'none';
+                svg.insertBefore(bg, svg.firstChild); // behind all card content
+                drawRedoStack.length = 0; drawHistory.push(bg); // undo removes it
+            }
+            hasEditedExisting = true;
+        }
+        function toggleBgColorPicker(e) {
+            e.stopPropagation();
+            var panel = document.getElementById('bg-color-picker-panel');
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        }
+        function addBgCustomColor() {
+            var hex = document.getElementById('bg-custom-color-hex').value.trim();
+            if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) { alert('Enter a valid hex color (e.g. #FF5500)'); return; }
+            var up = hex.toUpperCase();
+            var colors = loadCustomColors();
+            if (colors.indexOf(up) < 0 && colors.indexOf(hex.toLowerCase()) < 0) {
+                colors.push(up);
+                saveCustomColors(colors);
+                renderCustomColors();   // keep the figure custom row in sync
+                renderBgCustomColors(); // and the background row
+            }
+            document.getElementById('bg-color-picker-panel').style.display = 'none';
+            applyBackgroundColor(up);
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            var ci = document.getElementById('bg-custom-color-input');
+            var hx = document.getElementById('bg-custom-color-hex');
+            if (ci && hx) {
+                ci.addEventListener('input', function() { hx.value = ci.value.toUpperCase(); });
+                hx.addEventListener('input', function() { if (/^#[0-9A-Fa-f]{6}$/.test(hx.value)) ci.value = hx.value; });
+            }
+            document.addEventListener('click', function(e) {
+                var panel = document.getElementById('bg-color-picker-panel');
+                if (panel && panel.style.display !== 'none' && !e.target.closest('#bg-color-picker-panel') && !e.target.closest('#bg-color-add-btn')) {
+                    panel.style.display = 'none';
+                }
+            });
+        });
 
         // --- Loupe reflect/rotate ---
         function toggleTransformSubmenu(groupId) {

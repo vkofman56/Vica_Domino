@@ -39,6 +39,15 @@
     var _origGetItem    = localStorage.getItem.bind(localStorage);
     var _origRemoveItem = localStorage.removeItem.bind(localStorage);
 
+    // DEVICE-LOCAL UI preferences ("vica_bg*": Big Game Play/Scan mode, the
+    // device-preview selection + tablet orientation). These are per-device and
+    // must NEVER sync — and crucially must NOT be wiped by a cloud pull. A
+    // same-origin preview <iframe> shares this localStorage, so its own login
+    // pull was clearing the parent's vica_bgDevice mid-preview (the selected
+    // device "forgot itself" after one play). Treated like META/ROLE: never
+    // uploaded, never removed on replace.
+    function _isLocalOnlyKey(k) { return !!k && k.indexOf('vica_bg') === 0; }
+
     // ---- Firebase init ----
 
     function _initFirebase() {
@@ -71,6 +80,8 @@
             if (key === META_KEY || key === ROLE_KEY) continue;
             // Skip keys starting with __ (reserved in Firestore)
             if (key.indexOf('__') === 0) continue;
+            // Device-local UI prefs are never uploaded.
+            if (_isLocalOnlyKey(key)) continue;
             var val = _origGetItem(key);
             // Skip null/undefined values (Firestore rejects undefined)
             if (val === null || val === undefined) continue;
@@ -278,14 +289,14 @@
 
     localStorage.setItem = function (key, value) {
         _origSetItem(key, value);
-        if (key !== META_KEY && key !== ROLE_KEY && _userId && _userRole === 'superuser') {
+        if (key !== META_KEY && key !== ROLE_KEY && !_isLocalOnlyKey(key) && _userId && _userRole === 'superuser') {
             _schedulePush();
         }
     };
 
     localStorage.removeItem = function (key) {
         _origRemoveItem(key);
-        if (key !== META_KEY && key !== ROLE_KEY && _userId && _userRole === 'superuser') {
+        if (key !== META_KEY && key !== ROLE_KEY && !_isLocalOnlyKey(key) && _userId && _userRole === 'superuser') {
             _schedulePush();
         }
     };
@@ -409,11 +420,15 @@
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
                         var k = localStorage.key(i);
-                        if (k !== META_KEY && k !== ROLE_KEY) keysToRemove.push(k);
+                        // Keep META/ROLE and device-local UI prefs (vica_bg*).
+                        if (k !== META_KEY && k !== ROLE_KEY && !_isLocalOnlyKey(k)) keysToRemove.push(k);
                     }
                     keysToRemove.forEach(function (k) { _origRemoveItem(k); });
 
                     Object.keys(serverData).forEach(function (k) {
+                        // Never let a (possibly stale) cloud copy overwrite a
+                        // device-local UI pref (vica_bg*) — local always wins.
+                        if (_isLocalOnlyKey(k)) return;
                         _origSetItem(k, serverData[k]);
                     });
 
@@ -452,7 +467,8 @@
                 var keysToRemove = [];
                 for (var i = 0; i < localStorage.length; i++) {
                     var k = localStorage.key(i);
-                    if (k !== META_KEY && k !== ROLE_KEY) keysToRemove.push(k);
+                    // Keep META/ROLE and device-local UI prefs (vica_bg*).
+                    if (k !== META_KEY && k !== ROLE_KEY && !_isLocalOnlyKey(k)) keysToRemove.push(k);
                 }
                 keysToRemove.forEach(function (k) { _origRemoveItem(k); });
 
@@ -494,11 +510,15 @@
                     var keysToRemove = [];
                     for (var i = 0; i < localStorage.length; i++) {
                         var k = localStorage.key(i);
-                        if (k !== META_KEY && k !== ROLE_KEY) keysToRemove.push(k);
+                        // Keep META/ROLE and device-local UI prefs (vica_bg*).
+                        if (k !== META_KEY && k !== ROLE_KEY && !_isLocalOnlyKey(k)) keysToRemove.push(k);
                     }
                     keysToRemove.forEach(function (k) { _origRemoveItem(k); });
 
                     Object.keys(data).forEach(function (k) {
+                        // Device-local UI prefs (vica_bg*) are never overwritten
+                        // by shared/cloud data — local always wins.
+                        if (_isLocalOnlyKey(k)) return;
                         _origSetItem(k, data[k]);
                     });
 

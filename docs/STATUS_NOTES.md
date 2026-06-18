@@ -163,6 +163,27 @@ reacts as on hardware), shown in a fit-to-window modal (`_bgOpenDeviceFrame`/`_b
   game board slightly overflows → a horizontal scrollbar. Exactly the kind of thing this preview surfaces.
 - css `dgx-redesign-55`.
 
+#### Device preview — round 2 fixes (June 18)
+Three follow-ups from user testing, all verified in preview:
+1. **Setup stays full-size; only the BOARD is device-sized.** The frame now renders the Setup/intro page
+   at full size and snaps to the device viewport (+bezel) ONLY once gameplay starts. `_bgOpenDeviceFrame`
+   polls the iframe (`_boardVisible`: `#game-screen` visible OR `#catch-game-overlay` present — covers
+   Find + Catch incl. 2P) every 150ms and flips full↔device via `.bg-device-bezel.full`. No game-internals
+   hooks. Verified: Catch Setup full (innerWidth 678) → Start → board 390×844 bezelled, automatically.
+2. **Device preview is TOUCH-mode only.** In mouse mode the 5 pills are greyed + inert (`.ipd-disabled`,
+   `disabled`) and tile launches ignore any stored device (full screen). `_bgInputIsTouch()` gates the
+   selector + both interceptions; `_setInputMode` re-renders the selector on toggle. Verified: desktop
+   default (mouse) = all disabled; flip to touch = enabled.
+3. **Bug: device selection lost after one play (board reverted to standard).** Root cause was `sync.js`,
+   not the UI: a same-origin preview iframe shares localStorage, and its login pull (a) wiped all keys
+   and (b) re-applied cloud data — and a STALE `vica_bgDevice=''` left in Firestore by the pre-fix v6
+   uploads overwrote the local selection. Fix: `vica_bg*` are now **device-local** keys in sync.js
+   (`_isLocalOnlyKey`) — never uploaded (`_getAllAppData`), never wiped on replace (all 3 wipe loops),
+   AND never overwritten by cloud/shared data on apply (both apply loops). Verified: `vica_bgDevice` +
+   a probe survive an iframe login pull; re-clicking a Big Game tile re-opens in iPhone mode. (Same fix
+   also makes `vica_bgPlayMode` properly device-local.)
+- css `dgx-redesign-56`, sync.js `local-wins-8`.
+
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
 - **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3

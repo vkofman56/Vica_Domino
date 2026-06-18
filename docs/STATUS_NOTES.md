@@ -268,9 +268,12 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
 - **Equal spacing in "Press to select"**: "Press→to" was 10px (`.hint-press-left` padding-right) + 6px
   (column-gap) + 10px (`.hint-select-right` padding-left) = 26px vs the ~6px "to→select" text space. Fix
   (phone block): zero those two paddings; `column-gap:6px` already ≈ one space (6.09px @1.3rem) → equal.
-- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` (≈ −15px).
-- Verified iPhone 390×844: paddings 0, Press→to gap = 6px, margin-top −15.1px; no new console errors (only
-  the pre-existing Firebase-offline ones). css `dgx-redesign-63`.
+- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` → later `-6mm` (2mm higher, June 18).
+- **"double" label moved under "select"**: base `.domino-double-label{top:-40px}` floated it ABOVE its card,
+  landing it on top of the "select" word in the one-line hint. Phone-block override `top:-6px` drops it to
+  just BELOW "select" (over the top of the double card). Verified doubleLabel.y ≥ select.bottom.
+- Verified iPhone 390×844: paddings 0, Press→to gap = 6px; hint margin −6mm; "double" under "select"; no
+  new console errors (only the pre-existing Firebase-offline ones). css `dgx-redesign-66`.
 
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`

@@ -274,6 +274,10 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
   just BELOW "select" (over the top of the double card). Verified doubleLabel.y ≥ select.bottom.
 - Verified iPhone 390×844: paddings 0, Press→to gap = 6px; hint margin −6mm; "double" under "select"; no
   new console errors (only the pre-existing Firebase-offline ones). css `dgx-redesign-66`.
+- **Follow-up nudges (June 18):** "double" 3mm higher (`.domino-double-label{top:-6px→-17px}`); "Press to
+  select" 3mm higher + 3mm left via `transform:translate(-3mm,-3mm)` on `.hint-press-left`/`.hint-select-right`
+  (visual only — cards stay centered). Verified: hint x117/y127 (was 128/139), double y154 (was 165), still
+  under select. css `dgx-redesign-67`.
 
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`

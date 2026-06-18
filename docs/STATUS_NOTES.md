@@ -278,6 +278,8 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
   select" 3mm higher + 3mm left via `transform:translate(-3mm,-3mm)` on `.hint-press-left`/`.hint-select-right`
   (visual only — cards stay centered). Verified: hint x117/y127 (was 128/139), double y154 (was 165), still
   under select. css `dgx-redesign-67`.
+- **+1mm more (June 18):** `.domino-double-label{top:-17px→-21px}` → double y150 (just under "select").
+  css `dgx-redesign-68`.
 
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`

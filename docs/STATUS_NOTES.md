@@ -20,12 +20,28 @@ session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for vis
   the card. New: `createSelHandles`/`removeSelHandles`/`updateSelHandles`/`_showScaleLabel`/
   `_startHandleResize` + `selectionHandles`/`selectionScaleLabel` state. Verified in-page on
   stamp/text/circle (all 4 corners, grow + shrink, correct ×N, pin, undo +1, zero leak).
-- **⚠ Git note**: these +195 lines landed in `pm-studio-DrV.html` but were swept into the Big Game
-  session's `ship.sh` (`git add -A`) commits (first appears in `12a2134`), NOT a Studio-labeled commit —
-  the two sessions share branch `work/cardmaker-rowcopy`, so `git add -A` is absorbing the other's
-  uncommitted work. Isolation needs fixing (per-path commits / separate worktree) to stop this.
-- **Deferred (user dismissed mid-design)**: edge/side handles for one-directional (non-proportional)
-  picture resize + a "you are changing the shape proportions" warning. Not started.
+### Studio session (parallel, June 17) — Card loupe: EDGE-handle picture resize DONE
+- **Feature**: a selected **picture (`<image>`)** now also shows **4 edge handles** (side midpoints)
+  in addition to the corners. Dragging a side resizes in ONE direction (E/W → width, N/S → height)
+  with the OPPOSITE edge pinned, sets `preserveAspectRatio="none"` so the stretch shows, and raises a
+  transient `_twinToast` warning **"You are changing the shape proportions"** (deduped). Corners on a
+  picture now resize it **proportionally** too (fixes the gap where `applySizeToElement` had no
+  `image` branch, so pictures didn't resize at all before). Labels: `×N` (corner), `↔ ×N` / `↕ ×N` (edge).
+- **How**: pictures resize by their own `width/height/x/y` geometry in LOCAL space (variation-aware),
+  separate from the uniform `applySizeToElement` path other types use; one drag = one undo step
+  (captures `x/y/width/height/preserveAspectRatio`); edge handles are picture-only (`_isGeoResize`).
+  New helpers `_rzEdgePoints`/`_rzEdgeCursor`/`_isGeoResize`; `_startHandleResize` now takes a
+  `{kind,pos}` handle descriptor. Verified in-page: edge-E width-only (left pinned, par=none, `↔ ×2.00`),
+  edge-N height-only (bottom pinned, `↕ ×1.30`), corner-BR proportional (`×2.00`, TL pinned), warning
+  toast fired, stamp/non-picture = 4 corners + 0 edges (corner resize intact), zero save-leak.
+- **⚠ Git note (RECURRING — now 3rd sweep)**: this feature's +219 lines landed in `pm-studio-DrV.html`
+  but were swept into Big Game commit `d1a7f4a` (labeled `-- index.html`) while my file sat UNCOMMITTED
+  during build+verify. The earlier corner-handle +195 lines were likewise swept (first in `12a2134`).
+  **Per-path discipline does NOT protect uncommitted work in a shared tree** — whichever session ships
+  while the other has uncommitted edits captures them. `ship.sh` per-path staging + `bump-trial.sh` are
+  correct (verified: no stray `git add -A`); the window is the problem. **Recommend escalating to the
+  documented fix: separate `git worktree` per session** (or Studio commits-by-path *before* each verify).
+  All swept code is intact in HEAD/deployed — only mislabeled.
 
 ---
 

@@ -295,6 +295,13 @@ bottom, so the game name "Find the doubles…" wrongly sat in the page-name box.
 - Verified iPhone 390×844: title "Find the doubles:" at top (clears buttons), yellow box at y188 (shifted
   down), page-name pill at y741. css `dgx-redesign-70`.
 
+##### Yellow box width = pink box + dominoes +12% (June 18)
+- **Yellow box (`.player-hand`) narrowed to match the pink Xeno box**: everything (main/players-area/hand)
+  is 380px; the pink box only LOOKS 365 (its `scaleX(0.96)`). So `.player-hand{width:96%;margin-inline:auto}`
+  → 365, centered in the 380 grid cell. Verified: yellow x13/w365/r377 == pink x13/w365/r377 (aligned).
+- **Dominoes +12%** (38×75 → 43×84): `#game-screen .domino.vertical{width:43px;height:84px}` — the
+  `#game-screen` prefix raises specificity so it beats the later `max-height:900 portrait` rule (which also
+  matches at 390×844 and otherwise re-sets 38×75). css `dgx-redesign-72`.
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`
   (verified 15px). 

@@ -2975,12 +2975,14 @@ class VicaDominoGame {
         const playAgainBtn = document.createElement('button');
         playAgainBtn.className = 'btn btn-primary end-game-btn';
         // Combined game: change button text when advancing/celebrating
+        let _iconifyPlay = false;
         if (this.combinedGame && this.combinedGame.pendingCelebration) {
             playAgainBtn.textContent = '🎉 Celebration!';
         } else if (this.combinedGame && this.combinedGame.pendingAdvance) {
             playAgainBtn.textContent = '⭐ Next Game!';
         } else {
             playAgainBtn.textContent = 'Play Again';
+            _iconifyPlay = true; // plain replay → play-triangle icon (trial)
         }
         playAgainBtn.addEventListener('click', () => {
             // In Non-stop the same button doubles as Stop / skip-ahead:
@@ -3001,9 +3003,26 @@ class VicaDominoGame {
             this._startNonstopCountdown(playAgainBtn);
         }
 
+        // Icon trial (June 18): both end-game buttons become a play TRIANGLE.
+        // Play Again → plain triangle (skip when the Non-stop countdown hijacks
+        // the button text, and in the combined Next/Celebration states which keep
+        // their own labels). New Game → triangle + sparkles on a sparkly bg, so
+        // "new" reads distinct from "replay". aria-label keeps it accessible.
+        var _PLAY_TRI = '<svg class="egb-ico" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>';
+        var _isNonstopHijack = (window._currentTypeBehavior === 'nonstop' &&
+            !(this.combinedGame && (this.combinedGame.pendingCelebration || this.combinedGame.pendingAdvance)));
+        if (_iconifyPlay && !_isNonstopHijack) {
+            playAgainBtn.innerHTML = _PLAY_TRI;
+            playAgainBtn.setAttribute('aria-label', 'Play again');
+            playAgainBtn.title = 'Play again';
+            playAgainBtn.classList.add('end-game-btn-icon');
+        }
+
         const newGameBtn = document.createElement('button');
-        newGameBtn.className = 'btn btn-secondary end-game-btn';
-        newGameBtn.textContent = 'New Game';
+        newGameBtn.className = 'btn btn-secondary end-game-btn end-game-btn-icon end-game-btn-new';
+        newGameBtn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="32" height="26" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
+        newGameBtn.setAttribute('aria-label', 'New game');
+        newGameBtn.title = 'New game';
         newGameBtn.addEventListener('click', () => this.resetToSetup());
 
         btnContainer.appendChild(playAgainBtn);

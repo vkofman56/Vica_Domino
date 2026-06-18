@@ -241,6 +241,19 @@ board ("GPt F1 Board") surfaced by the device preview:
 - Verified iPhone 390×844: Press@x24 / to-select@x24 (stacked, left), status@x105, sync `display:none` on
   board, no console errors. css `dgx-redesign-60`.
 
+##### End-game buttons → play-triangle icons (TRIAL, June 18)
+Both Find end-game buttons (`showEndGameButtons` in `js/game.js`) now show a **play triangle ▶** instead
+of text: Play Again = plain triangle; New Game = triangle **+ sparkles on a sparkly purple gradient bg**
+(`.end-game-btn-new`) so "new" reads distinct from "replay". Icon-only with `aria-label`/`title` kept.
+Exceptions still keep text: the combined-game "⭐ Next Game!" / "🎉 Celebration!" states and the Non-stop
+countdown (which hijacks the Play Again button text) — guarded by `_iconifyPlay && !_isNonstopHijack`.
+CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradient + `::after` sparkle dots).
+- **Scope = TRIAL on the Find board only**, per user ("if it looks fine + understandable, change everywhere").
+  NOT yet applied to: the Catch board's Play Again / Exit (`#catch-play-again` etc.), the 2P-catch buttons,
+  or the static `#play-again-game-btn`/`#new-game-btn` in `.controls`. Roll those out once the user confirms.
+- Verified iPhone 390×844: both buttons render the triangle, New Game has the sparkly gradient, icon-only,
+  no console errors. css `dgx-redesign-61`, game.js `biggame-flow-5`.
+
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
 1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses

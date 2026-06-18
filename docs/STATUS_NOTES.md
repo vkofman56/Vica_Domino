@@ -116,7 +116,19 @@ gives it). DEFERRED nicety: `ship.sh` auto-rebase (deliberately skipped — manu
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d(i–iv) + 3e DONE. Only 3f (Publish, deferred) remains.**
+## ▶▶ NEXT CHAT: **Phase 3 — 3a–3e + 3d(i–iv) DONE + Play/Scan toggle DONE. Only 3f (Publish, deferred) remains.**
+**⚠ TWO-SESSION / WORKTREE SETUP (read first):** this (Big Game) session works in the MAIN tree
+`/Users/victoriakofman/CLAUDE CODE/Domino` on branch `work/cardmaker-rowcopy`; a parallel STUDIO session
+owns `pm-studio-DrV.html` in its own worktree `../Domino-studio` (`work/studio`). **Before every ship:**
+`git fetch origin && git rebase origin/claude/review-project-docs-JOOeh`, THEN `bash scripts/ship.sh "msg"`
+(or `… -- <paths>`). See the **"WORKTREE ISOLATION — LIVE"** + **"TWO-SESSION PROTOCOL"** sections at the
+top of this file. **Latest tip: `3fdc69b`.** Big Game feature work (Composer `biggame.html` + Previewer
+`index.html` + `js/game.js`) is functionally COMPLETE through 3e + the Play/Scan toggle; 3f (Publish) is
+the only deferred Phase-3 item (needs a definition — what "publish" produces, live-vs-snapshot art).
+- **Play/Scan toggle (DONE, June 17)**: GP 0 Big Games column, under the Composer button. PLAY = advance
+  on the composed gem rule (1 gem); SCAN = advance after ~3 coins/stage (rapid preview). `window._bgPlayMode`
+  (persisted `vica_bgPlayMode`); `window._bgScanMode` set at launch; Find via `addCoins`→`_bgScanCoins`,
+  Catch via `_bgOnCatchScan` in `_catchAddCoins`. Verified scan + play in preview.
 
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:

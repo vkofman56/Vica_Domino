@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-54">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-55">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:32 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:33 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -73,6 +73,14 @@
                      recently picked). -->
                 <div class="intro-panel-header">
                     <h3>Choose the game:</h3>
+                    <!-- Preview-device selector (global). Picking a device makes
+                         ANY game tile (mini-game OR Big Game) launch inside a
+                         scaled iframe sized to that device's screen, in the
+                         orientation implied by the GP 0 player count. Sticky
+                         (localStorage vica_bgDevice); click the active one to
+                         deselect → Full screen. Built dynamically by
+                         _setupPreviewDevices() so the active state stays in sync. -->
+                    <div class="intro-preview-devices" id="intro-preview-devices" title="Preview a game on a device screen before publishing"></div>
                     <div class="game-type-search">
                         <input type="text"
                                id="game-type-search-input"
@@ -102,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:33 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2081,7 +2089,20 @@
                     var n = bg.stages.length;
                     var mt = document.createElement('span'); mt.className = 'ibg-meta'; mt.textContent = n + (n === 1 ? ' stage' : ' stages');
                     tile.appendChild(nm); tile.appendChild(mt);
-                    tile.addEventListener('click', function() { if (window.startBigGameFromId) window.startBigGameFromId(bg.id); });
+                    tile.addEventListener('click', function() {
+                        // Device preview: open the Big Game in a scaled device
+                        // iframe (carries the Play/Scan mode + player count).
+                        var dev = _bgSelectedDevice();
+                        if (dev) {
+                            var pt = document.getElementById('intro-player-toggle');
+                            var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
+                            _bgOpenDeviceFrame('index.html?playBig=' + encodeURIComponent(bg.id) +
+                                               '&mode=' + (window._bgPlayMode || 'play') +
+                                               '&players=' + pc, dev, pc);
+                            return;
+                        }
+                        if (window.startBigGameFromId) window.startBigGameFromId(bg.id);
+                    });
                     bgList.appendChild(tile);
                 });
             }
@@ -2184,6 +2205,14 @@
                     });
                     btn.classList.add('selected');
                     selectedIntroGame = gameId;
+                    // Device preview: launch inside a scaled iframe sized to the
+                    // chosen device instead of taking over this page.
+                    var dev = _bgSelectedDevice();
+                    if (dev) {
+                        _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
+                                           '&players=' + count, dev, count);
+                        return;
+                    }
                     goToMainPage();
                 };
             }
@@ -2227,6 +2256,7 @@
             _setupXenoBoxScreen();
             _setupGameIconPopup();
             _wireGameTypeSearch();
+            _setupPreviewDevices();
             _updateIntroTileAvailability();
         }
 
@@ -5421,6 +5451,177 @@
                 }
             };
         }
+        // ============================================================
+        // Device PREVIEW frame (GP 0). Picking a device on the
+        // "Choose the game:" line makes every game tile launch inside a
+        // scaled <iframe> sized to that device's screen, so the user can
+        // see how a game looks on real hardware before publishing.
+        // ============================================================
+        // Logical CSS-pixel sizes are stored PORTRAIT (w<h) for phones/tablets;
+        // the laptop is intrinsically landscape. Orientation is derived from the
+        // device CLASS + the GP 0 player count (see _bgViewport):
+        //   phone : 1P portrait · 2P/3P landscape
+        //   tablet: 1P portrait OR landscape (rotate ↻) · 2P/3P landscape
+        //   laptop: always landscape
+        var BG_DEVICES = {
+            iphone:     { label: 'iPhone',          cls: 'phone',  w: 390,  h: 844  },
+            iphone17:   { label: 'iPhone 17 Pro',   cls: 'phone',  w: 402,  h: 874  },
+            ipad:       { label: 'iPad',            cls: 'tablet', w: 820,  h: 1180 },
+            ipadpro:    { label: 'iPad Pro 12.9″',  cls: 'tablet', w: 1024, h: 1366 },
+            chromebook: { label: 'Chromebook',      cls: 'laptop', w: 1366, h: 768  }
+        };
+        var BG_DEVICE_ORDER = ['iphone', 'iphone17', 'ipad', 'ipadpro', 'chromebook'];
+
+        function _bgSelectedDevice() {
+            try { var k = localStorage.getItem('vica_bgDevice') || ''; return BG_DEVICES[k] ? k : ''; }
+            catch (e) { return ''; }
+        }
+        function _bgSetDevice(key) {
+            try { localStorage.setItem('vica_bgDevice', key || ''); } catch (e) {}
+        }
+        // Tablet-1P is the only combo where orientation is the user's choice.
+        function _bgTabletOrient() {
+            try { return localStorage.getItem('vica_bgTabletOrient') === 'landscape' ? 'landscape' : 'portrait'; }
+            catch (e) { return 'portrait'; }
+        }
+        function _bgSetTabletOrient(o) {
+            try { localStorage.setItem('vica_bgTabletOrient', o === 'landscape' ? 'landscape' : 'portrait'); } catch (e) {}
+        }
+        // Resolve the on-screen viewport (w,h) for a device at a player count.
+        // Returns null for an unknown key. landscape = swap the portrait dims.
+        function _bgViewport(key, players) {
+            var d = BG_DEVICES[key];
+            if (!d) return null;
+            var n = players || 1;
+            var land;
+            if (d.cls === 'laptop') land = true;                 // always landscape
+            else if (d.cls === 'phone') land = (n >= 2);          // 1P portrait, else landscape
+            else /* tablet */ land = (n >= 2) ? true : (_bgTabletOrient() === 'landscape');
+            // Portrait dims are stored w<h; laptop is already stored landscape.
+            var pw = d.w, ph = d.h;
+            if (d.cls === 'laptop') { return { w: pw, h: ph, landscape: true, canRotate: false }; }
+            if (land) return { w: ph, h: pw, landscape: true, canRotate: (d.cls === 'tablet' && n < 2) };
+            return { w: pw, h: ph, landscape: false, canRotate: (d.cls === 'tablet' && n < 2) };
+        }
+
+        // Build the device buttons on the "Choose the game:" line. Idempotent —
+        // re-render rebuilds so the active highlight tracks vica_bgDevice.
+        function _setupPreviewDevices() {
+            var host = document.getElementById('intro-preview-devices');
+            if (!host) return;
+            host.innerHTML = '';
+            var sel = _bgSelectedDevice();
+            BG_DEVICE_ORDER.forEach(function(key) {
+                var d = BG_DEVICES[key];
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'ipd-btn ipd-' + d.cls + (sel === key ? ' active' : '');
+                b.textContent = d.label;
+                b.title = (sel === key ? 'Previewing on ' + d.label + ' — click to turn off (full screen)'
+                                       : 'Preview games on ' + d.label + ' (' + d.w + '×' + d.h + ')');
+                b.addEventListener('click', function() {
+                    _bgSetDevice(sel === key ? '' : key);  // click active → deselect (Full)
+                    _setupPreviewDevices();
+                });
+                host.appendChild(b);
+            });
+        }
+
+        // Open a game inside a device-sized iframe, scaled to fit the window.
+        // url = same-origin index.html?<deep-link> ; the iframe re-runs the app
+        // and auto-launches via the playGame / playBig hooks below.
+        var _bgDeviceModal = null;
+        function _bgOpenDeviceFrame(url, key, players) {
+            var vp = _bgViewport(key, players);
+            if (!vp) { return false; }
+            _bgCloseDeviceFrame();
+            var d = BG_DEVICES[key];
+            var overlay = document.createElement('div');
+            overlay.className = 'bg-device-overlay';
+            overlay.id = 'bg-device-overlay';
+            var modal = document.createElement('div');
+            modal.className = 'bg-device-modal';
+            // Header: device name + live resolution + rotate (tablet-1P) + close.
+            var hdr = document.createElement('div');
+            hdr.className = 'bg-device-header';
+            var title = document.createElement('span');
+            title.className = 'bg-device-title';
+            var resSpan = document.createElement('span');
+            resSpan.className = 'bg-device-res';
+            var rotateBtn = document.createElement('button');
+            rotateBtn.type = 'button';
+            rotateBtn.className = 'bg-device-rotate';
+            rotateBtn.innerHTML = '↻';
+            rotateBtn.title = 'Rotate (portrait / landscape)';
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'bg-device-close';
+            closeBtn.innerHTML = '✕';
+            closeBtn.title = 'Close preview';
+            hdr.appendChild(title); hdr.appendChild(resSpan);
+            hdr.appendChild(rotateBtn); hdr.appendChild(closeBtn);
+            // Stage holds the scaled device; the frame is the real iframe.
+            var stage = document.createElement('div');
+            stage.className = 'bg-device-stage';
+            var bezel = document.createElement('div');
+            bezel.className = 'bg-device-bezel';
+            var frame = document.createElement('iframe');
+            frame.className = 'bg-device-frame';
+            frame.setAttribute('src', url);
+            bezel.appendChild(frame);
+            stage.appendChild(bezel);
+            modal.appendChild(hdr); modal.appendChild(stage);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            _bgDeviceModal = { overlay: overlay, bezel: bezel, frame: frame, stage: stage,
+                               key: key, players: players, url: url };
+            // Size + scale the device to fit the stage; re-fit on window resize.
+            function fit() {
+                var v = _bgViewport(key, players);
+                frame.style.width = v.w + 'px';
+                frame.style.height = v.h + 'px';
+                title.textContent = d.label + (v.landscape ? '  ·  landscape' : '  ·  portrait');
+                resSpan.textContent = v.w + ' × ' + v.h;
+                rotateBtn.style.display = v.canRotate ? '' : 'none';
+                // Available area = stage box (modal minus header + padding).
+                var avW = stage.clientWidth - 24;
+                var avH = stage.clientHeight - 24;
+                var s = Math.min(avW / v.w, avH / v.h, 1);
+                if (!isFinite(s) || s <= 0) s = 1;
+                bezel.style.width = v.w + 'px';
+                bezel.style.height = v.h + 'px';
+                // transform-origin is center, and the stage centers the (unscaled)
+                // box via flex — so the scaled visual stays centred with no margin
+                // hack. overflow:hidden on the stage clips the larger unscaled box.
+                bezel.style.transform = 'scale(' + s + ')';
+            }
+            _bgDeviceModal.fit = fit;
+            // Defer one frame so stage has layout dimensions.
+            setTimeout(fit, 0);
+            window.addEventListener('resize', fit);
+            _bgDeviceModal.onResize = fit;
+            rotateBtn.addEventListener('click', function() {
+                _bgSetTabletOrient(_bgTabletOrient() === 'landscape' ? 'portrait' : 'landscape');
+                fit();
+            });
+            closeBtn.addEventListener('click', _bgCloseDeviceFrame);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) _bgCloseDeviceFrame(); });
+            return true;
+        }
+        function _bgCloseDeviceFrame() {
+            if (!_bgDeviceModal) return;
+            if (_bgDeviceModal.onResize) window.removeEventListener('resize', _bgDeviceModal.onResize);
+            if (_bgDeviceModal.overlay && _bgDeviceModal.overlay.parentNode) {
+                _bgDeviceModal.overlay.parentNode.removeChild(_bgDeviceModal.overlay);
+            }
+            _bgDeviceModal = null;
+        }
+        // A game that finishes INSIDE the device iframe postMessages bgPlayDone;
+        // close the preview so the user lands back on GP 0 (not a stale frame).
+        window.addEventListener('message', function(e) {
+            if (e && e.data && e.data.type === 'bgPlayDone' && _bgDeviceModal) _bgCloseDeviceFrame();
+        });
+
         window.startBigGameFromId = function(id) {
             var bg = _bgLoadBigGames().filter(function (b) { return b.id === id; })[0];
             if (!bg) { _bgShowBanner('⚠ Big Game not found.'); return; }
@@ -5445,7 +5646,9 @@
             // initializes window.game (players, combinedGame, coins/gems). ----
             try { _findInputMode = 'mouse'; } catch (e) {}
             var ptog = document.getElementById('intro-player-toggle');
-            if (ptog) ptog.setAttribute('data-players', '1');
+            // Honor the desired player count (device-preview deep-link sets
+            // window._bgDesiredPlayers); default 1 as before.
+            if (ptog) ptog.setAttribute('data-players', String(window._bgDesiredPlayers || 1));
             selectedIntroGame = 'custom-' + (stage0.gameRef ? stage0.gameRef.index : 0);
             goToMainPage(); // → Setup + startCustomGame (clearCustomGame nulls combinedGameConfig; reset below)
             setTimeout(function () {
@@ -5461,14 +5664,44 @@
                 }, 160);
             }, 220);
         };
-        // Load hook: auto-launch when ?playBig=<id> is present.
+        // Load hook: auto-launch when ?playBig=<id> or ?playGame=<gameId> is
+        // present (used by the device-preview iframe). Carries &mode (Big Game
+        // Play/Scan) and &players (1/2/3) so the framed game matches the GP 0
+        // selection. playGame replays a mini-game tile click after setting the
+        // player toggle, so all the normal validation/setup flow runs.
         (function () {
-            var pid = null;
-            try { pid = new URLSearchParams(location.search).get('playBig'); } catch (e) {}
-            if (!pid) return;
+            var qp = null;
+            try { qp = new URLSearchParams(location.search); } catch (e) { return; }
+            if (!qp) return;
+            var pid = qp.get('playBig');
+            var gid = qp.get('playGame');
+            if (!pid && !gid) return;
+            var players = parseInt(qp.get('players'), 10) || 1;
+            var mode = qp.get('mode');
+            // Apply the player count to the GP 0 toggle up-front so every launch
+            // path (Big Game + mini-game) reads the right count.
+            function applyPlayers() {
+                var pt = document.getElementById('intro-player-toggle');
+                if (pt) {
+                    pt.setAttribute('data-players', String(players));
+                    pt.setAttribute('aria-checked', players > 1 ? 'true' : 'false');
+                }
+                window._bgDesiredPlayers = players;
+            }
+            function startBig() {
+                if (mode) { window._bgPlayMode = mode; try { localStorage.setItem('vica_bgPlayMode', mode); } catch (e) {} }
+                applyPlayers();
+                window.startBigGameFromId(pid);
+            }
+            function startMini(tries) {
+                applyPlayers();
+                var btn = document.querySelector('#intro-screen .intro-game-btn[data-game-id="' + gid + '"]');
+                if (btn) { btn.click(); return; }
+                if ((tries || 0) < 60) setTimeout(function () { startMini((tries || 0) + 1); }, 100);
+            }
             function tryStart(tries) {
                 if (document.getElementById('start-game-btn') || document.getElementById('intro-screen')) {
-                    window.startBigGameFromId(pid);
+                    if (pid) startBig(); else startMini(0);
                 } else if ((tries || 0) < 50) {
                     setTimeout(function () { tryStart((tries || 0) + 1); }, 100);
                 }

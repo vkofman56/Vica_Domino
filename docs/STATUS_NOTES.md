@@ -130,6 +130,35 @@ the only deferred Phase-3 item (needs a definition — what "publish" produces, 
   (persisted `vica_bgPlayMode`); `window._bgScanMode` set at launch; Find via `addCoins`→`_bgScanCoins`,
   Catch via `_bgOnCatchScan` in `_catchAddCoins`. Verified scan + play in preview.
 
+### ✅ Device preview (pre-publish QA) — DONE (June 18)
+A **global** device-preview selector on the **"Choose the game:"** header line (`#intro-preview-devices`,
+built by `_setupPreviewDevices()`). Picking a device makes **any** GP 0 tile — mini-game OR Big Game —
+launch inside a **scaled `<iframe>`** sized to that device's true CSS-pixel viewport (so responsive layout
+reacts as on hardware), shown in a fit-to-window modal (`_bgOpenDeviceFrame`/`_bgCloseDeviceFrame`).
+- **5 devices** (`BG_DEVICES`): iPhone 390×844, iPhone 17 Pro 402×874, iPad 820×1180, iPad Pro 12.9″
+  1024×1366, Chromebook 1366×768. Sticky (`localStorage vica_bgDevice`); click the active pill →
+  deselect → **Full screen** (legacy in-place launch preserved).
+- **Orientation by class × player count** (`_bgViewport`, reads the GP 0 1/2/3 player toggle):
+  phone → 1P portrait / 2P+ landscape; tablet → 1P portrait-or-landscape (↻ rotate on the frame,
+  `vica_bgTabletOrient`) / 2P+ landscape; laptop → always landscape. **3-player uses the 2-player
+  screens** (per user). Rotate ↻ shows only for tablet-1P.
+- **Plumbing:** mini-games launch via NEW `?playGame=<gameId>&players=<n>` deep-link (hook replays the
+  tile click after setting the player toggle → lands on the real Setup screen, then user taps Start);
+  Big Games via extended `?playBig=<id>&mode=&players=<n>`. `startBigGameFromId` no longer hardcodes
+  `data-players=1` (uses `window._bgDesiredPlayers`). A game finishing inside the frame postMessages
+  `bgPlayDone` → parent closes the modal.
+- **Verified in preview:** selector renders + wraps; iPhone-1P portrait & iPad-1P portrait→landscape
+  (live re-fit), Chromebook landscape, true `iframe.innerWidth` per device; mini-game (Catch Setup) and
+  Big Game (scan, player "Va") both launch framed; deselect → full screen; no console errors.
+- **⚠ Follow-up (separate task) — 2P/3P Big Games run single-player.** The UI/orientation/plumbing are
+  correct (GP0 count=2, frame=landscape), but the composed-stage launch (`_bgEnsureFindPlayer` on the
+  catch-first path) bootstraps ONE player and ignores the count — verified `_catchGame.numPlayers===1`
+  with `players=2`. So 2/3-player Big Games preview at the right *screen* but don't yet *run* as
+  multiplayer. Mini-game 2P is fine (Catch has a 2P path). Big-Game multiplayer wiring is its own task.
+- **Minor observation (game responsiveness, not this feature):** at narrow widths (e.g. iPhone 390) the
+  game board slightly overflows → a horizontal scrollbar. Exactly the kind of thing this preview surfaces.
+- css `dgx-redesign-55`.
+
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
 - **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3

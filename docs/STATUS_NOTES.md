@@ -261,9 +261,16 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
   line 2 centered. (order: coin-gem 0, press 1, select 2, cards 3.)
 - **Play-triangle icons +30%**: `_PLAY_TRI` 26→34px; New Game SVG 32×26→42×34px (`js/game.js`).
 - css `dgx-redesign-62`, game.js `biggame-flow-6`.
-- ⚠ **Visual re-verify pending**: the Claude-preview tab froze on sync.js's blocking `alert()` (Firebase
-  unreachable — sandbox network blip), so no fresh screenshot this pass. Changes are CSS/SVG-size only and
-  logically verified; re-screenshot when connectivity returns.
+- Verified once the sandbox recovered: "Press to select" one line above cards; triangles 34/42px.
+  css `dgx-redesign-62`, game.js `biggame-flow-6`.
+
+##### Even hint spacing + 4mm up (June 18)
+- **Equal spacing in "Press to select"**: "Press→to" was 10px (`.hint-press-left` padding-right) + 6px
+  (column-gap) + 10px (`.hint-select-right` padding-left) = 26px vs the ~6px "to→select" text space. Fix
+  (phone block): zero those two paddings; `column-gap:6px` already ≈ one space (6.09px @1.3rem) → equal.
+- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` (≈ −15px).
+- Verified iPhone 390×844: paddings 0, Press→to gap = 6px, margin-top −15.1px; no new console errors (only
+  the pre-existing Firebase-offline ones). css `dgx-redesign-63`.
 
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):

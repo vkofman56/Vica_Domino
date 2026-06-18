@@ -93,27 +93,26 @@ you're the sole active session). `scripts/bump-trial.sh [files…]` also accepts
 **Escalation if overlap grows:** separate `git worktree` per session, each on its own branch, with
 `fetch + rebase onto the canonical tip` before each push. Not adopted now.
 
-### ▶ DECIDED June 17: escalate to WORKTREES — execute in a COORDINATED WINDOW (both sessions idle/clean/synced)
-Why: even with per-path `git commit -- <paths>`, the `.githooks/pre-commit` hook still runs
-`git add -- index.html pm-studio-DrV.html` on any HTML-touching commit, re-stamping + re-staging BOTH
-HTML files regardless of scope (this injected pm-studio's timestamp + caused cache-buster drift in the
-b002dd1 ship). Worktrees give true filesystem isolation so this can't cross sessions. **Not yet done —
-deferred to a coordinated window (do NOT do unilaterally; it changes shared tooling for both sessions).**
+### ✅ WORKTREE ISOLATION — LIVE (June 17). Two worktrees, one canonical-branch trio.
+**The two sessions now work in SEPARATE git worktrees (true filesystem isolation):**
+- **Studio session** → `/Users/victoriakofman/CLAUDE CODE/Domino-studio` on branch **`work/studio`**.
+- **Big Game session** → main `/Users/victoriakofman/CLAUDE CODE/Domino` on **`work/cardmaker-rowcopy`**.
 
-**Migration steps (when both sessions are idle, clean, and synced at the same canonical tip):**
-1. **Studio session** creates its own worktree + branch and works ONLY there:
-   `git worktree add ../Domino-studio -b work/studio`  → open `../Domino-studio`.
-   Big Game session stays in the main `Domino/` on `work/cardmaker-rowcopy`.
-2. **`ship.sh` gains rebase-on-push** (the two local branches now diverge but push to the same 3
-   canonical branches, so a plain push would be non-FF): before pushing, `git fetch origin` then
-   `git rebase origin/claude/review-project-docs-JOOeh`; then push HEAD to all 3 (now a FF). Shared-file
-   edits (style.css/docs) surface as rebase conflicts — rare, small.
-3. **Make `.githooks/pre-commit` scope-aware** (still needed): stamp + re-stage ONLY the HTML already
-   staged in the commit, not always both — otherwise it spuriously stamps the other app's HTML even
-   inside a worktree.
-Net: heavier than the hook fix alone (it needs all 3 of the above), but it removes the shared tree
-entirely. Until executed, keep using per-path `ship.sh "msg" -- <paths>` (code files are already
-isolated; only the HTML timestamp/cache-buster can cross-touch via the hook).
+Neither session's uncommitted files are visible to the other's `git add`/commits — the sweep CANNOT recur.
+
+**Migration status:**
+1. ✅ **Worktrees** — done (Studio created `work/studio`; `git worktree add ../Domino-studio -b work/studio`).
+2. **Rebase-on-push = MANUAL by decision** (NOT baked into `ship.sh` — a rebase conflict mid-script is
+   messier than resolving by hand). The two branches diverge but push to the same 3 canonical branches,
+   so **before each ship**, every session does: `git fetch origin` →
+   `git rebase origin/claude/review-project-docs-JOOeh` → then `ship.sh` (push is now a FF). If you forget,
+   the push is just rejected (no force) — rebase and retry.
+3. ✅ **`.githooks/pre-commit` is now SCOPE-AWARE** — stamps + re-stages ONLY the HTML files staged in the
+   commit (was: always index.html + pm-studio), so a commit no longer cross-stamps the other app's banner.
+   Verified: staging an index.html change stamps only index.html; pm-studio/biggame untouched.
+
+Per-path `ship.sh "msg" -- <paths>` is still fine but no longer required for isolation (the worktree
+gives it). DEFERRED nicety: `ship.sh` auto-rebase (deliberately skipped — manual is clearer).
 
 ---
 

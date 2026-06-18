@@ -281,6 +281,20 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
 - **+1mm more (June 18):** `.domino-double-label{top:-17px→-21px}` → double y150 (just under "select").
   css `dgx-redesign-68`.
 
+##### Game name → TITLE at top; page name stays in bottom box (June 18)
+The earlier "page name to bottom" change fixed the WHOLE `.board-id-bar` (page label + game name) to the
+bottom, so the game name "Find the doubles…" wrongly sat in the page-name box. Fix (phone block): the
+**game name is the title at the TOP** and only the **editable page name** drops to the bottom box.
+- `#board-id-bar` back in normal flow at the top (`margin:6px auto 12px 100px; max-width:calc(100% - 112px)`)
+  → it pushes the yellow box + play buttons + xeno box DOWN to fit; left-margin 100 clears the back/home
+  buttons (title starts x105 > home right 97).
+- `.board-id-game::before{content:none}` (drop the "·") + `.board-id-bar .board-id-game{font-size:1.5rem;
+  font-weight:700}` so it reads as a title.
+- `#board-page-label{position:fixed;bottom:2cm;left:50%;translateX(-50%)}` + pill bg → the page name box at
+  the bottom shows just "GPt F1 Board".
+- Verified iPhone 390×844: title "Find the doubles:" at top (clears buttons), yellow box at y188 (shifted
+  down), page-name pill at y741. css `dgx-redesign-70`.
+
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`
   (verified 15px). 

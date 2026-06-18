@@ -194,6 +194,23 @@ back to the device default only when nothing is saved). It's a **device-local** 
 parent's mode via shared localStorage (verified iframe `_findInputMode==='touch'`). Verified: flip→touch,
 reload → still touch + pills enabled; iframe touch. sync.js `local-wins-9`.
 
+#### Per-mini-game ▶ Play/preview (June 18)
+The Mini-games panel (`_mgOpenPanel`, the folder-icon popup on each Find/Catch tile) now has a green **▶**
+on every row — Default + each variant — to play/preview that exact mini-game. New `_mgPlayLegend(type,
+index,legend,name)`: builds the gameId (`custom-N`/`catch-N`), and **honors the device-preview selector**
+— touch+device → scaled device iframe via `?playGame=<id>&players=&legend=<JSON>`; otherwise full-screen
+in-page (`goToMainPage` → `_mgApplyLegend` → click `#start-game-btn`, which the delegated handler routes to
+Catch's `openCatchPlayModal`). The `?playGame` hook now parses `&legend`, applies it on Setup, and
+auto-starts so the framed game plays the chosen variant.
+- **Important guard (regression fix):** since the preview iframe now inherits the parent's TOUCH mode +
+  device selection (input-mode-persistence change), a tile click *inside* the iframe would have opened a
+  **nested** device frame. The deep-link hook sets `window._bgInPreviewFrame = true`, and BOTH tile
+  interceptions (mini-game + Big Game) + `_mgPlayLegend` now skip the device frame when that flag is set —
+  the iframe plays in-page. Verified: parent shows exactly 1 device overlay, iframe shows 0.
+- **Verified in preview:** ▶ on all 3 rows (Default/fast/voice); mouse-mode play = full-screen game-screen;
+  touch+iPhone play = single device frame, legend rides the URL, applied inside, Find board auto-started at
+  390px, no nesting; no console errors. css `dgx-redesign-57`.
+
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
 - **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3

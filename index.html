@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-56">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-57">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:36 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:36 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1658,6 +1658,17 @@
                     legendBox.textContent = _mgFormatLegend(legend, type, index);
                     legendBox.style.display = 'block';
                 });
+                // Play ▶: preview THIS mini-game (its legend) right here. Honors
+                // the GP 0 device-preview selector (touch mode) like any launch.
+                var play = document.createElement('span');
+                play.className = 'mg-item-act mg-item-play';
+                play.textContent = '▶';
+                play.title = 'Play / preview this mini-game';
+                play.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _mgPlayLegend(type, index, legend, displayName);
+                });
+                item.appendChild(play);
                 // Copy: start a new mini-game pre-loaded with THIS one's legend.
                 var cpy = document.createElement('span');
                 cpy.className = 'mg-item-act'; cpy.textContent = '⧉'; cpy.title = 'Copy to a new mini-game';
@@ -1714,10 +1725,42 @@
                 document.addEventListener('keydown', _mgPanelEsc, true);
             }, 0);
         }
+        // Play/preview a single mini-game with its legend applied. Honors the
+        // GP 0 device-preview selector (touch mode → scaled device iframe); else
+        // plays full-screen in this page. Works for Find ('custom-N') and Catch
+        // ('catch-N'), which share #start-game-btn (delegated handler routes to
+        // openCatchPlayModal for catch).
+        function _mgPlayLegend(type, index, legend, name) {
+            _mgClosePanel();
+            var gameId = (type === 'catch' ? 'catch-' : 'custom-') + index;
+            var pt = document.getElementById('intro-player-toggle');
+            var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
+            // In a preview iframe we never open ANOTHER device frame — play here.
+            var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
+            var legParam = legend ? '&legend=' + encodeURIComponent(JSON.stringify(legend)) : '';
+            if (dev) {
+                _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
+                                   '&players=' + pc + legParam, dev, pc);
+                return;
+            }
+            // Full-screen, in-page: Setup → apply legend → auto-start.
+            selectedIntroGame = gameId;
+            goToMainPage();
+            setTimeout(function () {
+                _mgApplyLegend(legend);
+                setTimeout(function () {
+                    var sb = document.getElementById('start-game-btn');
+                    if (sb) sb.click();
+                }, 150);
+            }, 240);
+        }
+
         if (typeof window !== 'undefined') {
             window._mgFormatLegend = _mgFormatLegend;
             window._mgDefaultLegend = _mgDefaultLegend;
             window._mgOpenPanel = _mgOpenPanel;
+            window._mgApplyLegend = _mgApplyLegend;
+            window._mgPlayLegend = _mgPlayLegend;
         }
 
         // ===== Phase 2c-iii-b1: add / rename / delete mini-games =====
@@ -2092,8 +2135,8 @@
                     tile.addEventListener('click', function() {
                         // Device preview: open the Big Game in a scaled device
                         // iframe (carries the Play/Scan mode + player count).
-                        // TOUCH mode only — mouse mode ignores the device choice.
-                        var dev = _bgInputIsTouch() ? _bgSelectedDevice() : '';
+                        // TOUCH mode only; never when we ARE the preview iframe.
+                        var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
                         if (dev) {
                             var pt = document.getElementById('intro-player-toggle');
                             var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
@@ -2208,8 +2251,9 @@
                     selectedIntroGame = gameId;
                     // Device preview: launch inside a scaled iframe sized to the
                     // chosen device instead of taking over this page. TOUCH mode
-                    // only — in mouse mode the device choice is ignored.
-                    var dev = _bgInputIsTouch() ? _bgSelectedDevice() : '';
+                    // only — in mouse mode the device choice is ignored; and never
+                    // when we ARE the preview iframe (no nested frames).
+                    var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
                     if (dev) {
                         _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
                                            '&players=' + count, dev, count);
@@ -5742,8 +5786,15 @@
             var pid = qp.get('playBig');
             var gid = qp.get('playGame');
             if (!pid && !gid) return;
+            // We're a preview iframe — never open a NESTED device frame from a
+            // tile click in here (the iframe inherits the parent's touch mode +
+            // device selection via shared localStorage). Play in-page instead.
+            window._bgInPreviewFrame = true;
             var players = parseInt(qp.get('players'), 10) || 1;
             var mode = qp.get('mode');
+            // Optional mini-game legend to apply on Setup before auto-starting.
+            var legend = null;
+            try { var _lp = qp.get('legend'); if (_lp) legend = JSON.parse(_lp); } catch (e) {}
             // Apply the player count to the GP 0 toggle up-front so every launch
             // path (Big Game + mini-game) reads the right count.
             function applyPlayers() {
@@ -5762,7 +5813,21 @@
             function startMini(tries) {
                 applyPlayers();
                 var btn = document.querySelector('#intro-screen .intro-game-btn[data-game-id="' + gid + '"]');
-                if (btn) { btn.click(); return; }
+                if (btn) {
+                    btn.click(); // → this game's Setup screen
+                    // Mini-game preview: apply the chosen legend on Setup, then
+                    // auto-start so it plays the exact variant.
+                    if (legend) {
+                        setTimeout(function () {
+                            if (window._mgApplyLegend) window._mgApplyLegend(legend);
+                            setTimeout(function () {
+                                var sb = document.getElementById('start-game-btn');
+                                if (sb) sb.click();
+                            }, 170);
+                        }, 240);
+                    }
+                    return;
+                }
                 if ((tries || 0) < 60) setTimeout(function () { startMini((tries || 0) + 1); }, 100);
             }
             function tryStart(tries) {

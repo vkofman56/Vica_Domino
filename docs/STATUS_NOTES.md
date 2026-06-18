@@ -226,6 +226,21 @@ board ("GPt F1 Board") surfaced by the device preview:
 - **Open (design):** showing the user icon options to replace the "Play Again" / "New Game" text buttons
   (`#play-again-game-btn` / `#new-game-btn`) — not yet implemented, awaiting their pick.
 
+##### Phone-portrait board — round 2 (June 18)
+- **Hint restacked**: "Press" on one line, "to select" the next, left-aligned + together, cards below.
+  Superseded the wrap-centered approach: `.sun-level-tiles-container{flex-direction:column;align-items:
+  flex-start}` + `order:` (coin-gem 0, press 1, select 2, cards 3; cards `align-self:center`).
+- **Status line** (`#status-message.status`) narrower + starts to the RIGHT of the home button:
+  `margin-left:100px;margin-right:12px;text-align:left;padding:8px 14px;font-size:1rem` (was full-width
+  centered, underlapping the back/home buttons).
+- **Saved/sync badge hidden on PLAY boards (all widths, not phone-only)** — `#sync-status` is only useful
+  where synced data is edited (page names on GP0/Setup, the Studio). Global rule:
+  `body:has(#game-screen[style*="display: block"]) #sync-status, body.catch-active #sync-status{display:none}`
+  (Find shows `#game-screen` as `display:block`; Catch sets `body.catch-active`). Verified: badge gone on
+  the board, still `block` on GP0. User decision: "play boards only" (keep elsewhere).
+- Verified iPhone 390×844: Press@x24 / to-select@x24 (stacked, left), status@x105, sync `display:none` on
+  board, no console errors. css `dgx-redesign-60`.
+
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
 1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses

@@ -303,6 +303,16 @@ bottom, so the game name "Find the doubles…" wrongly sat in the page-name box.
   `#game-screen` prefix raises specificity so it beats the later `max-height:900 portrait` rule (which also
   matches at 390×844 and otherwise re-sets 38×75). css `dgx-redesign-72`.
 
+##### Title 2-line (type / concrete name) aligned with home (June 18)
+- **Concrete name on its own line:** `_gpFillGameName` now wraps the text after the first ":" in a
+  `<span class="board-id-name">` ("Find the doubles:" / "Match 0-4"). Inline by default (desktop = one
+  line); phone CSS `.board-id-name{display:block}` → second line.
+- **Title lowered to align line 1 with the home button:** `#board-id-bar{margin:30px auto 12px 100px;
+  position:relative; top:16px; line-height:1.15}`. The board's top section (title + absolute back/home)
+  move together via margin-collapse, so the shared margin can't close the line1↔home gap — the `top:16px`
+  relative shift moves ONLY the title down onto the home row. Verified line1 center 69 == home center 69.
+- Taller 2-line title + margin push the status/yellow box/buttons/xeno DOWN ("everything else lower").
+  Verified iPhone 390×844; no scrollbar. css `dgx-redesign-76`.
 ##### Status box = yellow width + coin/domino gap + edge-flicker fix (June 18)
 - **Status box width = yellow box, ONE line**: `.status` (phone) → `width:96%; margin-inline:auto;
   text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (dropped the old

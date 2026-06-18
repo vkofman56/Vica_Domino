@@ -40,13 +40,14 @@
     var _origRemoveItem = localStorage.removeItem.bind(localStorage);
 
     // DEVICE-LOCAL UI preferences ("vica_bg*": Big Game Play/Scan mode, the
-    // device-preview selection + tablet orientation). These are per-device and
+    // device-preview selection + tablet orientation; "vica_inputMode": the
+    // TOUCH/MOUSE toggle). These are per-device and
     // must NEVER sync — and crucially must NOT be wiped by a cloud pull. A
     // same-origin preview <iframe> shares this localStorage, so its own login
     // pull was clearing the parent's vica_bgDevice mid-preview (the selected
     // device "forgot itself" after one play). Treated like META/ROLE: never
     // uploaded, never removed on replace.
-    function _isLocalOnlyKey(k) { return !!k && k.indexOf('vica_bg') === 0; }
+    function _isLocalOnlyKey(k) { return !!k && (k.indexOf('vica_bg') === 0 || k === 'vica_inputMode'); }
 
     // ---- Firebase init ----
 

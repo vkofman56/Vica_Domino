@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:07 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:36 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:07 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:36 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -582,7 +582,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-8"></script>
+    <script src="js/sync.js?v=local-wins-9"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -2525,9 +2525,15 @@
             var toggle = document.getElementById('intro-input-toggle');
             if (!toggle || toggle._wired) return;
             toggle._wired = true;
-            // Device-aware first paint: defaults to TOUCH on touchscreens,
-            // MOUSE on non-touch devices. The user can flip either way.
-            _setInputMode(_hasTouchScreen ? 'touch' : 'mouse');
+            // Restore the user's saved choice (persisted in _setInputMode) so
+            // the mode NEVER silently reverts — across reloads, a "go back" from
+            // a game, and into the device-preview iframe (which shares this
+            // localStorage). Only when nothing is saved do we fall back to the
+            // device-aware default (TOUCH on touchscreens, MOUSE otherwise).
+            var _savedMode = null;
+            try { _savedMode = localStorage.getItem('vica_inputMode'); } catch (e) {}
+            _setInputMode((_savedMode === 'touch' || _savedMode === 'mouse')
+                          ? _savedMode : (_hasTouchScreen ? 'touch' : 'mouse'));
             toggle.addEventListener('click', function() {
                 var current = toggle.getAttribute('data-mode');
                 _setInputMode(current === 'touch' ? 'mouse' : 'touch');
@@ -2832,6 +2838,9 @@
             if (mode !== 'touch' && mode !== 'mouse') mode = 'touch';
             _findInputMode = mode;
             _catchInputMode = mode;
+            // Persist so the choice survives reloads / go-back / the preview
+            // iframe (device-local key — never synced; see sync.js _isLocalOnlyKey).
+            try { localStorage.setItem('vica_inputMode', mode); } catch (e) {}
             var toggle = document.getElementById('intro-input-toggle');
             if (toggle) {
                 toggle.setAttribute('data-mode', mode);

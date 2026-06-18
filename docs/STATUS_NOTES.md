@@ -184,6 +184,16 @@ Three follow-ups from user testing, all verified in preview:
    also makes `vica_bgPlayMode` properly device-local.)
 - css `dgx-redesign-56`, sync.js `local-wins-8`.
 
+#### Input-mode persistence (June 18)
+**Bug:** flip TOUCH/MOUSE to touch, play a game, "go back" → page was back in mouse. Cause: the
+TOUCH/MOUSE mode was in-memory only — `_setupIntroInputToggle` re-applied the `_hasTouchScreen` default
+(mouse on desktop) on a fresh load, and the device-preview iframe always loaded in mouse. Fix: persist
+the mode in `vica_inputMode` (`_setInputMode` writes it; `_setupIntroInputToggle` restores it, falling
+back to the device default only when nothing is saved). It's a **device-local** key (added to sync.js
+`_isLocalOnlyKey`) so the cloud can't wipe/override it. Bonus: the preview iframe now **inherits** the
+parent's mode via shared localStorage (verified iframe `_findInputMode==='touch'`). Verified: flip→touch,
+reload → still touch + pills enabled; iframe touch. sync.js `local-wins-9`.
+
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
 - **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3

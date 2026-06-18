@@ -302,6 +302,22 @@ bottom, so the game name "Find the doubles…" wrongly sat in the page-name box.
 - **Dominoes +12%** (38×75 → 43×84): `#game-screen .domino.vertical{width:43px;height:84px}` — the
   `#game-screen` prefix raises specificity so it beats the later `max-height:900 portrait` rule (which also
   matches at 390×844 and otherwise re-sets 38×75). css `dgx-redesign-72`.
+
+##### Status box = yellow width + coin/domino gap + edge-flicker fix (June 18)
+- **Status box width = yellow box, ONE line**: `.status` (phone) → `width:96%; margin-inline:auto;
+  text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (dropped the old
+  `margin-left:100px` — it now sits BELOW the top title, clear of the back/home buttons). Verified
+  x13/w365/r377 == yellow box; "⏰ Game over! Time's up! Try again!" on one line (h37 = 1 line + padding).
+- **Coins/dominoes overlap (post-win)**: the tall coin/gem reward column sits on line 1 above the (now
+  bigger) dominoes; only ~6px separated them. `.coin-gem-display.coin-gem-inline{margin-bottom:12px}` →
+  gap 18px, no overlap. Targeted: pre-win the column is empty so Press/select still set the line height
+  (hint spacing unchanged).
+- **"Edge of the picture flickers"**: the preview iframe had a spurious vertical scrollbar
+  (`scrollHeight 844 > clientHeight 829`) that toggled on/off at the edge (board content is only 737, so it
+  fits — the overflow was min-height:100vh + margins ~1px over). Fix in `_bgOpenDeviceFrame`: on iframe
+  `load`, set `documentElement/body overflowY:hidden` (DEVICE-FRAME PREVIEW ONLY — real devices untouched).
+  Verified `hasVScroll:false` after. css `dgx-redesign-73`.
+
 ##### Player-toggle figure +15% & win-stage overlap fix (June 18)
 - **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`
   (verified 15px). 

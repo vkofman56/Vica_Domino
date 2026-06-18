@@ -70,37 +70,46 @@ if [ -z "$MSG" ]; then
     exit 1
 fi
 
-# ── 1 + 2. Bump the banner, then stage ───────────────────────────────────────
+# ── 1 + 2 + 3. Bump banner, then COMMIT ──────────────────────────────────────
+COMMIT_MSG="$MSG
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+
 if [ "${#PATHS[@]}" -gt 0 ]; then
-    # Per-path mode: stamp ONLY the *.html files in scope, stage ONLY <paths>.
+    # Per-path mode: stamp ONLY the *.html files in scope, then commit ONLY <paths>.
     HTML_SCOPE=()
     for p in "${PATHS[@]}"; do
         case "$p" in *.html) HTML_SCOPE+=("$p") ;; esac
     done
     if [ "${#HTML_SCOPE[@]}" -gt 0 ]; then bash scripts/bump-trial.sh "${HTML_SCOPE[@]}"; fi
-    git add -- "${PATHS[@]}"
-    # Heads-up if anything OUTSIDE your paths is modified/new — we are NOT
-    # committing it (likely the other session's in-flight work; that's the point).
+    # CRITICAL: `git commit -- <paths>` commits the working-tree content of those
+    # paths and DISREGARDS anything staged for OTHER paths — so a concurrent
+    # session's already-`git add`ed files are NEVER swept in. (A plain `git add
+    # <paths>` + a full commit does NOT protect against pre-staged files — that
+    # bug let pm-studio-DrV.html land in d1a7f4a; this is the fix.)
+    if git diff --quiet HEAD -- "${PATHS[@]}"; then
+        echo "ship: nothing to commit in your paths — pushing current HEAD to re-sync."
+    else
+        git commit -m "$COMMIT_MSG" -- "${PATHS[@]}"
+    fi
+    # Heads-up: anything modified/new OUTSIDE your paths is left untouched
+    # (likely the other session's in-flight work — that's the point).
     LEFT="$(git ls-files -m -o --exclude-standard | wc -l | tr -d ' ')"
     if [ "$LEFT" -gt 0 ]; then
-        echo "ship: note — $LEFT file(s) modified/new OUTSIDE your paths are left uncommitted"
-        echo "ship:        (not yours; the other session's). Per the TWO-SESSION PROTOCOL, expected."
+        echo "ship: note — $LEFT file(s) modified/new OUTSIDE your paths left uncommitted (not yours)."
     fi
 else
-    # Default mode: stamp all targets, stage everything.
+    # Default mode: stamp all targets, stage + commit everything.
     bash scripts/bump-trial.sh
     git add -A
-fi
-# Never commit macOS .DS_Store noise, even if it slipped past .gitignore.
-git rm --cached -q -- .DS_Store ':(glob)**/.DS_Store' >/dev/null 2>&1 || true
-
-if git diff --cached --quiet; then
-    echo "ship: nothing to commit — working tree already matches HEAD."
-    echo "ship: pushing current HEAD to the 3 canonical branches anyway (to re-sync)."
-else
-    git commit -m "$MSG
-
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+    # Never commit macOS .DS_Store noise, even if it slipped past .gitignore.
+    git rm --cached -q -- .DS_Store ':(glob)**/.DS_Store' >/dev/null 2>&1 || true
+    if git diff --cached --quiet; then
+        echo "ship: nothing to commit — working tree already matches HEAD."
+        echo "ship: pushing current HEAD to the 3 canonical branches anyway (to re-sync)."
+    else
+        git commit -m "$COMMIT_MSG"
+    fi
 fi
 
 # ── 4. Push the current commit to all 3 canonical branches ───────────────────

@@ -42,6 +42,15 @@ session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for vis
   correct (verified: no stray `git add -A`); the window is the problem. **Recommend escalating to the
   documented fix: separate `git worktree` per session** (or Studio commits-by-path *before* each verify).
   All swept code is intact in HEAD/deployed — only mislabeled.
+- **✅ FIXED (Big Game session, June 17) — corrected diagnosis.** The sweep was NOT `git add -A` and NOT
+  inherent to a shared tree. The real bug: `ship.sh` per-path mode did `git add -- <paths>` then a FULL
+  `git commit` — which commits the WHOLE index, so the OTHER session's already-`git add`ed file (pm-studio,
+  STAGED during build) rode along. **Fix:** per-path mode now does **`git commit -- <paths>`**, which commits
+  only those paths and **disregards anything staged for other paths**. Dry-run verified: with a scratch file
+  `git add`ed, `git commit -- scripts/ship.sh` includes ONLY ship.sh. So per-path now DOES isolate
+  **disjoint files** (staged OR unstaged) with no window. **True remaining limit:** only a **shared FILE**
+  edited by BOTH at once still merges both edits (e.g. this `STATUS_NOTES.md`) — `git add -p` your hunks
+  there. Worktree is now an OPTIONAL escalation (only if shared-file overlap gets painful), not required.
 
 ---
 

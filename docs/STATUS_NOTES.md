@@ -211,6 +211,27 @@ auto-starts so the framed game plays the chosen variant.
   touch+iPhone play = single device frame, legend rides the URL, applied inside, Find board auto-started at
   390px, no nesting; no console errors. css `dgx-redesign-57`.
 
+#### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
+Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
+1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses
+   device mode (skips the full-size Setup view + the board-poll). `_mgPlayLegend` passes `autostart:true`
+   (▶ auto-launches, so there's no Setup to interact with). Tile-click previews stay adaptive (Setup full →
+   board device). Verified: ▶ opens straight in iPhone mode (`cradle.full`=false immediately, iframe 390px).
+2. **Escape closes the preview** (`document` keydown, capture; cleaned up on close) — alongside the ✕ and
+   backdrop click.
+3. **Bordered "cradle" with the ✕ ON the border.** Refactored the DOM: `.bg-device-cradle` is a ~1-inch
+   bordered frame (`padding:1in`) wrapping the device, with the round ✕ at its top-right and the caption
+   (device · orientation · resolution · ↻) above. The device is a `.bg-device-screen` (glass + dark bezel)
+   sized by JS to the SCALED footprint; the iframe renders at TRUE device px and is `transform:scale()`'d
+   from the **top-left** (replaces the old centre-scaled `.bg-device-bezel`, so the frame hugs the device).
+   `.full` (Setup) drops the border/padding so the app renders normally.
+- Verified on a fresh main-tree server: ▶ → straight to iPhone board (no flash), cradle border + corner ✕,
+  Escape + ✕ both close, tile-click still does Setup-full → board-device; no console errors. css
+  `dgx-redesign-58`.
+- ⚠ **Tooling note:** the Claude-preview server had restarted pointing at `--directory ../Domino-studio`
+  (the Studio worktree), so it served STALE files for a bit; verified against a main-tree server on :8044.
+  Browser/preview reloads of `index.html` can also serve a cached copy — append `?cb=<ts>` to force fresh.
+
 ### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
 Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
 - **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3

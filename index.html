@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-57">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-58">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:06 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:06 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1739,8 +1739,10 @@
             var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
             var legParam = legend ? '&legend=' + encodeURIComponent(JSON.stringify(legend)) : '';
             if (dev) {
+                // autostart: ▶ Play auto-launches the game, so skip the full-size
+                // Setup view and show the device directly.
                 _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
-                                   '&players=' + pc + legParam, dev, pc);
+                                   '&players=' + pc + legParam, dev, pc, { autostart: true });
                 return;
             }
             // Full-screen, in-page: Setup → apply legend → auto-start.
@@ -5604,19 +5606,29 @@
         // url = same-origin index.html?<deep-link> ; the iframe re-runs the app
         // and auto-launches via the playGame / playBig hooks below.
         var _bgDeviceModal = null;
-        function _bgOpenDeviceFrame(url, key, players) {
+        // opts.autostart=true → skip the full-size Setup view entirely and show
+        // the device from the start (used by ▶ Play, which auto-launches a game
+        // so there's no Setup to interact with — go DIRECTLY to the device).
+        function _bgOpenDeviceFrame(url, key, players, opts) {
             var vp = _bgViewport(key, players);
             if (!vp) { return false; }
             _bgCloseDeviceFrame();
+            var autostart = !!(opts && opts.autostart);
             var d = BG_DEVICES[key];
             var overlay = document.createElement('div');
             overlay.className = 'bg-device-overlay';
             overlay.id = 'bg-device-overlay';
-            var modal = document.createElement('div');
-            modal.className = 'bg-device-modal';
-            // Header: device name + live resolution + rotate (tablet-1P) + close.
-            var hdr = document.createElement('div');
-            hdr.className = 'bg-device-header';
+            // Cradle = the framed border around the device; the ✕ lives ON it.
+            var cradle = document.createElement('div');
+            cradle.className = 'bg-device-cradle';
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'bg-device-close';
+            closeBtn.innerHTML = '✕';
+            closeBtn.title = 'Close preview (Esc)';
+            // Caption: device name · orientation/resolution · rotate (tablet-1P).
+            var cap = document.createElement('div');
+            cap.className = 'bg-device-cap';
             var title = document.createElement('span');
             title.className = 'bg-device-title';
             var resSpan = document.createElement('span');
@@ -5626,32 +5638,26 @@
             rotateBtn.className = 'bg-device-rotate';
             rotateBtn.innerHTML = '↻';
             rotateBtn.title = 'Rotate (portrait / landscape)';
-            var closeBtn = document.createElement('button');
-            closeBtn.type = 'button';
-            closeBtn.className = 'bg-device-close';
-            closeBtn.innerHTML = '✕';
-            closeBtn.title = 'Close preview';
-            hdr.appendChild(title); hdr.appendChild(resSpan);
-            hdr.appendChild(rotateBtn); hdr.appendChild(closeBtn);
-            // Stage holds the scaled device; the frame is the real iframe.
-            var stage = document.createElement('div');
-            stage.className = 'bg-device-stage';
-            var bezel = document.createElement('div');
-            bezel.className = 'bg-device-bezel';
+            cap.appendChild(title); cap.appendChild(resSpan); cap.appendChild(rotateBtn);
+            // Screen = the device glass; the iframe is scaled (top-left) to fit.
+            var screen = document.createElement('div');
+            screen.className = 'bg-device-screen';
             var frame = document.createElement('iframe');
             frame.className = 'bg-device-frame';
             frame.setAttribute('src', url);
-            bezel.appendChild(frame);
-            stage.appendChild(bezel);
-            modal.appendChild(hdr); modal.appendChild(stage);
-            overlay.appendChild(modal);
+            screen.appendChild(frame);
+            cradle.appendChild(closeBtn);
+            cradle.appendChild(cap);
+            cradle.appendChild(screen);
+            overlay.appendChild(cradle);
             document.body.appendChild(overlay);
-            _bgDeviceModal = { overlay: overlay, bezel: bezel, frame: frame, stage: stage,
-                               key: key, players: players, url: url };
+            _bgDeviceModal = { overlay: overlay, cradle: cradle, screen: screen, frame: frame,
+                               key: key, players: players, url: url, autostart: autostart };
             // Is the iframe showing actual GAMEPLAY (the board) rather than the
             // intro/Setup page? Find gameplay uses #game-screen; Catch (incl. 2P)
             // uses the #catch-game-overlay appended to <body>. The Setup page
-            // (#start-screen) and intro do NOT count — they must render full size.
+            // (#start-screen) and intro do NOT count — they render full size
+            // (unless autostart, where there's no Setup to interact with).
             function _boardVisible() {
                 try {
                     var doc = frame.contentDocument;
@@ -5662,65 +5668,76 @@
                     return false;
                 } catch (e) { return false; }
             }
-            // Size the frame. The SETUP/intro page renders at FULL size (so it
-            // looks normal — only the board is previewed at the device size);
-            // once gameplay starts, snap to the true device viewport + scale.
+            // Reserve for the cradle frame (1in padding + 2px border + 8px screen
+            // border) + overlay padding (18) + caption, matched to the CSS so the
+            // device PLUS its 1-inch border fit the window. (1in ≈ 96px.)
+            var FRAME = 128, CAP_H = 56;
             function fit() {
-                if (!_boardVisible()) {
-                    bezel.classList.add('full');
-                    bezel.style.transform = 'none';
-                    bezel.style.width = Math.max(0, stage.clientWidth - 24) + 'px';
-                    bezel.style.height = Math.max(0, stage.clientHeight - 24) + 'px';
+                var deviceMode = autostart || _boardVisible();
+                if (!deviceMode) {
+                    // SETUP/intro at FULL size (only the BOARD is device-sized).
+                    cradle.classList.add('full');
+                    screen.style.width = Math.max(0, overlay.clientWidth - 24) + 'px';
+                    screen.style.height = Math.max(0, overlay.clientHeight - 24 - CAP_H) + 'px';
                     frame.style.width = '100%';
                     frame.style.height = '100%';
-                    title.textContent = d.label + '  ·  setup (full size)';
-                    resSpan.textContent = '';
+                    frame.style.transform = 'none';
+                    title.textContent = d.label;
+                    resSpan.textContent = 'setup (full size)';
                     rotateBtn.style.display = 'none';
                     return;
                 }
-                bezel.classList.remove('full');
+                cradle.classList.remove('full');
                 var v = _bgViewport(key, players);
-                frame.style.width = v.w + 'px';
-                frame.style.height = v.h + 'px';
-                title.textContent = d.label + (v.landscape ? '  ·  landscape' : '  ·  portrait');
-                resSpan.textContent = v.w + ' × ' + v.h;
-                rotateBtn.style.display = v.canRotate ? '' : 'none';
-                // Available area = stage box (modal minus header + padding).
-                var avW = stage.clientWidth - 24;
-                var avH = stage.clientHeight - 24;
+                var avW = overlay.clientWidth  - 2 * FRAME;
+                var avH = overlay.clientHeight - 2 * FRAME - CAP_H;
                 var s = Math.min(avW / v.w, avH / v.h, 1);
                 if (!isFinite(s) || s <= 0) s = 1;
-                bezel.style.width = v.w + 'px';
-                bezel.style.height = v.h + 'px';
-                // transform-origin is center, and the stage centers the (unscaled)
-                // box via flex — so the scaled visual stays centred with no margin
-                // hack. overflow:hidden on the stage clips the larger unscaled box.
-                bezel.style.transform = 'scale(' + s + ')';
+                // iframe renders at TRUE device px, scaled from the top-left; the
+                // screen wrapper takes the scaled footprint so the cradle (border)
+                // hugs the device exactly and the ✕ sits on that border.
+                frame.style.width = v.w + 'px';
+                frame.style.height = v.h + 'px';
+                frame.style.transformOrigin = 'top left';
+                frame.style.transform = 'scale(' + s + ')';
+                screen.style.width = Math.round(v.w * s) + 'px';
+                screen.style.height = Math.round(v.h * s) + 'px';
+                title.textContent = d.label;
+                resSpan.textContent = (v.landscape ? 'landscape' : 'portrait') + '  ·  ' + v.w + ' × ' + v.h;
+                rotateBtn.style.display = v.canRotate ? '' : 'none';
             }
             _bgDeviceModal.fit = fit;
-            // Defer one frame so stage has layout dimensions.
+            // Defer one frame so the overlay has layout dimensions.
             setTimeout(fit, 0);
             // Poll the iframe's screen state so we flip full↔device exactly when
-            // gameplay starts/ends (no game-internals hooks needed).
-            var _lastBoard = null;
-            _bgDeviceModal.poll = setInterval(function () {
-                var b = _boardVisible();
-                if (b !== _lastBoard) { _lastBoard = b; fit(); }
-            }, 150);
+            // gameplay starts/ends (no game-internals hooks needed). Skipped for
+            // autostart (always device).
+            if (!autostart) {
+                var _lastBoard = null;
+                _bgDeviceModal.poll = setInterval(function () {
+                    var b = _boardVisible();
+                    if (b !== _lastBoard) { _lastBoard = b; fit(); }
+                }, 150);
+            }
             window.addEventListener('resize', fit);
             _bgDeviceModal.onResize = fit;
-            rotateBtn.addEventListener('click', function() {
+            rotateBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
                 _bgSetTabletOrient(_bgTabletOrient() === 'landscape' ? 'portrait' : 'landscape');
                 fit();
             });
             closeBtn.addEventListener('click', _bgCloseDeviceFrame);
             overlay.addEventListener('click', function(e) { if (e.target === overlay) _bgCloseDeviceFrame(); });
+            // Escape closes the preview (returns to GP 0).
+            _bgDeviceModal.onKey = function(e) { if (e.key === 'Escape') { e.preventDefault(); _bgCloseDeviceFrame(); } };
+            document.addEventListener('keydown', _bgDeviceModal.onKey, true);
             return true;
         }
         function _bgCloseDeviceFrame() {
             if (!_bgDeviceModal) return;
             if (_bgDeviceModal.poll) clearInterval(_bgDeviceModal.poll);
             if (_bgDeviceModal.onResize) window.removeEventListener('resize', _bgDeviceModal.onResize);
+            if (_bgDeviceModal.onKey) document.removeEventListener('keydown', _bgDeviceModal.onKey, true);
             if (_bgDeviceModal.overlay && _bgDeviceModal.overlay.parentNode) {
                 _bgDeviceModal.overlay.parentNode.removeChild(_bgDeviceModal.overlay);
             }

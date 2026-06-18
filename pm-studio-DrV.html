@@ -471,7 +471,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:04 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -489,7 +489,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:04 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -731,7 +731,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:04 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4806,6 +4806,22 @@
                 br: [b.x + b.width, b.y + b.height]
             };
         }
+        // Edge (side) midpoints of the selection box — used for one-directional
+        // (non-proportional) resize of pictures.
+        function _rzEdgePoints(b) {
+            return {
+                n: [b.x + b.width / 2, b.y],
+                s: [b.x + b.width / 2, b.y + b.height],
+                e: [b.x + b.width, b.y + b.height / 2],
+                w: [b.x, b.y + b.height / 2]
+            };
+        }
+        function _rzEdgeCursor(edge) { return (edge === 'n' || edge === 's') ? 'ns-resize' : 'ew-resize'; }
+        // Pictures (bare <image>) resize by their own width/height geometry, which
+        // supports independent x/y sizing — so they (and only they) get edge
+        // handles for one-directional stretching. Every other type stays
+        // proportional-only via the applySizeToElement pipeline.
+        function _isGeoResize(el) { return el.tagName.toLowerCase() === 'image'; }
         function removeSelHandles() {
             selectionHandles.forEach(function(h) { if (h.parentNode) h.parentNode.removeChild(h); });
             selectionHandles = [];
@@ -4839,11 +4855,35 @@
                 h.setAttribute('data-corner', corner);
                 h.style.cursor = _rzCornerCursor(corner);
                 h.style.pointerEvents = 'all';
-                h.addEventListener('mousedown', function(ev) { _startHandleResize(ev, corner, el); });
+                h.addEventListener('mousedown', function(ev) { _startHandleResize(ev, { kind: 'corner', pos: corner }, el); });
                 h.addEventListener('click', function(ev) { ev.stopPropagation(); });
                 cardSvg.appendChild(h);
                 selectionHandles.push(h);
             });
+            // Edge handles (pictures only) — one-directional / non-proportional resize
+            if (_isGeoResize(el)) {
+                var ept = _rzEdgePoints(b);
+                ['n', 's', 'e', 'w'].forEach(function(edge) {
+                    var p = ept[edge];
+                    var h = document.createElementNS(SVGNS, 'rect');
+                    h.setAttribute('width', RZ_HANDLE);
+                    h.setAttribute('height', RZ_HANDLE);
+                    h.setAttribute('x', p[0] - RZ_HANDLE / 2);
+                    h.setAttribute('y', p[1] - RZ_HANDLE / 2);
+                    h.setAttribute('rx', 0.4);
+                    h.setAttribute('fill', '#FFD700');
+                    h.setAttribute('stroke', '#7a5c00');
+                    h.setAttribute('stroke-width', 0.3);
+                    h.classList.add('draw-resize-handle');
+                    h.setAttribute('data-edge', edge);
+                    h.style.cursor = _rzEdgeCursor(edge);
+                    h.style.pointerEvents = 'all';
+                    h.addEventListener('mousedown', function(ev) { _startHandleResize(ev, { kind: 'edge', pos: edge }, el); });
+                    h.addEventListener('click', function(ev) { ev.stopPropagation(); });
+                    cardSvg.appendChild(h);
+                    selectionHandles.push(h);
+                });
+            }
             // Live "×N" readout (hidden until a drag begins)
             var g = document.createElementNS(SVGNS, 'g');
             g.classList.add('draw-scale-label');
@@ -4875,17 +4915,18 @@
             }
             var b; try { b = getSvgSpaceBBox(selectedElement); } catch (e) { return; }
             if (!b) return;
-            var pts = _rzCornerPoints(b);
+            var cpts = _rzCornerPoints(b), epts = _rzEdgePoints(b);
             selectionHandles.forEach(function(h) {
-                var p = pts[h.getAttribute('data-corner')];
+                var p = h.hasAttribute('data-corner') ? cpts[h.getAttribute('data-corner')]
+                                                      : epts[h.getAttribute('data-edge')];
+                if (!p) return;
                 h.style.display = '';
                 h.setAttribute('x', p[0] - RZ_HANDLE / 2);
                 h.setAttribute('y', p[1] - RZ_HANDLE / 2);
             });
         }
-        function _showScaleLabel(x, y, f) {
+        function _showScaleLabel(x, y, s) {
             if (!selectionScaleLabel) return;
-            var s = '×' + f.toFixed(2);
             var tx = selectionScaleLabel.querySelector('text');
             var bg = selectionScaleLabel.querySelector('rect');
             tx.textContent = s;
@@ -4898,23 +4939,57 @@
             bg.setAttribute('height', h);
             selectionScaleLabel.style.display = '';
         }
-        // Begin a corner-resize gesture. Resizes proportionally (aspect-locked)
-        // with the OPPOSITE corner pinned, reusing applySizeToElement so every
-        // element type (circle/text/stamp <g>/image/path) scales correctly, then
-        // re-pins so the anchor corner stays put regardless of each type's own
-        // size-anchor. Drives data-draw-size; drawOverScale stays constant.
-        function _startHandleResize(e, corner, el) {
+        // Begin a resize gesture from a handle.
+        //  • handle = { kind:'corner', pos:'tl|tr|bl|br' } → proportional (aspect-
+        //    locked) resize with the OPPOSITE corner pinned.
+        //  • handle = { kind:'edge', pos:'n|s|e|w' } → one-directional (non-
+        //    proportional) resize with the OPPOSITE edge pinned (pictures only;
+        //    raises the "changing the shape proportions" warning).
+        // Pictures (<image>) resize by their own width/height geometry in the
+        // element's LOCAL space; every other type goes through applySizeToElement
+        // (uniform) and is re-pinned so the anchor corner stays put.
+        function _startHandleResize(e, handle, el) {
             e.preventDefault(); e.stopPropagation();
             if (!el) return;
-            isResizing = true; _rzStarted = false; _rzCorner = corner; _rzEl = el;
-            var opp = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }[corner];
-            var b = getSvgSpaceBBox(el);
-            var pts = _rzCornerPoints(b);
-            _rzAnchor = { x: pts[opp][0], y: pts[opp][1] };
-            var dragged = pts[corner];
-            _rzStartDiag = Math.max(0.001, Math.hypot(dragged[0] - _rzAnchor.x, dragged[1] - _rzAnchor.y));
-            _rzBaseSize = +el.getAttribute('data-draw-size') || getEffectiveSize() || 30;
+            var kind = handle.kind, pos = handle.pos;
+            var geo = _isGeoResize(el);
+            var MIN = 2; // smallest picture dimension, SVG units
+            isResizing = true; _rzStarted = false; _rzCorner = pos; _rzEl = el;
             var container = document.getElementById('loupe-card-container');
+
+            // pointer → element LOCAL space (matches the move-drag handler)
+            function ptrLocal(ev) {
+                var rect = container.getBoundingClientRect();
+                var rx = ((ev.clientX - rect.left) / rect.width) * 60;
+                var ry = ((ev.clientY - rect.top) / rect.height) * 60;
+                if (loupeVariationInverse && isInsideVariationG(el)) {
+                    var l = toVariationLocalCoords(rx, ry); rx = l.x; ry = l.y;
+                }
+                return { x: rx, y: ry };
+            }
+
+            // --- grab-time snapshot ---
+            var opp = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }[pos];
+            var g0 = {};
+            if (geo) {
+                g0.x = +el.getAttribute('x') || 0;
+                g0.y = +el.getAttribute('y') || 0;
+                g0.w = +el.getAttribute('width') || 0;
+                g0.h = +el.getAttribute('height') || 0;
+                if (kind === 'corner') {
+                    var lpts = _rzCornerPoints({ x: g0.x, y: g0.y, width: g0.w, height: g0.h });
+                    g0.anchor = { x: lpts[opp][0], y: lpts[opp][1] };
+                    var ld = lpts[pos];
+                    g0.startDiag = Math.max(0.001, Math.hypot(ld[0] - g0.anchor.x, ld[1] - g0.anchor.y));
+                }
+            } else {
+                var b = getSvgSpaceBBox(el);
+                var pts = _rzCornerPoints(b);
+                _rzAnchor = { x: pts[opp][0], y: pts[opp][1] };
+                var dragged = pts[pos];
+                _rzStartDiag = Math.max(0.001, Math.hypot(dragged[0] - _rzAnchor.x, dragged[1] - _rzAnchor.y));
+                _rzBaseSize = +el.getAttribute('data-draw-size') || getEffectiveSize() || 30;
+            }
 
             _rzMoveH = function(ev) {
                 if (!isResizing) return;
@@ -4922,36 +4997,75 @@
                     _rzStarted = true;
                     _loupeEndCoalesce();
                     _loupeStartCoalesce('resize');
-                    _pushLoupeAttrHistory([el], [
-                        'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2', 'font-size', 'stroke-width',
-                        'transform', 'data-draw-size', 'data-over-scale', 'data-over-scale-max',
-                        'data-user-scale', 'data-scale-cx', 'data-scale-cy', 'data-base-transform',
-                        'data-pos-x', 'data-pos-y'
-                    ]);
+                    if (geo) {
+                        _pushLoupeAttrHistory([el], ['x', 'y', 'width', 'height', 'preserveAspectRatio']);
+                        if (kind === 'edge') _twinToast('You are changing the shape proportions', 'loupe-proportions');
+                    } else {
+                        _pushLoupeAttrHistory([el], [
+                            'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2', 'font-size', 'stroke-width',
+                            'transform', 'data-draw-size', 'data-over-scale', 'data-over-scale-max',
+                            'data-user-scale', 'data-scale-cx', 'data-scale-cy', 'data-base-transform',
+                            'data-pos-x', 'data-pos-y'
+                        ]);
+                    }
                 }
-                var rect = container.getBoundingClientRect();
-                var px = ((ev.clientX - rect.left) / rect.width) * 60;
-                var py = ((ev.clientY - rect.top) / rect.height) * 60;
-                var f = Math.hypot(px - _rzAnchor.x, py - _rzAnchor.y) / _rzStartDiag;
-                var newSize = Math.max(2, Math.min(100, _rzBaseSize * f));
-                var effF = newSize / _rzBaseSize;
-                applySizeToElement(el, newSize);
-                // Re-pin: shift the element so the opposite corner returns to anchor.
-                var nb = getSvgSpaceBBox(el);
-                var oppNow = _rzCornerPoints(nb)[opp];
-                var dRx = _rzAnchor.x - oppNow[0], dRy = _rzAnchor.y - oppNow[1];
-                var dLx = dRx, dLy = dRy;
-                if (loupeVariationInverse && isInsideVariationG(el)) {
-                    var inv = loupeVariationInverse; // linear part only — translation cancels in a delta
-                    dLx = inv.a * dRx + inv.c * dRy;
-                    dLy = inv.b * dRx + inv.d * dRy;
+                var labelText;
+                if (geo) {
+                    var p = ptrLocal(ev);
+                    if (kind === 'corner') {
+                        var f = Math.hypot(p.x - g0.anchor.x, p.y - g0.anchor.y) / g0.startDiag;
+                        var nw = Math.max(MIN, g0.w * f), nh = Math.max(MIN, g0.h * f);
+                        var nx = g0.x, ny = g0.y;
+                        if (pos === 'tl') { nx = g0.x + g0.w - nw; ny = g0.y + g0.h - nh; }
+                        else if (pos === 'tr') { ny = g0.y + g0.h - nh; }
+                        else if (pos === 'bl') { nx = g0.x + g0.w - nw; }
+                        el.setAttribute('x', nx); el.setAttribute('y', ny);
+                        el.setAttribute('width', nw); el.setAttribute('height', nh);
+                        labelText = '×' + f.toFixed(2);
+                    } else {
+                        // edge — change one dimension, pin the opposite edge
+                        if (pos === 'e') {
+                            var we = Math.max(MIN, p.x - g0.x);
+                            el.setAttribute('width', we); labelText = '↔ ×' + (we / g0.w).toFixed(2);
+                        } else if (pos === 'w') {
+                            var xw = Math.min(p.x, g0.x + g0.w - MIN), ww = (g0.x + g0.w) - xw;
+                            el.setAttribute('x', xw); el.setAttribute('width', ww); labelText = '↔ ×' + (ww / g0.w).toFixed(2);
+                        } else if (pos === 's') {
+                            var hs = Math.max(MIN, p.y - g0.y);
+                            el.setAttribute('height', hs); labelText = '↕ ×' + (hs / g0.h).toFixed(2);
+                        } else if (pos === 'n') {
+                            var yn = Math.min(p.y, g0.y + g0.h - MIN), hn = (g0.y + g0.h) - yn;
+                            el.setAttribute('y', yn); el.setAttribute('height', hn); labelText = '↕ ×' + (hn / g0.h).toFixed(2);
+                        }
+                        el.setAttribute('preserveAspectRatio', 'none'); // let the stretch show
+                    }
+                    updateSelectionRing();
+                    var rb = getSvgSpaceBBox(el);
+                    var lp = (kind === 'corner') ? _rzCornerPoints(rb)[pos] : _rzEdgePoints(rb)[pos];
+                    _showScaleLabel(lp[0], lp[1] - 3, labelText);
+                } else {
+                    var rect = container.getBoundingClientRect();
+                    var px = ((ev.clientX - rect.left) / rect.width) * 60;
+                    var py = ((ev.clientY - rect.top) / rect.height) * 60;
+                    var f2 = Math.hypot(px - _rzAnchor.x, py - _rzAnchor.y) / _rzStartDiag;
+                    var newSize = Math.max(2, Math.min(100, _rzBaseSize * f2));
+                    var effF = newSize / _rzBaseSize;
+                    applySizeToElement(el, newSize);
+                    var nb = getSvgSpaceBBox(el);
+                    var oppNow = _rzCornerPoints(nb)[opp];
+                    var dRx = _rzAnchor.x - oppNow[0], dRy = _rzAnchor.y - oppNow[1];
+                    var dLx = dRx, dLy = dRy;
+                    if (loupeVariationInverse && isInsideVariationG(el)) {
+                        var inv = loupeVariationInverse; // linear part only — translation cancels in a delta
+                        dLx = inv.a * dRx + inv.c * dRy;
+                        dLy = inv.b * dRx + inv.d * dRy;
+                    }
+                    var posp = getElementPos(el);
+                    setElementPos(el, posp.x + dLx, posp.y + dLy);
+                    updateSelectionRing();
+                    var fpts = _rzCornerPoints(getSvgSpaceBBox(el));
+                    _showScaleLabel(fpts[pos][0], fpts[pos][1] - 3, '×' + effF.toFixed(2));
                 }
-                var pos = getElementPos(el);
-                setElementPos(el, pos.x + dLx, pos.y + dLy);
-                updateSelectionRing();
-                // Label by the dragged corner (final, re-pinned bbox)
-                var fpts = _rzCornerPoints(getSvgSpaceBBox(el));
-                _showScaleLabel(fpts[corner][0], fpts[corner][1] - 3, effF);
                 hasEditedExisting = true; justDragged = true;
                 ev.preventDefault();
             };
@@ -4960,7 +5074,10 @@
                 isResizing = false;
                 document.removeEventListener('mousemove', _rzMoveH);
                 document.removeEventListener('mouseup', _rzUpH);
-                if (_rzStarted) { _loupeEndCoalesce(); populatePropsFromElement(el); }
+                if (_rzStarted) {
+                    _loupeEndCoalesce();
+                    if (!geo) populatePropsFromElement(el); // image has no size-pipeline props to repopulate
+                }
                 if (selectionScaleLabel) selectionScaleLabel.style.display = 'none';
                 updateSelectionRing();
                 _rzCorner = null; _rzEl = null;

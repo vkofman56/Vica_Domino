@@ -93,6 +93,28 @@ you're the sole active session). `scripts/bump-trial.sh [files…]` also accepts
 **Escalation if overlap grows:** separate `git worktree` per session, each on its own branch, with
 `fetch + rebase onto the canonical tip` before each push. Not adopted now.
 
+### ▶ DECIDED June 17: escalate to WORKTREES — execute in a COORDINATED WINDOW (both sessions idle/clean/synced)
+Why: even with per-path `git commit -- <paths>`, the `.githooks/pre-commit` hook still runs
+`git add -- index.html pm-studio-DrV.html` on any HTML-touching commit, re-stamping + re-staging BOTH
+HTML files regardless of scope (this injected pm-studio's timestamp + caused cache-buster drift in the
+b002dd1 ship). Worktrees give true filesystem isolation so this can't cross sessions. **Not yet done —
+deferred to a coordinated window (do NOT do unilaterally; it changes shared tooling for both sessions).**
+
+**Migration steps (when both sessions are idle, clean, and synced at the same canonical tip):**
+1. **Studio session** creates its own worktree + branch and works ONLY there:
+   `git worktree add ../Domino-studio -b work/studio`  → open `../Domino-studio`.
+   Big Game session stays in the main `Domino/` on `work/cardmaker-rowcopy`.
+2. **`ship.sh` gains rebase-on-push** (the two local branches now diverge but push to the same 3
+   canonical branches, so a plain push would be non-FF): before pushing, `git fetch origin` then
+   `git rebase origin/claude/review-project-docs-JOOeh`; then push HEAD to all 3 (now a FF). Shared-file
+   edits (style.css/docs) surface as rebase conflicts — rare, small.
+3. **Make `.githooks/pre-commit` scope-aware** (still needed): stamp + re-stage ONLY the HTML already
+   staged in the commit, not always both — otherwise it spuriously stamps the other app's HTML even
+   inside a worktree.
+Net: heavier than the hook fix alone (it needs all 3 of the above), but it removes the shared tree
+entirely. Until executed, keep using per-path `ship.sh "msg" -- <paths>` (code files are already
+isolated; only the HTML timestamp/cache-buster can cross-touch via the hook).
+
 ---
 
 ## ▶▶ NEXT CHAT: **Phase 3 — 3a+3b+3c + 3d(i–iv) + 3e DONE. Only 3f (Publish, deferred) remains.**

@@ -3008,7 +3008,7 @@ class VicaDominoGame {
         // the button text, and in the combined Next/Celebration states which keep
         // their own labels). New Game → triangle + sparkles on a sparkly bg, so
         // "new" reads distinct from "replay". aria-label keeps it accessible.
-        var _PLAY_TRI = '<svg class="egb-ico" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>';
+        var _PLAY_TRI = '<svg class="egb-ico" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>';
         var _isNonstopHijack = (window._currentTypeBehavior === 'nonstop' &&
             !(this.combinedGame && (this.combinedGame.pendingCelebration || this.combinedGame.pendingAdvance)));
         if (_iconifyPlay && !_isNonstopHijack) {
@@ -3020,7 +3020,7 @@ class VicaDominoGame {
 
         const newGameBtn = document.createElement('button');
         newGameBtn.className = 'btn btn-secondary end-game-btn end-game-btn-icon end-game-btn-new';
-        newGameBtn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="32" height="26" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
+        newGameBtn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="42" height="34" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
         newGameBtn.setAttribute('aria-label', 'New game');
         newGameBtn.title = 'New game';
         newGameBtn.addEventListener('click', () => this.resetToSetup());

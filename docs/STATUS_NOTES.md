@@ -254,6 +254,17 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
 - Verified iPhone 390×844: both buttons render the triangle, New Game has the sparkly gradient, icon-only,
   no console errors. css `dgx-redesign-61`, game.js `biggame-flow-5`.
 
+##### Hint one-line + bigger triangles (June 18)
+- **"Press to select" on ONE line above the dominoes** (supersedes the stacked version): phone block
+  `.sun-level-tiles-container{flex-direction:row;flex-wrap:wrap;justify-content:center}` +
+  `.dominoes-with-keys{flex-basis:100%;justify-content:center}` → press+select on line 1, cards wrap to
+  line 2 centered. (order: coin-gem 0, press 1, select 2, cards 3.)
+- **Play-triangle icons +30%**: `_PLAY_TRI` 26→34px; New Game SVG 32×26→42×34px (`js/game.js`).
+- css `dgx-redesign-62`, game.js `biggame-flow-6`.
+- ⚠ **Visual re-verify pending**: the Claude-preview tab froze on sync.js's blocking `alert()` (Firebase
+  unreachable — sandbox network blip), so no fresh screenshot this pass. Changes are CSS/SVG-size only and
+  logically verified; re-screenshot when connectivity returns.
+
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
 1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses

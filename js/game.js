@@ -371,6 +371,7 @@ class VicaDominoGame {
 
         // Back arrow button (start screen) - context-aware: if player-names visible, go back to setup; otherwise go to intro
         document.getElementById('back-to-intro-btn').addEventListener('click', () => {
+            if (typeof window._mgClearAddMode === 'function') window._mgClearAddMode(); // leaving Setup cancels add-mode
             var pn = document.getElementById('player-names');
             // For mouse-mode catch: player-names is shown on setup page, so back goes to intro
             var isCatchMouse = (typeof _pendingCatchGameIndex !== 'undefined' && _pendingCatchGameIndex >= 0 &&
@@ -2643,21 +2644,12 @@ class VicaDominoGame {
             playersArea.classList.remove('single-player-layout');
         }
 
-        // Combined game: show stage progress as stones in the header next to game name
+        // Stage-progress "stones" REMOVED (user request, June 17): on the board
+        // they read like game coins/gems and added confusion instead of clarity.
+        // The container is just kept empty. Re-enable a (clearer) progress
+        // indicator here later if wanted — the combinedGame stage data is all here.
         const headerStones = document.getElementById('header-stage-stones');
-        if (headerStones) {
-            headerStones.innerHTML = '';
-            if (this.combinedGame) {
-                const config = this.combinedGame.config;
-                const totalStages = config.stages.length;
-                const currentStage = this.combinedGame.currentStage;
-                for (let i = totalStages - 1; i >= 0; i--) {
-                    const stone = document.createElement('span');
-                    stone.className = 'stage-stone-inline' + (i <= currentStage ? ' active' : '');
-                    headerStones.appendChild(stone);
-                }
-            }
-        }
+        if (headerStones) headerStones.innerHTML = '';
 
         this.players.forEach((player, playerIndex) => {
             const handEl = document.createElement('div');
@@ -2905,6 +2897,9 @@ class VicaDominoGame {
     playAgain() {
         console.log('[TIMER] playAgain called. currentTimerDuration:', this.currentTimerDuration);
 
+        // Cancel any pending Big Game auto-continue so it can't double-fire.
+        if (this._bgAutoTimeout) { clearTimeout(this._bgAutoTimeout); this._bgAutoTimeout = null; }
+
         // If a Non-stop countdown is running, cancel it cleanly so this
         // restart isn't followed by the timer firing again.
         this._stopNonstopCountdown();
@@ -2980,12 +2975,14 @@ class VicaDominoGame {
         const playAgainBtn = document.createElement('button');
         playAgainBtn.className = 'btn btn-primary end-game-btn';
         // Combined game: change button text when advancing/celebrating
+        let _iconifyPlay = false;
         if (this.combinedGame && this.combinedGame.pendingCelebration) {
             playAgainBtn.textContent = '🎉 Celebration!';
         } else if (this.combinedGame && this.combinedGame.pendingAdvance) {
             playAgainBtn.textContent = '⭐ Next Game!';
         } else {
             playAgainBtn.textContent = 'Play Again';
+            _iconifyPlay = true; // plain replay → play-triangle icon (trial)
         }
         playAgainBtn.addEventListener('click', () => {
             // In Non-stop the same button doubles as Stop / skip-ahead:
@@ -3006,9 +3003,26 @@ class VicaDominoGame {
             this._startNonstopCountdown(playAgainBtn);
         }
 
+        // Icon trial (June 18): both end-game buttons become a play TRIANGLE.
+        // Play Again → plain triangle (skip when the Non-stop countdown hijacks
+        // the button text, and in the combined Next/Celebration states which keep
+        // their own labels). New Game → triangle + sparkles on a sparkly bg, so
+        // "new" reads distinct from "replay". aria-label keeps it accessible.
+        var _PLAY_TRI = '<svg class="egb-ico" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>';
+        var _isNonstopHijack = (window._currentTypeBehavior === 'nonstop' &&
+            !(this.combinedGame && (this.combinedGame.pendingCelebration || this.combinedGame.pendingAdvance)));
+        if (_iconifyPlay && !_isNonstopHijack) {
+            playAgainBtn.innerHTML = _PLAY_TRI;
+            playAgainBtn.setAttribute('aria-label', 'Play again');
+            playAgainBtn.title = 'Play again';
+            playAgainBtn.classList.add('end-game-btn-icon');
+        }
+
         const newGameBtn = document.createElement('button');
-        newGameBtn.className = 'btn btn-secondary end-game-btn';
-        newGameBtn.textContent = 'New Game';
+        newGameBtn.className = 'btn btn-secondary end-game-btn end-game-btn-icon end-game-btn-new';
+        newGameBtn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="42" height="34" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
+        newGameBtn.setAttribute('aria-label', 'New game');
+        newGameBtn.title = 'New game';
         newGameBtn.addEventListener('click', () => this.resetToSetup());
 
         btnContainer.appendChild(playAgainBtn);
@@ -3020,6 +3034,19 @@ class VicaDominoGame {
             playersArea.parentNode.insertBefore(btnContainer, xenoTimerBox);
         } else {
             playersArea.parentNode.insertBefore(btnContainer, playersArea.nextSibling);
+        }
+
+        // Big Game (3d-iii fix): auto-continue between rounds so the sequence
+        // FLOWS like Catch — no manual "Play Again" click. The visible button
+        // still lets the player skip the wait or advance immediately. Only Big
+        // Games (config._isBigGame) opt in; legacy combined games are untouched.
+        if (this.combinedGame && this.combinedGame.config && this.combinedGame.config._isBigGame) {
+            const _self = this;
+            if (this._bgAutoTimeout) clearTimeout(this._bgAutoTimeout);
+            this._bgAutoTimeout = setTimeout(function () {
+                _self._bgAutoTimeout = null;
+                if (_self.gamePhase === 'sunLevelWon') _self.playAgain();
+            }, 1600);
         }
     }
 
@@ -4040,6 +4067,19 @@ class VicaDominoGame {
         } else {
             this.checkGameProgression(playerId);
         }
+        // Big Game SCAN mode: advance after just ~3 coins THIS stage (rapid
+        // preview), regardless of the gem rule. Counter resets per stage in
+        // advanceToNextStage. No-op outside scan/combined play.
+        if (window._bgScanMode && this.combinedGame) {
+            if (!this._bgScanCoins) this._bgScanCoins = {};
+            this._bgScanCoins[playerId] = (this._bgScanCoins[playerId] || 0) + amount;
+            if (this._bgScanCoins[playerId] >= 3) {
+                const isLast = this.combinedGame.currentStage >= this.combinedGame.config.stages.length - 1;
+                if (isLast) this.combinedGame.pendingCelebration = true;
+                else this.combinedGame.pendingAdvance = true;
+                this._updateEndGameButtonText();
+            }
+        }
         // Note: display is rendered by caller's renderSunLevel(), not here
     }
 
@@ -4213,6 +4253,7 @@ class VicaDominoGame {
             // Reset stage gems for all players
             this.players.forEach(p => {
                 this.stageGems[p.id] = 0;
+                if (this._bgScanCoins) this._bgScanCoins[p.id] = 0; // SCAN: reset per-stage coin count
             });
 
             // Load next game's deck
@@ -4310,6 +4351,8 @@ class VicaDominoGame {
     }
 
     resetToSetup() {
+        // Big Game: drop the play banner + body flag when leaving play.
+        if (window._bgEndPlayChrome) window._bgEndPlayChrome();
         // Cancel any running Non-stop countdown so it doesn't auto-start
         // a new round after the user has explicitly returned to setup.
         this._stopNonstopCountdown();

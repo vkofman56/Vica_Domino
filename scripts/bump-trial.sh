@@ -31,7 +31,14 @@ NEW_BANNER="${NEW_TIME}"
 # legacy "TRIAL HH:MM AM/PM PDT" form — with the current LA time. The
 # (?:TRIAL\s+)? group makes the prefix optional so this script is
 # idempotent across the format transition.
-TARGETS=(index.html pm-studio-DrV.html)
+#
+# Targets: the files passed as arguments (per-path ship scope) if any, else the
+# default trio. Non-files are skipped below, so passing a mixed path list is OK.
+if [ "$#" -gt 0 ]; then
+    TARGETS=("$@")
+else
+    TARGETS=(index.html pm-studio-DrV.html biggame.html)
+fi
 TOTAL_REPLACED=0
 for f in "${TARGETS[@]}"; do
     [ -f "$f" ] || continue

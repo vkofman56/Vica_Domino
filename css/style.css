@@ -263,7 +263,7 @@ body {
     justify-content: center;
 }
 .intro-player-toggle .player-thumb-fig {
-    height: 13px;
+    height: 15px;   /* +15% (was 13px) — bigger middle stick-figure */
     width: auto;
     display: block;
 }
@@ -327,6 +327,149 @@ body {
     border-color: rgba(255,215,0,0.7);
     background: rgba(255,255,255,0.18);
 }
+
+/* ===== Device-preview selector (on the "Choose the game:" line) ===== */
+/* Picking a device makes any game tile launch inside a scaled iframe sized to
+   that device. Sits right after the heading; the search box stays far right. */
+.intro-preview-devices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-right: auto;        /* hug the heading; push the search to the right */
+}
+.ipd-btn {
+    padding: 5px 11px;
+    border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.82);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.ipd-btn:hover { background: rgba(255,255,255,0.18); }
+.ipd-btn.active {
+    background: #4DD0E1;
+    color: #06343b;
+    border-color: #4DD0E1;
+    box-shadow: 0 0 0 2px rgba(77,208,225,0.25);
+}
+/* Mouse mode: device preview is touch-only → greyed + inert. */
+.ipd-btn.ipd-disabled,
+.ipd-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.ipd-host-disabled { opacity: 0.85; }
+
+/* ===== Scaled device-frame preview modal ===== */
+.bg-device-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: rgba(0,0,0,0.78);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    box-sizing: border-box;
+}
+/* Cradle = the ~1-inch framed border around the device. The ✕ sits ON this
+   border (top-right). Sizes to the scaled device (inline-block content). */
+.bg-device-cradle {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1in;                 /* ~the requested 1-inch border */
+    border: 2px solid rgba(255,255,255,0.22);
+    border-radius: 26px;
+    background: rgba(20,16,40,0.55);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    box-sizing: border-box;
+    max-width: 100%;
+    max-height: 100%;
+}
+/* Full-size (Setup/intro on a non-autostart preview): drop the frame so the
+   app renders normally; only the gameplay board gets the framed device view. */
+.bg-device-cradle.full {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    width: 100%;
+    height: 100%;
+}
+.bg-device-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.bg-device-close:hover { background: #e53935; border-color: #e53935; }
+.bg-device-cap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    color: #fff;
+}
+.bg-device-cradle.full .bg-device-cap { margin-bottom: 6px; }
+.bg-device-title { font-weight: 800; font-size: 15px; }
+.bg-device-res { color: rgba(255,255,255,0.6); font-size: 13px; }
+.bg-device-rotate {
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+.bg-device-rotate:hover { background: rgba(255,255,255,0.22); }
+/* Screen = device glass. Sized by JS to the SCALED device footprint; the iframe
+   renders at TRUE device px and is transform:scale()'d (top-left) to fit. */
+.bg-device-screen {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border: 8px solid #1b1b1f;
+    border-radius: 22px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    flex: 0 0 auto;
+    box-sizing: content-box;   /* JS sets the GLASS size; border sits outside it */
+}
+.bg-device-cradle.full .bg-device-screen {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+.bg-device-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
+    background: #1a1530;
+}
+.bg-device-cradle.full .bg-device-frame { position: static; }
 .game-type-search-dropdown {
     position: absolute;
     top: calc(100% + 4px);
@@ -449,6 +592,65 @@ body {
     gap: 18px;
     margin-bottom: 10px;
 }
+/* Big Games column (3e): "Go to Big Game" author button + clickable Big Game
+   tiles that launch a composed sequence in the Previewer. */
+.intro-biggame-go {
+    width: 100%;
+    padding: 9px 10px;
+    margin-bottom: 10px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #7c4dff;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    font-family: inherit;
+}
+.intro-biggame-go:hover { background: #8d63ff; }
+/* Play / Scan toggle under the Composer button. */
+.intro-biggame-mode {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.ibg-mode-btn {
+    flex: 1 1 0;
+    padding: 6px 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 8px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 700;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+.ibg-mode-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.ibg-mode-btn.active {
+    background: #FFD54F;
+    color: #4a3a00;
+    border-color: #FFD54F;
+}
+.intro-biggame-tile {
+    width: 100%;
+    text-align: left;
+    padding: 9px 11px;
+    margin: 7px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.intro-biggame-tile:hover { background: rgba(255, 255, 255, 0.2); }
+.intro-biggame-tile .ibg-name { font-weight: 700; font-size: 13.5px; }
+.intro-biggame-tile .ibg-meta { font-size: 11px; color: rgba(255, 255, 255, 0.65); }
+
 /* Miscellaneous column: a clickable utility box (e.g. "Icons and Players"). */
 .intro-misc-item {
     padding: 12px 12px;
@@ -730,6 +932,100 @@ body {
     display: block;
 }
 
+/* Mini-games folder button (Phase 2c) — sits next to the eye on each game
+   row; opens that game's mini-games panel. Gold-accented to distinguish it
+   from the eye; carries a count badge. */
+.intro-game-mg {
+    flex: 0 0 38px;
+    position: relative;
+    border-radius: 12px;
+    border: 2px solid rgba(255,215,0,0.45);
+    background: rgba(255,215,0,0.10);
+    color: #FFD700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    padding: 0;
+}
+.intro-game-mg:hover {
+    background: rgba(255,215,0,0.22);
+    transform: scale(1.05);
+    border-color: rgba(255,215,0,0.85);
+}
+.intro-game-mg svg { display: block; }
+.intro-game-mg-count {
+    position: absolute;
+    top: -6px; right: -6px;
+    min-width: 16px; height: 16px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: #7c4dff;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    box-sizing: border-box;
+}
+.intro-game-mg-count.zero { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.55); }
+
+/* Mini-games panel (anchored popover) */
+.mg-panel {
+    position: fixed;
+    z-index: 16000;
+    width: 320px;
+    max-width: 92vw;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: #1e1e2e;
+    color: #eee;
+    border: 1.5px solid rgba(255,215,0,0.5);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.55);
+    font-family: 'Segoe UI', sans-serif;
+}
+.mg-panel-title { font-size: 14px; font-weight: 700; color: #FFD700; margin-bottom: 8px; }
+.mg-panel-empty { color: #999; font-size: 12.5px; padding: 6px 0; }
+.mg-panel-item {
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    border: 1px solid transparent; margin: 3px 0; background: rgba(255,255,255,0.05);
+}
+.mg-panel-item:hover { background: rgba(255,255,255,0.1); }
+.mg-panel-item.selected { border-color: #FFD700; background: rgba(255,215,0,0.12); }
+.mg-panel-legend {
+    margin-top: 8px; padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.12);
+    color: #cfe6ff; font-size: 12.5px; line-height: 1.5; white-space: normal;
+}
+.mg-item-act {
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; color: #bbb; cursor: pointer; background: rgba(255,255,255,0.06);
+}
+.mg-item-act:hover { background: rgba(255,255,255,0.18); color: #fff; }
+/* Play ▶ — green so it reads as "preview this mini-game". */
+.mg-item-play {
+    color: #2e7d32;
+    background: rgba(76,175,80,0.18);
+    font-size: 11px;
+}
+.mg-item-play:hover { background: #4caf50; color: #06340a; }
+.mg-panel-add {
+    margin-top: 10px; width: 100%; padding: 8px 10px; border: 1px dashed rgba(255,215,0,0.5);
+    border-radius: 8px; background: rgba(255,215,0,0.08); color: #FFD700;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.mg-panel-add:hover { background: rgba(255,215,0,0.18); }
+
+/* Banner atop the Setup card while creating/editing a mini-game. */
+#mg-edit-banner {
+    margin: 0 0 12px; padding: 9px 16px; border-radius: 10px;
+    background: rgba(124,77,255,0.22); border: 1px solid rgba(124,77,255,0.6);
+    color: #fff; font-weight: 700; font-size: 15px; text-align: center;
+}
+
 .cards-library-overlay {
     position: fixed;
     inset: 0;
@@ -933,6 +1229,27 @@ body {
     z-index: 95;
     position: relative; /* sit above sibling backgrounds without leaving flow */
 }
+/* Big Game play: the #bg-play-banner is a full-width row at the very top.
+   Shift the Catch board down so it clears the banner, and move the board's
+   page-name pill to the LEFT next to the back/home icons (the "Game one —
+   Stage …" banner stays centered above). */
+/* Keep the overlay covering full-screen (so nothing shows behind the banner);
+   just push its CONTENT down below the banner and move the page-name pill left
+   next to the back/home icons. */
+body.bg-playing .catch-game-overlay .board-id-bar {
+    margin: 50px auto 12px 96px;   /* down below banner + left next to icons */
+}
+/* The back/home icons are position:fixed (viewport-relative) — push them down
+   below the banner explicitly so they sit on the page-name pill's row. */
+body.bg-playing .catch-overlay-back,
+body.bg-playing .catch-overlay-home { top: 50px; }
+/* FIND board (#game-screen): padding-top pushes the whole board below the
+   banner (no margin-collapse), the page-name pill goes LEFT next to the icons,
+   and the absolute back/home icons drop to the same row. */
+body.bg-playing #game-screen { padding-top: 40px; }
+body.bg-playing #game-screen #board-id-bar { margin: 0 auto 12px 96px; }
+body.bg-playing #game-screen #back-arrow-btn,
+body.bg-playing #game-screen #home-btn-game { top: 40px; }
 /* The page-name label lives inside the bar now: drop its absolute corner
    positioning and render it inline next to the game name. Editing and
    persistence are unchanged (same id / gpKey / delegated handlers). */
@@ -1469,17 +1786,21 @@ body.loupe-resizing * { user-select: none !important; }
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 3px 0 5px;
-    margin: -4px 0 2px;
-    color: rgba(255, 215, 0, 0.45);
+    padding: 6px 0 7px;
+    margin: -4px 0 4px;
+    color: rgba(255, 215, 0, 0.7);
     cursor: grab;
     user-select: none;
-    border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.18);
+    /* Clear grab-bar affordance so users see the panel is movable. */
+    background: rgba(255, 215, 0, 0.08);
+    border-radius: 7px 7px 0 0;
+    transition: background 0.12s, color 0.12s;
     touch-action: none;
 }
-.panel-drag-handle:hover { color: rgba(255, 215, 0, 0.8); }
+.panel-drag-handle:hover { color: #FFD700; background: rgba(255, 215, 0, 0.18); }
 .panel-drag-handle:active,
-.panel-drag-handle.dragging { cursor: grabbing; color: #FFD700; }
+.panel-drag-handle.dragging { cursor: grabbing; color: #FFD700; background: rgba(255, 215, 0, 0.24); }
 
 /* Light variant for cream-colored panels (variation toolbar) */
 .panel-drag-handle.panel-drag-handle-light {
@@ -2885,6 +3206,26 @@ svg .draw-sel-ring {
 body.editing-icon #draw-shape-row {
     display: none;
 }
+
+/* While EDITING a card or icon (loupe open), the left toolbar shows ONLY two
+   direct icons: the pink-border toggle (#border-btn, relocated here from the
+   zoom panel by openLoupe) and the spoken-title mic (#stp-toggle-btn, "sound").
+   No loupe/zoom button, no ruler/V/V+/+/copy-from-set/IC/GM/Word. user, June 13. */
+body.loupe-active #domino-library-screen .library-zoom-fixed > .zoom-btn {
+    display: none !important;
+}
+body.loupe-active #domino-library-screen .library-zoom-fixed > #border-btn.in-loupe-toolbar,
+body.loupe-active #domino-library-screen .library-zoom-fixed > #stp-toggle-btn {
+    display: flex !important;
+}
+/* Editing an ICON: keep only the pink-border icon — hide the sound mic
+   (spoken titles are a card concept) (user, June 13). Placed after the show
+   rule so it wins at equal specificity. */
+body.editing-icon #domino-library-screen .library-zoom-fixed > #stp-toggle-btn {
+    display: none !important;
+}
+/* Border button adopts the round toolbar-button look while it lives here. */
+#border-btn.in-loupe-toolbar { font-size: 18px; }
 
 /* Real-size preview shown during icon edit.
    Default placement (fallback): pinned to the top-right of the loupe
@@ -5649,6 +5990,37 @@ body.group-edit-active .library-row-letter:hover {
     min-width: 180px;
 }
 
+/* Icon-only end-game buttons (play-triangle trial). */
+.end-game-btn.end-game-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 120px;
+    padding: 10px 28px;
+}
+.end-game-btn-icon .egb-ico { display: block; }
+/* New Game = sparkly play button: triangle + sparkles on a sparkly bg, so it
+   reads as "new" vs the plain replay triangle. */
+.end-game-btn.end-game-btn-new {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(135deg, #7c4dff 0%, #b06bff 60%, #d59bff 100%);
+    border: none;
+}
+.end-game-btn.end-game-btn-new::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 18% 28%, rgba(255,255,255,0.95) 0 1.6px, transparent 2.4px),
+        radial-gradient(circle at 82% 38%, rgba(255,255,255,0.85) 0 1.3px, transparent 2.2px),
+        radial-gradient(circle at 64% 78%, rgba(255,255,255,0.8) 0 1.4px, transparent 2.2px),
+        radial-gradient(circle at 34% 72%, rgba(255,255,255,0.7) 0 1px, transparent 1.8px);
+}
+
 /* Non-stop countdown — Play Again button doubles as the countdown
    display and a tap-to-skip control. Pulse to make the ticking obvious. */
 .end-game-btn.nonstop-countdown {
@@ -7417,6 +7789,68 @@ main {
         padding: 10px;
         gap: 10px;
         margin-top: 5px;
+    }
+}
+
+/* The Saved/sync badge only matters where synced data is EDITED (page names on
+   GP 0 / Setup, and the Studio). Hide it on the PLAY boards — Find (#game-screen
+   shown) and Catch (body.catch-active) — where there's no editing. All widths. */
+body:has(#game-screen[style*="display: block"]) #sync-status,
+body.catch-active #sync-status { display: none !important; }
+
+/* ===== Phone-portrait Find board (e.g. iPhone "GPt F1 Board") =====
+   Targets phone PORTRAIT widths only (landscape phone width > 430px is
+   excluded). Fixes the cramped 390px single-player Find layout surfaced by the
+   device preview. Placed AFTER the 700/768px blocks so it wins at ≤430px. */
+@media (max-width: 430px) {
+    /* (1) "Press to select" on ONE line ABOVE the dominoes: row that wraps,
+       with the cards forced onto the next line (flex-basis:100%) and centered.
+       column-gap 6px ≈ one space at 1.3rem, and the per-label 10px paddings are
+       zeroed so "Press→to" spacing equals "to→select". Block nudged 4mm up. */
+    .sun-level-tiles-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        column-gap: 6px;
+        row-gap: 6px;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin-top: -4mm;
+    }
+    .coin-gem-display.coin-gem-inline { order: 0; }
+    .hint-press-left   { order: 1; padding-right: 0; }
+    .hint-select-right { order: 2; flex-basis: auto; text-align: left; padding-left: 0; }
+    .dominoes-with-keys { order: 3; flex-basis: 100%; justify-content: center; }
+    /* (2) Status line: narrower and starting to the RIGHT of the home button
+       (was a full-width centered bar underlapping the back/home buttons). */
+    .status {
+        margin-left: 100px;
+        margin-right: 12px;
+        text-align: left;
+        padding: 8px 14px;
+        font-size: 1rem;
+    }
+    /* (3) Move the editable page-name pill from the top to ~2cm above the
+       bottom of the screen (fixed to the device viewport — #game-screen itself
+       isn't full-height). */
+    #board-id-bar {
+        position: fixed;
+        bottom: 2cm;
+        left: 50%;
+        transform: translateX(-50%);
+        margin: 0;
+        z-index: 50;
+    }
+    /* (4) Trim the pink "Xeno timer" box width by 4%. */
+    .xeno-timer-box {
+        transform: scaleX(0.96);
+    }
+    /* (5) WIN stage only: the winner box sits high and overlaps the back/home
+       buttons. Push the players-area (winner box) + everything below it (play
+       buttons, xeno box) down 6mm. Scoped to the win state via :has(). */
+    #players-area:has(.sun-level-winner-section) {
+        margin-top: 6mm;
     }
 }
 

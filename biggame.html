@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathGrain — Big Game Composer</title>
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-64">
+    <style>
+        /* Phase 3a/3b — Big Game Composer. Authoring is MOUSE-ONLY. */
+        body { margin: 0; font-family: 'Segoe UI', sans-serif;
+               background: linear-gradient(135deg, #6a74d8, #8a5fc0); color: #fff; min-height: 100vh; }
+        #bgc-app { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
+        .bgc-header { text-align: center; margin-bottom: 6px; }
+        .bgc-header h1 { font-size: 30px; margin: 0; font-weight: 800; }
+        .bgc-header h1 .m { color: #FFD54F; } .bgc-header h1 .g { color: #4DD0E1; }
+        .bgc-sub { text-align: center; color: rgba(255,255,255,0.8); font-size: 14px; margin: 4px 0 22px; }
+        .bgc-card { background: rgba(255,255,255,0.10); border-radius: 16px; padding: 20px 22px; }
+        .bgc-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+        .bgc-card-head h2 { margin: 0; font-size: 19px; color: #fff; }
+        .bgc-btn { padding: 8px 16px; border: none; border-radius: 9px; cursor: pointer;
+                   background: #7c4dff; color: #fff; font-weight: 700; font-size: 14px; }
+        .bgc-btn:hover { background: #8d63ff; }
+        .bgc-btn.ghost { background: rgba(255,255,255,0.14); }
+        .bgc-btn.ghost:hover { background: rgba(255,255,255,0.26); }
+        .bgc-empty { color: rgba(255,255,255,0.75); font-size: 14px; padding: 10px 2px; }
+        /* ---- list view rows ---- */
+        .bgc-row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin: 7px 0;
+                   border-radius: 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); }
+        .bgc-row-name { flex: 1 1 auto; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bgc-row-meta { flex: 0 0 auto; color: rgba(255,255,255,0.6); font-size: 12.5px; }
+        .bgc-row-act { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+                       display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+                       background: rgba(255,255,255,0.08); color: #ddd; border: none; }
+        .bgc-row-act:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .bgc-row-act:disabled { opacity: 0.4; cursor: default; }
+        .bgc-foot { text-align: center; margin-top: 26px; color: rgba(255,255,255,0.6); font-size: 12.5px; }
+        .bgc-foot a { color: #FFD54F; }
+        .bgc-play-btn { flex: 0 0 auto; padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer;
+                        background: #2ecc71; color: #06351b; font-weight: 800; font-size: 13px; }
+        .bgc-play-btn:hover { background: #43e088; }
+        .bgc-play-btn:disabled { opacity: 0.4; cursor: default; }
+        /* embedded-play modal: the real Previewer in an iframe */
+        .bgc-play-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(20,16,40,0.92);
+                            display: flex; flex-direction: column; }
+        .bgc-play-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 9px 16px;
+                        background: rgba(0,0,0,0.35); color: #fff; font-weight: 700; font-size: 14px; }
+        .bgc-play-bar .sp { flex: 1 1 auto; }
+        .bgc-play-bar button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
+                               background: rgba(255,255,255,0.16); color: #fff; font-weight: 700; font-size: 13px; }
+        .bgc-play-bar button:hover { background: rgba(255,255,255,0.3); }
+        .bgc-play-frame { flex: 1 1 auto; width: 100%; border: 0; background: #6a74d8; }
+        /* ---- compose view (two columns) ---- */
+        .bgc-compose { display: flex; gap: 18px; align-items: flex-start; }
+        .bgc-col { flex: 1 1 0; min-width: 0; }
+        .bgc-col h3 { margin: 0 0 10px; font-size: 15px; color: rgba(255,255,255,0.9); font-weight: 700; }
+        .bgc-lib-game { margin: 6px 0; border-radius: 10px; background: rgba(255,255,255,0.06);
+                        border: 1px solid rgba(255,255,255,0.12); overflow: hidden; }
+        .bgc-lib-gamehd { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; }
+        .bgc-lib-gamehd:hover { background: rgba(255,255,255,0.06); }
+        .bgc-tag { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: .3px; }
+        .bgc-tag.find { background: #4DD0E1; color: #06343a; }
+        .bgc-tag.catch { background: #FFD54F; color: #4a3a00; }
+        .bgc-lib-gamename { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bgc-lib-caret { flex: 0 0 auto; color: rgba(255,255,255,0.6); font-size: 12px; }
+        .bgc-lib-mgs { padding: 2px 10px 8px; }
+        .bgc-lib-mg { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0;
+                      border-radius: 8px; background: rgba(255,255,255,0.05); }
+        .bgc-lib-mg-info { flex: 1 1 auto; min-width: 0; }
+        .bgc-lib-mg-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bgc-lib-mg-legend { font-size: 11px; color: rgba(255,255,255,0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bgc-add-btn { flex: 0 0 auto; padding: 4px 10px; border: none; border-radius: 7px; cursor: pointer;
+                       background: #7c4dff; color: #fff; font-weight: 700; font-size: 12px; }
+        .bgc-add-btn:hover { background: #8d63ff; }
+        .bgc-stage { display: flex; align-items: center; gap: 8px; padding: 9px 11px; margin: 6px 0;
+                     border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+                     border-top: 2px solid transparent; }
+        .bgc-stage.bgc-dragging { opacity: 0.4; }
+        .bgc-stage.bgc-drop-before { border-top: 2px solid #FFD54F; }
+        .bgc-stage.bgc-drop-after { border-bottom: 2px solid #FFD54F; }
+        .bgc-stage-grip { flex: 0 0 auto; cursor: grab; color: rgba(255,255,255,0.5); font-size: 14px;
+                          line-height: 1; padding: 0 2px; user-select: none; }
+        .bgc-stage-grip:active { cursor: grabbing; }
+        .bgc-stage-num { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.25);
+                         display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+        .bgc-stage-info { flex: 1 1 auto; min-width: 0; }
+        .bgc-stage-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bgc-stage-sub { font-size: 11px; color: rgba(255,255,255,0.6); }
+        .bgc-stage-legend { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px;
+                            white-space: normal; line-height: 1.35; }
+        .bgc-stage-rule { display: flex; align-items: center; gap: 5px; margin-top: 6px; flex-wrap: wrap; font-size: 11.5px; }
+        .bgc-rule-label { color: rgba(255,255,255,0.55); }
+        .bgc-rule-select, .bgc-rule-num { background: rgba(0,0,0,0.28); color: #fff; border: 1px solid rgba(255,255,255,0.22);
+                                          border-radius: 6px; font-size: 11.5px; padding: 2px 5px; font-family: inherit; }
+        .bgc-rule-num { width: 44px; text-align: center; }
+        .bgc-transition { display: flex; align-items: center; gap: 8px; margin: 5px 26px; font-size: 10.5px;
+                          color: rgba(255,213,79,0.85); letter-spacing: .3px; }
+        .bgc-transition .line { flex: 1 1 auto; height: 1px; background: rgba(255,255,255,0.14); }
+        .bgc-stage-act { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 12px;
+                         display: inline-flex; align-items: center; justify-content: center;
+                         background: rgba(255,255,255,0.08); color: #ddd; border: none; }
+        .bgc-stage-act:hover { background: rgba(255,255,255,0.22); color: #fff; }
+        .bgc-stage-act:disabled { opacity: 0.3; cursor: default; }
+        /* Temporary dev aids: deploy-time stamp in the header + a per-view page
+           label (GP 1 = Big Games list, GP 2 = compose). Remove when no longer needed. */
+        .bgc-stamp { font-size: 17px; color: rgba(255,255,255,0.45); font-weight: normal; margin-left: 8px; }
+        /* Match the program's .page-name-label design (28px, faded, 0.5px tracking). */
+        .bgc-page-label { position: fixed; top: 16px; left: 14px; z-index: 50; font-size: 28px; font-weight: normal;
+                          color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+    <div id="bgc-page-label" class="bgc-page-label">GP 1</div>
+    <div id="bgc-app">
+        <div class="bgc-header">
+            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">12:43 PM PDT</span></h1>
+        </div>
+        <div class="bgc-sub" id="bgc-user">—</div>
+        <div id="bgc-view"></div>
+        <div class="bgc-foot">Authoring tool (mouse). Play happens via the embedded Previewer (coming in 3d).
+            · <a href="index.html">Open Previewer</a></div>
+    </div>
+
+    <!-- Firebase SDK + project config + the cloud-sync layer (patches localStorage; must load before app JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js?v=1"></script>
+    <script src="js/sync.js?v=local-wins-9"></script>
+    <script>
+        // ============================================================
+        // Big Game Composer — 3a foundation + 3b compose (gather+order)
+        // ============================================================
+        // Log in as the stored user so writes sync. Authoring needs superuser
+        // (Vica) for cloud propagation; a guest still saves locally.
+        (function () {
+            var uid = (typeof window.syncGetUserId === 'function') ? window.syncGetUserId() : null;
+            if (typeof window.syncLogin === 'function') window.syncLogin(uid || 'player-guest');
+            var u = document.getElementById('bgc-user');
+            var role = (typeof window.syncGetUserRole === 'function') ? window.syncGetUserRole() : '';
+            u.textContent = uid ? ('Signed in as ' + uid + (role === 'superuser' ? ' (superuser)' : ' — local only')) : 'Not signed in';
+        })();
+
+        // ===== savedBigGames data model + helpers =====
+        // A Big Game = { id, name, createdAt, stages:[ STAGE ], transition }.
+        // STAGE (3b) = { gameType:'find'|'catch', gameRef:{name,index},
+        //               miniGameId:'<id>'|'default', miniGameName }.
+        // (advanceRule + transition editors come in 3c.) Changes persist
+        // immediately — consistent with how the rest of the app saves.
+        function bgLoad() { try { return JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) { return []; } }
+        function bgSave(arr) { localStorage.setItem('savedBigGames', JSON.stringify(arr)); }
+        function bgNewRecord(name) {
+            return { id: 'bg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                     name: (name || '').trim() || 'Big Game', createdAt: Date.now(),
+                     stages: [], transition: { kind: 'levelup' } };
+        }
+        function bgAdd(name) { var a = bgLoad(); a.push(bgNewRecord(name)); bgSave(a); return a; }
+        function bgRename(id, name) { var a = bgLoad(); a.forEach(function (b) { if (b.id === id && (name || '').trim()) b.name = name.trim(); }); bgSave(a); return a; }
+        function bgDelete(id) { var a = bgLoad().filter(function (b) { return b.id !== id; }); bgSave(a); return a; }
+        function bgGet(id) { return bgLoad().filter(function (b) { return b.id === id; })[0] || null; }
+        // Mutate one Big Game's stages and persist. fn receives the stages array.
+        function bgMutateStages(id, fn) {
+            var a = bgLoad();
+            a.forEach(function (b) { if (b.id === id) { if (!Array.isArray(b.stages)) b.stages = []; fn(b.stages); } });
+            bgSave(a); return a;
+        }
+        if (typeof window !== 'undefined') {
+            window.bgLoad = bgLoad; window.bgSave = bgSave; window.bgAdd = bgAdd;
+            window.bgRename = bgRename; window.bgDelete = bgDelete; window.bgNewRecord = bgNewRecord;
+            window.bgGet = bgGet; window.bgMutateStages = bgMutateStages;
+        }
+
+        // ===== game + mini-game readers (shared localStorage with the Previewer) =====
+        function bgFindGames() { try { return JSON.parse(localStorage.getItem('savedCustomGames') || '[]') || []; } catch (e) { return []; } }
+        function bgCatchGames() { try { return JSON.parse(localStorage.getItem('savedCatchGames') || '[]') || []; } catch (e) { return []; } }
+        // Every game exposes an implicit "Default" mini-game (its own config,
+        // miniGameId:'default') plus any saved ones under game.miniGames.
+        // Default's legend is computed live (bgDefaultLegend) so it matches the
+        // Previewer's "Default" exactly.
+        function bgMiniGamesOf(type, index) {
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var game = games[index];
+            var out = [{ id: 'default', name: 'Default', legend: bgDefaultLegend(type, index), isDefault: true }];
+            if (game && Array.isArray(game.miniGames)) {
+                game.miniGames.forEach(function (mg) {
+                    out.push({ id: mg.id, name: mg.name || 'Mini-game', legend: mg.legend || null });
+                });
+            }
+            return out;
+        }
+
+        // ===== Legend formatting — ported verbatim from the Previewer (index.html
+        // _mg* helpers) so the Composer's legend text is IDENTICAL to the Previewer's
+        // mini-game folder. Resolves real prob/level/type labels from game.setup. =====
+        var BG_LEVEL_KEYS = ['circle', 'triangle', 'star'];
+        var BG_LEVEL_DIFF = { circle: 'Easy', triangle: 'Medium', star: 'Hard' };
+        function bgSetupMode(g) { return (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch'; }
+        function bgProbLabel(type, index, probId) {
+            if (!probId) return 'BasicS';
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var opts = (games[index] && games[index].probOptions) || [];
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i] && opts[i].id === probId) return (i + 1) + '. ' + (opts[i].name || ('Prob' + (i + 1)));
+            }
+            return 'Prob';
+        }
+        function bgLevelLabel(g, levelKey) {
+            if (!levelKey) return '';
+            var idx = BG_LEVEL_KEYS.indexOf(levelKey); if (idx < 0) idx = 0;
+            var mode = bgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].levels && g.setup[mode].levels.options) || [];
+            var label = opts[idx] ? (opts[idx].label || '') : '';
+            var diff = BG_LEVEL_DIFF[levelKey] || '';
+            if (diff && label.toLowerCase().indexOf(diff.toLowerCase()) !== -1) diff = '';
+            return ((diff ? diff + ' ' : '') + label).trim();
+        }
+        function bgTypeLabel(g, typeId) {
+            var mode = bgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var i;
+            for (i = 0; i < opts.length; i++) { if (opts[i].id === typeId) return opts[i].label || ''; }
+            for (i = 0; i < opts.length; i++) { if (opts[i].on) return opts[i].label || ''; }
+            return opts[0] ? (opts[0].label || '') : '';
+        }
+        function bgDefaultLegend(type, index) {
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[index]; if (!g) return null;
+            var timerOn = (type === 'find'); // Catch setup.timer is FALL TIME, not a countdown
+            var level; try { level = localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { level = 'circle'; }
+            var mode = bgSetupMode(g);
+            var tOpts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null;
+            for (var i = 0; i < tOpts.length; i++) { if (tOpts[i].on) { typeId = tOpts[i].id; break; } }
+            if (!typeId && tOpts[0]) typeId = tOpts[0].id;
+            return { isDefault: true, timerOn: timerOn, probOptionId: g.activeProbOptionId || null, level: level, typeId: typeId };
+        }
+        // Plain-words legend. includeGame=true prepends "Find · <name>" (full Previewer
+        // string); false omits it (the game is already shown in the row header).
+        function bgFormatLegend(legend, type, index, includeGame) {
+            if (!legend) return '';
+            var games = (type === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[index];
+            var parts = [];
+            if (includeGame) { parts.push(type === 'catch' ? 'Catch' : 'Find'); parts.push((g && g.name) || '(game)'); }
+            parts.push('Timer ' + (legend.timerOn ? 'on' : 'off'));
+            parts.push(bgProbLabel(type, index, legend.probOptionId));
+            var lvl = g ? bgLevelLabel(g, legend.level) : ''; if (lvl) parts.push(lvl);
+            var typ = g ? bgTypeLabel(g, legend.typeId) : ''; if (typ) parts.push(typ);
+            return parts.join('  ·  ');
+        }
+        // 3d-i: play a Big Game by embedding the REAL Previewer in an iframe,
+        // deep-linked to ?playBig=<id>. Same engine, framed — "same as it plays
+        // in the Previewer". 3d-i plays the first (Find) stage only.
+        function bgOpenPlay(id, name) {
+            bgClosePlay();
+            var ov = document.createElement('div'); ov.className = 'bgc-play-overlay'; ov.id = 'bgc-play-overlay';
+            var bar = document.createElement('div'); bar.className = 'bgc-play-bar';
+            var t = document.createElement('span'); t.textContent = '▶ Playing: ' + (name || 'Big Game');
+            var sp = document.createElement('span'); sp.className = 'sp';
+            var hint = document.createElement('span'); hint.style.cssText = 'font-weight:400;font-size:12px;opacity:0.75;'; hint.textContent = 'Plays all stages (Find + Catch) with Level-Up transitions';
+            var close = document.createElement('button'); close.textContent = '✕ Close'; close.addEventListener('click', bgClosePlay);
+            bar.appendChild(t); bar.appendChild(sp); bar.appendChild(hint); bar.appendChild(close);
+            var frame = document.createElement('iframe'); frame.className = 'bgc-play-frame';
+            frame.src = 'index.html?playBig=' + encodeURIComponent(id);
+            frame.allow = 'autoplay';
+            ov.appendChild(bar); ov.appendChild(frame);
+            document.body.appendChild(ov);
+            document.addEventListener('keydown', bgPlayEsc);
+            window.addEventListener('message', bgPlayMsg);
+        }
+        function bgClosePlay() {
+            var ov = document.getElementById('bgc-play-overlay');
+            if (ov) ov.remove();
+            document.removeEventListener('keydown', bgPlayEsc);
+            window.removeEventListener('message', bgPlayMsg);
+        }
+        function bgPlayEsc(e) { if (e.key === 'Escape') bgClosePlay(); }
+        // The embedded Previewer posts this when a Big Game finishes (the player
+        // clicked "Finish" on the celebration) → close the modal, back to the list.
+        function bgPlayMsg(e) { if (e && e.data && e.data.type === 'bgPlayDone') bgClosePlay(); }
+
+        // Resolve a stage's legend LIVE from its source mini-game (so it tracks
+        // edits / matches the Previewer), falling back to the snapshot stored on
+        // the stage if the game/mini-game no longer exists.
+        function bgResolveLegend(stage) {
+            var idx = stage.gameRef ? stage.gameRef.index : -1;
+            var games = (stage.gameType === 'catch') ? bgCatchGames() : bgFindGames();
+            var g = games[idx];
+            if (g) {
+                if (stage.miniGameId === 'default') return bgDefaultLegend(stage.gameType, idx);
+                if (Array.isArray(g.miniGames)) {
+                    for (var j = 0; j < g.miniGames.length; j++) {
+                        if (g.miniGames[j].id === stage.miniGameId) return g.miniGames[j].legend || null;
+                    }
+                }
+            }
+            return stage.legend || null;
+        }
+
+        // ===== view state =====
+        var bgState = { view: 'list', editingId: null, openGameKey: null };
+        var bgDragIdx = null; // index of the stage being dragged (mouse reorder)
+        function bgClearDropHints() {
+            var hints = document.querySelectorAll('.bgc-stage.bgc-drop-before, .bgc-stage.bgc-drop-after');
+            for (var i = 0; i < hints.length; i++) hints[i].classList.remove('bgc-drop-before', 'bgc-drop-after');
+        }
+
+        // ===== LIST VIEW =====
+        function bgSetPageLabel(txt) { var el = document.getElementById('bgc-page-label'); if (el) el.textContent = txt; }
+        function bgRenderList() {
+            bgSetPageLabel('GP 1');
+            var host = document.getElementById('bgc-view');
+            var games = bgLoad();
+            var card = document.createElement('div'); card.className = 'bgc-card';
+            var head = document.createElement('div'); head.className = 'bgc-card-head';
+            var h2 = document.createElement('h2'); h2.textContent = 'Big Games';
+            var nw = document.createElement('button'); nw.className = 'bgc-btn'; nw.textContent = '+ New Big Game';
+            nw.addEventListener('click', function () {
+                var n = prompt('Name this Big Game:', ''); if (n === null) return;
+                bgAdd(n); bgRenderList();
+            });
+            head.appendChild(h2); head.appendChild(nw); card.appendChild(head);
+
+            if (!games.length) {
+                var e = document.createElement('div'); e.className = 'bgc-empty';
+                e.textContent = 'No Big Games yet. Click “+ New Big Game” to start one.';
+                card.appendChild(e);
+            } else {
+                games.forEach(function (bg) {
+                    var row = document.createElement('div'); row.className = 'bgc-row';
+                    var name = document.createElement('span'); name.className = 'bgc-row-name'; name.textContent = bg.name || 'Big Game';
+                    var meta = document.createElement('span'); meta.className = 'bgc-row-meta';
+                    var n = (bg.stages && bg.stages.length) || 0; meta.textContent = n + (n === 1 ? ' stage' : ' stages');
+                    var play = document.createElement('button'); play.className = 'bgc-play-btn'; play.textContent = '▶ Play';
+                    play.title = n ? 'Play this Big Game' : 'Add stages first'; play.disabled = !n;
+                    if (n) play.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
+                    var open = mkAct('✎', 'Compose stages', function () { bgState.view = 'compose'; bgState.editingId = bg.id; bgState.openGameKey = null; bgRender(); });
+                    var ren = mkAct('🏷', 'Rename', function () { var nm = prompt('Rename Big Game:', bg.name || ''); if (nm === null) return; bgRename(bg.id, nm); bgRenderList(); });
+                    var del = mkAct('✗', 'Delete', function () { if (!confirm('Delete Big Game “' + (bg.name || 'Big Game') + '”?')) return; bgDelete(bg.id); bgRenderList(); });
+                    row.appendChild(name); row.appendChild(meta); row.appendChild(play); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
+                    card.appendChild(row);
+                });
+            }
+            host.innerHTML = ''; host.appendChild(card);
+        }
+        function mkAct(label, title, fn) {
+            var b = document.createElement('button'); b.className = 'bgc-row-act'; b.textContent = label; b.title = title;
+            b.addEventListener('click', fn); return b;
+        }
+
+        // ===== COMPOSE VIEW (3b) =====
+        function bgRenderCompose() {
+            bgSetPageLabel('GP 2');
+            var host = document.getElementById('bgc-view');
+            var bg = bgGet(bgState.editingId);
+            if (!bg) { bgState.view = 'list'; return bgRenderList(); }
+
+            var card = document.createElement('div'); card.className = 'bgc-card';
+            // header: back + name + rename
+            var head = document.createElement('div'); head.className = 'bgc-card-head';
+            var left = document.createElement('div'); left.style.display = 'flex'; left.style.alignItems = 'center'; left.style.gap = '10px';
+            var back = document.createElement('button'); back.className = 'bgc-btn ghost'; back.textContent = '← Big Games';
+            back.addEventListener('click', function () { bgState.view = 'list'; bgState.editingId = null; bgRender(); });
+            var h2 = document.createElement('h2'); h2.textContent = bg.name || 'Big Game';
+            left.appendChild(back); left.appendChild(h2);
+            head.appendChild(left);
+            var nStages = (bg.stages && bg.stages.length) || 0;
+            var playC = document.createElement('button'); playC.className = 'bgc-play-btn'; playC.textContent = '▶ Play';
+            playC.title = nStages ? 'Play this Big Game' : 'Add stages first'; playC.disabled = !nStages;
+            if (nStages) playC.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
+            head.appendChild(playC);
+            card.appendChild(head);
+
+            var cols = document.createElement('div'); cols.className = 'bgc-compose';
+
+            // ---- LEFT: library of all games + their mini-games ----
+            var libCol = document.createElement('div'); libCol.className = 'bgc-col';
+            var libH = document.createElement('h3'); libH.textContent = 'Add a stage — pick a game’s mini-game'; libCol.appendChild(libH);
+            var entries = [];
+            bgFindGames().forEach(function (g, i) { entries.push({ type: 'find', index: i, game: g }); });
+            bgCatchGames().forEach(function (g, i) { entries.push({ type: 'catch', index: i, game: g }); });
+            if (!entries.length) {
+                var none = document.createElement('div'); none.className = 'bgc-empty';
+                none.textContent = 'No games found. Create games in the Studio first.';
+                libCol.appendChild(none);
+            }
+            entries.forEach(function (en) {
+                var key = en.type + ':' + en.index;
+                var wrap = document.createElement('div'); wrap.className = 'bgc-lib-game';
+                var hd = document.createElement('div'); hd.className = 'bgc-lib-gamehd';
+                var tag = document.createElement('span'); tag.className = 'bgc-tag ' + en.type; tag.textContent = (en.type === 'catch' ? 'Catch' : 'Find');
+                var gn = document.createElement('span'); gn.className = 'bgc-lib-gamename'; gn.textContent = (en.game && en.game.name) || '(game)';
+                var caret = document.createElement('span'); caret.className = 'bgc-lib-caret'; caret.textContent = (bgState.openGameKey === key) ? '▾' : '▸';
+                hd.appendChild(tag); hd.appendChild(gn); hd.appendChild(caret);
+                hd.addEventListener('click', function () { bgState.openGameKey = (bgState.openGameKey === key) ? null : key; bgRender(); });
+                wrap.appendChild(hd);
+                if (bgState.openGameKey === key) {
+                    var mgWrap = document.createElement('div'); mgWrap.className = 'bgc-lib-mgs';
+                    bgMiniGamesOf(en.type, en.index).forEach(function (mg) {
+                        var r = document.createElement('div'); r.className = 'bgc-lib-mg';
+                        var info = document.createElement('div'); info.className = 'bgc-lib-mg-info';
+                        var nm = document.createElement('div'); nm.className = 'bgc-lib-mg-name'; nm.textContent = mg.name;
+                        var lg = document.createElement('div'); lg.className = 'bgc-lib-mg-legend';
+                        lg.textContent = bgFormatLegend(mg.legend, en.type, en.index, false) || 'the game’s own settings';
+                        info.appendChild(nm); info.appendChild(lg);
+                        var add = document.createElement('button'); add.className = 'bgc-add-btn'; add.textContent = '＋ Add';
+                        add.addEventListener('click', function () {
+                            var stage = { gameType: en.type, gameRef: { name: (en.game && en.game.name) || '', index: en.index }, miniGameId: mg.id, miniGameName: mg.name, legend: mg.legend || null, advanceRule: { kind: 'gems', value: 1 } };
+                            bgMutateStages(bg.id, function (stages) { stages.push(stage); });
+                            bgRender();
+                        });
+                        r.appendChild(info); r.appendChild(add);
+                        mgWrap.appendChild(r);
+                    });
+                    wrap.appendChild(mgWrap);
+                }
+                libCol.appendChild(wrap);
+            });
+
+            // ---- RIGHT: this Big Game's ordered stages ----
+            var stCol = document.createElement('div'); stCol.className = 'bgc-col';
+            var stages = bg.stages || [];
+            var stH = document.createElement('h3'); stH.textContent = 'Stages in “' + (bg.name || 'Big Game') + '” (' + stages.length + ')'; stCol.appendChild(stH);
+            if (!stages.length) {
+                var se = document.createElement('div'); se.className = 'bgc-empty';
+                se.textContent = 'No stages yet — add a game’s mini-game from the left. They play top-to-bottom.';
+                stCol.appendChild(se);
+            }
+            stages.forEach(function (st, idx) {
+                var r = document.createElement('div'); r.className = 'bgc-stage';
+                var grip = document.createElement('span'); grip.className = 'bgc-stage-grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder';
+                var num = document.createElement('span'); num.className = 'bgc-stage-num'; num.textContent = (idx + 1);
+                var info = document.createElement('div'); info.className = 'bgc-stage-info';
+                var nm = document.createElement('div'); nm.className = 'bgc-stage-name';
+                nm.textContent = (st.gameType === 'catch' ? 'Catch' : 'Find') + ' · ' + (st.gameRef && st.gameRef.name || '(game)');
+                var sub = document.createElement('div'); sub.className = 'bgc-stage-sub';
+                sub.textContent = 'Mini-game: ' + (st.miniGameName || st.miniGameId || 'Default');
+                info.appendChild(nm); info.appendChild(sub);
+                var legTxt = bgFormatLegend(bgResolveLegend(st), st.gameType, (st.gameRef ? st.gameRef.index : -1), false);
+                if (legTxt) { var legEl = document.createElement('div'); legEl.className = 'bgc-stage-legend'; legEl.textContent = legTxt; info.appendChild(legEl); }
+                // --- 3c: per-stage advance rule (gems now; slot reserved for more) ---
+                info.appendChild(bgRuleControl(bg.id, idx, st, idx === stages.length - 1));
+                var up = mkStageAct('↑', 'Move up', idx === 0, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx - 1]; ss[idx - 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
+                var dn = mkStageAct('↓', 'Move down', idx === stages.length - 1, function () { bgMutateStages(bg.id, function (ss) { var t = ss[idx + 1]; ss[idx + 1] = ss[idx]; ss[idx] = t; }); bgRender(); });
+                var rm = mkStageAct('✗', 'Remove stage', false, function () { bgMutateStages(bg.id, function (ss) { ss.splice(idx, 1); }); bgRender(); });
+                // --- mouse drag-to-reorder (in addition to the arrows) ---
+                r.setAttribute('draggable', 'true');
+                r.dataset.idx = idx;
+                r.addEventListener('dragstart', function (e) {
+                    // Don't start a drag when the gesture begins on an interactive control.
+                    if (e.target.closest && e.target.closest('input, select, button')) { e.preventDefault(); return; }
+                    bgDragIdx = idx; r.classList.add('bgc-dragging');
+                    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); } catch (_) {}
+                });
+                r.addEventListener('dragend', function () { bgDragIdx = null; bgClearDropHints(); r.classList.remove('bgc-dragging'); });
+                r.addEventListener('dragover', function (e) {
+                    if (bgDragIdx === null || bgDragIdx === idx) return;
+                    e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
+                    bgClearDropHints();
+                    r.classList.add(idx < bgDragIdx ? 'bgc-drop-before' : 'bgc-drop-after');
+                });
+                r.addEventListener('dragleave', function () { r.classList.remove('bgc-drop-before', 'bgc-drop-after'); });
+                r.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    var from = bgDragIdx; bgDragIdx = null; bgClearDropHints();
+                    if (from === null || from === idx) return;
+                    bgMutateStages(bg.id, function (ss) { var moved = ss.splice(from, 1)[0]; ss.splice(idx, 0, moved); });
+                    bgRender();
+                });
+                r.appendChild(grip); r.appendChild(num); r.appendChild(info); r.appendChild(up); r.appendChild(dn); r.appendChild(rm);
+                stCol.appendChild(r);
+                // --- 3c: transition between stages — fixed visual Level-Up for now ---
+                if (idx < stages.length - 1) {
+                    var tr = document.createElement('div'); tr.className = 'bgc-transition';
+                    tr.title = 'Transition between stages — a visual “Level Up”. Custom transitions come later.';
+                    var l1 = document.createElement('span'); l1.className = 'line';
+                    var tlab = document.createElement('span'); tlab.textContent = '⬆ Level Up';
+                    var l2 = document.createElement('span'); l2.className = 'line';
+                    tr.appendChild(l1); tr.appendChild(tlab); tr.appendChild(l2);
+                    stCol.appendChild(tr);
+                }
+            });
+
+            cols.appendChild(libCol); cols.appendChild(stCol); card.appendChild(cols);
+            host.innerHTML = ''; host.appendChild(card);
+        }
+        function mkStageAct(label, title, disabled, fn) {
+            var b = document.createElement('button'); b.className = 'bgc-stage-act'; b.textContent = label; b.title = title; b.disabled = !!disabled;
+            if (!disabled) b.addEventListener('click', fn); return b;
+        }
+        // 3c: per-stage advance rule. Only "gems" is wired now (the kind <select>
+        // reserves the slot for richer rules later — his "create an option" ask).
+        // The rule gates moving to the NEXT stage; on the last stage it's the win
+        // condition. Default = 3 gems. Persists immediately.
+        var BG_DEFAULT_RULE = { kind: 'gems', value: 1 };
+        function bgStageRule(stage) {
+            var r = stage && stage.advanceRule;
+            if (r && r.kind === 'gems' && r.value != null) return r;
+            return { kind: 'gems', value: BG_DEFAULT_RULE.value };
+        }
+        function bgRuleControl(bgId, idx, stage, isLast) {
+            var rule = bgStageRule(stage);
+            var wrap = document.createElement('div'); wrap.className = 'bgc-stage-rule';
+            var lab = document.createElement('span'); lab.className = 'bgc-rule-label'; lab.textContent = isLast ? 'Win when' : 'Advance when';
+            var sel = document.createElement('select'); sel.className = 'bgc-rule-select'; sel.draggable = false;
+            var o1 = document.createElement('option'); o1.value = 'gems'; o1.textContent = 'gems collected'; sel.appendChild(o1);
+            var o2 = document.createElement('option'); o2.value = 'more'; o2.textContent = 'more rules… (coming)'; o2.disabled = true; sel.appendChild(o2);
+            sel.value = 'gems';
+            var reach = document.createElement('span'); reach.className = 'bgc-rule-label'; reach.textContent = 'reach';
+            var num = document.createElement('input'); num.type = 'number'; num.min = '1'; num.className = 'bgc-rule-num'; num.draggable = false;
+            num.value = rule.value;
+            var gem = document.createElement('span'); gem.textContent = '💎';
+            num.addEventListener('change', function () {
+                var v = Math.max(1, parseInt(num.value, 10) || 1); num.value = v;
+                bgMutateStages(bgId, function (ss) { if (ss[idx]) ss[idx].advanceRule = { kind: 'gems', value: v }; });
+            });
+            // keep clicks/drags on the controls from bubbling into row drag
+            [sel, num].forEach(function (el) { el.addEventListener('mousedown', function (e) { e.stopPropagation(); }); });
+            wrap.appendChild(lab); wrap.appendChild(sel); wrap.appendChild(reach); wrap.appendChild(num); wrap.appendChild(gem);
+            return wrap;
+        }
+
+        // ===== router =====
+        function bgRender() {
+            if (bgState.view === 'compose') bgRenderCompose();
+            else bgRenderList();
+        }
+        bgRender();
+    </script>
+</body>
+</html>

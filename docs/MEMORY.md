@@ -1,5 +1,48 @@
 # Vica Domino Project Memory
-**Last Updated**: June 11, 2026 — Studio is MOUSE-ONLY (Gr mode removed) · "Edit group" two-step flow · twin-clone cards (same stableId+uid) exist in real data + twin-guard delete. **NEXT: Phase 1.5** (see STATUS_NOTES.md — re-discuss the plan with the user first)
+**Last Updated**: June 15, 2026 — Phase 2 (mini-games) DONE · corrected mini-game model (legend-only; board = type's surface) · whole authoring side is MOUSE-ONLY. **NEXT: Phase 3 — BIG GAME composer** (lock the model with the user first; see STATUS_NOTES.md)
+
+---
+
+## 🧩 June 15, 2026 — durable facts/decisions from Phase 2 (mini-games) + the pipeline
+
+- **A mini-game = a LEGEND, period.** One chosen configuration of a game's settings —
+  `{ timerOn, probOptionId, level, typeId }` (the 4 fields the Setup page's Legend box
+  shows). It references its parent game LIVE (cards/probs/art follow edits). It does NOT
+  store a card deal. Mini-games live UNDER their game: `game.miniGames = [...]`. A Game is a
+  folder of mini-games; its implicit "Default" (count starts at 1) = the game's own config,
+  computed not stored.
+- **"Board" = the game TYPE's playing surface** (Find layout vs Catch falling layout), NOT a
+  random deal. It only matters at BIG-GAME time: all-one-type Big Game shares one board
+  (Option A — the type's board); mixed types (Find+Catch) need each type's board dragged in
+  (Option B). The program decides A/B by type-consistency. (This corrected a wrong
+  assumption — an earlier "board snapshot" was built then STRIPPED.)
+- **The whole AUTHORING pipeline is MOUSE-ONLY** (Studio, Game Previewer, mini-games, the
+  future Big-Game composer). The ONLY artifact that runs on touch OR mouse is the **finished,
+  published Big Game**. Don't add touch affordances to authoring tools.
+- **The pipeline (user's words):** Studio (cards→equivalence rows + probs/colors + roles) →
+  Game Previewer (mini-games = saved legends per game) → BIG GAME (collect mini-games across
+  games + rules-of-advance + transitions → preview/publish) → FinalPreview (per-user dynamic
+  probs/rules) → Game Flow.
+- **Phase 3 BIG GAME architecture — LOCKED June 15** (full plan in `docs/ROADMAP.md`): a NEW
+  standalone **Composer app** (own HTML page/tab, shared localStorage+sync) that authors Big
+  Games and PLAYS them via an **embedded Previewer engine** (real engine in a frame,
+  deep-linked `index.html?playBig=<id>` — ONE engine, no duplication). Fresh **`savedBigGames`**
+  store (must register in `sync.js` backup + local-wins). The Previewer's **"Sequence" column**
+  also lists/plays Big Games. Big Game = stages of **mini-games** (Find+Catch); each stage:
+  `{gameType, gameRef{name,index}, miniGameId|'default', advanceRule}`. **Advance rules**:
+  reserve an extensible slot, simple gem default now, EDITOR LATER (user not building it yet).
+  **Transition**: visual Level-Up now, rules later. **Board A/B**: same-type = one surface,
+  mixed = switch surfaces. **Publish** deferred. Authoring is mouse-only.
+- **Legacy Combined Games = the working Phase-3 prototype** (grounded June 15). Data:
+  `savedCombinedGames = [{ name, stages:[{ gameIndex, gameName, gemsNeeded }] }]` — chains
+  **Find games ONLY** (whole games, not mini-games, no `gameType`, no board) into gem-gated
+  stages. Play: `window.combinedGameConfig`/`combinedGameStage`; `checkGameProgression`
+  advances when `stageGems >= gemsNeeded` → "Level Up!" overlay → `loadGameDeckForStage` →
+  last stage → `showFinalCelebration`. Sequencing + per-player gem tracking + transition
+  overlay + celebration + by-name resilient refs already exist. **Big Game extends this:**
+  stages → mini-games (Find+Catch), gemsNeeded → "rules of advance", Level-Up → "transition",
+  + Find↔Catch board/surface switching, + a composer UI. (Recommended: fresh `savedBigGames`
+  store, don't extend `savedCombinedGames`.)
 
 ---
 

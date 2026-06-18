@@ -1,32 +1,609 @@
 # Vica Domino - Project Status Notes
-**Date**: June 11, 2026 — Card Maker multi-select overhaul (Gr mode removed, "Edit group" flow) · twin-guard delete fix · Enter-to-login
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `d50ac83` + this doc commit; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1400+
+**Date**: June 15, 2026 — Phase 2 (Game Previewer mini-games) COMPLETE · Studio cleanup (Gr mode gone, dead code, twin warnings) · loupe overhaul · 1.5 superseded by r→p
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `6c0e889` + this doc commit; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1430+
 **Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-41`, `game.js?v=global-players-3`, `sync.js?v=local-wins-4`
+**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-6`
 
 ---
 
-## ▶▶ NEXT CHAT: Phase **1.5 — apply a game to a set** (plan drafted; user wants to re-discuss first)
-Phase 1 stages **1.1–1.4 are DONE** (commit ledger in `docs/ROADMAP.md`). 1.5 is the last
-open Phase-1 stage. A 3-step plan was presented and the user said **"I do not have a
-clear picture yet — we will do it later"** — so START BY WALKING HIM THROUGH IT AGAIN
-(ideally with a concrete example from his data) before building anything:
-- **1.5a** — mapping engine, no UI: read a game's shape (lines × cards, derived from
-  labels per the #4 model) + a target set's shape; compare; produce the new game object
-  for the same-shape case. Verify read-only in preview on real data.
-- **1.5b** — "Apply to set…" action on each game in the Library GAMES list → set picker →
-  same-shape confirm ("8 lines × 4 cards → mapped 1:1, probs/colors carried") → a NEW
-  game is saved (additive; the source game untouched). The user clicks through this stage.
-- **1.5c** — reconciliation dialog for almost-similar sets (missing line / extra card /
-  count diff): list the deviations, the user resolves each (skip / partial / pick
-  manually), the rest maps automatically. No silent guessing (locked roadmap behavior).
-- Scope of the first pass: Find + Catch games. **OPEN QUESTION for the user:** which
-  game → which target set as the first real test pair (one same-shape, one slightly-off)?
+### Studio session (parallel, June 17) — Card loupe: corner-handle resize DONE
+Running alongside the Big Game session (which owns `biggame.html`/`index.html`/`game.js`); this
+session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for visibility.
+- **Feature**: in the Card Maker card loupe, a selected stamp / inserted picture / text now shows
+  **4 gold corner handles** on the dashed selection box. Dragging a corner resizes the element
+  **proportionally (aspect-locked) with the OPPOSITE corner pinned** (grows toward the cursor), and a
+  live **"×N"** label on the dragged corner shows the scale relative to grab-time, hiding on release.
+- **How**: reuses the existing `applySizeToElement` size pipeline (so every type scales correctly and
+  the size persists into the saved card); one drag = one undo step; handles/label are stripped on
+  deselect and in the save serializer (`.draw-resize-handle, .draw-scale-label`) so nothing leaks into
+  the card. New: `createSelHandles`/`removeSelHandles`/`updateSelHandles`/`_showScaleLabel`/
+  `_startHandleResize` + `selectionHandles`/`selectionScaleLabel` state. Verified in-page on
+  stamp/text/circle (all 4 corners, grow + shrink, correct ×N, pin, undo +1, zero leak).
+### Studio session (June 17, in worktree) — Card loupe: EDGE-handle resize on ALL element types DONE
+- **Feature**: a selected element of ANY type — stamp/clipart (`<g>`), text, circle/shape, picture
+  (`<image>`) — now shows **4 edge handles** (side midpoints) in addition to the 4 corners. Dragging a
+  side resizes in ONE direction (E/W → width, N/S → height) with the OPPOSITE edge pinned, and raises a
+  transient `_twinToast` warning **"You are changing the shape proportions"** (deduped). Corners still
+  resize proportionally. Labels: `×N` (corner), `↔ ×N` / `↕ ×N` (edge). (Earlier this was picture-only;
+  per user it now covers everything — yes, a stretched circle becomes an oval, text glyphs distort.)
+- **How**: two paths. **Pictures (`<image>`)** use width/height/x/y geometry (+ `preserveAspectRatio=none`
+  so the stretch shows). **Everything else** stretches via a `scale(sx,sy)` transform PREPENDED (in
+  parent space, pivoting the pinned edge) to the element's own transform — no per-type size-pipeline
+  surgery. Keystone: **`getSvgSpaceBBox` rewritten to be matrix-based** (`el.transform.baseVal.consolidate()`
+  → `_ownTransformMatrix`/`_applyMatrixToBBox`/`_parentBBox`), so the selection box tracks ANY transform
+  incl. `scale(sx,sy)`; subsumes the old g-only regex. Uniform corner resize unchanged (still
+  `applySizeToElement`). One drag = one undo step.
+- **Verified (worktree preview on :8021)**: matrix bbox regression exact (stamp `{20,40,20,20}`, circle
+  `{24,24,12,12}`, `scale(2,0.5)` → `{10,10,20,5}`); edge stretch one-axis + opposite-edge-pinned on
+  stamp/text/circle/image; warning fired; **corner uniform resize still works (regression)**; 4+4 handles
+  on every type; zero save-leak.
+- **Known interaction**: doing a uniform CORNER resize on a `<g>` stamp or a path AFTER a non-uniform
+  edge stretch resets the stretch (those types' size pipeline rewrites `transform`). circle/text/image
+  preserve it. Acceptable for v1; revisit if it bites.
+- **⚠ Git history note (resolved)**: the 1st (corner, `12a2134`) and 2nd (edge-picture, `d1a7f4a`)
+  Studio features were swept into Big Game commits by the cross-stamping pre-commit hook while my file
+  sat uncommitted. Now fixed two ways: scope-aware hook (`3fdc69b`) + this session runs in an isolated
+  **`work/studio` worktree** (`../Domino-studio`), so this feature ships cleanly from its own branch
+  (fetch → rebase onto canonical → push trio). Prior swept code is intact/deployed, just mislabeled.
+- **✅ FIXED (Big Game session, June 17) — corrected diagnosis.** The sweep was NOT `git add -A` and NOT
+  inherent to a shared tree. The real bug: `ship.sh` per-path mode did `git add -- <paths>` then a FULL
+  `git commit` — which commits the WHOLE index, so the OTHER session's already-`git add`ed file (pm-studio,
+  STAGED during build) rode along. **Fix:** per-path mode now does **`git commit -- <paths>`**, which commits
+  only those paths and **disregards anything staged for other paths**. Dry-run verified: with a scratch file
+  `git add`ed, `git commit -- scripts/ship.sh` includes ONLY ship.sh. So per-path now DOES isolate
+  **disjoint files** (staged OR unstaged) with no window. **True remaining limit:** only a **shared FILE**
+  edited by BOTH at once still merges both edits (e.g. this `STATUS_NOTES.md`) — `git add -p` your hunks
+  there. Worktree is now an OPTIONAL escalation (only if shared-file overlap gets painful), not required.
 
 ---
 
-## June 11, 2026 (latest) — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
+## 🤝 TWO-SESSION PROTOCOL (decided June 17 — read if a second session is running)
+Two parallel Claude sessions share ONE working tree + the local branch `work/cardmaker-rowcopy`,
+and both ship to the 3 canonical branches via `scripts/ship.sh`. Pushing works fine (the shared
+branch serializes commits), but `ship.sh` runs **`git add -A`**, which sweeps the OTHER session's
+**uncommitted** edits into your commit. Worst case: you commit + deploy the other session's
+half-written, broken code. Both sessions independently flagged this and proposed the same two
+fixes (per-path commits / separate worktree).
+
+**Decision: per-path staging.** Each session commits ONLY its own files; the worktree split is the
+escalation if overlap ever grows. **File ownership:**
+- **Big Game / Previewer session** → `index.html`, `biggame.html`, `js/game.js`, `js/sync.js`
+- **Studio session** → `pm-studio-DrV.html`
+- **SHARED (coordinate)** → `css/style.css`, `docs/*`, `scripts/ship.sh` + `scripts/bump-trial.sh`,
+  and the cache-buster strings inside the HTML files.
+
+**✅ TOOLING DONE (June 17): `ship.sh` now supports per-path staging.** Use the `-- <paths>` form so
+your ship stages ONLY your files (the banner is stamped only on the `*.html` in scope; everything
+outside your paths is left untouched, and ship prints a heads-up count if the other session has
+in-flight files). Each session's command:
+```
+# Big Game / Previewer session:
+bash scripts/ship.sh "msg" -- index.html biggame.html js/game.js js/sync.js css/style.css docs
+# Studio session:
+bash scripts/ship.sh "msg" -- pm-studio-DrV.html docs
+```
+The no-`--` form (`bash scripts/ship.sh "msg"`) still does the legacy `git add -A` (use only when
+you're the sole active session). `scripts/bump-trial.sh [files…]` also accepts an explicit scope now.
+
+**Discipline (still applies on top of the tooling):**
+1. **Before you ship, glance at `git status`.** Per-path staging won't sweep the other session's
+   work, but if you see their files modified, just know they're mid-edit (your ship leaves them alone).
+2. **Commit frequently** so your uncommitted window is short.
+3. **Shared files** (`css/style.css`, `docs/*`): if BOTH have uncommitted edits to the SAME file at
+   once, `git add -p` your hunks (a per-path `git add css/style.css` still grabs the whole file).
+   A leak here is additive/mergeable, never build-breaking — code files are what per-path fully isolates.
+
+**Escalation if overlap grows:** separate `git worktree` per session, each on its own branch, with
+`fetch + rebase onto the canonical tip` before each push. Not adopted now.
+
+### ✅ WORKTREE ISOLATION — LIVE (June 17). Two worktrees, one canonical-branch trio.
+**The two sessions now work in SEPARATE git worktrees (true filesystem isolation):**
+- **Studio session** → `/Users/victoriakofman/CLAUDE CODE/Domino-studio` on branch **`work/studio`**.
+- **Big Game session** → main `/Users/victoriakofman/CLAUDE CODE/Domino` on **`work/cardmaker-rowcopy`**.
+
+Neither session's uncommitted files are visible to the other's `git add`/commits — the sweep CANNOT recur.
+
+**Migration status:**
+1. ✅ **Worktrees** — done (Studio created `work/studio`; `git worktree add ../Domino-studio -b work/studio`).
+2. **Rebase-on-push = MANUAL by decision** (NOT baked into `ship.sh` — a rebase conflict mid-script is
+   messier than resolving by hand). The two branches diverge but push to the same 3 canonical branches,
+   so **before each ship**, every session does: `git fetch origin` →
+   `git rebase origin/claude/review-project-docs-JOOeh` → then `ship.sh` (push is now a FF). If you forget,
+   the push is just rejected (no force) — rebase and retry.
+3. ✅ **`.githooks/pre-commit` is now SCOPE-AWARE** — stamps + re-stages ONLY the HTML files staged in the
+   commit (was: always index.html + pm-studio), so a commit no longer cross-stamps the other app's banner.
+   Verified: staging an index.html change stamps only index.html; pm-studio/biggame untouched.
+
+Per-path `ship.sh "msg" -- <paths>` is still fine but no longer required for isolation (the worktree
+gives it). DEFERRED nicety: `ship.sh` auto-rebase (deliberately skipped — manual is clearer).
+
+---
+
+## ▶▶ NEXT CHAT: **Phase 3 — 3a–3e + 3d(i–iv) DONE + Play/Scan toggle DONE. Only 3f (Publish, deferred) remains.**
+**⚠ TWO-SESSION / WORKTREE SETUP (read first):** this (Big Game) session works in the MAIN tree
+`/Users/victoriakofman/CLAUDE CODE/Domino` on branch `work/cardmaker-rowcopy`; a parallel STUDIO session
+owns `pm-studio-DrV.html` in its own worktree `../Domino-studio` (`work/studio`). **Before every ship:**
+`git fetch origin && git rebase origin/claude/review-project-docs-JOOeh`, THEN `bash scripts/ship.sh "msg"`
+(or `… -- <paths>`). See the **"WORKTREE ISOLATION — LIVE"** + **"TWO-SESSION PROTOCOL"** sections at the
+top of this file. **Latest tip: `3fdc69b`.** Big Game feature work (Composer `biggame.html` + Previewer
+`index.html` + `js/game.js`) is functionally COMPLETE through 3e + the Play/Scan toggle; 3f (Publish) is
+the only deferred Phase-3 item (needs a definition — what "publish" produces, live-vs-snapshot art).
+- **Play/Scan toggle (DONE, June 17)**: GP 0 Big Games column, under the Composer button. PLAY = advance
+  on the composed gem rule (1 gem); SCAN = advance after ~3 coins/stage (rapid preview). `window._bgPlayMode`
+  (persisted `vica_bgPlayMode`); `window._bgScanMode` set at launch; Find via `addCoins`→`_bgScanCoins`,
+  Catch via `_bgOnCatchScan` in `_catchAddCoins`. Verified scan + play in preview.
+
+### ✅ Device preview (pre-publish QA) — DONE (June 18)
+A **global** device-preview selector on the **"Choose the game:"** header line (`#intro-preview-devices`,
+built by `_setupPreviewDevices()`). Picking a device makes **any** GP 0 tile — mini-game OR Big Game —
+launch inside a **scaled `<iframe>`** sized to that device's true CSS-pixel viewport (so responsive layout
+reacts as on hardware), shown in a fit-to-window modal (`_bgOpenDeviceFrame`/`_bgCloseDeviceFrame`).
+- **5 devices** (`BG_DEVICES`): iPhone 390×844, iPhone 17 Pro 402×874, iPad 820×1180, iPad Pro 12.9″
+  1024×1366, Chromebook 1366×768. Sticky (`localStorage vica_bgDevice`); click the active pill →
+  deselect → **Full screen** (legacy in-place launch preserved).
+- **Orientation by class × player count** (`_bgViewport`, reads the GP 0 1/2/3 player toggle):
+  phone → 1P portrait / 2P+ landscape; tablet → 1P portrait-or-landscape (↻ rotate on the frame,
+  `vica_bgTabletOrient`) / 2P+ landscape; laptop → always landscape. **3-player uses the 2-player
+  screens** (per user). Rotate ↻ shows only for tablet-1P.
+- **Plumbing:** mini-games launch via NEW `?playGame=<gameId>&players=<n>` deep-link (hook replays the
+  tile click after setting the player toggle → lands on the real Setup screen, then user taps Start);
+  Big Games via extended `?playBig=<id>&mode=&players=<n>`. `startBigGameFromId` no longer hardcodes
+  `data-players=1` (uses `window._bgDesiredPlayers`). A game finishing inside the frame postMessages
+  `bgPlayDone` → parent closes the modal.
+- **Verified in preview:** selector renders + wraps; iPhone-1P portrait & iPad-1P portrait→landscape
+  (live re-fit), Chromebook landscape, true `iframe.innerWidth` per device; mini-game (Catch Setup) and
+  Big Game (scan, player "Va") both launch framed; deselect → full screen; no console errors.
+- **⚠ Follow-up (separate task) — 2P/3P Big Games run single-player.** The UI/orientation/plumbing are
+  correct (GP0 count=2, frame=landscape), but the composed-stage launch (`_bgEnsureFindPlayer` on the
+  catch-first path) bootstraps ONE player and ignores the count — verified `_catchGame.numPlayers===1`
+  with `players=2`. So 2/3-player Big Games preview at the right *screen* but don't yet *run* as
+  multiplayer. Mini-game 2P is fine (Catch has a 2P path). Big-Game multiplayer wiring is its own task.
+- **Minor observation (game responsiveness, not this feature):** at narrow widths (e.g. iPhone 390) the
+  game board slightly overflows → a horizontal scrollbar. Exactly the kind of thing this preview surfaces.
+- css `dgx-redesign-55`.
+
+#### Device preview — round 2 fixes (June 18)
+Three follow-ups from user testing, all verified in preview:
+1. **Setup stays full-size; only the BOARD is device-sized.** The frame now renders the Setup/intro page
+   at full size and snaps to the device viewport (+bezel) ONLY once gameplay starts. `_bgOpenDeviceFrame`
+   polls the iframe (`_boardVisible`: `#game-screen` visible OR `#catch-game-overlay` present — covers
+   Find + Catch incl. 2P) every 150ms and flips full↔device via `.bg-device-bezel.full`. No game-internals
+   hooks. Verified: Catch Setup full (innerWidth 678) → Start → board 390×844 bezelled, automatically.
+2. **Device preview is TOUCH-mode only.** In mouse mode the 5 pills are greyed + inert (`.ipd-disabled`,
+   `disabled`) and tile launches ignore any stored device (full screen). `_bgInputIsTouch()` gates the
+   selector + both interceptions; `_setInputMode` re-renders the selector on toggle. Verified: desktop
+   default (mouse) = all disabled; flip to touch = enabled.
+3. **Bug: device selection lost after one play (board reverted to standard).** Root cause was `sync.js`,
+   not the UI: a same-origin preview iframe shares localStorage, and its login pull (a) wiped all keys
+   and (b) re-applied cloud data — and a STALE `vica_bgDevice=''` left in Firestore by the pre-fix v6
+   uploads overwrote the local selection. Fix: `vica_bg*` are now **device-local** keys in sync.js
+   (`_isLocalOnlyKey`) — never uploaded (`_getAllAppData`), never wiped on replace (all 3 wipe loops),
+   AND never overwritten by cloud/shared data on apply (both apply loops). Verified: `vica_bgDevice` +
+   a probe survive an iframe login pull; re-clicking a Big Game tile re-opens in iPhone mode. (Same fix
+   also makes `vica_bgPlayMode` properly device-local.)
+- css `dgx-redesign-56`, sync.js `local-wins-8`.
+
+#### Input-mode persistence (June 18)
+**Bug:** flip TOUCH/MOUSE to touch, play a game, "go back" → page was back in mouse. Cause: the
+TOUCH/MOUSE mode was in-memory only — `_setupIntroInputToggle` re-applied the `_hasTouchScreen` default
+(mouse on desktop) on a fresh load, and the device-preview iframe always loaded in mouse. Fix: persist
+the mode in `vica_inputMode` (`_setInputMode` writes it; `_setupIntroInputToggle` restores it, falling
+back to the device default only when nothing is saved). It's a **device-local** key (added to sync.js
+`_isLocalOnlyKey`) so the cloud can't wipe/override it. Bonus: the preview iframe now **inherits** the
+parent's mode via shared localStorage (verified iframe `_findInputMode==='touch'`). Verified: flip→touch,
+reload → still touch + pills enabled; iframe touch. sync.js `local-wins-9`.
+
+#### Per-mini-game ▶ Play/preview (June 18)
+The Mini-games panel (`_mgOpenPanel`, the folder-icon popup on each Find/Catch tile) now has a green **▶**
+on every row — Default + each variant — to play/preview that exact mini-game. New `_mgPlayLegend(type,
+index,legend,name)`: builds the gameId (`custom-N`/`catch-N`), and **honors the device-preview selector**
+— touch+device → scaled device iframe via `?playGame=<id>&players=&legend=<JSON>`; otherwise full-screen
+in-page (`goToMainPage` → `_mgApplyLegend` → click `#start-game-btn`, which the delegated handler routes to
+Catch's `openCatchPlayModal`). The `?playGame` hook now parses `&legend`, applies it on Setup, and
+auto-starts so the framed game plays the chosen variant.
+- **Important guard (regression fix):** since the preview iframe now inherits the parent's TOUCH mode +
+  device selection (input-mode-persistence change), a tile click *inside* the iframe would have opened a
+  **nested** device frame. The deep-link hook sets `window._bgInPreviewFrame = true`, and BOTH tile
+  interceptions (mini-game + Big Game) + `_mgPlayLegend` now skip the device frame when that flag is set —
+  the iframe plays in-page. Verified: parent shows exactly 1 device overlay, iframe shows 0.
+- **Verified in preview:** ▶ on all 3 rows (Default/fast/voice); mouse-mode play = full-screen game-screen;
+  touch+iPhone play = single device frame, legend rides the URL, applied inside, Find board auto-started at
+  390px, no nesting; no console errors. css `dgx-redesign-57`.
+
+#### Phone-portrait Find board tweaks (June 18)
+New `@media (max-width: 430px)` block in `style.css` (phone PORTRAIT only — landscape phone width >430 is
+excluded; placed after the 700/768 blocks so it wins). Fixes the cramped iPhone-portrait single-player Find
+board ("GPt F1 Board") surfaced by the device preview:
+- **"to select" wraps UNDER the "Press [cards]" row** — `.sun-level-tiles-container{flex-wrap:wrap}` +
+  `.hint-select-right{flex-basis:100%;text-align:center}`. Also eliminates the 390→419px horizontal overflow.
+- **Page-name pill moved to ~2cm above the bottom** — `#board-id-bar{position:fixed;bottom:2cm;left:50%;
+  transform:translateX(-50%)}`. Fixed to the device viewport because `#game-screen` itself is only ~510px
+  tall (not full-height), so an absolute bottom would land mid-content.
+- **Pink "Xeno timer" box width −4%** — `.xeno-timer-box{transform:scaleX(0.96)}`.
+- Verified in the iPhone preview (390×844): to-select centered below Press, page pill at y≈725, xeno
+  `matrix(0.96,…)`, no overflow, no console errors. css `dgx-redesign-59`.
+- **Open (design):** showing the user icon options to replace the "Play Again" / "New Game" text buttons
+  (`#play-again-game-btn` / `#new-game-btn`) — not yet implemented, awaiting their pick.
+
+##### Phone-portrait board — round 2 (June 18)
+- **Hint restacked**: "Press" on one line, "to select" the next, left-aligned + together, cards below.
+  Superseded the wrap-centered approach: `.sun-level-tiles-container{flex-direction:column;align-items:
+  flex-start}` + `order:` (coin-gem 0, press 1, select 2, cards 3; cards `align-self:center`).
+- **Status line** (`#status-message.status`) narrower + starts to the RIGHT of the home button:
+  `margin-left:100px;margin-right:12px;text-align:left;padding:8px 14px;font-size:1rem` (was full-width
+  centered, underlapping the back/home buttons).
+- **Saved/sync badge hidden on PLAY boards (all widths, not phone-only)** — `#sync-status` is only useful
+  where synced data is edited (page names on GP0/Setup, the Studio). Global rule:
+  `body:has(#game-screen[style*="display: block"]) #sync-status, body.catch-active #sync-status{display:none}`
+  (Find shows `#game-screen` as `display:block`; Catch sets `body.catch-active`). Verified: badge gone on
+  the board, still `block` on GP0. User decision: "play boards only" (keep elsewhere).
+- Verified iPhone 390×844: Press@x24 / to-select@x24 (stacked, left), status@x105, sync `display:none` on
+  board, no console errors. css `dgx-redesign-60`.
+
+##### End-game buttons → play-triangle icons (TRIAL, June 18)
+Both Find end-game buttons (`showEndGameButtons` in `js/game.js`) now show a **play triangle ▶** instead
+of text: Play Again = plain triangle; New Game = triangle **+ sparkles on a sparkly purple gradient bg**
+(`.end-game-btn-new`) so "new" reads distinct from "replay". Icon-only with `aria-label`/`title` kept.
+Exceptions still keep text: the combined-game "⭐ Next Game!" / "🎉 Celebration!" states and the Non-stop
+countdown (which hijacks the Play Again button text) — guarded by `_iconifyPlay && !_isNonstopHijack`.
+CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradient + `::after` sparkle dots).
+- **Scope = TRIAL on the Find board only**, per user ("if it looks fine + understandable, change everywhere").
+  NOT yet applied to: the Catch board's Play Again / Exit (`#catch-play-again` etc.), the 2P-catch buttons,
+  or the static `#play-again-game-btn`/`#new-game-btn` in `.controls`. Roll those out once the user confirms.
+- Verified iPhone 390×844: both buttons render the triangle, New Game has the sparkly gradient, icon-only,
+  no console errors. css `dgx-redesign-61`, game.js `biggame-flow-5`.
+
+##### Hint one-line + bigger triangles (June 18)
+- **"Press to select" on ONE line above the dominoes** (supersedes the stacked version): phone block
+  `.sun-level-tiles-container{flex-direction:row;flex-wrap:wrap;justify-content:center}` +
+  `.dominoes-with-keys{flex-basis:100%;justify-content:center}` → press+select on line 1, cards wrap to
+  line 2 centered. (order: coin-gem 0, press 1, select 2, cards 3.)
+- **Play-triangle icons +30%**: `_PLAY_TRI` 26→34px; New Game SVG 32×26→42×34px (`js/game.js`).
+- css `dgx-redesign-62`, game.js `biggame-flow-6`.
+- Verified once the sandbox recovered: "Press to select" one line above cards; triangles 34/42px.
+  css `dgx-redesign-62`, game.js `biggame-flow-6`.
+
+##### Even hint spacing + 4mm up (June 18)
+- **Equal spacing in "Press to select"**: "Press→to" was 10px (`.hint-press-left` padding-right) + 6px
+  (column-gap) + 10px (`.hint-select-right` padding-left) = 26px vs the ~6px "to→select" text space. Fix
+  (phone block): zero those two paddings; `column-gap:6px` already ≈ one space (6.09px @1.3rem) → equal.
+- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` (≈ −15px).
+- Verified iPhone 390×844: paddings 0, Press→to gap = 6px, margin-top −15.1px; no new console errors (only
+  the pre-existing Firebase-offline ones). css `dgx-redesign-63`.
+
+#### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
+Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
+1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses
+   device mode (skips the full-size Setup view + the board-poll). `_mgPlayLegend` passes `autostart:true`
+   (▶ auto-launches, so there's no Setup to interact with). Tile-click previews stay adaptive (Setup full →
+   board device). Verified: ▶ opens straight in iPhone mode (`cradle.full`=false immediately, iframe 390px).
+2. **Escape closes the preview** (`document` keydown, capture; cleaned up on close) — alongside the ✕ and
+   backdrop click.
+3. **Bordered "cradle" with the ✕ ON the border.** Refactored the DOM: `.bg-device-cradle` is a ~1-inch
+   bordered frame (`padding:1in`) wrapping the device, with the round ✕ at its top-right and the caption
+   (device · orientation · resolution · ↻) above. The device is a `.bg-device-screen` (glass + dark bezel)
+   sized by JS to the SCALED footprint; the iframe renders at TRUE device px and is `transform:scale()`'d
+   from the **top-left** (replaces the old centre-scaled `.bg-device-bezel`, so the frame hugs the device).
+   `.full` (Setup) drops the border/padding so the app renders normally.
+- Verified on a fresh main-tree server: ▶ → straight to iPhone board (no flash), cradle border + corner ✕,
+  Escape + ✕ both close, tile-click still does Setup-full → board-device; no console errors. css
+  `dgx-redesign-58`.
+- ⚠ **Tooling note:** the Claude-preview server had restarted pointing at `--directory ../Domino-studio`
+  (the Studio worktree), so it served STALE files for a bit; verified against a main-tree server on :8044.
+  Browser/preview reloads of `index.html` can also serve a cached copy — append `?cb=<ts>` to force fresh.
+
+### ✅ Stage 3e (Previewer Big Games column) — DONE (June 17)
+Surfaced Big Games in the Previewer's intro (GP 0 "Choose the game"), per the user's refinement of 3e:
+- **Rule 3→2 game types**: the recency stack cap is now `GAME_TYPE_MAX_VISIBLE = 2` (was hard-coded 3
+  in `_loadGameTypeRecency`/`_pushGameTypeRecency`); default `GAME_TYPE_RECENCY_DEFAULT = ['find','catch']`
+  (dropped `sequence`). The "Sequence" placeholder (and spy/scratch/nameit) stay RESERVED future game
+  types in `GAME_TYPE_CATALOG` — just not shown. Layout is now **Misc · Find · Catch · Big Games**.
+- **Big Games column** (NOT a recency game type — a dedicated column in the old Sequence slot, added at
+  the end of `_renderIntroColumns`; `--game-cols = stack.length + 1` so the CSS grid gets its track):
+  - **✎ Go to Big Game** button at the top → `window.location.href = 'biggame.html'` (the Composer).
+  - Lists saved `savedBigGames` that have stages; each tile (name + stage count) → `startBigGameFromId(id)`
+    to PLAY it right in the Previewer (reuses the 3d launcher — no iframe needed since the Previewer IS
+    index.html). Empty states: "(none yet)" / "(add stages in the Composer)".
+- CSS: `.intro-biggame-go` / `.intro-biggame-tile` / `.ibg-name` / `.ibg-meta` in `style.css`
+  (cache-buster bumped `dgx-redesign-50 → 51` in index.html + pm-studio + biggame.html).
+- **Verified in preview**: layout shows Find+Catch+Big Games (Sequence gone); clicking "Game one"
+  launched it (Catch board live w/ falling cards); "Go to Big Game" navigated to `/biggame.html`;
+  no console errors.
+
+### ✅ Stage 3d-iv (polish) — DONE (June 17)
+Phases **1 and 2 DONE**. **Stages 3a + 3b + 3c DONE June 16**; **3d-i (launch+embed+Find stage-0) +
+3d-ii (Find→Find chaining) + 3d-iii (Catch + board switching) DONE June 16** — see below. The detailed
+plan (architecture, data model, decisions, stages 3a–3f + the 3d sub-stages) lives in **`docs/ROADMAP.md`
+→ "Phase 3 — BIG GAME composer"**. Read that, then **start with stage 3d-iv** (polish) or **3e**.
+
+### ✅ Stage 3d-iv (polish) — DONE (June 17)
+Polish on Big Game embedded play (all in `index.html` + `biggame.html`; game.js untouched):
+- **Player name** (`_bgEnsureFindPlayer`): a Catch-FIRST game's bootstrapped player now reads the
+  real name/icon from `vica_global_players` (e.g. "Va"/cat) instead of a generic "Player" — matches
+  what the Find-first path (startGame) shows. Verified: bootstrap → {name:"Va", icon:"cat"}.
+- **Per-stage type** (`_bgApplyLegendHeadless` now takes `(legend, gameType, index)`): resolves the
+  legend's `typeId` from the game setup and mirrors `_stashTypeChoice` — sets `_currentTypeBehavior`
+  / `_currentTypeLabel` / voice globals headlessly for advancing stages (was: default type only).
+  No double-auto-continue risk: `playAgain` calls `_stopNonstopCountdown`, so the Big Game
+  auto-continue (1.6s) cancels any nonstop countdown. Verified: typeId 'opt1' → "Slow Pace"/manual.
+- **Post-celebration return** (`close-celebration-btn`): on Finish in a Big Game it `postMessage`s
+  `{type:'bgPlayDone'}` to the parent; `biggame.html` (`bgPlayMsg` in `bgOpenPlay`) closes the play
+  modal → back to the Big Games list, instead of dropping the player on a stale Setup page. Verified.
+- **Blur-pause** (item not changed): the "Game paused / tap to continue" is `visibilitychange→hidden`
+  (whole TAB hidden) — correct behavior; it does NOT fire for a focused Composer tab (the earlier
+  sighting was a headless-preview artifact). Left as-is on purpose.
+- Regression: real Big Game launch (Game one, Catch-first) still starts clean, no console errors.
+
+### ⚠️→✅ Stage 3d-iii PLAY FIXES (June 17) — Big Games now actually FLOW
+The 3d-iii ship "worked" in isolation but DIDN'T PLAY: my verification drove the engine
+programmatically (set gems, called advance) instead of playing. Real play exposed two gaps the
+user hit ("not starting catch… waiting on player input"):
+1. **Find stages didn't auto-continue.** After a single-player Find win the game shows a "Play
+   Again" button and WAITS (only the Non-stop type auto-deals). So you won once and it sat there;
+   you never ground out the gems to reach the Catch stage. **Fix** (`js/game.js`,
+   `js/game.js?v=biggame-flow-1`): in `showEndGameButtons`, when `combinedGame.config._isBigGame`,
+   schedule `_bgAutoTimeout` (1.6s) → `playAgain()` so rounds auto-continue (flow like Catch); the
+   visible button still lets you skip the wait. Cleared in `playAgain` + the advance override.
+   Guarded so ONLY Big Games opt in — normal Find + legacy combined games are untouched (verified).
+2. **Advance bar too high.** Default was 3 gems = 30 coins ≈ 15 wins/stage — unreachable in play.
+   **Fix** (user's call: "lower default + keep editable"): default is now **1 gem** — `biggame.html`
+   `BG_DEFAULT_RULE`/`bgStageRule`/new-stage add all `value:1`; `index.html` `_bgBuildCombinedConfig`
+   fallback `|| 1`. Per-stage value stays editable in the composer (3c). NOTE: stages with an
+   EXPLICIT value keep it — e.g. "Game one"'s Catch stage was saved at 3 gems (≈30 catches); lower
+   it in the composer for a quicker Catch stage. Rule-less Find stages now use 1 gem (≈5 wins).
+- **Verified by PLAYING this time** (`sunLevelWin` on the real double, then letting the real timers
+  fire): Find win → `_bgAutoTimeout` set → auto-`playAgain` dealt a fresh round (same stage, coins
+  carried, end-buttons gone) — no manual click, not stuck; rule-less Find stage shows gemsNeeded 1;
+  Catch→Find advance (Game one is Catch-first in the cloud) works; normal play has no auto-continue;
+  no console errors. (Headless caveats: the 20s round timer expires between evals, async coin→gem
+  exchange, and sync resetting Game one's order — so I verified per-mechanism + let real timers fire.)
+
+### ✅ Stage 3d-iii (Catch stages + board switching / A/B rule) — DONE (June 16)
+Big Games now play through with MIXED Find+Catch stages — the whole point of "Big Game". All in
+`index.html` (still gated behind `?playBig=`). The Catch engine (isolated `.catch-game-overlay` on
+body, own gems) is bridged into the sequence via a thin orchestrator + a single advance interception:
+- **`window.game.advanceToNextStage` is OVERRIDDEN** in Big Game mode (`_bgInstallAdvanceOverride`,
+  installed on launch) — the ONE place the sequence advances. It tears down a Catch surface if active,
+  then routes by NEXT stage type: Catch → `_bgLevelUpThen` + `_bgStartCatchStage`; Find → restore Find
+  screen + `_bgEnsureFindPlayer` + the ORIGINAL advance (which re-deals). Past the last stage →
+  `_bgCelebrate`. Legacy combined games (no `_isBigGame`) delegate to the original untouched.
+- **Catch gem → advance**: `_catchAddCoins` now calls `window._bgOnCatchGem()` after a gem is earned;
+  it advances when `_catchGame.gems >= stage.gemsNeeded` (guarded by `_bgCatchAdvanced` so it fires once).
+  For NON-Big-Game Catch, `_bgOnCatchGem` early-returns (verified no-op — normal Catch unaffected).
+- **`_bgStartCatchStage(idx)`** opens `openCatchPlayModal(stage.gameIndex)` with the stage's prob applied,
+  hides the Find screen, tracks `currentStage` in `combinedGame`. **Catch-FIRST** launch bootstraps
+  `combinedGame` + a single player manually (startGame() never runs) via `_bgEnsureFindPlayer`.
+- **`_bgEnsureFindPlayer`** gives `window.game` a single player + coin/gem buckets so a Find stage can
+  run after a Catch stage (the Catch→Find bootstrap — the trickiest piece).
+- **Verified in preview** (real "Game one" is now Find→Catch→Find after the user reordered): Find→Catch
+  board switch (Catch HUD/target shown), Catch→Find (final Find stage dealt w/ bootstrapped player),
+  final celebration; PLUS a temp Catch-FIRST game (Catch→Find) launched + advanced + dealt. Normal Catch
+  + Find play and the no-param Previewer unaffected (override not installed, hook no-ops). No console errors.
+- **Known small items (→3d-iv)**: Catch-first→Find shows the generic player name "Player" (startGame
+  didn't run, so no "Vica"); typeId-per-stage still not headless-applied; the blur-pause "tap to continue"
+  still appears in an unfocused iframe; after celebration "Finish" returns to Setup (embedded-return polish).
+- Composer ▶ Play hint updated to "Plays all stages (Find + Catch) with Level-Up transitions".
+
+### ✅ Stage 3d-ii (Find→Find chaining / board A) — DONE (June 16)
+Extends the launcher (`index.html`, ~line 5098, all still gated behind `?playBig=`) to chain Find
+stages end-to-end by REUSING the legacy combined-game engine via an adapter — no engine fork:
+- **`_bgBuildCombinedConfig(bg)`** — maps a savedBigGames record → an engine config: each stage gets
+  `gemsNeeded` (from `advanceRule.value`), `gameName`/`gameIndex` (from `gameRef`), plus carried
+  `gameType`/`miniGame`/resolved `legend`; tags the config `_isBigGame:true`.
+- **`_bgApplyLegendHeadless(legend)`** — applies a stage's legend with NO Setup page (the keystone):
+  `level → game.selectedLevel` (+ vicaSelectedLevel), `prob → window._gpSelectedProbId` (startCustomGame
+  materializes it), `timer → window._currentTimerOn + game.includeXeno`. (typeId-between-stages fidelity
+  deferred to 3d-iv; the game's default type is used otherwise.)
+- **Wrapped `window.loadGameDeckForStage`** — in Big Game mode, applies the stage legend + updates the
+  banner before building the deck; a Catch stage mid-sequence graceful-stops (→3d-iii). Legacy combined
+  games (no `_isBigGame`) are byte-for-byte untouched (wrapper just calls the original).
+- **`startBigGameFromId`** now sets `window.combinedGameConfig = _bgBuildCombinedConfig(bg)` AFTER
+  `goToMainPage()` (which calls `clearCustomGame()` → nulls combinedGameConfig, so order matters),
+  applies stage-0 legend via the live Setup DOM (`_mgApplyLegend`), then clicks Start → `startGame()`
+  reads combinedGameConfig at game.js:1184 → runs the chained engine.
+- **Verified in preview** (drove the engine directly): launch → combined mode (currentStage 0, stage-0
+  legend applied); set stageGems→gemsNeeded → `checkGameProgression` set `pendingAdvance`;
+  `advanceToNextStage` showed "Level Up! Starting Game B: x2 x4" → loaded stage 1 (activeGameIdx 1) with
+  ITS legend (prob switched), banner → "Stage 2/2"; last-stage gems → `pendingCelebration` →
+  `showFinalCelebration` "Congratulations! You completed all games!". no-param Previewer unaffected;
+  real data ("Game one", 3 stages) restored.
+- **Limits**: full chaining is Find-only; a Catch stage anywhere → graceful stop (3d-iii). typeId per
+  stage not yet headless-applied (3d-iv). "Game one" still leads with Catch, so it shows the graceful
+  message until 3d-iii.
+
+### ✅ Stage 3d-i (Launcher + embed + Find stage-0 play) — DONE (June 16)
+- **Launcher in `index.html`** (right after `loadGameDeckForStage`, ~line 5097): `startBigGameFromId(id)`
+  + a load hook reading `?playBig=<id>`. **Gated ENTIRELY behind the param** — with no `?playBig`,
+  none of it runs, so the normal Previewer is byte-for-byte unaffected (verified: plain `index.html`
+  shows the intro, no banner, no auto-launch).
+- **What 3d-i does**: loads the Big Game, shows a fixed top banner ("🎮 <name> — Stage 1/N: …"),
+  and for a **Find** stage-0 auto-plays it: sets mouse / 1-player, `selectedIntroGame='custom-<idx>'`,
+  `goToMainPage()`, then `_mgApplyLegend(legend)` (legend resolved via `_bgStageLegend` — snapshot or
+  live mini-game), then clicks `#start-game-btn`. NO advance yet. **Catch stage-0 → graceful banger
+  message** ("Catch playback in a sequence arrives in 3d-iii"), no crash.
+- **Composer ▶ Play in `biggame.html`**: green ▶ Play button on each Big-Game list row + the compose
+  header (disabled when 0 stages). `bgOpenPlay(id,name)` opens a full-screen overlay with the REAL
+  Previewer in an **iframe** (`index.html?playBig=<id>`) + a top bar (title + "Stage 1 only" hint +
+  ✕ Close; Esc also closes). "Same as it plays in the Previewer," framed.
+- **Verified in preview**: (1) Find auto-launch — temp Find Big Game (Match 0-4 / "fast") played with
+  the legend applied (triangle→3 dominos, timer on→20s, prob matched); (2) ▶ Play opens the iframe;
+  (3) "Game one" (Catch stage-0) shows the graceful message inside the iframe; (4) no-param Previewer
+  untouched. Real data ("Game one", 3 stages) intact throughout.
+- **Notes for 3d-ii**: (a) the launched Find game shows the **"Game paused / tap to continue"** overlay
+  when the iframe isn't focused — that's the normal blur-pause, a real player taps to start; fine, but
+  consider auto-resume-on-focus polish later. (b) **sync caveat**: a *synthetic* test Big Game not in
+  cloud can be replaced by the cloud copy when the iframe's `sync.js` runs — does NOT affect real
+  cloud-backed Big Games (they sync to the same data). (c) The iframe path uses the SAME launcher code
+  proven in the top-window test. (d) biggame.html had to be loaded with a cache-bust once in preview;
+  the no-cache meta tags handle real use.
+
+### ✅ Stage 3c (Reserved slots) — DONE (June 16)
+- **Per-stage advance rule** in the compose view: `advanceRule:{kind:'gems',value:N}`, edited inline
+  — "Advance when [gems collected ▾] reach [N] 💎"; the LAST stage reads "Win when" (it's the win
+  condition). The kind `<select>` **reserves the slot** for richer rules later: only "gems" is wired,
+  a disabled "more rules… (coming)" option signals extensibility (the user's "create an option" ask).
+  Default 3 gems; persists instantly via `bgRuleControl`/`bgStageRule`; old stages without a rule
+  read the default and persist on first edit. New stages get `advanceRule` at add-time.
+- **Transition** = fixed visual **"⬆ Level Up"** divider drawn between consecutive stages
+  (display-only, tooltip notes custom transitions come later). Transition stays record-level
+  `{kind:'levelup'}`.
+- **Drag guard**: dragstart now bails if the gesture starts on an input/select/button, so editing
+  the gem count doesn't start a row drag.
+- **Verified in preview**: 3-stage Big Game → default 3 each, edit stage 2 → 7 persists `[3,7,3]`,
+  "Win when" on last, 2 Level-Up dividers; real data ("Game one", 3 stages) restored exactly.
+- **NOT yet**: embedded play (3d), Previewer "Sequence" column (3e), publish (3f).
+
+### 3d design pass — engine grounding (read-only map, June 16)
+Verified the existing playback engine so 3d EXTENDS it rather than forks it:
+- **Chaining (Find-only today)**: `this.combinedGame = { config: window.combinedGameConfig, currentStage }`
+  built in the Game constructor (`js/game.js:1184`). `checkGameProgression(playerId)` sets
+  `pendingAdvance`/`pendingCelebration` when `stageGems[playerId] >= stage.gemsNeeded`
+  (`js/game.js:4127`). `advanceToNextStage()` (`:4166`) shows the "Level Up!" overlay (~2.5s) →
+  `window.loadGameDeckForStage(nextStage)` → clears board → `startSunLevelGame()` re-deals.
+  `showFinalCelebration()` ends it. Legacy stage shape = `{gameIndex, gameName, gemsNeeded}`.
+- **Launch**: `startCombinedGameFromMenu()` (`index.html:5065`) sets `window.combinedGameConfig`/
+  `window.combinedGameStage` then `startCustomGame(resolvedIdx)`. `loadGameDeckForStage` →
+  `resolveStageGameIndex` → `startCustomGame` is **Find-only** (`loadCustomGames`, `index.html:5093`).
+  No URL-param auto-launch exists yet → clean place to add `?playBig=<id>`.
+- **Catch is separate**: `openCatchPlayModal(idx)` (`index.html:5113`) builds an isolated
+  `.catch-game-overlay` on `document.body` with its OWN coins/gems/lives; `_catchCleanup()` removes
+  it. It never calls `checkGameProgression`. → 3d-iii must bridge Catch gems → advance + swap surfaces.
+- **Legend apply is DOM-driven today**: `_mgApplyLegend(legend)` (`index.html:1779`) *clicks* the
+  Setup controls (timer toggle, `.player-prob-chip[data-prob-id]`, `.level-btn[data-level]`,
+  `.setup-type-line[data-type-id]`). 3d needs a HEADLESS variant (set runtime state directly) so
+  stages auto-play with no Setup page. Capture counterpart: `_mgCaptureSetupLegend` (`:1719`).
+- Full sub-stage plan + locked decisions: **ROADMAP "3d — Embedded Play"**.
+
+### ✅ Stage 3b (Compose: gather + order) — DONE (June 16)
+- **Compose view in `biggame.html`**: Open (✎) a Big Game → two columns. LEFT = library of every
+  game (6 Find + 4 Catch on the user's box, color-tagged), each expandable to its mini-games
+  (implicit **Default** + saved, e.g. Match 0-4 → "fast"), each with a legend hint + "＋ Add".
+  RIGHT = ordered stages with numbered badges + a ⠿ grab handle for **mouse drag-to-reorder**
+  (HTML5 DnD, yellow drop-line hint) + ↑/↓ arrow reorder + ✗ remove (end arrows disabled).
+- **STAGE shape**: `{gameType:'find'|'catch', gameRef:{name,index}, miniGameId:'<id>'|'default', miniGameName}`.
+  Persists instantly via `bgMutateStages` (no separate Save button — matches the app's instant-save
+  convention). New readers: `bgFindGames/bgCatchGames/bgMiniGamesOf/bgFmtLegend`; `bgGet/bgMutateStages`.
+- **Verified in preview**: add (real Add-button clicks) → 3 stages, reorder + remove round-trip
+  localStorage, screenshots taken; real data ("Game one", 0 stages — user-created on the live deploy)
+  restored exactly, no test residue.
+- **Legend parity fix (June 16)**: the `_mg*` legend formatter (prob/level/type label
+  resolution from `game.setup`) is now ported verbatim into `biggame.html` as `bgProbLabel/
+  bgLevelLabel/bgTypeLabel/bgDefaultLegend/bgFormatLegend`, so Composer legends read IDENTICALLY
+  to the Previewer's mini-game folder (e.g. "Timer on · 1. Basic · Medium 3 dominos · Slow Pace"
+  instead of the old crude "timer on · triangle · prob set · type set"). The legend now shows on
+  BOTH the library mini-game rows AND every stage row (`bgResolveLegend` resolves a stage's legend
+  live from its source mini-game, falling back to a snapshot stored on the stage at add-time;
+  old stages without the snapshot still resolve live). Stage shape gained an optional `legend`.
+- **NOT yet**: per-stage advance-rule + transition slots (3c), embedded play (3d), Previewer
+  "Sequence" column (3e), publish (3f).
+
+### ✅ Stage 3a (Foundation) — DONE (June 16)
+- **New Composer app: `biggame.html`** ("MathGrain Big Game Composer"). Shared chrome
+  (firebase SDK + `firebase-config.js` + `sync.js?v=local-wins-6` + `style.css?v=dgx-redesign-50`),
+  auto-logs-in with the stored uid (superuser → syncs; guest → local only, shown in the header).
+  Mouse-only authoring tool; footer links back to `index.html`.
+- **`savedBigGames` data model + helpers** (in `biggame.html`, also on `window`):
+  `bgLoad/bgSave/bgAdd/bgRename/bgDelete/bgNewRecord`. A record =
+  `{ id, name, createdAt, stages:[], transition:{kind:'levelup'} }`. Stages stay empty until 3b.
+- **Big-Games list UI**: rows with name + stage count + Rename (🏷) / Delete (✗); a disabled
+  Open (✎) placeholder for 3b; "+ New Big Game" prompts a name and persists.
+- **`sync.js` registration**: `savedBigGames` added to `_localWinsKeys` (line 396) AND the
+  `_getCardBackupData` backup condition (line 584). Cache-buster bumped `local-wins-5 → -6` in
+  `index.html` + `pm-studio-DrV.html`.
+- **Verified in preview**: page loads with no console errors; add/rename/delete round-trip
+  through localStorage; real data untouched (none existed yet — first Big Game feature).
+- **NOT yet**: composing stages, advance-rule/transition slots, embedded play, the Previewer
+  "Sequence" column, publish. Those are 3b–3f.
+
+**Architecture locked (his answers):** a NEW standalone Composer app (own HTML page/tab, like
+Previewer/Studio) that AUTHORS Big Games and PLAYS them via an **embedded Previewer engine**
+(real engine in a frame, deep-linked `index.html?playBig=<id>` — one engine, no duplication,
+no tab-switching). Fresh **`savedBigGames`** store (register in `sync.js` backup + local-wins).
+The Previewer's **"Sequence" column** also lists/plays them. Advance rules = RESERVE an
+extensible per-stage slot with a simple gem default (editor LATER, his call). Transition =
+visual Level-Up for now (rules later). Board A/B = same-type shares one surface / mixed
+switches surfaces (handled in 3d). Publish = deferred (3f).
+
+**Start here — stage 3a (Foundation):** the `savedBigGames` data model + load/save/list
+helpers; register `savedBigGames` in `sync.js` (backup + local-wins); the new Composer app
+shell (new HTML page + shared chrome + a Big-Games list + "New Big Game" reading/writing the
+store). No composing/play yet. Then 3b compose, 3c slots, 3d embedded play (the hard one),
+3e Sequence column, 3f publish. Full detail in ROADMAP.
+
+### Grounding: legacy COMBINED GAMES = the Phase-3 prototype to extend (read-only findings, June 15)
+- **Data:** `savedCombinedGames` = `[{ name, stages: [{ gameIndex, gameName, gemsNeeded }] }]`.
+  Stages reference a **Find game by index (gameName fallback for resilience)** — **Find ONLY**,
+  whole games (NOT mini-games), no board embedded, no `gameType` field.
+- **Create (Studio):** the hidden combine checkboxes + `openCombineDialog` / `confirmCombineGames`
+  / `saveCombinedGames` / `loadCombinedGames` (pm-studio ~26060–26146). Pick 2+ Find games →
+  set per-stage gemsNeeded → name → save.
+- **Play (previewer / js/game.js):** `window.combinedGameConfig` + `combinedGameStage`;
+  `checkGameProgression` advances when a player's `stageGems >= stage.gemsNeeded` →
+  `pendingAdvance` → "Level Up!" overlay (~2.5s, shows next game label/name) →
+  `window.loadGameDeckForStage(next)`; last stage → `showFinalCelebration` (confetti).
+  Studio lists them under "Combined Games:" with delete; deleting a Find game shifts/ warns
+  referencing stages.
+- **Already exists (reuse):** sequencing, per-player gem tracking, the transition overlay,
+  final celebration, resilient by-name refs, localStorage persistence.
+- **Missing for Big Game:** Find↔Catch mixing + board/surface switching, **mini-game**
+  references (not whole games), per-stage `gameType`, richer advance rules, a composer UI.
+
+**Mini-game data model (Phase 2, for the composer to read):** `game.miniGames = [{ id, name,
+createdAt, legend }]`; legend = `{ timerOn, probOptionId, level, typeId }` (LEGEND-ONLY — no
+board; board is the type's surface). Each game's folder also shows an implicit computed
+"Default" = the game's own configuration (count starts at 1).
+
+---
+
+## June 13–15, 2026 — Phase 2 mini-games COMPLETE + Studio/loupe cleanup arc
+
+Working tree clean; everything shipped (tip `6c0e889`). ~25 commits. All verified live in
+the preview before each ship. Highlights (full detail in each commit message):
+
+- **Phase 2 — Game Previewer mini-games, DONE.** A **mini-game = a LEGEND** (one chosen
+  configuration of a game's settings: `{timerOn, probOptionId, level, typeId}`), filed
+  UNDER its parent game (`game.miniGames`). A Game is a folder of mini-games. **Board =
+  the game TYPE's playing surface (Find layout / Catch layout), NOT a card deal** — it only
+  matters at Big-Game time when mixing types (corrected mid-build; the earlier 2a board
+  snapshot + 2b live floating explorer were STRIPPED). On the Previewer's Choose-the-game
+  page each Find/Catch game has a **gold folder icon + count badge** opening a panel that
+  lists its mini-games (each legend shown in plain words, naming the parent game). Always a
+  first **"Default" = the game's own configuration** (count starts at 1; computed, not
+  stored). Per saved mini-game: **⧉ Copy · ⚙ Edit · ✎ Rename · ✗ Delete**. Add/Copy/Edit
+  route to the Setup page (a "💾 Save as mini-game"/"Save changes" button is injected; a
+  purple banner names what you're on), Copy/Edit pre-load the legend via `_mgApplyLegend`
+  (clicks the matching timer/prob[data-prob-id]/level[data-level]/type[data-type-id]
+  controls). Commit arc: `e6de30d` (2a) → `f997c9c` (2b, later stripped) → `e4eb5d7`
+  (2c-i strip) → `d472b2a` (folder+panel) → `6ffd3f1` (Default) → `49ac414` (add/rename/
+  delete) → `60b5540` (copy) → `518e8f4` (edit) → `6c0e889` (edit banner).
+- **Phase 1.5 SUPERSEDED by r→p** — "apply a game to a set" was dropped as too messy;
+  replaced by the **role→probability** shortcut in Game Creator (set columns + probs once
+  per ROLE; representatives on one synthetic line; Apply writes to every card of the role
+  AND materializes them as M-groups). See ROADMAP 1.5.
+- **Studio mouse-only cleanup:** Gr (Group Edit) mode + button REMOVED (passive
+  shift/marquee/row-letter/Ctrl+A selection + the "Edit group" two-step reference flow
+  cover it); **~600 lines of dead code** removed (old variations system, Shape Mode stubs,
+  one-time migrations' bodies, etc.); the non-functional Library "combine" checkboxes
+  hidden (publishing is later). **Authoring is MOUSE-ONLY; only the published Big Game runs
+  touch+mouse.**
+- **Twin-clone warnings** (Card Maker + Game Creator): toast when two cards share a
+  stableId, or identical non-blank art in one row, or an orphaned game-card ref; blank
+  cards are intentional and exempt. The real C2/C3 twin in Multiply by 4 was the trigger.
+- **Loupe (card editor) overhaul:** panel no longer covers the card (offsetParent-null bug
+  on the fixed panel); panel is movable via a visible grab bar and may float over the card
+  after you move it (no-overlap only applies on open); handle-on-top for icon editing; the
+  big left toolbar is hidden during edit, leaving only the two relevant tools (▣ wide-border
+  + 🎤 sound for cards; just ▣ for icons).
+- **Data cleanup:** removed 8 legacy localStorage keys (6 ghost card storages incl. the
+  phantom 15-card "abc" + 2 dead keys); full snapshot kept in
+  `_recovery_deleted_legacy_storages_2026-06-13.json`. Games audited: exactly 11, no ghosts.
+- **Misc:** game ⓘ info popover (which sets a game uses + description, toggles closed on
+  second click); a real game description box; menu wording; Enter-to-login.
+
+---
+
+## June 11, 2026 — Card Maker multi-select overhaul · Gr mode removed · twin-guard delete
 
 Working tree clean; everything shipped (tip `d50ac83` + this doc commit). One session,
 ~12 ships; each change verified in the live preview (login Vica) before shipping.

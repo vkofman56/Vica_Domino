@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Pre-commit hook: auto-bump the TRIAL banner whenever a commit touches
-# index.html or pm-studio-DrV.html, so the deployed banner always
-# reflects actual commit time.
+# Pre-commit hook: auto-bump the deploy banner on the HTML files in THIS commit,
+# so the deployed banner reflects actual commit time.
+#
+# SCOPE-AWARE (June 17): stamps + re-stages ONLY the HTML files already staged in
+# this commit — NOT always index.html + pm-studio-DrV.html. The old "always both"
+# form cross-touched the other app's banner, which broke parallel-session /
+# worktree isolation (it injected pm-studio's stamp into Big Game commits).
 #
 # Enable for this repo (one-time):
 #   git config core.hooksPath .githooks
@@ -10,10 +14,11 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 STAGED=$(git diff --cached --name-only)
 
-# Only act if the commit is going to ship deployable HTML. Pure docs /
-# script / CSS commits don't need the banner bumped (it'd cause noisy
-# diffs on every `MEMORY.md` tweak).
-if echo "$STAGED" | grep -qE '^(index\.html|pm-studio-DrV\.html)$'; then
-    bash "$REPO_ROOT/scripts/bump-trial.sh"
-    git add -- index.html pm-studio-DrV.html >/dev/null 2>&1 || true
+# Which deployable HTML files are in this commit? (Pure docs/script/CSS commits
+# get nothing — no noisy banner churn.)
+HTML_STAGED=$(echo "$STAGED" | grep -E '^(index\.html|pm-studio-DrV\.html|biggame\.html)$' || true)
+if [ -n "$HTML_STAGED" ]; then
+    # Word-split on the newline-separated list (our HTML filenames have no spaces).
+    bash "$REPO_ROOT/scripts/bump-trial.sh" $HTML_STAGED
+    git add -- $HTML_STAGED >/dev/null 2>&1 || true
 fi

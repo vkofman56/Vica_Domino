@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-41">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-64">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:39 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:43 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -73,6 +73,14 @@
                      recently picked). -->
                 <div class="intro-panel-header">
                     <h3>Choose the game:</h3>
+                    <!-- Preview-device selector (global). Picking a device makes
+                         ANY game tile (mini-game OR Big Game) launch inside a
+                         scaled iframe sized to that device's screen, in the
+                         orientation implied by the GP 0 player count. Sticky
+                         (localStorage vica_bgDevice); click the active one to
+                         deselect → Full screen. Built dynamically by
+                         _setupPreviewDevices() so the active state stays in sync. -->
+                    <div class="intro-preview-devices" id="intro-preview-devices" title="Preview a game on a device screen before publishing"></div>
                     <div class="game-type-search">
                         <input type="text"
                                id="game-type-search-input"
@@ -102,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:39 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:43 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -574,7 +582,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-5"></script>
+    <script src="js/sync.js?v=local-wins-9"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -1001,6 +1009,7 @@
                 chip.type = 'button';
                 var isSel = (prob.id === selId);
                 chip.className = 'player-prob-chip' + (isSel ? ' selected' : '');
+                chip.dataset.probId = prob.id; // for mini-game Copy (apply a stored legend)
                 // Widen each chip to the full column width so its left/right
                 // edges match the "Probabilities" title above (the column
                 // shrink-wraps to that title). Overrides the CSS width:65%.
@@ -1470,7 +1479,7 @@
         // freeze/float assignments saved on the game. Lets the user verify
         // that Studio's Game Creator content survived the round-trip into
         // localStorage and back into the Player's runtime.
-        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction) {
+        function _renderIntroGameBtn(listEl, label, iconSVG, onclick, eyeAction, mgInfo) {
             var row = document.createElement('div');
             row.className = 'intro-game-row';
             var btn = document.createElement('button');
@@ -1508,8 +1517,429 @@
                 eye.title = 'Left-click: cards in this game · Right-click: game icon';
                 row.appendChild(eye);
             }
+            // Phase 2c: mini-games folder button — opens this game's mini-games
+            // panel. mgInfo = { type:'find'|'catch', index } identifies the game.
+            if (mgInfo && typeof _mgListFor === 'function') {
+                var mgBtn = document.createElement('button');
+                mgBtn.type = 'button';
+                mgBtn.className = 'intro-game-mg';
+                // Count always includes the implicit Default (the game's own
+                // configuration) → starts at 1, never 0 (user, June 13).
+                var cnt = 1 + _mgListFor(mgInfo.type, mgInfo.index).length;
+                mgBtn.title = 'Mini-games of this game (' + cnt + ')';
+                mgBtn.innerHTML =
+                    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
+                    '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" ' +
+                    'fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' +
+                    '<span class="intro-game-mg-count">' + cnt + '</span>';
+                mgBtn.addEventListener('click', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                    _mgOpenPanel(mgInfo.type, mgInfo.index, mgBtn);
+                });
+                row.appendChild(mgBtn);
+            }
             listEl.appendChild(row);
             return btn;
+        }
+
+        // A legend = the four Setup-page fields the user's Legend box shows:
+        // Timer, Probability, Level, Type. Stored as VALUES; formatted for
+        // display via _mgFormatLegend. (user, June 13)
+        var _MG_LEVEL_KEYS = ['circle', 'triangle', 'star'];
+        var _MG_LEVEL_DIFF = { circle: 'Easy', triangle: 'Medium', star: 'Hard' };
+        function _mgSetupMode(g) { return (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch'; }
+        function _mgProbLabel(type, index, probId) {
+            if (!probId) return 'BasicS';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var opts = (games[index] && games[index].probOptions) || [];
+            for (var i = 0; i < opts.length; i++) {
+                if (opts[i] && opts[i].id === probId) return (i + 1) + '. ' + (opts[i].name || ('Prob' + (i + 1)));
+            }
+            return 'Prob';
+        }
+        function _mgLevelLabel(g, levelKey) {
+            if (!levelKey) return '';
+            var idx = _MG_LEVEL_KEYS.indexOf(levelKey); if (idx < 0) idx = 0;
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].levels && g.setup[mode].levels.options) || [];
+            var label = opts[idx] ? (opts[idx].label || '') : '';
+            var diff = _MG_LEVEL_DIFF[levelKey] || '';
+            // Don't double the difficulty word if the label already carries it
+            // (e.g. a Catch level literally labelled "Hard").
+            if (diff && label.toLowerCase().indexOf(diff.toLowerCase()) !== -1) diff = '';
+            var out = (diff ? diff + ' ' : '') + label;
+            return out.trim();
+        }
+        function _mgTypeLabel(g, typeId) {
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var i;
+            for (i = 0; i < opts.length; i++) { if (opts[i].id === typeId) return opts[i].label || ''; }
+            for (i = 0; i < opts.length; i++) { if (opts[i].on) return opts[i].label || ''; }
+            return opts[0] ? (opts[0].label || '') : '';
+        }
+        // Derive a game's DEFAULT legend (its current configuration) from its
+        // own data + globals — matches what the Setup page's Legend box shows.
+        function _mgDefaultLegend(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index]; if (!g) return null;
+            // Timer default follows the runtime default (window._currentTimerOn):
+            // ON for Find, OFF for Catch. (For Catch, setup.timer is FALL TIME,
+            // not a countdown — so it must NOT be read as "timer on".)
+            var timerOn = (type === 'find');
+            var level;
+            try { level = localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { level = 'circle'; }
+            var mode = _mgSetupMode(g);
+            var tOpts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null;
+            for (var i = 0; i < tOpts.length; i++) { if (tOpts[i].on) { typeId = tOpts[i].id; break; } }
+            if (!typeId && tOpts[0]) typeId = tOpts[0].id;
+            return { isDefault: true, timerOn: timerOn, probOptionId: g.activeProbOptionId || null, level: level, typeId: typeId };
+        }
+        // Plain-words description of a legend, always naming its parent game.
+        function _mgFormatLegend(legend, type, index) {
+            if (!legend) return '';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            var name = (g && g.name) || '(game)';
+            var parts = [(type === 'catch' ? 'Catch' : 'Find'), name];
+            parts.push('Timer ' + (legend.timerOn ? 'on' : 'off'));
+            parts.push(_mgProbLabel(type, index, legend.probOptionId));
+            var lvl = g ? _mgLevelLabel(g, legend.level) : '';
+            if (lvl) parts.push(lvl);
+            var typ = g ? _mgTypeLabel(g, legend.typeId) : '';
+            if (typ) parts.push(typ);
+            return parts.join('  ·  ');
+        }
+        // The mini-games panel (read-only in 2c-ii): lists a game's mini-games;
+        // clicking one shows its legend below.
+        function _mgClosePanel() {
+            var p = document.getElementById('mg-panel');
+            if (p && p.parentNode) p.parentNode.removeChild(p);
+            document.removeEventListener('click', _mgPanelOutside, true);
+            document.removeEventListener('keydown', _mgPanelEsc, true);
+        }
+        function _mgPanelOutside(e) { var p = document.getElementById('mg-panel'); if (p && !p.contains(e.target) && e.target !== p._anchor && !(p._anchor && p._anchor.contains(e.target))) _mgClosePanel(); }
+        function _mgPanelEsc(e) { if (e.key === 'Escape') _mgClosePanel(); }
+        function _mgOpenPanel(type, index, anchorEl) {
+            // Toggle off if already open for this anchor.
+            var existing = document.getElementById('mg-panel');
+            if (existing && existing._anchor === anchorEl) { _mgClosePanel(); return; }
+            _mgClosePanel();
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var gameName = (games[index] && games[index].name) || '(game)';
+            var list = _mgListFor(type, index);
+            var p = document.createElement('div');
+            p.id = 'mg-panel';
+            p.className = 'mg-panel';
+            p._anchor = anchorEl;
+            var title = document.createElement('div');
+            title.className = 'mg-panel-title';
+            title.textContent = 'Mini-games · ' + gameName;
+            p.appendChild(title);
+            var legendBox = document.createElement('div');
+            legendBox.className = 'mg-panel-legend';
+            legendBox.style.display = 'none';
+            // savedIdx: position in the saved list (for rename/delete); null
+            // for the protected Default.
+            function addItem(displayName, legend, savedIdx) {
+                var item = document.createElement('div');
+                item.className = 'mg-panel-item';
+                var nameSpan = document.createElement('span');
+                nameSpan.textContent = displayName;
+                nameSpan.style.cssText = 'flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;';
+                item.appendChild(nameSpan);
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '6px';
+                item.addEventListener('click', function() {
+                    p.querySelectorAll('.mg-panel-item.selected').forEach(function(el) { el.classList.remove('selected'); });
+                    item.classList.add('selected');
+                    legendBox.textContent = _mgFormatLegend(legend, type, index);
+                    legendBox.style.display = 'block';
+                });
+                // Play ▶: preview THIS mini-game (its legend) right here. Honors
+                // the GP 0 device-preview selector (touch mode) like any launch.
+                var play = document.createElement('span');
+                play.className = 'mg-item-act mg-item-play';
+                play.textContent = '▶';
+                play.title = 'Play / preview this mini-game';
+                play.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _mgPlayLegend(type, index, legend, displayName);
+                });
+                item.appendChild(play);
+                // Copy: start a new mini-game pre-loaded with THIS one's legend.
+                var cpy = document.createElement('span');
+                cpy.className = 'mg-item-act'; cpy.textContent = '⧉'; cpy.title = 'Copy to a new mini-game';
+                cpy.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _mgClosePanel();
+                    var _srcNm = displayName.replace(/\s*\(.*\)$/, '') || 'Mini-game';
+                    _mgStartAdd(type, index, legend, _srcNm + ' copy', undefined, 'New mini-game (copy of “' + _srcNm + '”)');
+                });
+                item.appendChild(cpy);
+                if (savedIdx !== null && savedIdx !== undefined) {
+                    var edt = document.createElement('span');
+                    edt.className = 'mg-item-act'; edt.textContent = '⚙'; edt.title = 'Edit settings';
+                    edt.addEventListener('click', function(e) { e.stopPropagation(); _mgClosePanel(); _mgStartEdit(type, index, savedIdx); });
+                    item.appendChild(edt);
+                    var ren = document.createElement('span');
+                    ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
+                    ren.addEventListener('click', function(e) { e.stopPropagation(); _mgRename(type, index, savedIdx, anchorEl); });
+                    var del = document.createElement('span');
+                    del.className = 'mg-item-act'; del.textContent = '✗'; del.title = 'Delete';
+                    del.addEventListener('click', function(e) { e.stopPropagation(); _mgDelete(type, index, savedIdx, anchorEl); });
+                    item.appendChild(ren); item.appendChild(del);
+                }
+                p.appendChild(item);
+                return item;
+            }
+            // The Default = the game's own configuration; always first, count
+            // starts at 1 (user, June 13). Pre-selected so its legend shows.
+            var defItem = addItem('Default (this game’s configuration)', _mgDefaultLegend(type, index), null);
+            defItem.click();
+            list.forEach(function(mg, si) { addItem(mg.name || 'Mini-game', mg.legend, si); });
+            p.appendChild(legendBox);
+            // "+ Add mini-game" — go to this game's Setup page in add-mode.
+            var addBtn = document.createElement('button');
+            addBtn.className = 'mg-panel-add';
+            addBtn.textContent = '+ Add mini-game';
+            addBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _mgClosePanel();
+                _mgStartAdd(type, index);
+            });
+            p.appendChild(addBtn);
+            document.body.appendChild(p);
+            // Anchor: below the button, clamped to viewport.
+            var r = anchorEl.getBoundingClientRect();
+            var pr = p.getBoundingClientRect();
+            var left = Math.min(r.left, window.innerWidth - pr.width - 8);
+            var top = r.bottom + 6;
+            if (top + pr.height > window.innerHeight - 8) top = Math.max(8, r.top - pr.height - 6);
+            p.style.left = Math.max(8, left) + 'px';
+            p.style.top = top + 'px';
+            setTimeout(function() {
+                document.addEventListener('click', _mgPanelOutside, true);
+                document.addEventListener('keydown', _mgPanelEsc, true);
+            }, 0);
+        }
+        // Play/preview a single mini-game with its legend applied. Honors the
+        // GP 0 device-preview selector (touch mode → scaled device iframe); else
+        // plays full-screen in this page. Works for Find ('custom-N') and Catch
+        // ('catch-N'), which share #start-game-btn (delegated handler routes to
+        // openCatchPlayModal for catch).
+        function _mgPlayLegend(type, index, legend, name) {
+            _mgClosePanel();
+            var gameId = (type === 'catch' ? 'catch-' : 'custom-') + index;
+            var pt = document.getElementById('intro-player-toggle');
+            var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
+            // In a preview iframe we never open ANOTHER device frame — play here.
+            var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
+            var legParam = legend ? '&legend=' + encodeURIComponent(JSON.stringify(legend)) : '';
+            if (dev) {
+                // autostart: ▶ Play auto-launches the game, so skip the full-size
+                // Setup view and show the device directly.
+                _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
+                                   '&players=' + pc + legParam, dev, pc, { autostart: true });
+                return;
+            }
+            // Full-screen, in-page: Setup → apply legend → auto-start.
+            selectedIntroGame = gameId;
+            goToMainPage();
+            setTimeout(function () {
+                _mgApplyLegend(legend);
+                setTimeout(function () {
+                    var sb = document.getElementById('start-game-btn');
+                    if (sb) sb.click();
+                }, 150);
+            }, 240);
+        }
+
+        if (typeof window !== 'undefined') {
+            window._mgFormatLegend = _mgFormatLegend;
+            window._mgDefaultLegend = _mgDefaultLegend;
+            window._mgOpenPanel = _mgOpenPanel;
+            window._mgApplyLegend = _mgApplyLegend;
+            window._mgPlayLegend = _mgPlayLegend;
+        }
+
+        // ===== Phase 2c-iii-b1: add / rename / delete mini-games =====
+        // Capture the 4 legend fields from the LIVE Setup page (same sources
+        // the Legend box reads): timer toggle, selected Prob, selected Level,
+        // selected Type.
+        function _mgCaptureSetupLegend(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index]; if (!g) return null;
+            var tog = document.getElementById('setup-timer-toggle');
+            var timerOn = tog ? (tog.getAttribute('data-state') === 'on') : (type === 'find');
+            var probId = window._gpSelectedProbId || g.activeProbOptionId || null;
+            var level = (window.game && window.game.selectedLevel)
+                || (function(){ try { return localStorage.getItem('vicaSelectedLevel') || 'circle'; } catch (e) { return 'circle'; } })();
+            var mode = _mgSetupMode(g);
+            var opts = (g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            var typeId = null, cur = window._currentTypeLabel || '';
+            var i;
+            for (i = 0; i < opts.length; i++) { if ((opts[i].label || '') === cur) { typeId = opts[i].id; break; } }
+            if (!typeId) { for (i = 0; i < opts.length; i++) { if (opts[i].on) { typeId = opts[i].id; break; } } if (!typeId && opts[0]) typeId = opts[0].id; }
+            return { timerOn: timerOn, probOptionId: probId, level: level, typeId: typeId };
+        }
+
+        // Add-mode: clicking "+ Add" flags intent and navigates to the game's
+        // Setup page, where _mgInjectSaveBtn shows a "Save as mini-game".
+        var _mgAddMode = null; // { type, index, defaultName?, editIdx? } | null
+        // editIdx === number → EDIT an existing saved mini-game in place
+        // (save overwrites its legend, keeping name+id). Otherwise → new record.
+        function _mgStartAdd(type, index, preloadLegend, defaultName, editIdx, bannerLabel) {
+            _mgAddMode = { type: type, index: index, defaultName: defaultName || '',
+                           editIdx: (typeof editIdx === 'number' ? editIdx : undefined),
+                           bannerLabel: bannerLabel || 'Adding a new mini-game' };
+            var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
+            var tile = document.querySelectorAll(colId + ' .intro-game-btn')[index];
+            if (!tile) { _mgAddMode = null; return; }
+            tile.click(); // -> Setup page (mode/count gates apply)
+            setTimeout(function() {
+                if (preloadLegend) _mgApplyLegend(preloadLegend); // Copy/Edit: pre-load settings
+                _mgInjectSaveBtn();
+                _mgInjectBanner();
+            }, 150);
+        }
+        // Edit: open an existing mini-game's settings on Setup, save back to it.
+        function _mgStartEdit(type, index, savedIdx) {
+            var list = _mgListFor(type, index);
+            var mg = list[savedIdx]; if (!mg) return;
+            _mgStartAdd(type, index, mg.legend, '', savedIdx, 'Editing mini-game: “' + (mg.name || 'Mini-game') + '”');
+        }
+        // Banner at the top of the Setup card telling the user which mini-game
+        // they are creating / editing (so they always know what they're on).
+        function _mgInjectBanner() {
+            if (!_mgAddMode) return;
+            var panel = document.querySelector('#start-screen .setup-panel');
+            if (!panel) { setTimeout(_mgInjectBanner, 120); return; }
+            var b = document.getElementById('mg-edit-banner');
+            if (!b) {
+                b = document.createElement('div');
+                b.id = 'mg-edit-banner';
+                panel.insertBefore(b, panel.firstChild);
+            }
+            b.textContent = '💾 ' + _mgAddMode.bannerLabel;
+        }
+        // Apply a stored legend onto the live Setup controls (the reverse of
+        // _mgCaptureSetupLegend) — used by Copy so you start from a mini-game's
+        // settings and tweak. Clicks the matching controls so their own
+        // handlers + the Legend box update.
+        function _mgApplyLegend(legend) {
+            if (!legend) return;
+            try {
+                var tog = document.getElementById('setup-timer-toggle');
+                if (tog) {
+                    var cur = tog.getAttribute('data-state') === 'on';
+                    if (cur !== !!legend.timerOn) tog.click();
+                }
+                if (legend.probOptionId) {
+                    var chip = document.querySelector('.player-prob-chip[data-prob-id="' + legend.probOptionId + '"]');
+                    if (chip && !chip.classList.contains('selected')) chip.click();
+                }
+                if (legend.level) {
+                    var lvl = document.querySelector('.level-btn[data-level="' + legend.level + '"]');
+                    if (lvl && !lvl.classList.contains('selected')) lvl.click();
+                }
+                if (legend.typeId) {
+                    var tline = document.querySelector('.setup-type-line[data-type-id="' + legend.typeId + '"]');
+                    if (tline) {
+                        var radio = tline.querySelector('input[type=radio]');
+                        if (radio) { if (!radio.checked) radio.click(); } else { tline.click(); }
+                    }
+                }
+                if (typeof _renderStartSummary === 'function') _renderStartSummary();
+            } catch (e) {}
+        }
+        function _mgClearAddMode() {
+            _mgAddMode = null;
+            var b = document.getElementById('mg-save-btn');
+            if (b && b.parentNode) b.parentNode.removeChild(b);
+            var ban = document.getElementById('mg-edit-banner');
+            if (ban && ban.parentNode) ban.parentNode.removeChild(ban);
+        }
+        function _mgInjectSaveBtn() {
+            if (!_mgAddMode) return;
+            if (document.getElementById('mg-save-btn')) return;
+            var startBtn = document.getElementById('start-game-btn');
+            if (!startBtn || !startBtn.offsetParent) { setTimeout(_mgInjectSaveBtn, 120); return; }
+            var editing = (_mgAddMode.editIdx !== undefined);
+            var b = document.createElement('button');
+            b.id = 'mg-save-btn';
+            b.className = 'btn';
+            b.textContent = editing ? '💾 Save changes' : '💾 Save as mini-game';
+            b.style.cssText = 'margin-left:10px;background:#7c4dff;color:#fff;';
+            b.addEventListener('click', _mgSaveCurrentAsMiniGame);
+            startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
+        }
+        function _mgSaveCurrentAsMiniGame() {
+            if (!_mgAddMode) return;
+            var type = _mgAddMode.type, index = _mgAddMode.index, editIdx = _mgAddMode.editIdx;
+            var legend = _mgCaptureSetupLegend(type, index);
+            if (!legend) { _mgClearAddMode(); return; }
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            if (editIdx !== undefined) {
+                // EDIT: overwrite the existing mini-game's legend (keep name+id).
+                var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+                var mg = games[index] && games[index].miniGames && games[index].miniGames[editIdx];
+                if (mg) { mg.legend = legend; localStorage.setItem(key, JSON.stringify(games)); }
+                _mgClearAddMode();
+                _mgBackToIntro();
+                return;
+            }
+            // NEW: name it and file under the game.
+            var name = prompt('Name this mini-game:', _mgAddMode.defaultName || '');
+            if (name === null) return;            // cancelled — stay on Setup
+            name = name.trim() || 'Mini-game';
+            _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                    name: name, createdAt: Date.now(), legend: legend });
+            _mgClearAddMode();
+            _mgBackToIntro();
+        }
+        function _mgBackToIntro() {
+            document.getElementById('start-screen').style.display = 'none';
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = 'none';
+            document.getElementById('intro-screen').style.display = 'flex';
+            if (typeof _renderIntroColumns === 'function') _renderIntroColumns();
+            else if (typeof populateIntroGames === 'function') populateIntroGames();
+        }
+        function _mgRename(type, index, savedIdx, anchorEl) {
+            var list = _mgListFor(type, index);
+            var cur = list[savedIdx]; if (!cur) return;
+            var name = prompt('Rename mini-game:', cur.name || '');
+            if (name === null) return;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            if (games[index] && games[index].miniGames && games[index].miniGames[savedIdx]) {
+                games[index].miniGames[savedIdx].name = name.trim() || 'Mini-game';
+                localStorage.setItem(key, JSON.stringify(games));
+            }
+            _mgOpenPanel(type, index, anchorEl); // refresh
+        }
+        function _mgDelete(type, index, savedIdx, anchorEl) {
+            var list = _mgListFor(type, index);
+            var cur = list[savedIdx]; if (!cur) return;
+            if (!confirm('Delete mini-game “' + (cur.name || 'Mini-game') + '”?')) return;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            if (games[index] && games[index].miniGames) {
+                games[index].miniGames.splice(savedIdx, 1);
+                localStorage.setItem(key, JSON.stringify(games));
+            }
+            // re-render the game list so the badge count drops, then reopen.
+            if (typeof populateIntroGames === 'function') populateIntroGames();
+            var colId = (type === 'catch') ? '#intro-col-catch' : '#intro-col-find';
+            var newAnchor = document.querySelectorAll(colId + ' .intro-game-mg')[index] || anchorEl;
+            _mgOpenPanel(type, index, newAnchor);
+        }
+        if (typeof window !== 'undefined') {
+            window._mgStartAdd = _mgStartAdd;
+            window._mgClearAddMode = _mgClearAddMode;
+            window._mgInjectSaveBtn = _mgInjectSaveBtn;
         }
 
         // ===== Game-type catalog + recency-stack render =====
@@ -1525,7 +1955,14 @@
             { id: 'sequence', label: 'Sequence',          live: false, listId: 'intro-col-sequence'}
         ];
         var GAME_TYPE_RECENCY_KEY = 'vicaIntroGameTypeRecency';
-        var GAME_TYPE_RECENCY_DEFAULT = ['find', 'catch', 'sequence'];
+        // 3e: show 2 game-type columns (Find, Catch); the 3rd slot is now the
+        // dedicated "Big Games" column (added in _renderIntroColumns), not a game
+        // type. "sequence"/"spy"/… stay reserved future game types in the catalog.
+        var GAME_TYPE_RECENCY_DEFAULT = ['find', 'catch'];
+        var GAME_TYPE_MAX_VISIBLE = 2;
+        // Big Games Play/Scan toggle (persisted). 'play' = composed gem rule;
+        // 'scan' = advance after ~3 coins per stage (rapid preview of all stages).
+        try { window._bgPlayMode = localStorage.getItem('vica_bgPlayMode') || 'play'; } catch (e) { window._bgPlayMode = 'play'; }
 
         function _getGameTypeMeta(id) {
             for (var i = 0; i < GAME_TYPE_CATALOG.length; i++) {
@@ -1539,7 +1976,7 @@
                 var arr = raw ? JSON.parse(raw) : null;
                 if (Array.isArray(arr) && arr.length > 0) {
                     var known = GAME_TYPE_CATALOG.map(function(c){ return c.id; });
-                    var filtered = arr.filter(function(id){ return known.indexOf(id) >= 0; }).slice(0, 3);
+                    var filtered = arr.filter(function(id){ return known.indexOf(id) >= 0; }).slice(0, GAME_TYPE_MAX_VISIBLE);
                     if (filtered.length > 0) return filtered;
                 }
             } catch (e) {}
@@ -1553,7 +1990,7 @@
             var stack = _loadGameTypeRecency();
             stack = stack.filter(function(x){ return x !== id; });
             stack.unshift(id);
-            stack = stack.slice(0, 3);
+            stack = stack.slice(0, GAME_TYPE_MAX_VISIBLE);
             _saveGameTypeRecency(stack);
             _renderIntroColumns();
         }
@@ -1616,9 +2053,9 @@
             container.appendChild(miscCol);
 
             var stack = _loadGameTypeRecency();
-            // One 1fr grid column per game type (the Misc column is the leading
-            // fixed track in the CSS grid template).
-            container.style.setProperty('--game-cols', stack.length);
+            // One 1fr grid column per game type, PLUS one for the Big Games column
+            // (the Misc column is the leading fixed track in the CSS grid template).
+            container.style.setProperty('--game-cols', stack.length + 1);
             stack.forEach(function(id) {
                 var meta = _getGameTypeMeta(id);
                 if (!meta) return;
@@ -1641,6 +2078,83 @@
                 col.appendChild(list);
                 container.appendChild(col);
             });
+
+            // ---- Big Games column (3e): "Go to Big Game" + list + play ----
+            // Big Games aren't a game TYPE (they're compositions), so this is a
+            // dedicated column in the slot the "Sequence" placeholder used to hold.
+            var bgCol = document.createElement('div');
+            bgCol.className = 'intro-col intro-col-biggames';
+            var bgHdr = document.createElement('h4');
+            bgHdr.className = 'intro-col-header';
+            bgHdr.textContent = 'Big Games';
+            bgCol.appendChild(bgHdr);
+            var bgList = document.createElement('div');
+            bgList.className = 'intro-col-list';
+            // Author button → the Big Game Composer app.
+            var goBtn = document.createElement('button');
+            goBtn.className = 'intro-biggame-go';
+            goBtn.textContent = '→ ✎ Composer';
+            goBtn.title = 'Open the Big Game Composer in a new tab';
+            // New tab/window so the Previewer stays open.
+            goBtn.addEventListener('click', function() { window.open('biggame.html', '_blank'); });
+            bgList.appendChild(goBtn);
+            // Play / Scan toggle. PLAY = advance on the composed gem rule (1 gem).
+            // SCAN = advance after just 3 coins per stage, so it races through all
+            // mini-games (a quick preview of the whole Big Game).
+            var modeWrap = document.createElement('div');
+            modeWrap.className = 'intro-biggame-mode';
+            [['play', 'Play'], ['scan', 'Scan']].forEach(function(opt) {
+                var mb = document.createElement('button');
+                mb.className = 'ibg-mode-btn' + (((window._bgPlayMode || 'play') === opt[0]) ? ' active' : '');
+                mb.textContent = opt[1];
+                mb.title = (opt[0] === 'scan') ? 'Scan: each mini-game advances after ~3 coins (very fast)'
+                                               : 'Play: normal advance (the composed gem rule)';
+                mb.addEventListener('click', function() {
+                    window._bgPlayMode = opt[0];
+                    try { localStorage.setItem('vica_bgPlayMode', opt[0]); } catch (e) {}
+                    _renderIntroColumns();
+                });
+                modeWrap.appendChild(mb);
+            });
+            bgList.appendChild(modeWrap);
+            // Saved Big Games — click a tile to PLAY it here in the Previewer.
+            var bgGames = [];
+            try { bgGames = JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) {}
+            var playable = bgGames.filter(function(b) { return b.stages && b.stages.length; });
+            if (!playable.length) {
+                var bgEmpty = document.createElement('div');
+                bgEmpty.className = 'intro-col-empty';
+                bgEmpty.textContent = bgGames.length ? '(add stages in the Composer)' : '(none yet)';
+                bgList.appendChild(bgEmpty);
+            } else {
+                playable.forEach(function(bg) {
+                    var tile = document.createElement('button');
+                    tile.className = 'intro-biggame-tile';
+                    var nm = document.createElement('span'); nm.className = 'ibg-name'; nm.textContent = bg.name || 'Big Game';
+                    var n = bg.stages.length;
+                    var mt = document.createElement('span'); mt.className = 'ibg-meta'; mt.textContent = n + (n === 1 ? ' stage' : ' stages');
+                    tile.appendChild(nm); tile.appendChild(mt);
+                    tile.addEventListener('click', function() {
+                        // Device preview: open the Big Game in a scaled device
+                        // iframe (carries the Play/Scan mode + player count).
+                        // TOUCH mode only; never when we ARE the preview iframe.
+                        var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
+                        if (dev) {
+                            var pt = document.getElementById('intro-player-toggle');
+                            var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
+                            _bgOpenDeviceFrame('index.html?playBig=' + encodeURIComponent(bg.id) +
+                                               '&mode=' + (window._bgPlayMode || 'play') +
+                                               '&players=' + pc, dev, pc);
+                            return;
+                        }
+                        if (window.startBigGameFromId) window.startBigGameFromId(bg.id);
+                    });
+                    bgList.appendChild(tile);
+                });
+            }
+            bgCol.appendChild(bgList);
+            container.appendChild(bgCol);
+
             // Populate game tiles for whichever live columns are visible.
             populateIntroGames();
         }
@@ -1737,6 +2251,16 @@
                     });
                     btn.classList.add('selected');
                     selectedIntroGame = gameId;
+                    // Device preview: launch inside a scaled iframe sized to the
+                    // chosen device instead of taking over this page. TOUCH mode
+                    // only — in mouse mode the device choice is ignored; and never
+                    // when we ARE the preview iframe (no nested frames).
+                    var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
+                    if (dev) {
+                        _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
+                                           '&players=' + count, dev, count);
+                        return;
+                    }
                     goToMainPage();
                 };
             }
@@ -1746,7 +2270,7 @@
                 games.forEach(function(game, i) {
                     // Publishing isn't implemented — show every game.
                     var fbtn = _renderIntroGameBtn(findList, game.name, _introFindIconSVG(game), null,
-                        function() { _openCardsLibrary('find', i); });
+                        function() { _openCardsLibrary('find', i); }, { type: 'find', index: i });
                     _bypassTileClick(fbtn, 'custom-' + i);
                 });
 
@@ -1763,7 +2287,7 @@
                 catchGames.forEach(function(cg, ci) {
                     // Publishing isn't implemented — show every game.
                     var btn = _renderIntroGameBtn(catchList, cg.name, _catchSetupIconSVG(cg), null,
-                        function() { _openCardsLibrary('catch', ci); });
+                        function() { _openCardsLibrary('catch', ci); }, { type: 'catch', index: ci });
                     _bypassTileClick(btn, 'catch-' + ci);
                 });
             }
@@ -1780,6 +2304,7 @@
             _setupXenoBoxScreen();
             _setupGameIconPopup();
             _wireGameTypeSearch();
+            _setupPreviewDevices();
             _updateIntroTileAvailability();
         }
 
@@ -2046,9 +2571,15 @@
             var toggle = document.getElementById('intro-input-toggle');
             if (!toggle || toggle._wired) return;
             toggle._wired = true;
-            // Device-aware first paint: defaults to TOUCH on touchscreens,
-            // MOUSE on non-touch devices. The user can flip either way.
-            _setInputMode(_hasTouchScreen ? 'touch' : 'mouse');
+            // Restore the user's saved choice (persisted in _setInputMode) so
+            // the mode NEVER silently reverts — across reloads, a "go back" from
+            // a game, and into the device-preview iframe (which shares this
+            // localStorage). Only when nothing is saved do we fall back to the
+            // device-aware default (TOUCH on touchscreens, MOUSE otherwise).
+            var _savedMode = null;
+            try { _savedMode = localStorage.getItem('vica_inputMode'); } catch (e) {}
+            _setInputMode((_savedMode === 'touch' || _savedMode === 'mouse')
+                          ? _savedMode : (_hasTouchScreen ? 'touch' : 'mouse'));
             toggle.addEventListener('click', function() {
                 var current = toggle.getAttribute('data-mode');
                 _setInputMode(current === 'touch' ? 'mouse' : 'touch');
@@ -2353,6 +2884,9 @@
             if (mode !== 'touch' && mode !== 'mouse') mode = 'touch';
             _findInputMode = mode;
             _catchInputMode = mode;
+            // Persist so the choice survives reloads / go-back / the preview
+            // iframe (device-local key — never synced; see sync.js _isLocalOnlyKey).
+            try { localStorage.setItem('vica_inputMode', mode); } catch (e) {}
             var toggle = document.getElementById('intro-input-toggle');
             if (toggle) {
                 toggle.setAttribute('data-mode', mode);
@@ -2361,6 +2895,8 @@
                 toggle.title = 'Switch to ' + (mode === 'touch' ? 'mouse' : 'touch') + ' mode';
             }
             _updateIntroTileAvailability();
+            // Re-render the device-preview selector so it greys out in mouse mode.
+            if (typeof _setupPreviewDevices === 'function') _setupPreviewDevices();
             // Keep the Game Preview subtitle glyph in sync if it's showing.
             if (window._gpSetSubtitleMode) window._gpSetSubtitleMode(mode);
         }
@@ -3184,6 +3720,7 @@
                 if (soleT.label) {
                     var staticLine = document.createElement('div');
                     staticLine.className = 'setup-type-line setup-type-line-static';
+                    staticLine.dataset.typeId = soleT.id; // for mini-game Copy
                     var labelTxt0 = soleT.label;
                     if (soleT.voiceInput) labelTxt0 += ' 🎤';
                     staticLine.textContent = labelTxt0;
@@ -3195,6 +3732,7 @@
                 enabled.forEach(function(opt, i) {
                     var line = document.createElement('label');
                     line.className = 'setup-type-line' + (i === 0 ? ' selected' : '');
+                    line.dataset.typeId = opt.id; // for mini-game Copy
                     var radio = document.createElement('input');
                     radio.type = 'radio';
                     radio.name = 'setup-type-pick';
@@ -3800,6 +4338,128 @@
             window._activeCombinedIndex = -1;
             document.querySelector('#start-screen .subtitle').textContent = 'Please select a game';
             resetLevelDominoIcons();
+        }
+
+        // ============================================================
+        // Phase 2a — MINI-GAME data model + capture (logic only; no UI)
+        // ============================================================
+        // A mini-game = a "legend" (one chosen configuration of a game's
+        // settings) + a frozen snapshot of the exact board it previewed.
+        // Mini-games live UNDER their parent game: game.miniGames = [ rec, … ]
+        // — a Game is a folder of mini-games (user model, June 13).
+        //
+        //   rec = {
+        //     id, name, createdAt,
+        //     legend: {           // the chosen config — REFERENCES the parent
+        //       gameType,         // 'find' | 'catch'
+        //       probOptionId,     // which Prob preset is active
+        //       level,            // selected level/difficulty (Find)
+        //       playerCount, includeXeno,
+        //       inputMode,        // 'touch' | 'mouse'
+        //       timerOn
+        //     },
+        //     board: {            // frozen literal — enables exact replay (A)
+        //       type: 'find' | 'catch',
+        //       find?:  { players: [ { name, hand: [card…] } ] },
+        //       catch?: { round, numPlayers, fallingCards: [ {label,isMatch,x,y,tilt,tiltDir,tiltSpeed,drift} ] }
+        //     }
+        //   }
+        //
+        // Boards are generated with un-seeded Math.random(), so an exact
+        // board can ONLY be reproduced from a literal snapshot — hence the
+        // frozen `board`. The A-vs-B choice (frozen vs regenerate) is made
+        // later at Big-Game time by the type-consistency check.
+
+        // Which game type is currently being previewed?
+        function _mgActiveType() {
+            if (typeof _catchGame !== 'undefined' && _catchGame && _catchGame.active) return 'catch';
+            if (typeof activeCustomGameIndex !== 'undefined' && activeCustomGameIndex >= 0) return 'find';
+            return null;
+        }
+        function _mgActiveIndex(type) {
+            if (type === 'catch') return (_catchGame ? _catchGame.catchIndex : -1);
+            if (type === 'find') return activeCustomGameIndex;
+            return -1;
+        }
+        function _mgActiveInputMode() {
+            if (typeof _catchInputMode !== 'undefined') return _catchInputMode || 'touch';
+            return 'touch';
+        }
+
+        // The legend: the chosen configuration. Small by design — it points at
+        // the parent game (cards/probs/art stay live) and pins only the
+        // run-time choices.
+        function _mgCaptureLegend() {
+            var type = _mgActiveType();
+            if (!type) return null;
+            var legend = {
+                gameType: type,
+                probOptionId: (typeof window._gpSelectedProbId !== 'undefined') ? (window._gpSelectedProbId || null) : null,
+                playerCount: (typeof window._gpCurrentPlayerCount === 'function') ? window._gpCurrentPlayerCount() : 1,
+                inputMode: _mgActiveInputMode(),
+                timerOn: !!window._currentTimerOn
+            };
+            if (type === 'find' && window.game) {
+                legend.level = window.game.selectedLevel || null;
+                legend.includeXeno = !!window.game.includeXeno;
+            }
+            return legend;
+        }
+
+        // Resolve a Prob preset id to a friendly name (for legend display).
+        function _mgProbName(type, index, probId) {
+            if (!probId) return 'BasicS';
+            try {
+                var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+                var opts = (games[index] && games[index].probOptions) || [];
+                for (var i = 0; i < opts.length; i++) {
+                    if (opts[i] && opts[i].id === probId) return opts[i].name || ('Prob' + (i + 1));
+                }
+            } catch (e) {}
+            return 'Prob';
+        }
+
+        // Assemble a mini-game record from the current preview configuration.
+        // A mini-game is LEGEND-ONLY (no board/deal) — the board is implied by
+        // the parent game's TYPE and only matters at Big-Game time. Returns
+        // null if no game is being previewed.
+        function _mgBuildRecord(name) {
+            var legend = _mgCaptureLegend();
+            if (!legend) return null;
+            return {
+                id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                name: (name || '').trim() || 'Mini-game',
+                createdAt: Date.now(),
+                legend: legend
+            };
+        }
+
+        // Storage: mini-games live on the parent game object. These read/write
+        // the right saved-games array by type. _mgListFor is read-only.
+        function _mgListFor(type, index) {
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            return (g && Array.isArray(g.miniGames)) ? g.miniGames : [];
+        }
+        function _mgAddTo(type, index, record) {
+            if (!record) return false;
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            if (!g) return false;
+            if (!Array.isArray(g.miniGames)) g.miniGames = [];
+            g.miniGames.push(record);
+            localStorage.setItem(key, JSON.stringify(games));
+            return true;
+        }
+
+        if (typeof window !== 'undefined') {
+            window._mgActiveType = _mgActiveType;
+            window._mgCaptureLegend = _mgCaptureLegend;
+            window._mgProbName = _mgProbName;
+            window._mgBuildRecord = _mgBuildRecord;
+            window._mgListFor = _mgListFor;
+            window._mgAddTo = _mgAddTo;
         }
 
         // === Level domino icon updates ===
@@ -4594,6 +5254,613 @@
             if (idx >= 0) startCustomGame(idx, null);
         };
 
+        // ============================================================
+        // BIG GAME embedded play — Phase 3d-i + 3d-ii
+        // ============================================================
+        // Gated ENTIRELY behind ?playBig=<id>: with no param none of this runs,
+        // so the normal Previewer is byte-for-byte unaffected.
+        //   3d-i  : launch + embed + play Find stage 0 (legend auto-applied).
+        //   3d-ii : Find→Find CHAINING — gem-gated advance, Level-Up overlay,
+        //           per-stage legend (headless), final celebration. Reuses the
+        //           legacy combined-game engine via an adapter config.
+        //   (Catch stages still graceful-stop → 3d-iii.)
+        function _bgLoadBigGames() {
+            try { return JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) { return []; }
+        }
+        // Resolve a stage's legend: prefer the snapshot on the stage, else look
+        // it up live from the source mini-game (mirrors biggame.html).
+        function _bgStageLegend(stage) {
+            if (stage.legend) return stage.legend;
+            var idx = stage.gameRef ? stage.gameRef.index : -1;
+            if (!stage.miniGameId || stage.miniGameId === 'default') return _mgDefaultLegend(stage.gameType, idx);
+            var list = _mgListFor(stage.gameType, idx) || [];
+            for (var i = 0; i < list.length; i++) { if (list[i].id === stage.miniGameId) return list[i].legend || null; }
+            return _mgDefaultLegend(stage.gameType, idx);
+        }
+        // A small banner so the author always sees they're inside a Big Game.
+        function _bgShowBanner(text) {
+            var b = document.getElementById('bg-play-banner');
+            if (!b) {
+                b = document.createElement('div');
+                b.id = 'bg-play-banner';
+                // Own full-width top row. Font is 20% larger than before (13→15.6px).
+                b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;text-align:center;'
+                    + 'font:600 15.6px/1.5 "Segoe UI",sans-serif;color:#fff;padding:6px 10px;'
+                    + 'background:linear-gradient(90deg,#6a74d8,#8a5fc0);box-shadow:0 2px 8px rgba(0,0,0,.25);';
+                document.body.appendChild(b);
+            }
+            // body.bg-playing lets CSS shift the board below this banner and move
+            // the board's page-name pill left next to the back/home icons.
+            document.body.classList.add('bg-playing');
+            b.textContent = text;
+        }
+        // Remove the Big Game play chrome (banner + body flag) when play ends.
+        function _bgEndPlayChrome() {
+            var b = document.getElementById('bg-play-banner');
+            if (b && b.parentNode) b.parentNode.removeChild(b);
+            document.body.classList.remove('bg-playing');
+            window._bgScanMode = false; // clear scan flag when leaving Big Game play
+        }
+        window._bgEndPlayChrome = _bgEndPlayChrome;
+        function _bgStageBanner(name, stageIdx, total, stage) {
+            return '🎮 ' + (name || 'Big Game') + ' — Stage ' + (stageIdx + 1) + '/' + total
+                + ': ' + (stage.gameType === 'catch' ? 'Catch' : 'Find')
+                + ' · ' + ((stage.gameRef && stage.gameRef.name) || stage.gameName || '')
+                + ' · ' + (stage.miniGameName || 'Default');
+        }
+        // Adapter: a savedBigGames record → a config the legacy combined-game
+        // engine understands. The engine reads stage.gemsNeeded + gameName/
+        // gameIndex; we also carry gameType/miniGame/legend for our own hooks.
+        function _bgBuildCombinedConfig(bg) {
+            var stages = (bg.stages || []).map(function (s) {
+                return {
+                    gameIndex: s.gameRef ? s.gameRef.index : 0,
+                    gameName: s.gameRef ? s.gameRef.name : '',
+                    gemsNeeded: (s.advanceRule && s.advanceRule.value) || 1,
+                    gameType: s.gameType,
+                    miniGameId: s.miniGameId,
+                    miniGameName: s.miniGameName,
+                    legend: _bgStageLegend(s)
+                };
+            });
+            return { id: bg.id, name: bg.name, stages: stages, _isBigGame: true };
+        }
+        // Headless legend apply for ADVANCING stages (no Setup page present):
+        // set the runtime state directly. level → game.selectedLevel; prob →
+        // _gpSelectedProbId (startCustomGame materializes it); timer →
+        // _currentTimerOn + includeXeno; type → the _currentType* globals
+        // (behavior + voice), resolved from the stage's game setup (3d-iv).
+        function _bgApplyLegendHeadless(legend, gameType, index) {
+            if (!legend) return;
+            try {
+                if (legend.level && window.game) {
+                    window.game.selectedLevel = legend.level;
+                    try { localStorage.setItem('vicaSelectedLevel', legend.level); } catch (e) {}
+                }
+                window._gpSelectedProbId = legend.probOptionId || null;
+                window._currentTimerOn = !!legend.timerOn;
+                if (window.game) window.game.includeXeno = !!legend.timerOn;
+                // Type fidelity: mirror _stashTypeChoice from the live game setup.
+                if (legend.typeId && gameType != null && index != null) {
+                    var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+                    var g = games[index];
+                    var mode = (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch';
+                    var opts = (g && g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+                    var opt = null;
+                    for (var i = 0; i < opts.length; i++) { if (opts[i].id === legend.typeId) { opt = opts[i]; break; } }
+                    if (opt) {
+                        window._currentTypeBehavior = (opt.behavior === 'nonstop') ? 'nonstop' : 'manual';
+                        window._currentTypeLabel = opt.label || '';
+                        window._currentVoiceInput = !!opt.voiceInput;
+                        var lv = opt.voiceLang;
+                        window._currentVoiceLang = (lv === 'es' || lv === 'ru') ? lv : 'en';
+                        window._currentVoiceSynonyms = (opt.voiceSynonyms && typeof opt.voiceSynonyms === 'object') ? opt.voiceSynonyms : null;
+                    }
+                }
+            } catch (e) {}
+        }
+        // Wrap the deck loader so Big Game advances apply the stage legend before
+        // building the deck. Legacy combined games (no _isBigGame) are untouched.
+        (function () {
+            var _origLoadDeck = window.loadGameDeckForStage;
+            window.loadGameDeckForStage = function (stage) {
+                var cfg = window.combinedGameConfig;
+                if (cfg && cfg._isBigGame) {
+                    // Safety net: a Catch stage should be routed by the orchestrator
+                    // BEFORE this Find deck-loader is reached. If one slips through,
+                    // don't try to load a Catch game as a Find deck.
+                    if (stage && stage.gameType === 'catch') return;
+                    _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
+                    var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
+                    _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
+                }
+                return _origLoadDeck(stage);
+            };
+        })();
+
+        // ---- 3d-iii: mixed Find/Catch orchestration + board switching (A/B rule) ----
+        function _bgStageAlpha(i) { return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][i] || '?'; }
+        // Ensure window.game has a single player + coin/gem buckets so a Find stage
+        // can run even when the sequence STARTED on Catch (startGame() never ran).
+        function _bgEnsureFindPlayer() {
+            var g = window.game; if (!g) return;
+            if (!g.players || !g.players.length) {
+                // Use the real player name/icon (same source startGame() reads:
+                // the global Icons-Players config) so a Catch-first game's Find
+                // stages show "Vica", not a generic "Player".
+                var _name = 'Player', _icon = 'star';
+                try {
+                    var _gcfg = JSON.parse(localStorage.getItem('vica_global_players'));
+                    var _p0 = _gcfg && _gcfg.players && _gcfg.players[0];
+                    if (_p0 && _p0.name && _p0.name.trim()) _name = _p0.name.trim();
+                    if (_p0 && _p0.icon) _icon = _p0.icon;
+                } catch (e) {}
+                g.players = [{ id: 0, name: _name, icon: _icon, hand: [], isWinner: false, isComputer: false, hasCustomName: true }];
+            }
+            g.playerCoins = g.playerCoins || {}; g.playerGems = g.playerGems || {}; g.stageGems = g.stageGems || {};
+            g._consecutiveProtectedMistakes = g._consecutiveProtectedMistakes || {};
+            g.players.forEach(function (p) {
+                if (g.playerCoins[p.id] == null) g.playerCoins[p.id] = 0;
+                if (g.playerGems[p.id] == null) g.playerGems[p.id] = 0;
+                g.stageGems[p.id] = 0;
+                if (g._consecutiveProtectedMistakes[p.id] == null) g._consecutiveProtectedMistakes[p.id] = 0;
+            });
+        }
+        function _bgRestoreFindScreen() {
+            document.body.classList.remove('catch-active');
+            var ss = document.getElementById('start-screen'); if (ss) ss.style.display = 'none';
+            var is = document.getElementById('intro-screen'); if (is) is.style.display = 'none';
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = '';
+        }
+        // Show the Level-Up overlay (reuse the engine's visual), then run fn.
+        function _bgLevelUpThen(label, fn) {
+            var overlay = document.createElement('div');
+            overlay.className = 'stage-transition-overlay'; overlay.id = 'stage-transition-overlay';
+            overlay.innerHTML = '<div class="stage-transition-text">Level Up!</div>'
+                + '<div class="stage-transition-sub">' + label + '</div>'
+                + '<div style="margin-top:20px;font-size:2rem;">💎 → ⭐</div>';
+            document.body.appendChild(overlay);
+            setTimeout(function () { if (overlay.parentNode) overlay.remove(); fn(); }, 2500);
+        }
+        // Start a Catch stage on the Catch surface, tracking it in combinedGame.
+        function _bgStartCatchStage(idx) {
+            var cfg = window.combinedGameConfig; if (!cfg) return;
+            var stage = cfg.stages[idx];
+            if (window.game.combinedGame) {
+                window.game.combinedGame.currentStage = idx;
+                window.game.combinedGame.pendingAdvance = false;
+                window.game.combinedGame.pendingCelebration = false;
+            }
+            window._bgCatchAdvanced = false; // re-arm the gem hook for this stage
+            var legend = stage.legend || null;
+            window._gpSelectedProbId = (legend && legend.probOptionId) || null;
+            try { _catchInputMode = 'mouse'; } catch (e) {}
+            var gs = document.getElementById('game-screen'); if (gs) gs.style.display = 'none';
+            var ss = document.getElementById('start-screen'); if (ss) ss.style.display = 'none';
+            _bgShowBanner(_bgStageBanner(cfg.name, idx, cfg.stages.length, stage));
+            if (typeof openCatchPlayModal === 'function') openCatchPlayModal(stage.gameIndex);
+        }
+        // Called from _catchAddCoins after a gem is earned (3d-iii): advance the
+        // sequence when this Catch stage's gem threshold is met.
+        window._bgOnCatchGem = function () {
+            var cfg = window.combinedGameConfig;
+            if (!cfg || !cfg._isBigGame || !window._catchActiveGuard()) return;
+            if (window._bgCatchAdvanced) return;
+            var stage = cfg.stages[window.game.combinedGame.currentStage];
+            if (!stage || stage.gameType !== 'catch') return;
+            var threshold = stage.gemsNeeded || 3;
+            if (_catchGameGems() >= threshold) {
+                window._bgCatchAdvanced = true;
+                window.game.advanceToNextStage();
+            }
+        };
+        function _catchGameGems() { return (typeof _catchGame !== 'undefined' && _catchGame) ? _catchGame.gems : 0; }
+        window._catchActiveGuard = function () { return (typeof _catchGame !== 'undefined' && !!_catchGame); };
+        // SCAN mode: advance a Catch stage after just 3 coins (called from
+        // _catchAddCoins). Quick race through the sequence.
+        window._bgOnCatchScan = function () {
+            var cfg = window.combinedGameConfig;
+            if (!window._bgScanMode || !cfg || !cfg._isBigGame || !window._catchActiveGuard()) return;
+            if (window._bgCatchAdvanced) return;
+            var stage = cfg.stages[window.game.combinedGame.currentStage];
+            if (!stage || stage.gameType !== 'catch') return;
+            if (_catchGame.coins >= 3) {
+                window._bgCatchAdvanced = true;
+                window.game.advanceToNextStage();
+            }
+        };
+        function _bgCelebrate() {
+            if (window._catchActiveGuard() && typeof _catchCleanup === 'function') _catchCleanup();
+            _bgRestoreFindScreen();
+            if (window.game) {
+                if (window.game.stopSunLevelTimer) window.game.stopSunLevelTimer();
+                window.game.gamePhase = 'ended';
+                if (typeof window.game.showFinalCelebration === 'function') window.game.showFinalCelebration();
+            }
+        }
+        // Install a Big-Game-aware advanceToNextStage on the live game instance —
+        // the SINGLE interception point for advancing the sequence. Handles board
+        // switching: Find→Catch, Catch→Find, Catch→Catch, Find→Find, and the end.
+        function _bgInstallAdvanceOverride() {
+            var g = window.game; if (!g || g._bgAdvanceWrapped) return;
+            var _origAdvance = g.advanceToNextStage.bind(g);
+            g._bgAdvanceWrapped = true;
+            g.advanceToNextStage = function () {
+                var cfg = window.combinedGameConfig;
+                if (!(cfg && cfg._isBigGame)) return _origAdvance();
+                // Cancel any pending auto-continue from the stage we're leaving.
+                if (g._bgAutoTimeout) { clearTimeout(g._bgAutoTimeout); g._bgAutoTimeout = null; }
+                var cur = g.combinedGame ? g.combinedGame.currentStage : 0;
+                var next = cur + 1;
+                var wasCatch = window._catchActiveGuard();
+                if (wasCatch && typeof _catchCleanup === 'function') _catchCleanup();
+                if (next >= cfg.stages.length) { _bgCelebrate(); return; }
+                var nextStage = cfg.stages[next];
+                if (nextStage.gameType === 'catch') {
+                    _bgLevelUpThen('Starting Game ' + _bgStageAlpha(next) + ': ' + (nextStage.gameName || ''), function () {
+                        _bgStartCatchStage(next);
+                    });
+                } else {
+                    // Find next. Restore the Find surface + ensure a player (needed
+                    // when we came from a Catch stage), then let the original advance
+                    // do its Level-Up + deck load + re-deal (it reads currentStage+1).
+                    _bgRestoreFindScreen();
+                    _bgEnsureFindPlayer();
+                    _origAdvance();
+                }
+            };
+        }
+        // ============================================================
+        // Device PREVIEW frame (GP 0). Picking a device on the
+        // "Choose the game:" line makes every game tile launch inside a
+        // scaled <iframe> sized to that device's screen, so the user can
+        // see how a game looks on real hardware before publishing.
+        // ============================================================
+        // Logical CSS-pixel sizes are stored PORTRAIT (w<h) for phones/tablets;
+        // the laptop is intrinsically landscape. Orientation is derived from the
+        // device CLASS + the GP 0 player count (see _bgViewport):
+        //   phone : 1P portrait · 2P/3P landscape
+        //   tablet: 1P portrait OR landscape (rotate ↻) · 2P/3P landscape
+        //   laptop: always landscape
+        var BG_DEVICES = {
+            iphone:     { label: 'iPhone',          cls: 'phone',  w: 390,  h: 844  },
+            iphone17:   { label: 'iPhone 17 Pro',   cls: 'phone',  w: 402,  h: 874  },
+            ipad:       { label: 'iPad',            cls: 'tablet', w: 820,  h: 1180 },
+            ipadpro:    { label: 'iPad Pro 12.9″',  cls: 'tablet', w: 1024, h: 1366 },
+            chromebook: { label: 'Chromebook',      cls: 'laptop', w: 1366, h: 768  }
+        };
+        var BG_DEVICE_ORDER = ['iphone', 'iphone17', 'ipad', 'ipadpro', 'chromebook'];
+
+        function _bgSelectedDevice() {
+            try { var k = localStorage.getItem('vica_bgDevice') || ''; return BG_DEVICES[k] ? k : ''; }
+            catch (e) { return ''; }
+        }
+        function _bgSetDevice(key) {
+            try { localStorage.setItem('vica_bgDevice', key || ''); } catch (e) {}
+        }
+        // Tablet-1P is the only combo where orientation is the user's choice.
+        function _bgTabletOrient() {
+            try { return localStorage.getItem('vica_bgTabletOrient') === 'landscape' ? 'landscape' : 'portrait'; }
+            catch (e) { return 'portrait'; }
+        }
+        function _bgSetTabletOrient(o) {
+            try { localStorage.setItem('vica_bgTabletOrient', o === 'landscape' ? 'landscape' : 'portrait'); } catch (e) {}
+        }
+        // Resolve the on-screen viewport (w,h) for a device at a player count.
+        // Returns null for an unknown key. landscape = swap the portrait dims.
+        function _bgViewport(key, players) {
+            var d = BG_DEVICES[key];
+            if (!d) return null;
+            var n = players || 1;
+            var land;
+            if (d.cls === 'laptop') land = true;                 // always landscape
+            else if (d.cls === 'phone') land = (n >= 2);          // 1P portrait, else landscape
+            else /* tablet */ land = (n >= 2) ? true : (_bgTabletOrient() === 'landscape');
+            // Portrait dims are stored w<h; laptop is already stored landscape.
+            var pw = d.w, ph = d.h;
+            if (d.cls === 'laptop') { return { w: pw, h: ph, landscape: true, canRotate: false }; }
+            if (land) return { w: ph, h: pw, landscape: true, canRotate: (d.cls === 'tablet' && n < 2) };
+            return { w: pw, h: ph, landscape: false, canRotate: (d.cls === 'tablet' && n < 2) };
+        }
+
+        // Device preview is a TOUCH-mode feature only (the device screens model
+        // touch hardware). In mouse mode the selector is inert + greyed and tile
+        // launches ignore any stored device (full-screen as normal).
+        function _bgInputIsTouch() {
+            return (typeof _findInputMode === 'undefined') || _findInputMode !== 'mouse';
+        }
+
+        // Build the device buttons on the "Choose the game:" line. Idempotent —
+        // re-render rebuilds so the active highlight tracks vica_bgDevice and the
+        // enabled/disabled state tracks the TOUCH/MOUSE toggle.
+        function _setupPreviewDevices() {
+            var host = document.getElementById('intro-preview-devices');
+            if (!host) return;
+            host.innerHTML = '';
+            var sel = _bgSelectedDevice();
+            var touch = _bgInputIsTouch();
+            host.classList.toggle('ipd-host-disabled', !touch);
+            BG_DEVICE_ORDER.forEach(function(key) {
+                var d = BG_DEVICES[key];
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'ipd-btn ipd-' + d.cls + (sel === key ? ' active' : '') + (touch ? '' : ' ipd-disabled');
+                b.textContent = d.label;
+                if (!touch) {
+                    b.disabled = true;
+                    b.title = 'Device preview is available in touch mode only';
+                } else {
+                    b.title = (sel === key ? 'Previewing on ' + d.label + ' — click to turn off (full screen)'
+                                           : 'Preview games on ' + d.label + ' (' + d.w + '×' + d.h + ')');
+                }
+                b.addEventListener('click', function() {
+                    if (!_bgInputIsTouch()) return;        // inert in mouse mode
+                    _bgSetDevice(sel === key ? '' : key);  // click active → deselect (Full)
+                    _setupPreviewDevices();
+                });
+                host.appendChild(b);
+            });
+        }
+
+        // Open a game inside a device-sized iframe, scaled to fit the window.
+        // url = same-origin index.html?<deep-link> ; the iframe re-runs the app
+        // and auto-launches via the playGame / playBig hooks below.
+        var _bgDeviceModal = null;
+        // opts.autostart=true → skip the full-size Setup view entirely and show
+        // the device from the start (used by ▶ Play, which auto-launches a game
+        // so there's no Setup to interact with — go DIRECTLY to the device).
+        function _bgOpenDeviceFrame(url, key, players, opts) {
+            var vp = _bgViewport(key, players);
+            if (!vp) { return false; }
+            _bgCloseDeviceFrame();
+            var autostart = !!(opts && opts.autostart);
+            var d = BG_DEVICES[key];
+            var overlay = document.createElement('div');
+            overlay.className = 'bg-device-overlay';
+            overlay.id = 'bg-device-overlay';
+            // Cradle = the framed border around the device; the ✕ lives ON it.
+            var cradle = document.createElement('div');
+            cradle.className = 'bg-device-cradle';
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'bg-device-close';
+            closeBtn.innerHTML = '✕';
+            closeBtn.title = 'Close preview (Esc)';
+            // Caption: device name · orientation/resolution · rotate (tablet-1P).
+            var cap = document.createElement('div');
+            cap.className = 'bg-device-cap';
+            var title = document.createElement('span');
+            title.className = 'bg-device-title';
+            var resSpan = document.createElement('span');
+            resSpan.className = 'bg-device-res';
+            var rotateBtn = document.createElement('button');
+            rotateBtn.type = 'button';
+            rotateBtn.className = 'bg-device-rotate';
+            rotateBtn.innerHTML = '↻';
+            rotateBtn.title = 'Rotate (portrait / landscape)';
+            cap.appendChild(title); cap.appendChild(resSpan); cap.appendChild(rotateBtn);
+            // Screen = the device glass; the iframe is scaled (top-left) to fit.
+            var screen = document.createElement('div');
+            screen.className = 'bg-device-screen';
+            var frame = document.createElement('iframe');
+            frame.className = 'bg-device-frame';
+            frame.setAttribute('src', url);
+            screen.appendChild(frame);
+            cradle.appendChild(closeBtn);
+            cradle.appendChild(cap);
+            cradle.appendChild(screen);
+            overlay.appendChild(cradle);
+            document.body.appendChild(overlay);
+            _bgDeviceModal = { overlay: overlay, cradle: cradle, screen: screen, frame: frame,
+                               key: key, players: players, url: url, autostart: autostart };
+            // Is the iframe showing actual GAMEPLAY (the board) rather than the
+            // intro/Setup page? Find gameplay uses #game-screen; Catch (incl. 2P)
+            // uses the #catch-game-overlay appended to <body>. The Setup page
+            // (#start-screen) and intro do NOT count — they render full size
+            // (unless autostart, where there's no Setup to interact with).
+            function _boardVisible() {
+                try {
+                    var doc = frame.contentDocument;
+                    if (!doc) return false;
+                    var gs = doc.getElementById('game-screen');
+                    if (gs && getComputedStyle(gs).display !== 'none') return true;
+                    if (doc.getElementById('catch-game-overlay')) return true;
+                    return false;
+                } catch (e) { return false; }
+            }
+            // Reserve for the cradle frame (1in padding + 2px border + 8px screen
+            // border) + overlay padding (18) + caption, matched to the CSS so the
+            // device PLUS its 1-inch border fit the window. (1in ≈ 96px.)
+            var FRAME = 128, CAP_H = 56;
+            function fit() {
+                var deviceMode = autostart || _boardVisible();
+                if (!deviceMode) {
+                    // SETUP/intro at FULL size (only the BOARD is device-sized).
+                    cradle.classList.add('full');
+                    screen.style.width = Math.max(0, overlay.clientWidth - 24) + 'px';
+                    screen.style.height = Math.max(0, overlay.clientHeight - 24 - CAP_H) + 'px';
+                    frame.style.width = '100%';
+                    frame.style.height = '100%';
+                    frame.style.transform = 'none';
+                    title.textContent = d.label;
+                    resSpan.textContent = 'setup (full size)';
+                    rotateBtn.style.display = 'none';
+                    return;
+                }
+                cradle.classList.remove('full');
+                var v = _bgViewport(key, players);
+                var avW = overlay.clientWidth  - 2 * FRAME;
+                var avH = overlay.clientHeight - 2 * FRAME - CAP_H;
+                var s = Math.min(avW / v.w, avH / v.h, 1);
+                if (!isFinite(s) || s <= 0) s = 1;
+                // iframe renders at TRUE device px, scaled from the top-left; the
+                // screen wrapper takes the scaled footprint so the cradle (border)
+                // hugs the device exactly and the ✕ sits on that border.
+                frame.style.width = v.w + 'px';
+                frame.style.height = v.h + 'px';
+                frame.style.transformOrigin = 'top left';
+                frame.style.transform = 'scale(' + s + ')';
+                screen.style.width = Math.round(v.w * s) + 'px';
+                screen.style.height = Math.round(v.h * s) + 'px';
+                title.textContent = d.label;
+                resSpan.textContent = (v.landscape ? 'landscape' : 'portrait') + '  ·  ' + v.w + ' × ' + v.h;
+                rotateBtn.style.display = v.canRotate ? '' : 'none';
+            }
+            _bgDeviceModal.fit = fit;
+            // Defer one frame so the overlay has layout dimensions.
+            setTimeout(fit, 0);
+            // Poll the iframe's screen state so we flip full↔device exactly when
+            // gameplay starts/ends (no game-internals hooks needed). Skipped for
+            // autostart (always device).
+            if (!autostart) {
+                var _lastBoard = null;
+                _bgDeviceModal.poll = setInterval(function () {
+                    var b = _boardVisible();
+                    if (b !== _lastBoard) { _lastBoard = b; fit(); }
+                }, 150);
+            }
+            window.addEventListener('resize', fit);
+            _bgDeviceModal.onResize = fit;
+            rotateBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                _bgSetTabletOrient(_bgTabletOrient() === 'landscape' ? 'portrait' : 'landscape');
+                fit();
+            });
+            closeBtn.addEventListener('click', _bgCloseDeviceFrame);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) _bgCloseDeviceFrame(); });
+            // Escape closes the preview (returns to GP 0).
+            _bgDeviceModal.onKey = function(e) { if (e.key === 'Escape') { e.preventDefault(); _bgCloseDeviceFrame(); } };
+            document.addEventListener('keydown', _bgDeviceModal.onKey, true);
+            return true;
+        }
+        function _bgCloseDeviceFrame() {
+            if (!_bgDeviceModal) return;
+            if (_bgDeviceModal.poll) clearInterval(_bgDeviceModal.poll);
+            if (_bgDeviceModal.onResize) window.removeEventListener('resize', _bgDeviceModal.onResize);
+            if (_bgDeviceModal.onKey) document.removeEventListener('keydown', _bgDeviceModal.onKey, true);
+            if (_bgDeviceModal.overlay && _bgDeviceModal.overlay.parentNode) {
+                _bgDeviceModal.overlay.parentNode.removeChild(_bgDeviceModal.overlay);
+            }
+            _bgDeviceModal = null;
+        }
+        // A game that finishes INSIDE the device iframe postMessages bgPlayDone;
+        // close the preview so the user lands back on GP 0 (not a stale frame).
+        window.addEventListener('message', function(e) {
+            if (e && e.data && e.data.type === 'bgPlayDone' && _bgDeviceModal) _bgCloseDeviceFrame();
+        });
+
+        window.startBigGameFromId = function(id) {
+            var bg = _bgLoadBigGames().filter(function (b) { return b.id === id; })[0];
+            if (!bg) { _bgShowBanner('⚠ Big Game not found.'); return; }
+            var stages = bg.stages || [];
+            if (!stages.length) { _bgShowBanner('“' + (bg.name || 'Big Game') + '” has no stages yet.'); return; }
+            var stage0 = stages[0];
+            // Scan mode (from the GP 0 toggle): advance after ~3 coins per stage.
+            window._bgScanMode = (window._bgPlayMode === 'scan');
+            _bgShowBanner(_bgStageBanner(bg.name, 0, stages.length, stage0) + (window._bgScanMode ? '   ·   ⚡ SCAN' : ''));
+            window.combinedGameConfig = _bgBuildCombinedConfig(bg);
+            window.combinedGameStage = 0;
+            // ---- Catch FIRST stage: bootstrap combined tracking, open Catch ----
+            if (stage0.gameType === 'catch') {
+                if (!window.game.combinedGame) window.game.combinedGame = { config: window.combinedGameConfig, currentStage: 0 };
+                else { window.game.combinedGame.config = window.combinedGameConfig; window.game.combinedGame.currentStage = 0; }
+                _bgEnsureFindPlayer();
+                _bgInstallAdvanceOverride();
+                _bgStartCatchStage(0);
+                return;
+            }
+            // ---- Find FIRST stage: go through Setup+Start so startGame() fully
+            // initializes window.game (players, combinedGame, coins/gems). ----
+            try { _findInputMode = 'mouse'; } catch (e) {}
+            var ptog = document.getElementById('intro-player-toggle');
+            // Honor the desired player count (device-preview deep-link sets
+            // window._bgDesiredPlayers); default 1 as before.
+            if (ptog) ptog.setAttribute('data-players', String(window._bgDesiredPlayers || 1));
+            selectedIntroGame = 'custom-' + (stage0.gameRef ? stage0.gameRef.index : 0);
+            goToMainPage(); // → Setup + startCustomGame (clearCustomGame nulls combinedGameConfig; reset below)
+            setTimeout(function () {
+                window.combinedGameConfig = _bgBuildCombinedConfig(bg);
+                window.combinedGameStage = 0;
+                _mgApplyLegend(_bgStageLegend(stage0));
+                setTimeout(function () {
+                    var startBtn = document.getElementById('start-game-btn');
+                    if (startBtn) startBtn.click();
+                    // startGame() created this.combinedGame; now route advances
+                    // through the orchestrator so Find→Catch transitions work.
+                    setTimeout(_bgInstallAdvanceOverride, 80);
+                }, 160);
+            }, 220);
+        };
+        // Load hook: auto-launch when ?playBig=<id> or ?playGame=<gameId> is
+        // present (used by the device-preview iframe). Carries &mode (Big Game
+        // Play/Scan) and &players (1/2/3) so the framed game matches the GP 0
+        // selection. playGame replays a mini-game tile click after setting the
+        // player toggle, so all the normal validation/setup flow runs.
+        (function () {
+            var qp = null;
+            try { qp = new URLSearchParams(location.search); } catch (e) { return; }
+            if (!qp) return;
+            var pid = qp.get('playBig');
+            var gid = qp.get('playGame');
+            if (!pid && !gid) return;
+            // We're a preview iframe — never open a NESTED device frame from a
+            // tile click in here (the iframe inherits the parent's touch mode +
+            // device selection via shared localStorage). Play in-page instead.
+            window._bgInPreviewFrame = true;
+            var players = parseInt(qp.get('players'), 10) || 1;
+            var mode = qp.get('mode');
+            // Optional mini-game legend to apply on Setup before auto-starting.
+            var legend = null;
+            try { var _lp = qp.get('legend'); if (_lp) legend = JSON.parse(_lp); } catch (e) {}
+            // Apply the player count to the GP 0 toggle up-front so every launch
+            // path (Big Game + mini-game) reads the right count.
+            function applyPlayers() {
+                var pt = document.getElementById('intro-player-toggle');
+                if (pt) {
+                    pt.setAttribute('data-players', String(players));
+                    pt.setAttribute('aria-checked', players > 1 ? 'true' : 'false');
+                }
+                window._bgDesiredPlayers = players;
+            }
+            function startBig() {
+                if (mode) { window._bgPlayMode = mode; try { localStorage.setItem('vica_bgPlayMode', mode); } catch (e) {} }
+                applyPlayers();
+                window.startBigGameFromId(pid);
+            }
+            function startMini(tries) {
+                applyPlayers();
+                var btn = document.querySelector('#intro-screen .intro-game-btn[data-game-id="' + gid + '"]');
+                if (btn) {
+                    btn.click(); // → this game's Setup screen
+                    // Mini-game preview: apply the chosen legend on Setup, then
+                    // auto-start so it plays the exact variant.
+                    if (legend) {
+                        setTimeout(function () {
+                            if (window._mgApplyLegend) window._mgApplyLegend(legend);
+                            setTimeout(function () {
+                                var sb = document.getElementById('start-game-btn');
+                                if (sb) sb.click();
+                            }, 170);
+                        }, 240);
+                    }
+                    return;
+                }
+                if ((tries || 0) < 60) setTimeout(function () { startMini((tries || 0) + 1); }, 100);
+            }
+            function tryStart(tries) {
+                if (document.getElementById('start-game-btn') || document.getElementById('intro-screen')) {
+                    if (pid) startBig(); else startMini(0);
+                } else if ((tries || 0) < 50) {
+                    setTimeout(function () { tryStart((tries || 0) + 1); }, 100);
+                }
+            }
+            if (document.readyState === 'loading') {
+                window.addEventListener('DOMContentLoaded', function () { setTimeout(function () { tryStart(0); }, 350); });
+            } else {
+                setTimeout(function () { tryStart(0); }, 350);
+            }
+        })();
+
         // Combined game confirmation stubs (admin creates these, player just plays)
         function confirmCombineGames() {}
         function cancelCombineGames() {}
@@ -4601,7 +5868,13 @@
         // Close celebration handler
         document.getElementById('close-celebration-btn').addEventListener('click', function() {
             document.getElementById('combined-celebration-overlay').style.display = 'none';
+            // Big Game embedded play: tell the Composer (parent frame) to close the
+            // play modal — cleaner than dropping the player on a stale Setup page.
+            var _wasBig = window.combinedGameConfig && window.combinedGameConfig._isBigGame;
             if (window.game) window.game.resetToSetup();
+            if (_wasBig && window.parent && window.parent !== window) {
+                try { window.parent.postMessage({ type: 'bgPlayDone' }, '*'); } catch (e) {}
+            }
         });
 
         // ============================================
@@ -4658,6 +5931,7 @@
                 var savedIdx = _catchGame ? _catchGame.catchIndex : -1;
                 // _catchGame.inputMode is never set — use the reliable global.
                 var savedMode = (typeof _catchInputMode !== 'undefined') ? _catchInputMode : 'touch';
+                _bgEndPlayChrome();
                 _catchCleanup();
                 // Restore catch game index so Start Game launches catch again
                 _pendingCatchGameIndex = savedIdx;
@@ -4683,6 +5957,7 @@
             homeBtn.title = 'Go to Welcome';
             homeBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             homeBtn.onclick = function() {
+                _bgEndPlayChrome();
                 _catchCleanup();
                 document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('game-screen').style.display = 'none';
@@ -4873,6 +6148,13 @@
             _catchGame.score += amount;
             _catchGame._coinAddedAt = Date.now();
             _catchGame._coinAddedCount = amount;
+            // Big Game SCAN: advance after 3 coins (before the 10-coin gem exchange).
+            // The advance tears down this Catch stage (nulls _catchGame), so bail
+            // out of the rest of this function if that happened.
+            if (window._bgScanMode && window._bgOnCatchScan) {
+                window._bgOnCatchScan();
+                if (!_catchGame) return;
+            }
             if (_catchGame.coins >= 10) {
                 if (_catchGame._exchangeTimeout) clearTimeout(_catchGame._exchangeTimeout);
                 _catchGame._exchangeTimeout = setTimeout(function() {
@@ -4890,6 +6172,8 @@
                         _catchGame._gemAddedAt = Date.now();
                         _catchGame._coinFallAt = 0;
                         _catchRenderCoins();
+                        // Big Game (3d-iii): a Catch stage advances on its gem count.
+                        if (window._bgOnCatchGem) window._bgOnCatchGem();
                     }, 800);
                 }, amount * 300 + 700);
             }
@@ -5830,7 +7114,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=global-players-3"></script>
+    <script src="js/game.js?v=biggame-flow-6"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

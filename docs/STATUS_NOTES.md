@@ -272,6 +272,17 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
 - Verified iPhone 390×844: paddings 0, Press→to gap = 6px, margin-top −15.1px; no new console errors (only
   the pre-existing Firebase-offline ones). css `dgx-redesign-63`.
 
+##### Player-toggle figure +15% & win-stage overlap fix (June 18)
+- **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`
+  (verified 15px). 
+- **WIN stage overlap (iPhone)**: the winner gold box (`.player-hand` holding `.sun-level-winner-section`)
+  sat at top:45px while the back/home buttons reach 58px → ~13px overlap. It sits high because the win hand
+  lacks the "Va" player-name row the play hand has. Fix (phone block):
+  `#players-area:has(.sun-level-winner-section){margin-top:11mm}` pushes the winner box + play buttons + xeno
+  box down so the box clears the buttons. **NOTE:** user asked for 6mm, but 6mm left the box top at 45 (still
+  under the 58px buttons); ~11mm (≈ the missing row height) was needed to actually remove the overlap —
+  verified handTop 64 > homeBottom 58 (`cleared:true`). css `dgx-redesign-65`.
+
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):
 1. **▶ Play goes DIRECTLY to the device** (no full-size flash). New `opts.autostart` → `fit()` always uses

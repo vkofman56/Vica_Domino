@@ -44,20 +44,29 @@ escalation if overlap ever grows. **File ownership:**
 - **SHARED (coordinate)** → `css/style.css`, `docs/*`, `scripts/ship.sh` + `scripts/bump-trial.sh`,
   and the cache-buster strings inside the HTML files.
 
-**Interim discipline (until `ship.sh` is updated — change DEFERRED, must be coordinated):**
-1. **Before you ship, run `git status`.** If files you don't own show uncommitted changes, the
-   other session is mid-edit — do NOT run `ship.sh` (its `git add -A` would grab their work). Either
-   wait until the tree is clean of their edits, or commit only your own files explicitly:
-   `git add <your files> && git commit -m "…"` then push to the 3 branches (CLAUDE.md manual trio).
-2. **Commit frequently** so your uncommitted window is short and you don't block the other session.
-3. **Shared files** (`css/style.css`, `docs/*`): if both have uncommitted edits to the SAME file,
-   stage only your hunks with `git add -p`, or just commit promptly. A leak here is additive/mergeable,
-   never build-breaking — the dangerous case is CODE files, which per-path staging fully isolates.
+**✅ TOOLING DONE (June 17): `ship.sh` now supports per-path staging.** Use the `-- <paths>` form so
+your ship stages ONLY your files (the banner is stamped only on the `*.html` in scope; everything
+outside your paths is left untouched, and ship prints a heads-up count if the other session has
+in-flight files). Each session's command:
+```
+# Big Game / Previewer session:
+bash scripts/ship.sh "msg" -- index.html biggame.html js/game.js js/sync.js css/style.css docs
+# Studio session:
+bash scripts/ship.sh "msg" -- pm-studio-DrV.html docs
+```
+The no-`--` form (`bash scripts/ship.sh "msg"`) still does the legacy `git add -A` (use only when
+you're the sole active session). `scripts/bump-trial.sh [files…]` also accepts an explicit scope now.
 
-**Deferred tooling change (do NOT do unilaterally — `ship.sh` is shared by both sessions):** teach
-`ship.sh` a `ship.sh "msg" -- <paths>` form that stages only the listed paths (default = today's
-`git add -A`, for back-compat). **Escalation if needed:** separate `git worktree` per session, each on
-its own branch, with `fetch + rebase onto the canonical tip` before each push.
+**Discipline (still applies on top of the tooling):**
+1. **Before you ship, glance at `git status`.** Per-path staging won't sweep the other session's
+   work, but if you see their files modified, just know they're mid-edit (your ship leaves them alone).
+2. **Commit frequently** so your uncommitted window is short.
+3. **Shared files** (`css/style.css`, `docs/*`): if BOTH have uncommitted edits to the SAME file at
+   once, `git add -p` your hunks (a per-path `git add css/style.css` still grabs the whole file).
+   A leak here is additive/mergeable, never build-breaking — code files are what per-path fully isolates.
+
+**Escalation if overlap grows:** separate `git worktree` per session, each on its own branch, with
+`fetch + rebase onto the canonical tip` before each push. Not adopted now.
 
 ---
 

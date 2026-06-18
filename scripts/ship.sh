@@ -6,7 +6,7 @@
 #
 # It does, in order:
 #   1. bump the deploy-time banner (scripts/bump-trial.sh)
-#   2. git add -A
+#   2. stage changes (git add -A, OR only the paths after a literal `--`)
 #   3. commit with the message you pass as arguments
 #   4. push the current commit to ALL 3 canonical branches
 #   5. print every branch tip so you can SEE they match
@@ -14,6 +14,13 @@
 # Usage:
 #   bash scripts/ship.sh "Card Maker: fix row-copy off-by-one"
 #   bash scripts/ship.sh Docs: note the sync.js fix     # quotes optional
+#
+#   # Per-path staging (PARALLEL SESSIONS — stage ONLY your own files so a
+#   # concurrent session's uncommitted work isn't swept in by `git add -A`):
+#   bash scripts/ship.sh "Big Game: …" -- index.html biggame.html js/game.js css/style.css docs
+#   bash scripts/ship.sh "Studio: …"   -- pm-studio-DrV.html docs
+#   # In per-path mode the banner is stamped ONLY on the *.html files in scope.
+#   # See docs/STATUS_NOTES.md → "TWO-SESSION PROTOCOL".
 #
 # The 3 canonical branches must stay byte-identical; this guarantees it by
 # pushing the same commit to all three every time.
@@ -36,19 +43,54 @@ if [ -z "$BRANCH" ]; then
     exit 1
 fi
 
-# A commit message is mandatory. All args are joined into the message.
+# A commit message is mandatory. Optional explicit paths after a literal `--`
+# switch staging from `git add -A` to ONLY those paths (per-path staging for
+# parallel sessions — see docs/STATUS_NOTES "TWO-SESSION PROTOCOL").
 if [ "$#" -eq 0 ]; then
     echo "ship: ERROR — give a commit message." >&2
-    echo "  usage: bash scripts/ship.sh \"your message here\"" >&2
+    echo "  usage: bash scripts/ship.sh \"your message\"             (stages all: git add -A)" >&2
+    echo "         bash scripts/ship.sh \"your message\" -- <paths>   (stages only <paths>)" >&2
     exit 1
 fi
-MSG="$*"
 
-# ── 1. Bump the banner ───────────────────────────────────────────────────────
-bash scripts/bump-trial.sh
+# Split args on the first literal `--`: before = message, after = explicit paths.
+MSG=""
+PATHS=()
+DD_SEEN=0
+for a in "$@"; do
+    if [ "$DD_SEEN" -eq 0 ] && [ "$a" = "--" ]; then DD_SEEN=1; continue; fi
+    if [ "$DD_SEEN" -eq 0 ]; then
+        if [ -z "$MSG" ]; then MSG="$a"; else MSG="$MSG $a"; fi
+    else
+        PATHS+=("$a")
+    fi
+done
+if [ -z "$MSG" ]; then
+    echo "ship: ERROR — give a commit message (before the --)." >&2
+    exit 1
+fi
 
-# ── 2 + 3. Stage everything and commit ───────────────────────────────────────
-git add -A
+# ── 1 + 2. Bump the banner, then stage ───────────────────────────────────────
+if [ "${#PATHS[@]}" -gt 0 ]; then
+    # Per-path mode: stamp ONLY the *.html files in scope, stage ONLY <paths>.
+    HTML_SCOPE=()
+    for p in "${PATHS[@]}"; do
+        case "$p" in *.html) HTML_SCOPE+=("$p") ;; esac
+    done
+    if [ "${#HTML_SCOPE[@]}" -gt 0 ]; then bash scripts/bump-trial.sh "${HTML_SCOPE[@]}"; fi
+    git add -- "${PATHS[@]}"
+    # Heads-up if anything OUTSIDE your paths is modified/new — we are NOT
+    # committing it (likely the other session's in-flight work; that's the point).
+    LEFT="$(git ls-files -m -o --exclude-standard | wc -l | tr -d ' ')"
+    if [ "$LEFT" -gt 0 ]; then
+        echo "ship: note — $LEFT file(s) modified/new OUTSIDE your paths are left uncommitted"
+        echo "ship:        (not yours; the other session's). Per the TWO-SESSION PROTOCOL, expected."
+    fi
+else
+    # Default mode: stamp all targets, stage everything.
+    bash scripts/bump-trial.sh
+    git add -A
+fi
 # Never commit macOS .DS_Store noise, even if it slipped past .gitignore.
 git rm --cached -q -- .DS_Store ':(glob)**/.DS_Store' >/dev/null 2>&1 || true
 

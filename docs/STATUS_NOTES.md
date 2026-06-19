@@ -338,8 +338,18 @@ iPad single-player Find board: dominoes enlarged 40%. The iPad-PORTRAIT media qu
 (`min-width:768px and max-width:1024px and orientation:portrait`) `.domino.vertical` 65×130 → **91×182**.
 This query targets iPad/iPad-Pro portrait (incl. the 820×1180 preview) and NOT Chromebook (landscape), so
 Chromebook is unaffected. Verified iPad portrait preview: domino 91×182, fits the board. css `dgx-redesign-80`.
-- NOT changed: iPad LANDSCAPE dominoes (its media query is shared with Chromebook 1366×768, so a separate
-  Chromebook-excluding rule would be needed). iPhone/Chromebook unchanged. (Ask if landscape is wanted too.)
+##### iPad dominoes — per-player-count sizing (June 18)
+User: +40% is right for 1 player; 2 players need a smaller increase. Key realization: on iPad, 1P is
+PORTRAIT and 2P is LANDSCAPE (orientation matrix), and `renderSunLevel` already adds
+`#players-area.single-player-layout` for 1 player — so no new hook is needed (reverted the earlier
+`body.board-players-N` stamp attempt; game.js back to `biggame-flow-5`).
+- iPad **portrait** (always 1P): `.domino.vertical` 91×182 (+40%) — unchanged from above.
+- iPad **landscape** (NEW block `min-width:768 and max-width:1280 and max-height:850 and landscape` — the
+  `max-width:1280` EXCLUDES Chromebook 1366): `#players-area.single-player-layout .domino.vertical` =
+  77×154 (1P +40%, for the rotate case); `#players-area:not(.single-player-layout) .domino.vertical` =
+  66×132 (2P +20%).
+- Verified: iPad portrait 1P 91×182; iPad landscape 2P 66×132 (2P Find runs as "Va | Player 2", cards fit);
+  Chromebook 55×110 UNCHANGED; iPhone unchanged. css `dgx-redesign-82`.
 ##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
 User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
 no ":" after "Find the doubles".

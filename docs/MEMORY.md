@@ -1,5 +1,41 @@
 # Vica Domino Project Memory
-**Last Updated**: June 15, 2026 — Phase 2 (mini-games) DONE · corrected mini-game model (legend-only; board = type's surface) · whole authoring side is MOUSE-ONLY. **NEXT: Phase 3 — BIG GAME composer** (lock the model with the user first; see STATUS_NOTES.md)
+**Last Updated**: June 18, 2026 — Phase 3 Big Games + **Device-Preview feature** DONE (see below + STATUS_NOTES.md). Authoring side still MOUSE-ONLY. Open: 3f Publish (deferred), 2P-Big-Game engine gap, play-icon rollout.
+
+---
+
+## 📱 June 18, 2026 — Big Game / Device-Preview durable lessons
+
+- **Device preview = a scaled same-origin `<iframe>` of `index.html`** opened by `_bgOpenDeviceFrame`, the
+  game auto-launched via deep-links `?playGame=<gameId>&players=&legend=<JSON>` (mini-games) or
+  `?playBig=<id>&mode=&players=` (Big Games). The iframe is sized to TRUE device CSS px and `transform:
+  scale()`'d to fit; inside, responsive layout reacts as on the real device.
+- **In the preview iframe `window._bgInPreviewFrame=true`** (set by the deep-link hook) + `body.bg-preview-frame`.
+  Tile clicks inside MUST NOT open a NESTED device frame (it inherits the parent's touch+device via shared
+  localStorage) — all launch paths gate on `!window._bgInPreviewFrame`. `body.bg-preview-frame` also scopes
+  device-only board styling (e.g. page-name pill → bottom on every device) without touching the real desktop.
+- **Distinguishing devices in CSS by size:** Chromebook 1366×768 and iPad-Pro-landscape 1366×1024 share the
+  **width** (1366) but differ in **height** — use `min-height:900px` to target iPad Pro and exclude Chromebook.
+  iPad (regular) landscape ≈1180 wide → separated from Chromebook by `max-width:1280`.
+- **Per-player-count board sizing needs NO new hook:** `renderSunLevel` already adds
+  `#players-area.single-player-layout` for 1 player. Use `#players-area.single-player-layout` (1P) vs
+  `#players-area:not(.single-player-layout)` (2P+). (Reverted a `body.board-players-N` stamp attempt as
+  redundant.) Note iPad 1P=portrait, 2P=landscape (orientation matrix), so orientation ≈ player count there.
+- **`margin-top` on a board element collapses through `#game-screen`** and drags the absolute back/home
+  buttons down with it. To push the title/content down WITHOUT moving the absolute buttons, use
+  `#game-screen{padding-top:…}` (the absolute `top:15` is relative to the padding box, unaffected).
+- **Device-local UI keys must be sync-exempt:** `sync.js` `_isLocalOnlyKey` matches `vica_bg*` +
+  `vica_inputMode`. These are never uploaded, never wiped on a cloud-replace, and never overwritten by cloud
+  on apply (the bug was a stale cloud `vica_bgDevice=''` clobbering the local pick mid-preview). The
+  TOUCH/MOUSE mode persists in `vica_inputMode` (was in-memory only → reverted to mouse on every load).
+- **Cache gotcha:** `index.html` is no-cache, but a `style.css?v=NN` can be cached STALE if it was fetched
+  while the preview server briefly served the OTHER worktree (`../Domino-studio`). Bump the `?v=` to force a
+  fresh fetch. Also: the Claude-preview server sometimes restarts pointing at `--directory ../Domino-studio`
+  — verify against a main-tree server (I run `python3 -m http.server 8044 --directory <main tree>`).
+- **2P/3P Big Games still run single-player** — `_bgEnsureFindPlayer` (composed-stage launch) ignores the
+  count. 2P MINI-games (Catch; Find as "Va | Player 2") DO run 2P. Follow-up task spawned.
+- **`_gpFillGameName`** builds the board title from the GP0 subtitle: it strips the cloned mode/player glyph
+  spans and splits "Type: Name" → "Type" + `<span class="board-id-name">Name</span>` (phone: name on its own
+  line, no colon; desktop: `::before` re-adds ": ").
 
 ---
 

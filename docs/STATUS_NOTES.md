@@ -1,9 +1,9 @@
 # Vica Domino - Project Status Notes
-**Date**: June 15, 2026 — Phase 2 (Game Previewer mini-games) COMPLETE · Studio cleanup (Gr mode gone, dead code, twin warnings) · loupe overhaul · 1.5 superseded by r→p
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `6c0e889` + this doc commit; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1430+
-**Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-6`
+**Date**: June 18, 2026 — Phase 3 (Big Games) COMPLETE through 3e + Play/Scan · **Device-Preview feature COMPLETE** (GP 0 selector → scaled iPhone/iPad/iPad-Pro/Chromebook frames; ▶ play; per-device Find-board polish incl. per-player-count iPad/iPad-Pro domino sizing)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `647ed58`; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1480+
+**Codebase Size**: ~18,500 lines across 4 main files
+**Cache-busters**: `style.css?v=dgx-redesign-84`, `game.js?v=biggame-flow-5`, `sync.js?v=local-wins-9`
 
 ---
 
@@ -179,15 +179,36 @@ gives it). DEFERRED nicety: `ship.sh` auto-rebase (deliberately skipped — manu
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a–3e + 3d(i–iv) DONE + Play/Scan toggle DONE. Only 3f (Publish, deferred) remains.**
+## ▶▶ NEXT CHAT: **Device-Preview feature DONE (June 18). Phase-3 only 3f (Publish) deferred. + the 2P-Big-Game engine gap.**
 **⚠ TWO-SESSION / WORKTREE SETUP (read first):** this (Big Game) session works in the MAIN tree
 `/Users/victoriakofman/CLAUDE CODE/Domino` on branch `work/cardmaker-rowcopy`; a parallel STUDIO session
 owns `pm-studio-DrV.html` in its own worktree `../Domino-studio` (`work/studio`). **Before every ship:**
 `git fetch origin && git rebase origin/claude/review-project-docs-JOOeh`, THEN `bash scripts/ship.sh "msg"`
 (or `… -- <paths>`). See the **"WORKTREE ISOLATION — LIVE"** + **"TWO-SESSION PROTOCOL"** sections at the
-top of this file. **Latest tip: `3fdc69b`.** Big Game feature work (Composer `biggame.html` + Previewer
-`index.html` + `js/game.js`) is functionally COMPLETE through 3e + the Play/Scan toggle; 3f (Publish) is
-the only deferred Phase-3 item (needs a definition — what "publish" produces, live-vs-snapshot art).
+top of this file. **Latest tip: `647ed58`.** Cache-busters: css `dgx-redesign-84`, game.js `biggame-flow-5`,
+sync.js `local-wins-9`.
+
+### ✅ Device-Preview feature — COMPLETE (June 18). Full detail in the "##### Device preview …" sub-sections below.
+On GP 0's "Choose the game:" line, a **device selector** (iPhone · iPhone 17 Pro · iPad · iPad Pro 12.9″ ·
+Chromebook) makes any game tile (mini-game OR Big Game) launch inside a **scaled `<iframe>` sized to that
+device** (`_bgOpenDeviceFrame`), in the orientation from the matrix (phone 1P portrait/2P landscape; tablet
+1P portrait-or-landscape via ↻ rotate / 2P landscape; laptop always landscape). TOUCH-mode only. Bordered
+"cradle" with the ✕ on the border; Escape closes; ▶ Play (in the per-game Mini-games popup) goes straight to
+the device board. Mini-game launch via `?playGame=<id>&players=&legend=`; Big Games via `?playBig=…`. Device
+prefs are device-local (`vica_bg*` + `vica_inputMode` exempt from sync wipe in `sync.js`). The Find board was
+re-laid-out per device (title = game name w/ concrete name on its own line, page name → bottom box on all
+device previews via `body.bg-preview-frame`, status box = yellow-box width, etc.) and the **iPad/iPad-Pro
+Find dominoes are sized per player count** (see the domino table in the sub-sections — iPad/Pro portrait &
+landscape get +40% 1P / +20% 2P; Chromebook unchanged; iPhone has its own phone-portrait block).
+
+**OPEN ITEMS:**
+- **3f (Publish)** — still deferred; needs a definition (what "publish" produces, live-vs-snapshot art).
+- **2P/3P Big Games run single-player** — composed-stage launch (`_bgEnsureFindPlayer`) ignores the count;
+  a spawned follow-up task exists. 2P mini-games (Catch, and Find as "Va | Player 2") DO run as 2P.
+- **▶ play-triangle icons** are a TRIAL on the Find end-game buttons only (gold ▶ / sparkly purple ▶ for New
+  Game). NOT yet rolled out to the Catch board / static `.controls` buttons — awaiting the user's OK.
+- **Cache gotcha:** `index.html` IS no-cache, but a bumped `style.css?v=` can sit stale if it was fetched
+  during the earlier preview-server/worktree glitch — bump the `?v=` to force a fresh fetch (did v82→v83→v84).
 - **Play/Scan toggle (DONE, June 17)**: GP 0 Big Games column, under the Composer button. PLAY = advance
   on the composed gem rule (1 gem); SCAN = advance after ~3 coins/stage (rapid preview). `window._bgPlayMode`
   (persisted `vica_bgPlayMode`); `window._bgScanMode` set at launch; Find via `addCoins`→`_bgScanCoins`,

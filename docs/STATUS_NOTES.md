@@ -350,6 +350,14 @@ PORTRAIT and 2P is LANDSCAPE (orientation matrix), and `renderSunLevel` already 
   66×132 (2P +20%).
 - Verified: iPad portrait 1P 91×182; iPad landscape 2P 66×132 (2P Find runs as "Va | Player 2", cards fit);
   Chromebook 55×110 UNCHANGED; iPhone unchanged. css `dgx-redesign-82`.
+- **iPad PRO landscape added (June 18):** it was the one gap — iPad Pro landscape is 1366×1024, which fell
+  outside the iPad-landscape block (`max-width:1280` excluded it as it shares the 1366 width with Chromebook)
+  AND outside `max-height:850`, so it sat at base 75×150. NEW block `@media (min-width:1281px) and
+  (min-height:900px) and (orientation:landscape)` — `min-height:900` separates iPad Pro (1024 tall) from
+  Chromebook (768 tall): 1P `single-player-layout` 105×210 (+40% of 75), 2P 90×180 (+20%). iPad Pro PORTRAIT
+  already got 91×182 via the `max-width:1024 portrait` rule. Verified: iPad Pro portrait 1P 91×182, iPad Pro
+  landscape 2P 90×180, Chromebook 55×110 still unchanged. css `dgx-redesign-84` (v83 was a no-content
+  cache-bust to flush a stale v82).
 ##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
 User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
 no ":" after "Find the doubles".

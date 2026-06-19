@@ -34,28 +34,31 @@ worktree preview after every edit — it caches per process; a stale server serv
    (variations are independent cards now) + their dead functions. **Kept V** (variation tools).
 4. **Bug fix — zoom panel leaked into the loupe**: `openLoupe` was RAISING `#zoom-panel` above the overlay;
    now both open paths CLOSE it. Fixed.
-5. **Bug fix — card ROLES wouldn't save (ABC)**: FIXED. Root cause = on-screen card `stableId`/`uid` DRIFT
-   from storage (non-deterministic `generateStableId`/`generateCardUID`; builders generate ids not always
-   persisted), so role storage keyed by id never matched (silent `dirty=false`). **Fix: role now travels
-   ON the card** (`dataset.role`) — written to storage by `_stpApplyToData` (shared by all 4 serializers),
-   restored by all 3 builders, read by `_applyRoleBadges` + the role dialog directly. Immune to id drift.
-   Old `_setCardRole` now has ZERO callers (dead). Also added an additive `_ensureCardIds()` migration
-   (fills any missing `uid` once at load) — see the heads-up note below.
+5. **Bug fix — card ROLES wouldn't save (ABC)**: FIXED & CONFIRMED WORKING (Card Maker + Game Maker
+   probabilities). **TRUE root cause = a storage-KEY mismatch (NOT id-drift, NOT duplicates — those were
+   wrong guesses).** The user's ABC set is a recreated/custom set, so `activeCardSet === 'ABC'` and its 108
+   cards live under **`customDrawnCards_ABC`** (capital). But `_roleStorageKeyFor('ABC')` hardcodes
+   `'ABC'→'abc'` → `customDrawnCards_abc` (lowercase) = a STALE 15-card leftover from the old built-in ABC.
+   So role read/write hit the wrong (stale) array and matched 0 cards. The "1776 vs 1778" ids in the first
+   diagnostic were the SAME card compared across the two different keys — not real drift. **Fix that
+   landed:** role now travels ON the card (`dataset.role`), written to storage by `_stpApplyToData` (all 4
+   serializers) via `saveCustomCards` → `'customDrawnCards_' + activeCardSet` = the CORRECT capital key;
+   restored by all 3 builders; read by `_applyRoleBadges` + the role dialog directly. The game's r→p
+   grouping also works because `_findCardDataByStableId` searches all set keys and finds the card under the
+   correct key. Old `_setCardRole` is dead (0 callers). Plus the additive `_ensureCardIds()` migration.
 
-**OPEN — pick up here tomorrow:**
-- **(A) r→p role read is still id-based** — `_rpGroupGameCardsByRole` (~`pm-studio-DrV.html:3654`) reads
-  each game card's role via `_getCardRole(stableId/uid)` + a `_findCardDataByStableId` fallback. Under id
-  drift it can return "(no role)" → wrong probability grouping. Fix = capture `role` onto the game card at
-  add-time and read `c.role` directly. **r→p feeds the Previewer's probability = BIG GAME session's domain
-  → COORDINATE before changing.**
-- **(B) ROOT CAUSE — ABC duplicate / id-instability** — user saw two cards with the SAME face (4 dots) in a
-  game preview; the role diagnostic proved ABC `stableId`s drift (DOM `1776…_ABC_A1_ggjj` vs stored
-  `1778…_ABC_A1_wlup`). Builders DO call `_persistNewUIDs` + save migrated ids, yet ABC drifted — likely
-  tied to those DUPLICATE cards. **Investigate (B) first** — it's the underlying cause and explains the
-  game-preview oddity. (The user's question about "rules for showing cards in the game" is a separate BIG
-  GAME topic, already routed there.)
+**OPEN — optional cleanup (nothing user-facing is broken):**
+- **`_roleStorageKeyFor` still hardcodes `'ABC'→'abc'` / `'Numbers and Dots'→'numbers'`** — wrong for
+  recreated/custom built-in sets (where the real key is `customDrawnCards_<DisplayName>`). It's only still
+  used by `_getCardRole` in `_rpGroupGameCardsByRole` (~`pm-studio-DrV.html:3654`), which currently works
+  via the `_findCardDataByStableId` fallback — so this is latent, not broken. Tidy fix: resolve the key
+  from `activeCardSet` / the actual set, not the display name. (r→p feeds the Previewer → coordinate w/ Big Game.)
+- **Stale `customDrawnCards_abc` (15 cards)** — harmless leftover from the original built-in ABC (since
+  deleted+recreated as the custom "ABC"). Safe to delete; verify nothing else reads the lowercase key first.
 - **Audit verdict (June 18, read-only):** card SELECTION in games is robust (idx→uid→stableId→label
-  fallbacks); variations (label-linked), shared art, icons, copy/delete are SAFE. Only (A) and (B) remain.
+  fallbacks); variations (label-linked), shared art, icons, copy/delete are SAFE. **ABC data is clean —
+  the duplicate-card diagnostic on the user's real data found 0 duplicates, 0 drift, 0 missing ids,
+  108/108 DOM cards matching storage.** No card-referencing bugs remain.
 
 ### ⚠ Heads-up for Big Game / sync session (June 18) — card records now self-heal a `uid`
 Studio bugfix: built-in/older cards stored WITHOUT a `uid` were given a fresh random uid on every

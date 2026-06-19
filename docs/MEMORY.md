@@ -39,24 +39,30 @@
 
 ---
 
-## 🧩 June 18, 2026 — Studio durable lessons (loupe resize, background, roles, id drift)
+## 🧩 June 18, 2026 — Studio durable lessons (loupe resize, background, roles, per-set storage keys)
 
-- **Card `stableId`/`uid` are NOT stable.** `generateStableId(label,set)` and `generateCardUID()` are
-  non-deterministic (Date.now()+random), and the set builders assign fresh ids to any card missing one via
-  `item.uid || generateCardUID()` etc. They try to persist via `_persistNewUIDs` + a migration save, but
-  ids still DRIFT in practice (proven on ABC: DOM `1776…_ABC_A1_ggjj` vs stored `1778…_ABC_A1_wlup`).
-  **Therefore: never key a per-card datum on a match between the DOM card and the stored array by
-  stableId/uid — it silently fails when ids drift.**
+- **The role-save bug was a STORAGE-KEY mismatch, NOT id-drift and NOT duplicates** (both were wrong
+  guesses I chased; the user's real-data scan proved ABC has 0 duplicates / 0 drift / 0 missing ids /
+  108-of-108 DOM↔storage match). Real cause: a **built-in set deleted & recreated becomes a CUSTOM set
+  under its display name** — the user's "ABC" is `activeCardSet === 'ABC'`, stored under
+  **`customDrawnCards_ABC`** (capital). But `_roleStorageKeyFor('ABC')` hardcodes `'ABC'→'abc'` →
+  `customDrawnCards_abc` (lowercase) = a STALE leftover from the original built-in. So role read/write hit
+  the wrong drawer. The "1776 vs 1778" stableIds were the SAME card seen across the two keys — not drift.
+  **Lesson: resolve a set's storage key from `activeCardSet` / the actual set, NEVER re-derive it from the
+  display name** (`_getSetStorageKey('abc')` ≠ the key of a recreated custom "ABC"). `_roleStorageKeyFor`
+  still has this latent bug (used only by `_getCardRole` in r→p, which works anyway via the
+  `_findCardDataByStableId` cross-set fallback).
 - **The fix pattern: store per-card data ON the card object** (a `data-*` attr on the `.library-card`),
   have `_stpApplyToData` (the shared serializer helper, called by all 4 DOM→storage serializers) copy it
   into the stored card, and have the 3 builders restore it onto `dataset.*` on render. This is how
-  `voiceNames` already works, and now how **`dataset.role`** works (replaced the broken id-keyed
-  `_setCardRole`/`_getCardRole`). Immune to id drift; survives saves/rebuilds; the game still reads
-  `card.role` from storage.
-- **Card ROLES (Card Maker):** stored on `dataset.role`, persisted with the card, badge + role dialog read
-  it directly. `_setCardRole` is now dead (no callers). `_getCardRole` survives only in the **r→p
-  role→probability grouping** (`_rpGroupGameCardsByRole`), which is STILL id-based and drift-vulnerable —
-  open item, and it feeds the Previewer (Big Game session's domain → coordinate).
+  `voiceNames` already works, and now how **`dataset.role`** works. Key win: the save goes through
+  `saveCustomCards` → `'customDrawnCards_' + activeCardSet` = the CORRECT per-set key (sidesteps the
+  `_roleStorageKeyFor` bug entirely). CONFIRMED working end-to-end (Card Maker + Game Maker probabilities).
+- **`_findCardDataByStableId`** searches ALL card-set keys by stableId — the robust way to find a card's
+  stored data regardless of which set key holds it (this is why the game's r→p role read still works
+  despite the wrong-key `_getCardRole`). `_setCardRole` is now dead (0 callers).
+- **ids ARE effectively stable** (builders persist via `_persistNewUIDs` + migration saves). Don't assume
+  drift — if a per-card lookup "doesn't match," suspect the KEY first.
 - **Loupe selection box** now has corner (proportional) + edge (one-directional) resize handles. Keystone:
   **`getSvgSpaceBBox` is matrix-based** (`el.transform.baseVal.consolidate()`), so it tracks ANY transform
   (incl. `scale(sx,sy)` and rotation/flip). Non-uniform edge stretch on rotated/flipped elements uses a

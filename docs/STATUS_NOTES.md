@@ -7,6 +7,15 @@
 
 ---
 
+### ⚠ Heads-up for Big Game / sync session (June 18) — card records now self-heal a `uid`
+Studio bugfix: built-in/older cards stored WITHOUT a `uid` were given a fresh random uid on every
+render (never saved), so per-card features keyed by uid (roles) never matched → roles silently
+didn't save. Fix = a one-time, ADDITIVE migration `_ensureCardIds()` (pm-studio-DrV.html, runs once
+at load) that fills a stable `uid` on any `customDrawnCards*` card missing one, then saves that key.
+**Impact on you (`js/sync.js`):** cards in the synced card-set keys will gain a `uid` field (the same
+field new cards already carry — no shape change, just a filled blank). Benign, but flagging since
+those keys sync to cloud. No action needed unless sync asserts on card shape.
+
 ### Studio session (parallel, June 17) — Card loupe: corner-handle resize DONE
 Running alongside the Big Game session (which owns `biggame.html`/`index.html`/`game.js`); this
 session owns **`pm-studio-DrV.html`** only. Cross-session note kept here for visibility.

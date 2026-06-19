@@ -314,6 +314,16 @@ bottom, so the game name "Find the doubles…" wrongly sat in the page-name box.
 - Taller 2-line title + margin push the status/yellow box/buttons/xeno DOWN ("everything else lower").
   Verified iPhone 390×844; no scrollbar. css `dgx-redesign-76`.
 
+##### Page name → bottom box on ALL device previews (iPad/Chromebook/iPhone) (June 18)
+The iPhone treatment (page name fixed to the bottom, game name = title) was phone-only (`max-width:430`).
+Extended to iPad + Chromebook previews: the deep-link hook now adds `document.body.classList.add('bg-preview-frame')`
+when in a device-preview iframe, and CSS `body.bg-preview-frame #board-page-label{position:fixed;bottom:2cm;
+left:50%;translateX(-50%); + pill bg}` drops the editable page name to the bottom as its own box on EVERY
+preview device; `body.bg-preview-frame .board-id-game::before{content:none}` hides the now-orphaned "·".
+Scoped to the preview frame only (set via `_bgInPreviewFrame`), so the real desktop player is untouched
+(important since Chromebook 1366×768 == a common desktop size). Verified: iPad portrait page label y1077
+(~2cm up), Chromebook y665 (~2cm up), game name as the top title; iPhone unchanged. css `dgx-redesign-79`.
+
 ##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
 User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
 no ":" after "Find the doubles".

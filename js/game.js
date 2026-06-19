@@ -2771,8 +2771,13 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label: hide for 1-player after Win0, hide for 2+ players after Win1
-                const showPressLabels = numCards > 0 && (
+                // Show the "Press … to select" hint only in MOUSE mode (it pairs
+                // with the 1/2/3/4 key hints). In TOUCH mode the player just taps
+                // the domino and the top banner already says "Select double by
+                // pressing it", so the hint is redundant — hidden on all screens.
+                // Within mouse mode it still fades: hide for 1-player after Win0,
+                // for 2+ players after Win1.
+                const showPressLabels = numCards > 0 && _isMouseMode && (
                     this.players.length >= 2
                         ? (this._multiPlayerWins || 0) < 2
                         : (this._singlePlayerWins || 0) < 1

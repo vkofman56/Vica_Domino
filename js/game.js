@@ -2756,6 +2756,14 @@ class VicaDominoGame {
                     }
                 }
 
+                // Keyboard hints (the 1/2/3/4 etc. UNDER each domino) tell the
+                // player which key maps to which card — useful only in MOUSE
+                // mode. In touch mode they tap, so the keys are hidden. Find
+                // boards read the mode from _findInputMode (same source as the
+                // board label). This replaces the old "2-player only" gate: now
+                // 1-player MOUSE also shows keys, and 2-player TOUCH does not.
+                const _isMouseMode = (typeof _findInputMode !== 'undefined') && _findInputMode === 'mouse';
+
                 // Show coin/gem display left of "Press"
                 const coinGemDiv = document.createElement('div');
                 coinGemDiv.className = 'coin-gem-display coin-gem-inline';
@@ -2812,8 +2820,9 @@ class VicaDominoGame {
                         dominoWrapper.appendChild(dblLabel);
                     }
 
-                    // Add key label under this domino (2-player only; hide from Win2 onward)
-                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2 && (this._multiPlayerWins || 0) < 2) {
+                    // Add key label under this domino — MOUSE mode only, shown
+                    // while the "Press" hint shows (1P: until Win1; 2P: until Win2).
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && _isMouseMode && showPressLabels) {
                         const keyLabel = document.createElement('span');
                         keyLabel.className = 'key';
                         keyLabel.textContent = keys[cardIndex];

@@ -313,6 +313,20 @@ bottom, so the game name "Find the doubles…" wrongly sat in the page-name box.
   relative shift moves ONLY the title down onto the home row. Verified line1 center 69 == home center 69.
 - Taller 2-line title + margin push the status/yellow box/buttons/xeno DOWN ("everything else lower").
   Verified iPhone 390×844; no scrollbar. css `dgx-redesign-76`.
+
+##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
+User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
+no ":" after "Find the doubles".
+- **Buttons no longer move**: dropped the title `margin-top` (it collapsed through `#game-screen` and
+  dragged the absolute back/home buttons down). Now `#game-screen{padding-top:15px}` pushes the title +
+  content down WITHOUT moving the absolute buttons (top:15 is relative to the padding box, unaffected by
+  padding-top). Verified home stays at y20; line1 center 39 == home center 39 (aligned).
+- **No colon + name-only 2nd row**: `_gpFillGameName` now (a) removes the cloned `.subtitle-mode-glyph`
+  /`.subtitle-player-glyph` decorations, and (b) splits at the first ":" keeping line 1 WITHOUT the colon
+  (`slice(0,ci)`); the concrete name goes in `.board-id-name`. Inline/desktop re-adds ":\00a0" via
+  `.board-id-name::before`; phone sets `content:none` + `display:block` → "Find the doubles" / "Match 0-4".
+- Verified iPhone 390×844: titleText "Find the doublesMatch 0-4" (line1 no colon, line2 name only),
+  glyphs 0, buttons at top, no scrollbar. css `dgx-redesign-78`.
 ##### Status box = yellow width + coin/domino gap + edge-flicker fix (June 18)
 - **Status box width = yellow box, ONE line**: `.status` (phone) → `width:96%; margin-inline:auto;
   text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (dropped the old

@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-85">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-87">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:42 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:04 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:42 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:04 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4876,14 +4876,27 @@
                 if (_existing) _existing.style.display = 'none';
                 return;
             }
+            // Legend + Start flex row at the bottom of Box 1. The Legend always
+            // lives inside this wrapper; for single-player setups the Start
+            // button is moved in beside it (right edge, bottom-aligned) by the
+            // placement step at the end of this function.
+            var lsr = document.getElementById('legend-start-row');
+            if (!lsr) {
+                lsr = document.createElement('div');
+                lsr.id = 'legend-start-row';
+                lsr.className = 'legend-start-row';
+                box1.appendChild(lsr);
+            } else if (lsr.parentElement !== box1) {
+                box1.appendChild(lsr);
+            }
             var box = document.getElementById('selected-options-row');
             if (!box) {
                 box = document.createElement('div');
                 box.id = 'selected-options-row';
                 box.className = 'selected-options-row';
-                box1.appendChild(box);
-            } else if (box.parentElement !== box1) {
-                box1.appendChild(box);
+                lsr.appendChild(box);
+            } else if (box.parentElement !== lsr) {
+                lsr.appendChild(box);
             }
             function pick(sel, sub) {
                 var e = document.querySelector(sel); if (!e) return '';
@@ -4932,7 +4945,7 @@
             });
             html += '</div>';
             box.style.display = 'block';
-            box.style.width = '100%';
+            box.style.width = '';
             box.style.boxSizing = 'border-box';
             box.style.textAlign = 'left';
             box.innerHTML = html;
@@ -4967,6 +4980,35 @@
                     inner.style.width = '';
                 }
             }
+            // === Lift the Start button up beside the Legend (single-player) ===
+            // No visible player-name rows → 1-player setup: move #player-names
+            // into the Legend row so the Start button sits at its RIGHT, bottom-
+            // aligned, and collapse the now-empty player box. With visible name
+            // rows (2P / Catch) OR if the player box still shows other content
+            // (game icon, xeno combo), leave the button in its native Box 2 spot.
+            try {
+                var _vis = function(el) { return !!(el && el.getClientRects && el.getClientRects().length); };
+                var _pn = document.getElementById('player-names');
+                var _box2 = document.querySelector('.setup-box-2');
+                var _ni = document.getElementById('name-inputs');
+                var _hasRows = _ni && Array.prototype.some.call(_ni.children, _vis);
+                var _box2HasOther = _box2 && Array.prototype.some.call(_box2.children, function(c) {
+                    return c !== _pn && _vis(c);
+                });
+                if (_pn && _box2 && lsr && !_hasRows && !_box2HasOther) {
+                    if (_pn.parentElement !== lsr) lsr.appendChild(_pn);
+                    lsr.classList.add('has-start');
+                    _box2.style.display = 'none';
+                    // Drop any inline margins the xeno-aligner may have stamped
+                    // so the flex layout positions the button cleanly.
+                    var _sb = document.getElementById('start-game-btn');
+                    if (_sb) { _sb.style.removeProperty('margin-left'); _sb.style.removeProperty('margin-right'); _sb.style.removeProperty('flex'); }
+                } else if (_pn && _box2) {
+                    if (_pn.parentElement !== _box2) _box2.appendChild(_pn);
+                    if (lsr) lsr.classList.remove('has-start');
+                    _box2.style.display = '';
+                }
+            } catch (e) {}
         }
         // One observer covers every Start-page show-point (find/catch, mouse/
         // touch, all player options). The lower player box always shows the

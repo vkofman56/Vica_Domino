@@ -333,6 +333,13 @@ Scoped to the preview frame only (set via `_bgInPreviewFrame`), so the real desk
 (important since Chromebook 1366×768 == a common desktop size). Verified: iPad portrait page label y1077
 (~2cm up), Chromebook y665 (~2cm up), game name as the top title; iPhone unchanged. css `dgx-redesign-79`.
 
+##### iPad dominoes +40% (June 18)
+iPad single-player Find board: dominoes enlarged 40%. The iPad-PORTRAIT media query
+(`min-width:768px and max-width:1024px and orientation:portrait`) `.domino.vertical` 65×130 → **91×182**.
+This query targets iPad/iPad-Pro portrait (incl. the 820×1180 preview) and NOT Chromebook (landscape), so
+Chromebook is unaffected. Verified iPad portrait preview: domino 91×182, fits the board. css `dgx-redesign-80`.
+- NOT changed: iPad LANDSCAPE dominoes (its media query is shared with Chromebook 1366×768, so a separate
+  Chromebook-excluding rule would be needed). iPhone/Chromebook unchanged. (Ask if landscape is wanted too.)
 ##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
 User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
 no ":" after "Find the doubles".

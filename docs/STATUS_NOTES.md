@@ -7,6 +7,56 @@
 
 ---
 
+### ▶▶ STUDIO SESSION — June 18 END-OF-DAY (resume here tomorrow)
+All work in **`pm-studio-DrV.html`** (card-editor "loupe" + Card Maker). Running in the isolated
+**`work/studio` worktree** at `../Domino-studio`. Ship workflow each change: edit in the worktree →
+`git fetch` → `git rebase origin/claude/review-project-docs-JOOeh` → push the 3-mirror trio →
+`git merge --ff-only` in the MAIN tree (incoming = only `pm-studio-DrV.html`, so the Big Game session's
+uncommitted `index.html`/`biggame.html`/`game.js`/`style.css` are left untouched). **Restart the :8021
+worktree preview after every edit — it caches per process; a stale server serves old code.** User views
+:8011 (or :8000) = main tree, so the ff is what makes changes visible there (hard-refresh ⌘+Shift+R).
+
+**Shipped today (latest tip `d3a4bc0`):**
+1. **Loupe resize handles** — a selected stamp / text / shape / picture shows **4 corner handles**
+   (proportional, opposite corner pinned, live `×N`) **+ 4 edge handles** (one-directional, opposite edge
+   pinned, raises the `_twinToast` "You are changing the shape proportions"). Works on ROTATED/FLIPPED
+   elements (variation transform) via a root-space stretch conjugated `Vinv·S·V`. Pictures stretch via
+   width/height (`preserveAspectRatio=none`); everything else via a `scale(sx,sy)` transform.
+   **`getSvgSpaceBBox` was rewritten matrix-based** (`el.transform.baseVal.consolidate`) — handles any
+   transform incl. `scale(sx,sy)`. New helpers: `createSelHandles`/`updateSelHandles`/`_startHandleResize`/
+   `_rzEdgePoints`/`_targetIconSvg`.
+2. **Card background color** — a **"Color: Figure ⇄ Background" toggle** (two square+circle icons sized to
+   the card-shape buttons, 28px, responsive via `.ct-icon`; white = selected mode, click an icon to pick).
+   Background mode paints a `<rect class="card-bg">` behind the card (persists on save, non-selectable,
+   excluded from "color all", follows corner radius, undoable). ONE shared palette; the **"no color"
+   crossed-circle** sits on the toggle line (column 4, above the green swatch), bg-mode only.
+3. **Removed obsolete buttons** — **IC** (redundant with the Icons section's own ▸/▾ header) and **V+**
+   (variations are independent cards now) + their dead functions. **Kept V** (variation tools).
+4. **Bug fix — zoom panel leaked into the loupe**: `openLoupe` was RAISING `#zoom-panel` above the overlay;
+   now both open paths CLOSE it. Fixed.
+5. **Bug fix — card ROLES wouldn't save (ABC)**: FIXED. Root cause = on-screen card `stableId`/`uid` DRIFT
+   from storage (non-deterministic `generateStableId`/`generateCardUID`; builders generate ids not always
+   persisted), so role storage keyed by id never matched (silent `dirty=false`). **Fix: role now travels
+   ON the card** (`dataset.role`) — written to storage by `_stpApplyToData` (shared by all 4 serializers),
+   restored by all 3 builders, read by `_applyRoleBadges` + the role dialog directly. Immune to id drift.
+   Old `_setCardRole` now has ZERO callers (dead). Also added an additive `_ensureCardIds()` migration
+   (fills any missing `uid` once at load) — see the heads-up note below.
+
+**OPEN — pick up here tomorrow:**
+- **(A) r→p role read is still id-based** — `_rpGroupGameCardsByRole` (~`pm-studio-DrV.html:3654`) reads
+  each game card's role via `_getCardRole(stableId/uid)` + a `_findCardDataByStableId` fallback. Under id
+  drift it can return "(no role)" → wrong probability grouping. Fix = capture `role` onto the game card at
+  add-time and read `c.role` directly. **r→p feeds the Previewer's probability = BIG GAME session's domain
+  → COORDINATE before changing.**
+- **(B) ROOT CAUSE — ABC duplicate / id-instability** — user saw two cards with the SAME face (4 dots) in a
+  game preview; the role diagnostic proved ABC `stableId`s drift (DOM `1776…_ABC_A1_ggjj` vs stored
+  `1778…_ABC_A1_wlup`). Builders DO call `_persistNewUIDs` + save migrated ids, yet ABC drifted — likely
+  tied to those DUPLICATE cards. **Investigate (B) first** — it's the underlying cause and explains the
+  game-preview oddity. (The user's question about "rules for showing cards in the game" is a separate BIG
+  GAME topic, already routed there.)
+- **Audit verdict (June 18, read-only):** card SELECTION in games is robust (idx→uid→stableId→label
+  fallbacks); variations (label-linked), shared art, icons, copy/delete are SAFE. Only (A) and (B) remain.
+
 ### ⚠ Heads-up for Big Game / sync session (June 18) — card records now self-heal a `uid`
 Studio bugfix: built-in/older cards stored WITHOUT a `uid` were given a fresh random uid on every
 render (never saved), so per-card features keyed by uid (roles) never matched → roles silently

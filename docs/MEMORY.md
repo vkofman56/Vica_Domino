@@ -3,6 +3,38 @@
 
 ---
 
+## 🧩 June 18, 2026 — Studio durable lessons (loupe resize, background, roles, id drift)
+
+- **Card `stableId`/`uid` are NOT stable.** `generateStableId(label,set)` and `generateCardUID()` are
+  non-deterministic (Date.now()+random), and the set builders assign fresh ids to any card missing one via
+  `item.uid || generateCardUID()` etc. They try to persist via `_persistNewUIDs` + a migration save, but
+  ids still DRIFT in practice (proven on ABC: DOM `1776…_ABC_A1_ggjj` vs stored `1778…_ABC_A1_wlup`).
+  **Therefore: never key a per-card datum on a match between the DOM card and the stored array by
+  stableId/uid — it silently fails when ids drift.**
+- **The fix pattern: store per-card data ON the card object** (a `data-*` attr on the `.library-card`),
+  have `_stpApplyToData` (the shared serializer helper, called by all 4 DOM→storage serializers) copy it
+  into the stored card, and have the 3 builders restore it onto `dataset.*` on render. This is how
+  `voiceNames` already works, and now how **`dataset.role`** works (replaced the broken id-keyed
+  `_setCardRole`/`_getCardRole`). Immune to id drift; survives saves/rebuilds; the game still reads
+  `card.role` from storage.
+- **Card ROLES (Card Maker):** stored on `dataset.role`, persisted with the card, badge + role dialog read
+  it directly. `_setCardRole` is now dead (no callers). `_getCardRole` survives only in the **r→p
+  role→probability grouping** (`_rpGroupGameCardsByRole`), which is STILL id-based and drift-vulnerable —
+  open item, and it feeds the Previewer (Big Game session's domain → coordinate).
+- **Loupe selection box** now has corner (proportional) + edge (one-directional) resize handles. Keystone:
+  **`getSvgSpaceBBox` is matrix-based** (`el.transform.baseVal.consolidate()`), so it tracks ANY transform
+  (incl. `scale(sx,sy)` and rotation/flip). Non-uniform edge stretch on rotated/flipped elements uses a
+  **root-space scale conjugated into parent space (`Vinv·S·V`)** so it stays axis-correct.
+- **Card background** = a `<rect class="card-bg">` inserted as the FIRST child of the card SVG (behind all
+  content, non-selectable, excluded from "color all", follows corner radius). Chosen via a Figure/Background
+  toggle that reuses the single color palette.
+- **Removed as obsolete:** the **IC** toolbar button (the Icons section header is its own ▸/▾ toggle) and
+  the **V+** show/hide-variations button (variations are independent cards; grouping organizes them). Kept
+  **V** (variation tools).
+- **Worktree workflow (two parallel sessions):** Studio runs in `../Domino-studio` on `work/studio`; Big
+  Game owns the main tree. Ship = fetch → rebase onto canonical → push trio → `ff-only` the main tree
+  (pm-studio-DrV.html only). The :8021 worktree preview **caches per process — restart it after each edit**.
+
 ## 🧩 June 15, 2026 — durable facts/decisions from Phase 2 (mini-games) + the pipeline
 
 - **A mini-game = a LEGEND, period.** One chosen configuration of a game's settings —

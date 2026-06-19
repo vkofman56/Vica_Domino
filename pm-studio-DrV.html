@@ -418,6 +418,39 @@
         body.loupe-active #domino-library-screen .library-zoom-fixed .add-cards-box {
             display: none !important;
         }
+        /* GM popup — game-type directories (tree). Each game type is a
+           collapsible folder; opening it reveals its games by NAME ONLY (the
+           type prefix lives once on the folder header, not repeated per row).
+           New classes only — the gold .gm-popup* base (Big-Game-owned
+           css/style.css) is reused untouched. */
+        .gm-dir { display: flex; flex-direction: column; gap: 3px; }
+        .gm-dir-header {
+            display: flex; align-items: center; gap: 6px;
+            width: 100%; padding: 8px 10px;
+            border: 1px solid rgba(255, 215, 0, 0.45);
+            border-radius: 6px;
+            background: rgba(255, 215, 0, 0.16);
+            color: #FFD700; font-size: 13px; font-weight: bold;
+            cursor: pointer; text-align: left;
+            transition: background 0.15s;
+        }
+        .gm-dir-header:hover { background: rgba(255, 215, 0, 0.28); }
+        .gm-dir.open > .gm-dir-header { background: rgba(255, 215, 0, 0.22); }
+        .gm-dir-caret {
+            display: inline-block; width: 11px; flex: 0 0 auto;
+            font-size: 11px; line-height: 1;
+        }
+        .gm-dir-label { flex: 1 1 auto; }
+        .gm-dir-count {
+            flex: 0 0 auto; font-size: 11px; font-weight: bold; opacity: 0.85;
+            background: rgba(255, 215, 0, 0.18);
+            border-radius: 9px; padding: 1px 7px;
+        }
+        .gm-dir-list {
+            display: none; flex-direction: column; gap: 3px;
+            padding-left: 12px;
+        }
+        .gm-dir.open > .gm-dir-list { display: flex; }
         /* Green microphone icon = this card has at least one Spoken Title
            saved. SVG inside the button uses currentColor, so changing the
            button's color recolors the glyph. Matches the W-button pattern
@@ -497,7 +530,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:40 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:42 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -515,7 +548,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:40 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:42 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -757,7 +790,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:40 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:42 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14368,46 +14401,74 @@
             };
             popup.appendChild(newBtn);
 
-            // Existing "Find the Double" games
-            games.forEach(function(game, i) {
-                var row = document.createElement('div');
-                row.className = 'gm-popup-row';
-                var btn = document.createElement('button');
-                btn.className = 'gm-popup-btn';
-                btn.textContent = 'Find the doubles: ' + game.name;
-                btn.onclick = function() {
-                    popup.style.display = 'none';
-                    openGameView(i, 'domino-library-screen');
-                };
-                row.appendChild(btn);
-                var editBtn = document.createElement('button');
-                editBtn.className = 'gm-popup-edit-btn';
-                editBtn.innerHTML = '&#9998;';
-                editBtn.title = 'Edit card selection';
-                editBtn.onclick = function(e) {
-                    e.stopPropagation();
-                    popup.style.display = 'none';
+            // Existing games, grouped by type into collapsible directories.
+            // The type name lives once on the folder header; rows inside show
+            // the game NAME ONLY (no repeated "Find the doubles: " prefix).
+            _gmAppendDirectory(popup, 'Find the doubles', games,
+                function(i) { openGameView(i, 'domino-library-screen'); },
+                function(i, game) {
                     gameMakerEditIndex = i;
                     gameMakerEditCatch = false;
                     gameMakerType = 'find';
                     gameMakerName = game.name;
                     gameMakerDesc = game.description || '';
                     enterSelectionMode();
-                };
-                row.appendChild(editBtn);
-                popup.appendChild(row);
-            });
+                });
+            _gmAppendDirectory(popup, 'Catch the double', catchGames,
+                function(i) { openCatchGameView(i, 'domino-library-screen'); },
+                function(i, game) {
+                    gameMakerEditIndex = i;
+                    gameMakerEditCatch = true;
+                    gameMakerType = 'catch';
+                    gameMakerName = game.name;
+                    gameMakerDesc = game.description || '';
+                    enterSelectionMode();
+                });
 
-            // Existing "Catch the Double" games
-            catchGames.forEach(function(game, i) {
+            popup.style.display = 'flex';
+        }
+
+        // Append one collapsible game-type directory to the GM popup. `onOpen`
+        // (i) launches a game; `onEdit` (i, game) edits its card selection.
+        // Skips a type entirely when it has no games, so the popup stays clean.
+        function _gmAppendDirectory(popup, typeLabel, gamesArr, onOpen, onEdit) {
+            if (!gamesArr || !gamesArr.length) return;
+            var dir = document.createElement('div');
+            dir.className = 'gm-dir';
+
+            var header = document.createElement('button');
+            header.type = 'button';
+            header.className = 'gm-dir-header';
+            var caret = document.createElement('span');
+            caret.className = 'gm-dir-caret';
+            caret.textContent = '▸'; // ▸ collapsed
+            var label = document.createElement('span');
+            label.className = 'gm-dir-label';
+            label.textContent = typeLabel;
+            var count = document.createElement('span');
+            count.className = 'gm-dir-count';
+            count.textContent = gamesArr.length;
+            header.appendChild(caret);
+            header.appendChild(label);
+            header.appendChild(count);
+            header.onclick = function() {
+                var nowOpen = !dir.classList.contains('open');
+                dir.classList.toggle('open', nowOpen);
+                caret.textContent = nowOpen ? '▾' : '▸'; // ▾ / ▸
+            };
+            dir.appendChild(header);
+
+            var list = document.createElement('div');
+            list.className = 'gm-dir-list';
+            gamesArr.forEach(function(game, i) {
                 var row = document.createElement('div');
                 row.className = 'gm-popup-row';
                 var btn = document.createElement('button');
                 btn.className = 'gm-popup-btn';
-                btn.textContent = 'Catch the double: ' + game.name;
+                btn.textContent = game.name; // name only — type is on the folder
                 btn.onclick = function() {
                     popup.style.display = 'none';
-                    openCatchGameView(i, 'domino-library-screen');
+                    onOpen(i, game);
                 };
                 row.appendChild(btn);
                 var editBtn = document.createElement('button');
@@ -14417,18 +14478,13 @@
                 editBtn.onclick = function(e) {
                     e.stopPropagation();
                     popup.style.display = 'none';
-                    gameMakerEditIndex = i;
-                    gameMakerEditCatch = true;
-                    gameMakerType = 'catch';
-                    gameMakerName = game.name;
-                    gameMakerDesc = game.description || '';
-                    enterSelectionMode();
+                    onEdit(i, game);
                 };
                 row.appendChild(editBtn);
-                popup.appendChild(row);
+                list.appendChild(row);
             });
-
-            popup.style.display = 'flex';
+            dir.appendChild(list);
+            popup.appendChild(dir);
         }
 
         function _showGameTypeChoice(callback) {

@@ -475,7 +475,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:05 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:39 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -493,7 +493,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:05 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:39 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -735,7 +735,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:05 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:39 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1854,6 +1854,9 @@
         function _stpApplyToData(cardData, cardEl) {
             var vn = _stpReadFromCard(cardEl);
             if (vn && Object.keys(vn).length > 0) cardData.voiceNames = vn;
+            // Role travels WITH the card (on dataset.role) — survives saves/rebuilds
+            // and is immune to stableId/uid drift between the DOM and storage.
+            if (cardEl.dataset.role) cardData.role = cardEl.dataset.role;
         }
 
         // Storage stays comma-separated ("one, sum"); UI is one-per-line.
@@ -3868,8 +3871,7 @@
                 var content = document.querySelector('#domino-library-screen .domino-library-content');
                 if (!content) return;
                 content.querySelectorAll('.library-card').forEach(function(card) {
-                    var role = (card.dataset.stableId && roleByStable[card.dataset.stableId]) ||
-                               (card.dataset.uid && roleByUid[card.dataset.uid]) || '';
+                    var role = card.dataset.role || ''; // role lives on the card (dataset.role)
                     var dot = card.querySelector(':scope > .role-dot');
                     if (role) {
                         if (!dot) {
@@ -9285,7 +9287,7 @@
                         // Pre-fill with the shared role if every selected card agrees.
                         var _rShared = null;
                         groupEditSelected.forEach(function(c) {
-                            var r = _getCardRole(_rSet, c.dataset.stableId, c.dataset.uid) || '';
+                            var r = c.dataset.role || ''; // role lives on the card (dataset.role)
                             if (_rShared === null) _rShared = r;
                             else if (_rShared !== r) _rShared = '';
                         });
@@ -9293,40 +9295,29 @@
                         menu.appendChild(_ctxItem('\u2691', (_rShared ? 'Role: ' + _rShared : 'Role') + ' (' + _ctxN + ')\u2026', function() {
                             _showRolePicker('Role for ' + _ctxN + ' selected cards', _rShared, function(role) {
                                 if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
-                                var n = 0;
+                                role = (role || '').trim();
                                 groupEditSelected.forEach(function(c) {
-                                    if (_setCardRole(_rSet, c.dataset.stableId, c.dataset.uid, role)) n++;
+                                    if (role) c.dataset.role = role; else delete c.dataset.role;
                                 });
-                                // TEMP DIAGNOSTIC (remove after debugging): if not all cards matched,
-                                // report the actual state so we can see why the role won't attach.
-                                if (n < _ctxN) {
-                                    try {
-                                        var _dk = _roleStorageKeyFor(_rSet);
-                                        var _darr = JSON.parse(localStorage.getItem(_dk) || '[]');
-                                        var _dsel = (groupEditSelected[0] || {}).dataset || {};
-                                        var _dst = _darr[0] || null;
-                                        alert('ROLE DIAG\nset = ' + _rSet +
-                                              '\nkey = ' + _dk +
-                                              '\ncards in storage = ' + (Array.isArray(_darr) ? _darr.length : 'NOT-ARRAY') +
-                                              '\nmatched ' + n + ' of ' + _ctxN + ' selected' +
-                                              '\nselected[0]: stableId=' + (_dsel.stableId || '∅') + ' uid=' + (_dsel.uid || '∅') +
-                                              '\nstored[0]: ' + (_dst ? ('label=' + _dst.label + ' stableId=' + (_dst.stableId || '∅') + ' uid=' + (_dst.uid || '∅')) : 'none'));
-                                    } catch (e) { alert('ROLE DIAG error: ' + e); }
-                                }
+                                if (role && typeof _addRoleToVocab === 'function') _addRoleToVocab(role);
+                                if (typeof saveCustomCards === 'function') saveCustomCards(); // persist role with the cards
                                 _applyRoleBadges();
                                 if (typeof _geFlash === 'function') {
-                                    _geFlash(role ? ('Role "' + role + '" set on ' + n + ' card' + (n !== 1 ? 's' : ''))
-                                                  : ('Role cleared on ' + n + ' card' + (n !== 1 ? 's' : '')));
+                                    _geFlash(role ? ('Role "' + role + '" set on ' + _ctxN + ' card' + (_ctxN !== 1 ? 's' : ''))
+                                                  : ('Role cleared on ' + _ctxN + ' card' + (_ctxN !== 1 ? 's' : '')));
                                 }
                             });
                         }));
                         return;
                     }
-                    var _rCur = _getCardRole(_rSet, card.dataset.stableId, card.dataset.uid);
+                    var _rCur = card.dataset.role || '';
                     menu.appendChild(_ctxItem('\u2691', _rCur ? ('Role: ' + _rCur + '\u2026') : 'Role\u2026', function() {
                         _showRolePicker('Role of card ' + ((card.querySelector('.library-label') || {}).textContent || ''), _rCur, function(role) {
                             if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
-                            _setCardRole(_rSet, card.dataset.stableId, card.dataset.uid, role);
+                            role = (role || '').trim();
+                            if (role) card.dataset.role = role; else delete card.dataset.role;
+                            if (role && typeof _addRoleToVocab === 'function') _addRoleToVocab(role);
+                            if (typeof saveCustomCards === 'function') saveCustomCards();
                             _applyRoleBadges();
                         });
                     }));
@@ -14021,6 +14012,7 @@
                     card.className = 'library-card';
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
+                    if (item.role) card.dataset.role = item.role; // restore role from storage
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {
@@ -24040,6 +24032,7 @@
                             card.className = 'library-card';
                             card.dataset.custom = 'true';
                             card.dataset.uid = item.uid || generateCardUID();
+                            if (item.role) card.dataset.role = item.role; // restore role from storage
                             if (item.stableId) card.dataset.stableId = item.stableId;
                             if (item.origin) card.dataset.origin = item.origin;
                             if (item.movedFrom) card.dataset.movedFrom = item.movedFrom;
@@ -24238,6 +24231,7 @@
                     card.className = 'library-card';
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
+                    if (item.role) card.dataset.role = item.role; // restore role from storage
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {

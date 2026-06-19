@@ -475,7 +475,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:39 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:41 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -493,7 +493,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:39 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:41 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -735,7 +735,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:39 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:41 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3602,40 +3602,26 @@
             else delete m[setName][rowKey];
             try { localStorage.setItem('cardSetLineRoles', JSON.stringify(m)); } catch(e) {}
         }
-        function _roleStorageKeyFor(setName) {
-            var id = (setName === 'ABC') ? 'abc' : (setName === 'Numbers and Dots') ? 'numbers' : setName;
-            return (typeof _getSetStorageKey === 'function') ? _getSetStorageKey(id) : ('customDrawnCards_' + setName);
-        }
-        // Card roles: read/write on the stored card (matched by stableId, then uid).
-        // The DOM-rebuild save carries `role` via safeSaveCards (like sharedArtId).
+        // Card roles live ON the card object: `card.role` in storage (written by the
+        // serializers via _stpApplyToData), `dataset.role` in the DOM (restored by the
+        // builders) — badges + the role dialog read it directly. The ONLY remaining
+        // id-based reader is the game's r→p grouping; `_getCardRole` resolves the role by
+        // the card's stableId across ALL set keys (via `_findCardDataByStableId`), so it
+        // never guesses a per-set storage key from the display name.
+        // (Removed June 18: `_roleStorageKeyFor` — derived the key from the display name and
+        //  silently read the WRONG key for recreated/custom built-in sets, e.g. a recreated
+        //  "ABC" lives under customDrawnCards_ABC but it returned customDrawnCards_abc; and
+        //  `_setCardRole` — no callers since role assignment moved onto the card object.)
         function _getCardRole(setName, stableId, uid) {
-            try {
-                var arr = JSON.parse(localStorage.getItem(_roleStorageKeyFor(setName)) || '[]');
-                for (var i = 0; i < arr.length; i++) {
-                    var c = arr[i];
-                    if (c && ((stableId && c.stableId === stableId) || (uid && c.uid === uid))) return c.role || '';
-                }
-            } catch(e) {}
+            if (stableId && typeof _findCardDataByStableId === 'function') {
+                var c = _findCardDataByStableId(stableId);
+                if (c) return c.role || '';
+            }
             return '';
-        }
-        function _setCardRole(setName, stableId, uid, role) {
-            role = String(role == null ? '' : role).trim();
-            try {
-                var key = _roleStorageKeyFor(setName);
-                var arr = JSON.parse(localStorage.getItem(key) || '[]'); var dirty = false;
-                arr.forEach(function(c) {
-                    if (c && ((stableId && c.stableId === stableId) || (uid && c.uid === uid))) {
-                        if (role) c.role = role; else delete c.role;
-                        dirty = true;
-                    }
-                });
-                if (dirty) { localStorage.setItem(key, JSON.stringify(arr)); if (role) _addRoleToVocab(role); }
-                return dirty;
-            } catch(e) { return false; }
         }
         if (typeof window !== 'undefined') {
             window._getRoleVocab = _getRoleVocab; window._getLineRole = _getLineRole;
-            window._setLineRole = _setLineRole; window._getCardRole = _getCardRole; window._setCardRole = _setCardRole;
+            window._setLineRole = _setLineRole; window._getCardRole = _getCardRole;
         }
 
         // ===== r→p (role → probability) — Stage A: grouping engine =====
@@ -3861,13 +3847,7 @@
         function _applyRoleBadges() {
             try {
                 var setName = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
-                if (!setName) return;
-                var roleByStable = {}, roleByUid = {}, hasAny = false;
-                try {
-                    JSON.parse(localStorage.getItem(_roleStorageKeyFor(setName)) || '[]').forEach(function(c) {
-                        if (c && c.role) { hasAny = true; if (c.stableId) roleByStable[c.stableId] = c.role; if (c.uid) roleByUid[c.uid] = c.role; }
-                    });
-                } catch(e) {}
+                if (!setName) return; // setName still used below for line-role tints
                 var content = document.querySelector('#domino-library-screen .domino-library-content');
                 if (!content) return;
                 content.querySelectorAll('.library-card').forEach(function(card) {

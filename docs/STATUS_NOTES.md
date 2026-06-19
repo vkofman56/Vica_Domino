@@ -47,14 +47,21 @@ worktree preview after every edit — it caches per process; a stale server serv
    grouping also works because `_findCardDataByStableId` searches all set keys and finds the card under the
    correct key. Old `_setCardRole` is dead (0 callers). Plus the additive `_ensureCardIds()` migration.
 
-**OPEN — optional cleanup (nothing user-facing is broken):**
-- **`_roleStorageKeyFor` still hardcodes `'ABC'→'abc'` / `'Numbers and Dots'→'numbers'`** — wrong for
-  recreated/custom built-in sets (where the real key is `customDrawnCards_<DisplayName>`). It's only still
-  used by `_getCardRole` in `_rpGroupGameCardsByRole` (~`pm-studio-DrV.html:3654`), which currently works
-  via the `_findCardDataByStableId` fallback — so this is latent, not broken. Tidy fix: resolve the key
-  from `activeCardSet` / the actual set, not the display name. (r→p feeds the Previewer → coordinate w/ Big Game.)
-- **Stale `customDrawnCards_abc` (15 cards)** — harmless leftover from the original built-in ABC (since
-  deleted+recreated as the custom "ABC"). Safe to delete; verify nothing else reads the lowercase key first.
+**CLEANUP DONE (June 18) — prevents the wrong-key class of bug from ever recurring:**
+- **Removed `_roleStorageKeyFor`** (the wrong-key culprit: derived the storage key from the display name,
+  so it read `customDrawnCards_abc` for a recreated "ABC" that actually lives under `customDrawnCards_ABC`).
+- **Removed `_setCardRole`** (already 0 callers since roles moved onto the card object).
+- **Rewrote `_getCardRole`** to resolve a role by the card's **stableId across ALL set keys** via
+  `_findCardDataByStableId` — never guesses a per-set key from a display name. The game's r→p grouping uses
+  this, so it's now robust by construction (no longer relies on a fragile fallback). Removed the dead
+  storage-map in `_applyRoleBadges` too. Verified in preview: `_getCardRole('ABC', sid)`→role for a
+  capital-key set; `_roleStorageKeyFor`/`_setCardRole` are gone; badges still render from `dataset.role`.
+
+**Still OPEN — user's data, left untouched (data deletion is the user's call):**
+- **Stale `customDrawnCards_abc` (15 cards)** in the user's localStorage — harmless leftover from the
+  original built-in ABC (deleted + recreated as the custom "ABC"). Nothing in code reads the lowercase key
+  anymore (after the cleanup above), so it's inert. If the user wants it gone: `localStorage.removeItem(
+  'customDrawnCards_abc')` in their browser — but verify first and let THEM run it (don't auto-delete data).
 - **Audit verdict (June 18, read-only):** card SELECTION in games is robust (idx→uid→stableId→label
   fallbacks); variations (label-linked), shared art, icons, copy/delete are SAFE. **ABC data is clean —
   the duplicate-card diagnostic on the user's real data found 0 duplicates, 0 drift, 0 missing ids,

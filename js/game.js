@@ -1031,9 +1031,13 @@ class VicaDominoGame {
         // Truly missing — recreate. The Catch interceptor uses document-
         // level delegation now, so a fresh node still gets intercepted.
         btn = document.createElement('button');
-        btn.className = 'btn btn-primary';
+        btn.className = 'btn btn-primary play-ico-btn play-ico-new';
         btn.id = 'start-game-btn';
-        btn.textContent = 'Start Game';
+        // Sparkly play-triangle icon (matches the static Start Game button in
+        // index.html). aria-label/title keep it accessible without a text label.
+        btn.setAttribute('aria-label', 'Start game');
+        btn.title = 'Start game';
+        btn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="38" height="30" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
         btn.addEventListener('click', () => this.startGame());
         playerNamesDiv.appendChild(btn);
         console.warn('[Setup] Start Game button was missing — recreated.');

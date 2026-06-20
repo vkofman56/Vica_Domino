@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-103">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-104">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:53 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:03 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:03 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2117,6 +2117,25 @@
                 modeWrap.appendChild(mb);
             });
             bgList.appendChild(modeWrap);
+            // Landscape / Portrait toggle for Big Game DEVICE previews. Lets the
+            // user check Big Games in portrait too (Chromebook is otherwise always
+            // landscape; iPad 2P likewise). Default landscape = prior behavior.
+            var orientWrap = document.createElement('div');
+            orientWrap.className = 'intro-biggame-mode intro-biggame-orient';
+            [['landscape', '▭ Landscape'], ['portrait', '▯ Portrait']].forEach(function(opt) {
+                var ob = document.createElement('button');
+                ob.className = 'ibg-mode-btn' + ((_bgBigOrient() === opt[0]) ? ' active' : '');
+                ob.textContent = opt[1];
+                ob.title = 'Preview Big Games in ' + opt[0] + ' (iPad / iPad Pro / Chromebook)';
+                ob.addEventListener('click', function() {
+                    _bgSetBigOrient(opt[0]);
+                    // If a Big Game device frame is already open, re-fit it live.
+                    if (_bgDeviceModal && _bgDeviceModal.fit) { try { _bgDeviceModal.fit(); } catch (e) {} }
+                    _renderIntroColumns();
+                });
+                orientWrap.appendChild(ob);
+            });
+            bgList.appendChild(orientWrap);
             // Saved Big Games — click a tile to PLAY it here in the Previewer.
             var bgGames = [];
             try { bgGames = JSON.parse(localStorage.getItem('savedBigGames') || '[]') || []; } catch (e) {}
@@ -5642,21 +5661,38 @@
         function _bgSetTabletOrient(o) {
             try { localStorage.setItem('vica_bgTabletOrient', o === 'landscape' ? 'landscape' : 'portrait'); } catch (e) {}
         }
+        // Big Game orientation override — the GP 0 "Big Games" landscape/portrait
+        // toggle. When previewing a Big Game it forces the orientation for EVERY
+        // device class (so Chromebook and iPads can be checked in portrait too,
+        // not just the device-class default). Default landscape = prior behavior.
+        function _bgBigOrient() {
+            try { return localStorage.getItem('vica_bgBigOrient') === 'portrait' ? 'portrait' : 'landscape'; }
+            catch (e) { return 'landscape'; }
+        }
+        function _bgSetBigOrient(o) {
+            try { localStorage.setItem('vica_bgBigOrient', o === 'portrait' ? 'portrait' : 'landscape'); } catch (e) {}
+        }
         // Resolve the on-screen viewport (w,h) for a device at a player count.
-        // Returns null for an unknown key. landscape = swap the portrait dims.
-        function _bgViewport(key, players) {
+        // Returns null for an unknown key. forceOrient ('portrait'|'landscape')
+        // overrides the device-class default (used for Big Game previews).
+        function _bgViewport(key, players, forceOrient) {
             var d = BG_DEVICES[key];
             if (!d) return null;
             var n = players || 1;
             var land;
-            if (d.cls === 'laptop') land = true;                 // always landscape
-            else if (d.cls === 'phone') land = (n >= 2);          // 1P portrait, else landscape
+            if (forceOrient === 'landscape') land = true;        // Big Game toggle
+            else if (forceOrient === 'portrait') land = false;
+            else if (d.cls === 'laptop') land = true;            // always landscape
+            else if (d.cls === 'phone') land = (n >= 2);         // 1P portrait, else landscape
             else /* tablet */ land = (n >= 2) ? true : (_bgTabletOrient() === 'landscape');
-            // Portrait dims are stored w<h; laptop is already stored landscape.
-            var pw = d.w, ph = d.h;
-            if (d.cls === 'laptop') { return { w: pw, h: ph, landscape: true, canRotate: false }; }
-            if (land) return { w: ph, h: pw, landscape: true, canRotate: (d.cls === 'tablet' && n < 2) };
-            return { w: pw, h: ph, landscape: false, canRotate: (d.cls === 'tablet' && n < 2) };
+            // Normalize to short×long regardless of how the dims are stored
+            // (phones/tablets stored portrait w<h; laptop stored landscape w>h).
+            var shortSide = Math.min(d.w, d.h), longSide = Math.max(d.w, d.h);
+            var w = land ? longSide : shortSide;
+            var h = land ? shortSide : longSide;
+            // Big Game previews are always rotatable (↻); otherwise only tablet-1P.
+            var canRotate = forceOrient ? true : (d.cls === 'tablet' && n < 2);
+            return { w: w, h: h, landscape: land, canRotate: canRotate };
         }
 
         // Device preview is a TOUCH-mode feature only (the device screens model
@@ -5706,7 +5742,11 @@
         // the device from the start (used by ▶ Play, which auto-launches a game
         // so there's no Setup to interact with — go DIRECTLY to the device).
         function _bgOpenDeviceFrame(url, key, players, opts) {
-            var vp = _bgViewport(key, players);
+            // Big Game previews (?playBig=) use the GP 0 orientation toggle so any
+            // device (incl. Chromebook / iPad 2P) can be checked portrait OR landscape.
+            var isBig = /[?&]playBig=/.test(url || '');
+            var _fo = function() { return isBig ? _bgBigOrient() : null; };
+            var vp = _bgViewport(key, players, _fo());
             if (!vp) { return false; }
             _bgCloseDeviceFrame();
             var autostart = !!(opts && opts.autostart);
@@ -5796,7 +5836,7 @@
                     return;
                 }
                 cradle.classList.remove('full');
-                var v = _bgViewport(key, players);
+                var v = _bgViewport(key, players, _fo());
                 var avW = overlay.clientWidth  - 2 * FRAME;
                 var avH = overlay.clientHeight - 2 * FRAME - CAP_H;
                 var s = Math.min(avW / v.w, avH / v.h, 1);
@@ -5831,7 +5871,9 @@
             _bgDeviceModal.onResize = fit;
             rotateBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                _bgSetTabletOrient(_bgTabletOrient() === 'landscape' ? 'portrait' : 'landscape');
+                // Big Game → flip the shared Big-Game orientation; else tablet-1P.
+                if (isBig) _bgSetBigOrient(_bgBigOrient() === 'landscape' ? 'portrait' : 'landscape');
+                else _bgSetTabletOrient(_bgTabletOrient() === 'landscape' ? 'portrait' : 'landscape');
                 fit();
             });
             closeBtn.addEventListener('click', _bgCloseDeviceFrame);

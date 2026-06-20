@@ -592,7 +592,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:15 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -610,7 +610,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:15 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -852,7 +852,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:06 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:15 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -18449,6 +18449,76 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && _gvMultiSelected.size > 0) _gvClearMultiSelected();
         });
+
+        // --- Rubber-band (marquee) selection for the Game Creator -----------
+        // Mirrors the Card Maker marquee (user request): left-press on EMPTY
+        // space in the game grid and drag a box; every card the box touches
+        // joins the bulk-move selection (_gvMultiSelected / .gv-drag-selected) —
+        // the SAME selection the bundle-drag moves. So you can pick several
+        // cards with the mouse like in the Card Maker, then drag any one of them
+        // to a column to move the whole group. Arms ONLY on empty space, so it
+        // never conflicts with card-drag (which arms on a .library-card).
+        var _gvMarqueeJustEnded = false;
+        (function() {
+            var contentEl = document.getElementById('game-view-content');
+            if (!contentEl) return;
+            var box = null, sx = 0, sy = 0, pending = false, active = false, pid = null, additive = false, baseSel = [];
+            var MQ = 6;
+            function selectable(c) { return c && c.classList.contains('library-card') && c.offsetParent !== null; }
+            function ensureBox() {
+                if (box) return;
+                box = document.createElement('div');
+                box.className = 'gv-marquee-box';
+                box.style.cssText = 'position:fixed;z-index:9998;pointer-events:none;display:none;' +
+                    'border:1px solid rgba(0,191,255,0.95);background:rgba(0,191,255,0.18);' +
+                    'left:0;top:0;width:0;height:0;border-radius:2px;';
+                document.body.appendChild(box);
+            }
+            contentEl.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0) return;                       // left button only
+                if (typeof _mCardMode !== 'undefined' && _mCardMode) return; // p-mode owns clicks
+                if (e.target.closest('.library-card')) return;    // empty space only
+                if (e.target.closest('button') || e.target.closest('input') ||
+                    e.target.closest('textarea') || e.target.closest('[contenteditable]')) return;
+                sx = e.clientX; sy = e.clientY; pending = true; active = false; pid = e.pointerId;
+                additive = !!e.shiftKey; baseSel = Array.from(_gvMultiSelected);
+            });
+            document.addEventListener('pointermove', function(e) {
+                if (!pending) return;
+                var dx = e.clientX - sx, dy = e.clientY - sy;
+                if (!active && Math.sqrt(dx * dx + dy * dy) > MQ) {
+                    active = true; ensureBox(); box.style.display = 'block';
+                    if (!additive) _gvClearMultiSelected();
+                    if (window.getSelection) window.getSelection().removeAllRanges();
+                    try { contentEl.setPointerCapture(pid); } catch (ex) {}
+                }
+                if (!active) return;
+                e.preventDefault();
+                var x1 = Math.min(sx, e.clientX), y1 = Math.min(sy, e.clientY);
+                var x2 = Math.max(sx, e.clientX), y2 = Math.max(sy, e.clientY);
+                box.style.left = x1 + 'px'; box.style.top = y1 + 'px';
+                box.style.width = (x2 - x1) + 'px'; box.style.height = (y2 - y1) + 'px';
+                contentEl.querySelectorAll('.library-card').forEach(function(c) {
+                    if (!selectable(c)) return;
+                    var r = c.getBoundingClientRect();
+                    var hit = !(r.right < x1 || r.left > x2 || r.bottom < y1 || r.top > y2);
+                    var keep = hit || (additive && baseSel.indexOf(c) !== -1);
+                    var has = _gvMultiSelected.has(c);
+                    if (keep && !has) { _gvMultiSelected.add(c); c.classList.add('gv-drag-selected'); }
+                    else if (!keep && has) { _gvMultiSelected.delete(c); c.classList.remove('gv-drag-selected'); }
+                });
+            });
+            document.addEventListener('pointerup', function() {
+                if (!pending) return;
+                if (active) {
+                    if (box) box.style.display = 'none';
+                    _gvMarqueeJustEnded = true;
+                    setTimeout(function() { _gvMarqueeJustEnded = false; }, 50);
+                    try { contentEl.releasePointerCapture(pid); } catch (ex) {}
+                }
+                pending = false; active = false; pid = null;
+            });
+        })();
 
         function attachGameViewDrag(containerEl) {
             if (!containerEl) return;

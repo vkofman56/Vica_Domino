@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:30 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:38 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:30 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:38 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -6227,6 +6227,14 @@
             var _bubblesFixed = true; // the Level/setting fixes the count — bubbles never auto-climb
             var _startFall = (typeof _cs.catchFallSeconds === 'number' && _cs.catchFallSeconds > 0) ? _cs.catchFallSeconds : 6;
             var _autoRamp = (_cs.catchAutoRamp === false) ? false : true; // gates ONLY the fall-time speedup; default ON
+            // Floating-bubble size. Base 90px; +50% (135px) ONLY on iPads /
+            // iPad Pro / Chromebook (device-preview class tablet|laptop) and
+            // ONLY in 1-player. Phones and 2-player keep 90px. Used for both
+            // the rendered card size and the spawn/fall math (margins, walls,
+            // off-screen threshold) so everything stays consistent.
+            var _bubbleDev = (typeof _bgSelectedDevice === 'function') ? _bgSelectedDevice() : '';
+            var _bubbleCls = (_bubbleDev && BG_DEVICES[_bubbleDev]) ? BG_DEVICES[_bubbleDev].cls : '';
+            var _bubbleSize = (_np === 1 && (_bubbleCls === 'tablet' || _bubbleCls === 'laptop')) ? 135 : 90;
             _catchGame = {
                 catchIndex: catchIndex,
                 inputMode: _catchInputMode || 'touch',
@@ -6236,6 +6244,7 @@
                 valueKeys: valueKeys,
                 score: 0, coins: 0, gems: 0, lives: 3, round: 1, numFalling: _startBubbles,
                 baseFallDuration: _startFall, fallDuration: _startFall, autoRamp: _autoRamp, bubblesFixed: _bubblesFixed,
+                bubbleSize: _bubbleSize,
                 active: true, roundActive: false,
                 fallingCards: [], animFrameId: null, lastUsedValues: [],
                 _coinAddedAt: 0, _coinAddedCount: 0,
@@ -6520,12 +6529,16 @@
             if (!fallingAreaEl) return;
             var areaRect = fallingAreaEl.getBoundingClientRect();
             var areaWidth = areaRect.width;
-            var cardSize = 90;
+            var cardSize = _catchGame.bubbleSize || 90;
             _catchGame.fallingCards = [];
             var areaHeight = fallingAreaEl.getBoundingClientRect().height;
             fallingCards.forEach(function(fc, idx) {
                 var el = document.createElement('div');
                 el.className = 'catch-falling-card';
+                // Size the bubble before _catchApplyShape so square/circle take
+                // the chosen size and custom shapes scale from this height.
+                el.style.width = cardSize + 'px';
+                el.style.height = cardSize + 'px';
                 var svg = _catchBuildCardSVG(fc.card);
                 if (svg) el.appendChild(svg);
                 _catchApplyShape(el, fc.card);
@@ -6565,7 +6578,7 @@
             if (!fallingAreaEl) return;
             var areaHeight = fallingAreaEl.getBoundingClientRect().height;
             var areaWidth = fallingAreaEl.getBoundingClientRect().width;
-            var cardSize = 90;
+            var cardSize = _catchGame.bubbleSize || 90;
             var speed = areaHeight / _catchGame.fallDuration;
             var matchMissed = false;
             _catchGame.fallingCards.forEach(function(cd) {

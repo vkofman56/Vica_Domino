@@ -48,17 +48,55 @@ so the *crossing time* is constant. Difficulty ramps by shrinking this time.
 | 25+  | 2.4 s (floor) |
 
 ## Speed and motion
-- **Within a round: constant speed** — a plain linear fall, **no gravity / no
-  acceleration**. `speed = fallHeight / fallTime` (px per second).
+- **Vertical speed — identical for every bubble in a round, and constant** (a plain
+  linear fall, **no gravity / no acceleration**): `speed = fallHeight / fallTime`
+  (px/s). They keep their spacing as they fall.
 - **Across rounds: stepped faster** — every 2 rounds the fall time drops 0.3 s, so
-  the speed goes up (same height, less time).
-- **Stagger:** all bubbles for a round are created at once but start *above* the
-  top at `y = −100 − index×80`, so they enter the screen one after another
-  (~80 px apart), not simultaneously.
-- **Horizontal drift:** each bubble drifts **±15 px/s**, bounces off the side walls;
-  gentle **±10° wobble**.
-- **Falling-card size: 90 px.** A bubble is "gone" once its top passes ~90 px below
-  the area bottom.
+  the speed rises (same height, less time). No change *within* a round.
+- **Horizontal — different per bubble.** Each gets a random **drift of ±15 px/s**
+  (steady, not jittery) and **bounces off the side walls** (drift flips sign at the
+  edge), so it zigzags side to side. There's also a cosmetic **±10° wobble**
+  (rotation only, 2–5 °/s — does NOT move the bubble's position).
+- **Start positions — stacked above the top, 80 px apart:** `startY = −100 − index×80`
+  (→ −100, −180, −260, −340); each bubble also gets a random x.
+- **All created at the same instant** (no spawn timer). Because they're 80 px apart
+  and share the vertical speed, they *enter* the visible area staggered, with a gap
+  of `80 ÷ speed = 80 × fallTime ÷ fallHeight`:
+
+  | Device (fall height) | Entry gap at round 1 (6 s) |
+  |---|---|
+  | Chromebook (690) | ~0.70 s |
+  | iPad landscape (742) | ~0.65 s |
+  | iPhone (766) | ~0.63 s |
+  | iPad Pro landscape (946) | ~0.51 s |
+  | iPad portrait (1102) | ~0.44 s |
+  | iPad Pro portrait (1288) | ~0.37 s |
+
+  The gap **shrinks as the game speeds up** (faster rounds → smaller fall time →
+  bigger speed → bubbles enter closer together; e.g. iPhone ~0.63 s → ~0.25 s at the
+  2.4 s floor). So "about half a second apart" is a fair rough description.
+- **Falling-card size: 90 px.** A bubble is "gone" once it passes ~90 px below the
+  area bottom (that's when a missed *match* costs a life).
+
+## Configurability today (important for the mini-game plan)
+`numFalling` (bubbles) and `fallDuration` (the "timer") are **hardcoded** in the
+catch init (`numFalling: 2, fallDuration: 6`) and **auto-ramp** (see the tables
+above). They are **NOT** read from the saved Catch game or any Game-Creator option.
+The only per-game config the catch runtime reads is the **card shape**
+(shape / corner / scale) and the **cards / value groups + per-card `_freezeState`**
+(static-only vs falling-only). The Catch **Type** picker exists but only carries a
+manual/nonstop *behavior* flag — it does not touch bubble count or speed.
+
+→ So **today there is no setting** for "start with N bubbles" or "fall time = T".
+To build fixed, per-game mini-games (e.g. "2 bubbles · 6 s", "3 bubbles · 6 s",
+"4 bubbles · 6 s") you'd add:
+1. a **starting bubble count** setting — the **Level** picker already encodes 2/3/4
+   for Find, so it's the natural control to reuse for Catch;
+2. a **fall-time** setting — a number/slider (or reuse the Timer control);
+3. an **auto-ramp on/off** flag — so a mini-game can stay *fixed* instead of ramping.
+
+These are small, localized changes (catch runtime reads the values instead of the
+hardcoded literals + the creator UI exposes them) — but they don't exist yet.
 
 ## Fall height + initial speed, per device
 The catch HUD header is a fixed **78 px**, so **fall height = device height − 78**,

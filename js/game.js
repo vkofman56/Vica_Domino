@@ -1829,19 +1829,35 @@ class VicaDominoGame {
         // Deal to each player: 1 double + (numCards-1) non-doubles
         this.players.forEach(player => {
             player.hand = [];
+            // Deal diversity (user rule for Find): avoid showing the same value in
+            // the same position — e.g. two "36" on TOP, or commutative twins like
+            // 4×6 / 6×4 that share a value. Track values already placed on TOP
+            // (leftValue) and BOTTOM (rightValue); prefer cards that don't repeat
+            // them. "When possible": relax progressively if the deck can't satisfy it.
+            const usedTop = new Set();
+            const usedBottom = new Set();
             // Add 1 double
             if (availableDoubles.length > 0) {
                 const dbl = availableDoubles.pop();
                 player.hand.push(dbl);
                 thisRoundDoubles.push(dbl.id);
+                usedTop.add(dbl.leftValue);
+                usedBottom.add(dbl.rightValue);
             }
-            // Add (numCards-1) non-doubles
+            // Add (numCards-1) non-doubles, preferring distinct top & bottom values.
             for (let i = 0; i < numCards - 1; i++) {
-                if (availableNonDoubles.length > 0) {
-                    const nd = availableNonDoubles.pop();
-                    player.hand.push(nd);
-                    thisRoundNonDoubles.push(nd.id);
-                }
+                if (availableNonDoubles.length === 0) break;
+                // 1st choice: both top AND bottom value unused; then either; then any.
+                let idx = availableNonDoubles.findIndex(c =>
+                    !usedTop.has(c.leftValue) && !usedBottom.has(c.rightValue));
+                if (idx < 0) idx = availableNonDoubles.findIndex(c =>
+                    !usedTop.has(c.leftValue) || !usedBottom.has(c.rightValue));
+                if (idx < 0) idx = availableNonDoubles.length - 1;
+                const nd = availableNonDoubles.splice(idx, 1)[0];
+                player.hand.push(nd);
+                thisRoundNonDoubles.push(nd.id);
+                usedTop.add(nd.leftValue);
+                usedBottom.add(nd.rightValue);
             }
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
@@ -1905,19 +1921,34 @@ class VicaDominoGame {
         // the user set in Studio. Locked dominoes pass through unchanged.
         if (window.customGameFlipEnabled) {
             this.players.forEach(player => {
+                // Diversity-aware flip: instead of an independent coin-flip per card
+                // (which could put the same value on two TOPs again), choose the
+                // orientation that avoids repeating a value already on TOP or BOTTOM.
+                // Ties (both orientations equally good) stay random for variety.
+                const usedTop = new Set();
+                const usedBottom = new Set();
                 player.hand = player.hand.map(card => {
-                    if (card._lockHalves) return card;
-                    if (Math.random() < 0.5) {
-                        // Flip: swap left/right
-                        return {
-                            ...card,
-                            left: card.right,
-                            right: card.left,
-                            leftValue: card.rightValue,
-                            rightValue: card.leftValue
-                        };
+                    const flipped = card._lockHalves ? null : {
+                        ...card,
+                        left: card.right,
+                        right: card.left,
+                        leftValue: card.rightValue,
+                        rightValue: card.leftValue
+                    };
+                    const conflicts = c =>
+                        (usedTop.has(c.leftValue) ? 1 : 0) + (usedBottom.has(c.rightValue) ? 1 : 0);
+                    let chosen;
+                    if (!flipped) {
+                        chosen = card;                         // locked — can't flip
+                    } else {
+                        const co = conflicts(card), cf = conflicts(flipped);
+                        chosen = (cf < co) ? flipped
+                               : (co < cf) ? card
+                               : (Math.random() < 0.5 ? card : flipped);  // tie → random
                     }
-                    return card;
+                    usedTop.add(chosen.leftValue);
+                    usedBottom.add(chosen.rightValue);
+                    return chosen;
                 });
             });
         }

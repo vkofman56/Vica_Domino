@@ -1,9 +1,29 @@
 # Vica Domino - Project Status Notes
-**Date**: June 18, 2026 — Phase 3 (Big Games) COMPLETE through 3e + Play/Scan · **Device-Preview feature COMPLETE** (GP 0 selector → scaled iPhone/iPad/iPad-Pro/Chromebook frames; ▶ play; per-device Find-board polish incl. per-player-count iPad/iPad-Pro domino sizing)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `647ed58`; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1480+
+**Date**: June 19, 2026 — board/device-preview polish day + Catch mechanics captured · **NEXT: per-game Catch mini-game settings** (see `docs/CATCH_MINIGAMES_PLAN.md`)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `1c2127c`; advances with each `bash scripts/ship.sh`)
+**Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-84`, `game.js?v=biggame-flow-5`, `sync.js?v=local-wins-9`
+**Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-9`
+
+---
+
+### ▶▶ NEXT CHAT (June 20): **Create & manage Catch mini-games**
+Plan: **`docs/CATCH_MINIGAMES_PLAN.md`** · Mechanics: **`docs/CATCH_MECHANICS.md`** · Backup: **`backups/savedCatchGames-2026-06-19.json`** (4 games; restore steps in `backups/README.md`).
+Goal: make Catch's **bubble count** + **fall timer** per-game settings (+ an **auto-ramp on/off** flag) so fixed mini-games like "2 bubbles · 6 s", "3 · 6 s", "4 · 6 s" can be authored and composed into Big Games. Today these are HARDCODED (`numFalling:2, fallDuration:6`) and auto-ramp — index.html `_catchGame` init ~line 6205 + the two ramp `if`s in `_catchCardClicked` ~6571-6573 (and 2P ~7043-7044). **Spans two sessions**: runtime = index.html (this session); authoring UI = `pm-studio-DrV.html` (Studio worktree). Agree the `setup.catch*` field names first; start with the runtime read, keeping the 4 existing games unchanged by default.
+
+### June 19 session — shipped (Find/Catch board polish + Big Games + docs)
+- **Play-triangle ▶ icons everywhere** (Start/New Game = sparkly; Play Again/catch replay = plain); generic `.play-ico-btn` / `.play-ico-new` CSS.
+- **GPt F/C Setup Play button**: moved to the right of the Legend, vertically centered, centered under the Type column, widened, + white border/shadow (was purple-on-purple).
+- **Board header → two boxes**: page-name pill pinned left by the home icon, game title centered (fixed a 436px stretched page-label bug in preview frames via `top:auto`).
+- **GP 0 player toggle 2/3**: figure stays centered (turns white), empty circle slides left(2)/right(3).
+- **Find board "Press to select"**: MOUSE-mode only (keyboard hints likewise); dominoes vertically + horizontally centered; coin counter back beside the dominoes.
+- **Portrait iPad/iPad-Pro/Chromebook**: dominoes 105×210, title +50%, "double" +30% (match landscape). **Chromebook LANDSCAPE** dominoes 55→105×210 (the iPad blocks had excluded it).
+- **Big Game board overlap fix**: `body.bg-playing #board-id-bar { min-height:44px }` (empty title bar collapsed → status overlapped the back/home icons) + single-line banner.
+- **iPhone Catch**: frozen target bubble 140→90 (matches floating); Game Over Play/Exit (1P) and Play Again/Close (2P) are equal-size aligned pills that fit.
+- **"Congratulations!"** now `clamp()`-sized so it fits phones.
+- **GP 0 "Big Games" Landscape/Portrait toggle** (`_bgBigOrient`): preview Big Games portrait on Chromebook/iPad (were landscape-locked).
+- **Find deal-diversity rule** (game.js `dealSunLevelCards`): no repeated value on TOP, none on BOTTOM (fixes "36 twice on top" / 4×6-6×4) via diverse selection + diversity-aware flip.
+- **Docs/backup**: `docs/CATCH_MECHANICS.md`, `docs/CATCH_MINIGAMES_PLAN.md`, `backups/` (savedCatchGames snapshot).
 
 ---
 

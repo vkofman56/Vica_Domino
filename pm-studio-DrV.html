@@ -18862,6 +18862,38 @@
                 if (!dragPending) return;
                 if (dragActive) {
                     if (dragOverRow) {
+                        var _isBundle = _gvMultiSelected.has(dragCard) && _gvMultiSelected.size > 1;
+                        var _targetZone = dragOverRow.dataset.rowZone || '';
+                        if (_isBundle && _targetZone) {
+                            // MULTI-SELECT COLUMN MOVE (user request): a rubber-band
+                            // bundle changes only the ZONE (red / neutral / green) —
+                            // every selected card stays in its OWN letter row. So a
+                            // vertical marquee across rows, dropped on a column, moves
+                            // each card to that column WITHIN its row instead of
+                            // collapsing them all into the single dropped cell. No
+                            // cross-letter confirm: letters are preserved by design.
+                            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
+                            var _grid = dragOverRow.closest('.gv-zones-grid') || containerEl;
+                            var _zoneCells = Array.from(_grid.querySelectorAll('.library-row.gv-zone'));
+                            var _bundle = Array.from(containerEl.querySelectorAll('.library-card'))
+                                .filter(function(c) { return _gvMultiSelected.has(c); });
+                            _bundle.forEach(function(card) {
+                                var srcCell = card.closest('.library-row');
+                                var letter = srcCell ? (srcCell.dataset.rowLetter || '') : '';
+                                var destCell = _zoneCells.find(function(cell) {
+                                    return cell.dataset.rowLetter === letter && cell.dataset.rowZone === _targetZone;
+                                });
+                                (destCell || dragOverRow).appendChild(card);
+                            });
+                            _gvClearMultiSelected();
+                            saveGameViewOrder();
+                            var _dom = document.getElementById('game-view-dominos-area');
+                            if (_dom && _dom.style.display === 'block') rebuildGameViewDominos();
+                            _gvDragJustEnded = true;
+                            setTimeout(function() { _gvDragJustEnded = false; }, 50);
+                            cleanupGvDragState();
+                            return;
+                        }
                         // SAFETY (June 9 2026): moving cards to a DIFFERENT LETTER
                         // row is the operation that scrambled the A-Z game (silent
                         // move + save). Confirm before a cross-letter move. Moving
@@ -18880,6 +18912,8 @@
                                 return;
                             }
                         }
+                        // Snapshot BEFORE mutating so Ctrl/Cmd+Z reverts this move.
+                        if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
                         // Bulk drag: if the dragged card is part of a
                         // shift-select bundle, move every selected card to
                         // the target cell (in original DOM order). Otherwise

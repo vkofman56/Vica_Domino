@@ -698,7 +698,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:07 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -716,7 +716,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:07 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -958,7 +958,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:07 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17066,24 +17066,100 @@
                 sets.push({ name: setObj.name, id: setObj.name });
             });
 
+            // Organise the set list like the Card Maker library: 2 recently-used
+            // sets pinned on top, then the same collapsible folder tree (A–L…)
+            // the library shows, then the unfiled sets (Safe Haven first). The
+            // folder + recency info comes from savedCardSets / loadFolders() —
+            // the SAME source the library reads — so the trees stay in sync.
+            // Built-in sets (Numbers/ABC) have no folder/recency → unfiled.
+            btnContainer.style.maxHeight = '40vh';
+            btnContainer.style.overflowY = 'auto';
+            var _adcMeta = {};
+            try { loadCardSets().forEach(function(o) { _adcMeta[o.name] = o; }); } catch (e) {}
             sets.forEach(function(s) {
+                var m = _adcMeta[s.name] || {};
+                s.folder = m.folder || null;
+                s.lastOpened = m.lastOpened || 0;
+            });
+
+            // One clickable set row (same look as before). Tagged .adc-set-row so
+            // the active-highlight reset only touches set rows, not folder headers.
+            function _adcSetRow(s) {
                 var btn = document.createElement('button');
-                btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:8px;border:1.5px solid rgba(255,215,0,0.4);background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:13px;';
-                var _nmSpan = document.createElement('span'); _nmSpan.textContent = s.name; _nmSpan.style.cssText = 'flex:1;text-align:center;';
-                btn.appendChild(_nmSpan);
+                btn.className = 'adc-set-row';
+                btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:8px;border:1.5px solid rgba(255,215,0,0.4);background:rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:13px;width:100%;box-sizing:border-box;';
+                var _nm = document.createElement('span'); _nm.textContent = s.name; _nm.style.cssText = 'flex:1;text-align:center;';
+                btn.appendChild(_nm);
                 btn.appendChild(_makeSetInfoBtn(s.name));
                 btn.addEventListener('click', function() {
-                    // Highlight active set button
-                    btnContainer.querySelectorAll('button').forEach(function(b) {
-                        b.style.background = 'rgba(255,255,255,0.1)';
-                        b.style.color = '#ccc';
+                    btnContainer.querySelectorAll('.adc-set-row').forEach(function(b) {
+                        b.style.background = 'rgba(255,255,255,0.1)'; b.style.color = '#ccc';
                     });
-                    btn.style.background = 'rgba(255,215,0,0.3)';
-                    btn.style.color = '#FFD700';
+                    btn.style.background = 'rgba(255,215,0,0.3)'; btn.style.color = '#FFD700';
+                    if (typeof touchCardSet === 'function') touchCardSet(s.name);
                     showCardsFromSet(s.id, s.name);
                 });
-                btnContainer.appendChild(btn);
-            });
+                return btn;
+            }
+            function _adcSectionLabel(text) {
+                var d = document.createElement('div');
+                d.textContent = text;
+                d.style.cssText = 'font-size:10.5px;color:#8a8a9a;letter-spacing:0.5px;text-transform:uppercase;margin:2px 2px -2px;';
+                return d;
+            }
+
+            // --- Recently used: the 2 most recently opened sets, pinned on top ---
+            var _adcRecent = sets.filter(function(s) { return s.lastOpened > 0; })
+                .sort(function(a, b) { return b.lastOpened - a.lastOpened; })
+                .slice(0, 2);
+            if (_adcRecent.length) {
+                btnContainer.appendChild(_adcSectionLabel('Recently used'));
+                _adcRecent.forEach(function(s) { btnContainer.appendChild(_adcSetRow(s)); });
+            }
+
+            // --- Folder tree (mirrors the library's collapsible folders) ---
+            var _adcFolders = [];
+            try { _adcFolders = (typeof loadFolders === 'function') ? loadFolders().slice().sort() : []; } catch (e) {}
+            function _adcRenderFolders(parentPath, target) {
+                var children = _adcFolders.filter(function(f) {
+                    if (parentPath === null) return f.indexOf('/') === -1;
+                    if (f.indexOf(parentPath + '/') !== 0) return false;
+                    return f.substring(parentPath.length + 1).indexOf('/') === -1;
+                });
+                children.forEach(function(folderPath) {
+                    var displayName = folderPath.split('/').pop();
+                    var folderSets = sets.filter(function(s) { return s.folder === folderPath; });
+                    var header = document.createElement('button');
+                    header.className = 'adc-folder-header';
+                    header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ddd;cursor:pointer;font-size:13px;font-weight:600;width:100%;box-sizing:border-box;';
+                    var arrow = document.createElement('span'); arrow.textContent = '▶';
+                    arrow.style.cssText = 'font-size:10px;display:inline-block;transition:transform 0.1s;';
+                    header.appendChild(arrow);
+                    var nm = document.createElement('span'); nm.textContent = displayName; nm.style.cssText = 'flex:1;text-align:left;';
+                    header.appendChild(nm);
+                    var cnt = document.createElement('span'); cnt.textContent = String(folderSets.length);
+                    cnt.style.cssText = 'font-size:11px;color:#999;';
+                    header.appendChild(cnt);
+                    var contents = document.createElement('div');
+                    contents.style.cssText = 'display:none;flex-direction:column;gap:8px;margin:8px 0 0 12px;padding-left:6px;border-left:1px solid rgba(255,255,255,0.12);';
+                    folderSets.forEach(function(s) { contents.appendChild(_adcSetRow(s)); });
+                    _adcRenderFolders(folderPath, contents); // nested subfolders
+                    header.addEventListener('click', function() {
+                        var open = contents.style.display === 'none';
+                        contents.style.display = open ? 'flex' : 'none';
+                        arrow.style.transform = open ? 'rotate(90deg)' : 'none';
+                    });
+                    target.appendChild(header);
+                    target.appendChild(contents);
+                });
+            }
+            _adcRenderFolders(null, btnContainer);
+
+            // --- Unfiled sets (Safe Haven first, matching the library) ---
+            var _adcUnfiled = sets.filter(function(s) { return !s.folder; });
+            var _adcSafe = _adcUnfiled.filter(function(s) { return s.name === 'Safe Haven'; });
+            var _adcRest = _adcUnfiled.filter(function(s) { return s.name !== 'Safe Haven'; });
+            _adcSafe.concat(_adcRest).forEach(function(s) { btnContainer.appendChild(_adcSetRow(s)); });
         }
 
         function showCardsFromSet(setId, setName) {

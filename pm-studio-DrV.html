@@ -592,7 +592,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:43 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:49 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -610,7 +610,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:43 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:49 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -852,7 +852,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:43 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:49 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3850,18 +3850,6 @@
         function _twinClearToasts() {
             document.querySelectorAll('div[data-twin-key]').forEach(function(t) { t.remove(); });
         }
-        // Merge id-groups and row+art-groups into display strings, deduping
-        // groups that contain the same labels.
-        function _twinMergeGroups(byId, byRowArt) {
-            var out = [], seen = {};
-            function push(g) {
-                var key = g.slice().sort().join('|');
-                if (g.length >= 2 && !seen[key]) { seen[key] = 1; out.push(g.join(' = ')); }
-            }
-            Object.keys(byId).forEach(function(k) { push(byId[k]); });
-            Object.keys(byRowArt).forEach(function(k) { push(byRowArt[k]); });
-            return out;
-        }
         // ===== Intentional-duplicate tags (t1/t2/t3…) =====
         // A line may legitimately hold identical cards (e.g. a colour-matching
         // game where two same-colour cards take roles "Main"/"Gr2"). The user
@@ -4033,14 +4021,19 @@
         }
         function _twinScanGame(game, memoKey) {
             if (!game || !game.cards) return;
-            // One pass over all set storages: stableId -> trimmed art.
-            var artById = {};
+            // One pass over all set storages: stableId -> trimmed art, and
+            // stableId -> intentional-duplicate tag (t1/t2/…). The tag lives ON
+            // the source card in the set, so it travels into the game by stableId
+            // — no need to copy it into the game entry. A tagged pair the user
+            // marked deliberate in the Card Maker is therefore recognised here too.
+            var artById = {}, tagById = {};
             try {
                 ((typeof _getAllCardStorageKeys === 'function') ? _getAllCardStorageKeys() : []).forEach(function(k) {
                     try {
                         (JSON.parse(localStorage.getItem(k) || '[]') || []).forEach(function(c) {
-                            if (c && c.stableId && !(c.stableId in artById) && typeof c.svgContent === 'string') {
-                                artById[c.stableId] = c.svgContent.trim();
+                            if (c && c.stableId) {
+                                if (!(c.stableId in artById) && typeof c.svgContent === 'string') artById[c.stableId] = c.svgContent.trim();
+                                if (!(c.stableId in tagById) && c.dupTag) tagById[c.stableId] = c.dupTag;
                             }
                         });
                     } catch (e) {}
@@ -4058,7 +4051,7 @@
                     if (artById[c.stableId]) {
                         var row = (typeof _effectiveRowLetter === 'function') ? _effectiveRowLetter(c) : '';
                         var key = row + '|@|' + artById[c.stableId];
-                        (byRowArt[key] = byRowArt[key] || []).push(label);
+                        (byRowArt[key] = byRowArt[key] || []).push({ label: label, tag: tagById[c.stableId] || '' });
                     }
                 } else if (!(typeof c.svgMarkup === 'string' && c.svgMarkup.trim())) {
                     // ORPHAN: the referenced card exists in NO set and the game
@@ -4067,7 +4060,23 @@
                     orphans.push(label);
                 }
             });
-            var dups = _twinMergeGroups(byId, byRowArt);
+            // Build duplicate label-groups, deduping by sorted labels. SKIP any
+            // identical-art group whose members carry DISTINCT tags — those were
+            // marked intentional in the Card Maker (the tag travelled by stableId).
+            var dups = [], seen = {};
+            function pushGroup(labels) {
+                var key = labels.slice().sort().join('|');
+                if (labels.length >= 2 && !seen[key]) { seen[key] = 1; dups.push(labels.join(' = ')); }
+            }
+            Object.keys(byId).forEach(function(k) { pushGroup(byId[k]); });
+            Object.keys(byRowArt).forEach(function(k) {
+                var members = byRowArt[k];
+                if (members.length < 2) return;
+                var tags = members.map(function(m) { return m.tag; });
+                var intentional = tags.every(Boolean) && new Set(tags).size === tags.length;
+                if (intentional) return; // deliberate tagged duplicates — don't flag
+                pushGroup(members.map(function(m) { return m.label; }));
+            });
             var problems = [];
             if (dups.length) problems.push('identical cards: ' + dups.join(', '));
             if (orphans.length) problems.push('cards missing from every set (they show as EMPTY): ' + orphans.join(', '));

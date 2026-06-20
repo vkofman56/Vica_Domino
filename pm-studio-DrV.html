@@ -356,6 +356,26 @@
         }
         .gv-domino-icon-half.gv-top { border-bottom: 1px solid #999; }
         .gv-domino-icon-half svg { width: 100%; height: 100%; display: block; }
+        /* Catch-game variant of the upper-right icon: instead of a vertical
+           domino tile, show two BUBBLES side-by-side inside the same button
+           border — a BIG bubble on the LEFT (the domino's upper picture) and a
+           SMALL bubble on the right (its lower picture). Landscape (wider than
+           tall), mirroring how a Catch icon reads vs the portrait Find domino.
+           Toggled on by _updateGameDominoIcon() when the open game is Catch. */
+        .gv-domino-icon-tile.gv-catch {
+            width: auto; height: 34px;
+            background: transparent; border: none; border-radius: 0;
+            flex-direction: row; align-items: center; gap: 3px;
+            overflow: visible;
+        }
+        .gv-domino-icon-tile.gv-catch .gv-domino-icon-half {
+            flex: 0 0 auto; border-radius: 50%;
+            border: 1.5px solid #888;
+            background: radial-gradient(circle at 33% 28%, #ffffff 0%, #eaf4ff 45%, #bfe0ff 100%);
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.7);
+        }
+        .gv-domino-icon-tile.gv-catch .gv-top    { width: 34px; height: 34px; }  /* big — upper picture */
+        .gv-domino-icon-tile.gv-catch .gv-bottom { width: 22px; height: 22px; }  /* small — lower picture */
         /* Custom hover tooltip — sits to the LEFT of the icon (right edge ~8px
            left of it) so the long text stays inside the window instead of
            overflowing the right edge like the old native title tooltip did. */
@@ -653,7 +673,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:20 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:58 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -671,7 +691,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:20 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:58 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -913,7 +933,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:20 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:58 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -22794,9 +22814,14 @@
         // strings (either may be null) for the first slot that has any content,
         // scanning circle → triangle → star. Returns null when no icons are set.
         function _firstMppDominoHalves() {
-            if (typeof currentGameViewIndex === 'undefined' || currentGameViewIndex < 0) return null;
             var game;
-            try { game = loadCustomGames()[currentGameViewIndex]; } catch (e) { return null; }
+            try {
+                // Use whichever game view is open (Find OR Catch) so the IC
+                // config drives the icon for both, not just Find.
+                game = (typeof _currentGameViewGame === 'function')
+                    ? _currentGameViewGame()
+                    : loadCustomGames()[currentGameViewIndex];
+            } catch (e) { return null; }
             if (!game || !game.mainPageDominos) return null;
             var mpd = game.mainPageDominos;
             function halfMarkup(slot, which) {
@@ -22876,6 +22901,12 @@
             }
             top.innerHTML = ''; if (topNode) top.appendChild(topNode); else top.innerHTML = PIPS_TOP;
             bot.innerHTML = ''; if (botNode) bot.appendChild(botNode); else bot.innerHTML = PIPS_BOT;
+            // Catch games show the two entries as side-by-side BUBBLES (big-left
+            // = upper picture, small-right = lower picture) instead of a domino
+            // tile; toggle the .gv-catch layout to match the open game's type.
+            var tile = document.querySelector('#game-view-domino-icon .gv-domino-icon-tile');
+            var isCatch = (typeof _currentGameViewType === 'function') && _currentGameViewType() === 'catch';
+            if (tile) tile.classList.toggle('gv-catch', !!isCatch);
         }
         if (typeof window !== 'undefined') window._updateGameDominoIcon = _updateGameDominoIcon;
 

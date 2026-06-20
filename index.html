@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:54 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:58 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:54 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:58 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -6195,6 +6195,15 @@
             overlay.appendChild(gameArea);
             document.body.appendChild(overlay);
             var _np = (_catchNumPlayers === 2 && (_catchInputMode || 'touch') === 'touch') ? 2 : 1;
+            // Per-game Catch mini-game settings — read from THIS game's setup,
+            // with defaults that reproduce the original behavior (2 bubbles, 6 s
+            // fall, auto-ramp ON). So the 4 existing games (no catch* fields)
+            // play exactly as before. Contract: docs/CATCH_MINIGAMES_PLAN.md.
+            var _cs = (game && game.setup) || {};
+            var _startBubbles = (typeof _cs.catchBubbles === 'number') ? _cs.catchBubbles : 2;
+            _startBubbles = Math.max(2, Math.min(4, Math.round(_startBubbles))); // clamp 2..4
+            var _startFall = (typeof _cs.catchFallSeconds === 'number' && _cs.catchFallSeconds > 0) ? _cs.catchFallSeconds : 6;
+            var _autoRamp = (_cs.catchAutoRamp === false) ? false : true; // default ON; only explicit false fixes the game
             _catchGame = {
                 catchIndex: catchIndex,
                 inputMode: _catchInputMode || 'touch',
@@ -6202,8 +6211,8 @@
                 origCards: origCards,
                 valueGroups: valueGroups,
                 valueKeys: valueKeys,
-                score: 0, coins: 0, gems: 0, lives: 3, round: 1, numFalling: 2,
-                baseFallDuration: 6, fallDuration: 6,
+                score: 0, coins: 0, gems: 0, lives: 3, round: 1, numFalling: _startBubbles,
+                baseFallDuration: _startFall, fallDuration: _startFall, autoRamp: _autoRamp,
                 active: true, roundActive: false,
                 fallingCards: [], animFrameId: null, lastUsedValues: [],
                 _coinAddedAt: 0, _coinAddedCount: 0,
@@ -6568,8 +6577,10 @@
                 _catchAddCoins(1);
                 _catchUpdateHUD();
                 _catchPlayCorrectSound();
-                if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
-                if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                if (_catchGame.autoRamp) {
+                    if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
+                    if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                }
                 _catchGame.round++;
                 _catchShowFlash('+1', 'catch-round-flash');
                 setTimeout(function() { _catchClearFalling(); _catchStartRound(); }, 800);
@@ -7040,8 +7051,10 @@
             if (matchesResolved) {
                 _catchGame.roundActive = false;
                 _catchGame.round++;
-                if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
-                if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                if (_catchGame.autoRamp) {
+                    if (_catchGame.round % 3 === 0 && _catchGame.numFalling < 4) _catchGame.numFalling++;
+                    if (_catchGame.round % 2 === 0 && _catchGame.fallDuration > 2.5) _catchGame.fallDuration -= 0.3;
+                }
                 setTimeout(function() { _catch2pClearFalling(); _catch2pStartRound(); }, 700);
                 return;
             }

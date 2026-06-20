@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:15 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:30 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -110,7 +110,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:15 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">01:30 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -6034,6 +6034,8 @@
         // Catch the Double — Falling Cards Game
         // ============================================
         var _catchGame = null;
+        // Max gems stacked in one HUD column before a new column starts.
+        var _CATCH_GEMS_PER_COL = 5;
 
         // Map the player-selected Level button to a Catch starting bubble
         // count. Each level button is a "N Dominos" choice — circle/triangle/
@@ -6180,7 +6182,7 @@
 
             var hud = document.createElement('div');
             hud.className = 'catch-hud';
-            hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Round 1</div>' +
+            hud.innerHTML = '<div class="catch-hud-round" id="catch-round">Run 1</div>' +
                 '<div class="catch-coin-gem-display" id="catch-coin-display"></div>' +
                 '<div class="catch-hud-lives" id="catch-lives"></div>' +
                 '<button class="catch-pause-btn" id="catch-pause-btn" type="button" title="Pause" aria-label="Pause">' +
@@ -6287,7 +6289,7 @@
                 for (var j = _catchGame.lives; j < 3; j++) hearts += '\u2661 ';
                 livesEl.textContent = hearts;
             }
-            if (roundEl) roundEl.textContent = 'Round ' + _catchGame.round;
+            if (roundEl) roundEl.textContent = 'Run ' + _catchGame.round;
             _catchRenderCoins();
         }
 
@@ -6302,9 +6304,23 @@
             var isNewGem = (now - _catchGame._gemAddedAt < 600);
             var isFalling = (now - _catchGame._coinFallAt < 800);
             var html = '';
-            for (var g = 0; g < gems; g++) {
-                var gemNew = isNewGem && g === gems - 1;
-                html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">\uD83D\uDC8E</span>';
+            // Gems stack in vertical column(s) (like the coins) instead of a
+            // horizontal line \u2014 keeps the HUD narrow. _CATCH_GEMS_PER_COL gems
+            // per column, then a new column; newest gem at the bottom.
+            if (gems > 0) {
+                html += '<div class="gem-columns">';
+                var gemCols = Math.ceil(gems / _CATCH_GEMS_PER_COL);
+                for (var gc = 0; gc < gemCols; gc++) {
+                    html += '<div class="gem-column">';
+                    var gStart = gc * _CATCH_GEMS_PER_COL;
+                    var gEnd = Math.min(gStart + _CATCH_GEMS_PER_COL, gems);
+                    for (var g = gStart; g < gEnd; g++) {
+                        var gemNew = isNewGem && g === gems - 1;
+                        html += '<span class="gem-icon' + (gemNew ? ' gem-new' : '') + '">\uD83D\uDC8E</span>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
             }
             if (coins > 0) {
                 html += '<div class="coin-columns' + (isFalling ? ' coins-falling' : '') + '">';
@@ -6867,7 +6883,7 @@
             middle.className = 'catch-2p-middle';
             middle.innerHTML = '<div class="catch-2p-target-label">Find this card</div>' +
                                '<div class="catch-2p-target-card" id="catch-2p-target"></div>' +
-                               '<div class="catch-2p-round" id="catch-2p-round">Round 1</div>';
+                               '<div class="catch-2p-round" id="catch-2p-round">Run 1</div>';
             // Pause button lives in the top HUD (kept visible in 2P) — no
             // need for a duplicate here.
             var p2 = makeZone(1);
@@ -6891,7 +6907,7 @@
                 if (cEl) cEl.textContent = '🟡 ' + _catchGame.players[i].coins;
             }
             var rEl = document.getElementById('catch-2p-round');
-            if (rEl) rEl.textContent = 'Round ' + _catchGame.round;
+            if (rEl) rEl.textContent = 'Run ' + _catchGame.round;
         }
 
         // Pick a target card, then for each player pick a match card. When the

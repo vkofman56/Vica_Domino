@@ -635,7 +635,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:27 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:34 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -653,7 +653,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:27 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:34 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -895,7 +895,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:27 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:34 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -22758,15 +22758,70 @@
             return null;
         }
 
-        // Fill the upper-right domino icon from the open game's columns: top half
-        // = a representative LEFT-column (red) card, bottom half = a RIGHT-column
-        // (green) card. Each half falls back to the default pips (2 top / 3 bottom)
-        // when that column has no cards — so an empty game shows a 2-3 domino.
+        // The FIRST domino the user configured in IC (Icons' Creator), if any.
+        // IC stores game.mainPageDominos.{circle,triangle,star}[] — each slot is a
+        // domino with top/bottom (a card by stableId/label, or a Phase-4.1 icon
+        // override with svgContent). Returns {top, bottom} as SVG-inner markup
+        // strings (either may be null) for the first slot that has any content,
+        // scanning circle → triangle → star. Returns null when no icons are set.
+        function _firstMppDominoHalves() {
+            if (typeof currentGameViewIndex === 'undefined' || currentGameViewIndex < 0) return null;
+            var game;
+            try { game = loadCustomGames()[currentGameViewIndex]; } catch (e) { return null; }
+            if (!game || !game.mainPageDominos) return null;
+            var mpd = game.mainPageDominos;
+            function halfMarkup(slot, which) {
+                var ic = slot[which === 'top' ? 'iconTop' : 'iconBottom'];
+                if (ic && typeof ic.svgContent === 'string' && ic.svgContent.trim()) return ic.svgContent;
+                var sid = slot[which === 'top' ? 'topStableId' : 'bottomStableId'];
+                if (sid && typeof _findCardDataByStableId === 'function') {
+                    var c = _findCardDataByStableId(sid);
+                    if (c && typeof c.svgContent === 'string' && c.svgContent.trim()) return c.svgContent;
+                }
+                var lbl = slot[which];
+                if (lbl) {
+                    var cards = document.querySelectorAll('#game-view-content .library-card');
+                    for (var i = 0; i < cards.length; i++) {
+                        var l = cards[i].querySelector('.library-label');
+                        if (l && l.textContent === lbl) {
+                            var s = cards[i].querySelector('svg');
+                            if (s && s.innerHTML.trim()) return s.innerHTML;
+                        }
+                    }
+                }
+                return null;
+            }
+            var order = ['circle', 'triangle', 'star'];
+            for (var oi = 0; oi < order.length; oi++) {
+                var arr = mpd[order[oi]];
+                if (!Array.isArray(arr)) continue;
+                for (var j = 0; j < arr.length; j++) {
+                    if (!arr[j]) continue;
+                    var top = halfMarkup(arr[j], 'top');
+                    var bottom = halfMarkup(arr[j], 'bottom');
+                    if (top || bottom) return { top: top, bottom: bottom };
+                }
+            }
+            return null;
+        }
+
+        // Fill the upper-right domino icon. PRIORITY: when the user has set icons
+        // in IC, show the FIRST configured domino (its top/bottom). Otherwise fall
+        // back to the open game's columns — top = a LEFT-column (red) card, bottom
+        // = a RIGHT-column (green) card — and finally to the default 2-3 pips, so
+        // an empty game still shows a 2-3 domino.
         function _updateGameDominoIcon() {
             var top = document.getElementById('gv-domino-icon-top');
             var bot = document.getElementById('gv-domino-icon-bottom');
             if (!top || !bot) return;
             var content = document.getElementById('game-view-content');
+            function svgFromMarkup(markup) {
+                var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                s.setAttribute('viewBox', '0 0 60 60');
+                s.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                s.innerHTML = markup;
+                return s;
+            }
             function firstZoneCardSvg(zone) {
                 if (!content) return null;
                 var svg = content.querySelector('.gv-zone[data-row-zone="' + zone + '"] .library-card svg');
@@ -22779,10 +22834,19 @@
             }
             var PIPS_TOP = '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3" fill="#333"/><circle cx="16" cy="16" r="3" fill="#333"/></svg>';
             var PIPS_BOT = '<svg viewBox="0 0 24 24"><circle cx="7" cy="7" r="3" fill="#333"/><circle cx="12" cy="12" r="3" fill="#333"/><circle cx="17" cy="17" r="3" fill="#333"/></svg>';
-            var redSvg = firstZoneCardSvg('red');
-            var greenSvg = firstZoneCardSvg('green');
-            top.innerHTML = ''; if (redSvg) top.appendChild(redSvg); else top.innerHTML = PIPS_TOP;
-            bot.innerHTML = ''; if (greenSvg) bot.appendChild(greenSvg); else bot.innerHTML = PIPS_BOT;
+            var topNode = null, botNode = null;
+            var mpp = _firstMppDominoHalves();
+            if (mpp) {
+                // User has set icons → mirror the first configured IC domino.
+                if (mpp.top) topNode = svgFromMarkup(mpp.top);
+                if (mpp.bottom) botNode = svgFromMarkup(mpp.bottom);
+            } else {
+                // No icons set → reflect the red/green columns.
+                topNode = firstZoneCardSvg('red');
+                botNode = firstZoneCardSvg('green');
+            }
+            top.innerHTML = ''; if (topNode) top.appendChild(topNode); else top.innerHTML = PIPS_TOP;
+            bot.innerHTML = ''; if (botNode) bot.appendChild(botNode); else bot.innerHTML = PIPS_BOT;
         }
         if (typeof window !== 'undefined') window._updateGameDominoIcon = _updateGameDominoIcon;
 
@@ -27058,6 +27122,9 @@
             }
 
             closeMainPagePictures();
+
+            // The first configured IC domino now drives the upper-right icon.
+            if (typeof _updateGameDominoIcon === 'function') _updateGameDominoIcon();
 
             // Re-apply level icons if this game is currently active (Find only)
             if (mppGameType === 'find' && activeCustomGameIndex === mppGameIndex) {

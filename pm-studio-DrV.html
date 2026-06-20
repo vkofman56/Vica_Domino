@@ -312,6 +312,19 @@
             cursor: default;
         }
         .color-swatch.color-swatch-empty:hover { transform: none; box-shadow: none; }
+        /* Intentional-duplicate tag badge (t1/t2/t3…) — top-left corner of a
+           library card, distinct from the bottom-right role-dot. Gold pill so
+           it reads as "deliberate twin". Non-interactive. (.library-card is
+           already a positioning context — the role-dot relies on it too.) */
+        .dup-tag-badge {
+            position: absolute; top: 2px; left: 2px; z-index: 3;
+            min-width: 13px; height: 13px; padding: 0 3px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; font-weight: 700; line-height: 1;
+            color: #3a2d00; background: #FFD700;
+            border-radius: 7px; box-shadow: 0 0 3px rgba(0,0,0,0.6);
+            pointer-events: none;
+        }
         #help-overlay {
             display: none; position: fixed; inset: 0; z-index: 9999;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(3px);
@@ -566,7 +579,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:36 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:37 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -584,7 +597,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:36 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:37 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -826,7 +839,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:36 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:37 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1951,6 +1964,11 @@
             // Role travels WITH the card (on dataset.role) — survives saves/rebuilds
             // and is immune to stableId/uid drift between the DOM and storage.
             if (cardEl.dataset.role) cardData.role = cardEl.dataset.role;
+            // Intentional-duplicate tag (t1/t2/t3…) travels the same way: marks a
+            // card as a deliberate identical-copy so the twin warning stays quiet
+            // (see _dupTag* below). Pruned automatically when its group drops <2.
+            if (cardEl.dataset.dupTag) cardData.dupTag = cardEl.dataset.dupTag;
+            else delete cardData.dupTag;
         }
 
         // Storage stays comma-separated ("one, sum"); UI is one-per-line.
@@ -3764,7 +3782,11 @@
         // The toast re-appears on EVERY open until the duplicates are fixed
         // (only suppressed while the same warning is already on screen) and
         // stays until clicked.
-        function _twinToast(msg, memoKey) {
+        // options (Card Maker only): { taggableGroups: [{cards,labels}] } adds two
+        // buttons — "Dismiss" (transient, like before) and "Don't remind me — tag
+        // the cards" (opens the per-line checklist). Without options the toast keeps
+        // the legacy text+✕ click-to-dismiss behavior (used by the game scan).
+        function _twinToast(msg, memoKey, options) {
             var already = Array.prototype.some.call(document.querySelectorAll('div[data-twin-key]'),
                 function(d) { return d.getAttribute('data-twin-key') === memoKey; });
             if (already) return;
@@ -3773,10 +3795,39 @@
             t.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:30000;' +
                 'background:#4a3a10;border:1.5px solid #FFD700;color:#ffe082;border-radius:10px;' +
                 'padding:10px 18px;font-family:Segoe UI,sans-serif;font-size:13px;max-width:80vw;' +
-                'box-shadow:0 6px 24px rgba(0,0,0,0.5);cursor:pointer;';
-            t.textContent = msg + '  ✕';
-            t.title = 'Click to dismiss';
-            t.addEventListener('click', function() { t.remove(); });
+                'box-shadow:0 6px 24px rgba(0,0,0,0.5);';
+            var hasActions = options && options.taggableGroups && options.taggableGroups.length;
+            if (hasActions) {
+                var span = document.createElement('div');
+                span.textContent = msg;
+                t.appendChild(span);
+                var row = document.createElement('div');
+                row.style.cssText = 'margin-top:9px;display:flex;gap:10px;justify-content:flex-end;';
+                var btnCss = 'font:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;';
+                var dismiss = document.createElement('button');
+                dismiss.textContent = 'Dismiss';
+                dismiss.style.cssText = btnCss + 'background:transparent;border:1px solid #ffe082;color:#ffe082;';
+                dismiss.onclick = function(e) { e.stopPropagation(); t.remove(); };
+                var tagBtn = document.createElement('button');
+                tagBtn.textContent = "Don't remind me — tag the cards";
+                tagBtn.style.cssText = btnCss + 'background:#FFD700;border:1px solid #FFD700;color:#3a2d00;';
+                tagBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    _dupTagChecklist(options.taggableGroups, function() {
+                        t.remove();
+                        _twinClearToasts();
+                        _twinScanCardMaker();
+                    });
+                };
+                row.appendChild(dismiss);
+                row.appendChild(tagBtn);
+                t.appendChild(row);
+            } else {
+                t.style.cursor = 'pointer';
+                t.textContent = msg + '  ✕';
+                t.title = 'Click to dismiss';
+                t.addEventListener('click', function() { t.remove(); });
+            }
             document.body.appendChild(t);
         }
         // Twin toasts belong to the view that raised them — clear them when
@@ -3797,28 +3848,174 @@
             Object.keys(byRowArt).forEach(function(k) { push(byRowArt[k]); });
             return out;
         }
+        // ===== Intentional-duplicate tags (t1/t2/t3…) =====
+        // A line may legitimately hold identical cards (e.g. a colour-matching
+        // game where two same-colour cards take roles "Main"/"Gr2"). The user
+        // marks such a group as deliberate; each card then carries a distinct
+        // dataset.dupTag (t1, t2, …) so the twin warning stays quiet. A tag only
+        // has meaning inside a group of ≥2 identical cards, so it self-prunes
+        // when its group shrinks below 2, and compacts (t1..tN, no gaps).
+        var _cardLabel = function(c) { return (c.querySelector('.library-label') || {}).textContent || '?'; };
+        // All identical-art groups (≥2) in the active container, keyed by
+        // rowLetter+art; EMPTY (no-art) and variation cards are excluded.
+        function _dupTagGroups(container) {
+            var map = {};
+            container.querySelectorAll('.library-card').forEach(function(c) {
+                if (c.classList.contains('variation')) return;
+                var svg = c.querySelector('svg');
+                var row = c.closest('.library-row');
+                if (!svg || !row) return;
+                var art = svg.innerHTML.trim();
+                if (!art) return;
+                var key = (row.dataset.rowLetter || '') + '|@|' + art;
+                (map[key] = map[key] || []).push(c);
+            });
+            return Object.keys(map).filter(function(k) { return map[k].length >= 2; })
+                .map(function(k) { return { key: k, cards: map[k] }; });
+        }
+        function _dupTagIsGroupIntentional(cards) {
+            var tags = cards.map(function(c) { return c.dataset.dupTag || ''; });
+            return tags.every(Boolean) && new Set(tags).size === tags.length;
+        }
+        // Sync the visible t1/t2 badge with each card's dataset.dupTag.
+        function _dupTagRenderBadges(container) {
+            container.querySelectorAll('.library-card').forEach(function(c) {
+                var tag = c.dataset.dupTag || '';
+                var b = c.querySelector(':scope > .dup-tag-badge');
+                if (tag) {
+                    if (!b) { b = document.createElement('div'); b.className = 'dup-tag-badge'; c.appendChild(b); }
+                    b.textContent = tag;
+                    b.title = 'Intentional duplicate (' + tag + ')';
+                } else if (b) { b.remove(); }
+            });
+        }
+        // Prune orphaned tags (group dropped <2) and compact fully-tagged groups
+        // to t1..tN, then refresh badges. Saves only if something changed.
+        function _dupTagRefresh() {
+            var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
+            if (!container) return false;
+            var groups = _dupTagGroups(container);
+            var inGroup = new Set();
+            groups.forEach(function(g) { g.cards.forEach(function(c) { inGroup.add(c); }); });
+            var changed = false;
+            // Prune: a tag on a card that's no longer in a ≥2 identical group.
+            container.querySelectorAll('.library-card').forEach(function(c) {
+                if (c.dataset.dupTag && !inGroup.has(c)) { delete c.dataset.dupTag; changed = true; }
+            });
+            // Compact: a group where every member is tagged → renumber t1..tN in
+            // card (DOM/label) order so deletions don't leave gaps (t1,t3 → t1,t2).
+            groups.forEach(function(g) {
+                if (!g.cards.every(function(c) { return c.dataset.dupTag; })) return;
+                g.cards.forEach(function(c, i) {
+                    var want = 't' + (i + 1);
+                    if (c.dataset.dupTag !== want) { c.dataset.dupTag = want; changed = true; }
+                });
+            });
+            if (changed && typeof saveCustomCards === 'function') saveCustomCards();
+            _dupTagRenderBadges(container);
+            return changed;
+        }
+        if (typeof window !== 'undefined') window._dupTagRefresh = _dupTagRefresh;
+        // Tag the cards of the given groups t1..tN, persist, refresh badges.
+        function _dupTagApply(groups) {
+            (groups || []).forEach(function(g) {
+                g.cards.forEach(function(c, i) { c.dataset.dupTag = 't' + (i + 1); });
+            });
+            if (typeof saveCustomCards === 'function') saveCustomCards();
+            var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
+            if (container) _dupTagRenderBadges(container);
+        }
         function _twinScanCardMaker() {
             var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
             if (!container) return;
-            var byId = {}, byRowArt = {};
+            _dupTagRefresh(); // prune/compact/badge before deciding what to warn about
+            // ID twins (cards sharing one stableId) — a genuine data anomaly,
+            // NOT an intentional duplicate, so it's reported but not taggable.
+            var byId = {};
             container.querySelectorAll('.library-card').forEach(function(c) {
                 if (c.classList.contains('variation')) return;
-                var label = (c.querySelector('.library-label') || {}).textContent || '?';
-                if (c.dataset.stableId) (byId[c.dataset.stableId] = byId[c.dataset.stableId] || []).push(label);
-                var svg = c.querySelector('svg');
-                var row = c.closest('.library-row');
-                // EMPTY cards are intentional, real cards with their own ids
-                // (user, June 12) — never flag them as identical-art twins.
-                if (svg && row && svg.innerHTML.trim()) {
-                    var key = (row.dataset.rowLetter || '') + '|@|' + svg.innerHTML.trim();
-                    (byRowArt[key] = byRowArt[key] || []).push(label);
-                }
+                if (c.dataset.stableId) (byId[c.dataset.stableId] = byId[c.dataset.stableId] || []).push(_cardLabel(c));
             });
-            var dups = _twinMergeGroups(byId, byRowArt);
-            if (dups.length) {
-                _twinToast('⚠ Identical cards in this set: ' + dups.join(', ') +
-                    ' — consider deleting the extra copy.', 'set:' + activeCardSet);
-            }
+            // ART twins (same row, identical drawing) — the taggable case. A group
+            // whose members all carry distinct tags is intentional → not flagged.
+            var taggable = [], seen = {};
+            _dupTagGroups(container).forEach(function(g) {
+                if (_dupTagIsGroupIntentional(g.cards)) return;
+                var labels = g.cards.map(_cardLabel);
+                seen[labels.slice().sort().join('|')] = 1;
+                taggable.push({ cards: g.cards, labels: labels });
+            });
+            var idDups = [];
+            Object.keys(byId).forEach(function(k) {
+                if (byId[k].length < 2) return;
+                if (seen[byId[k].slice().sort().join('|')]) return; // already shown as an art group
+                idDups.push(byId[k].join(' = '));
+            });
+            if (!taggable.length && !idDups.length) return;
+            var parts = taggable.map(function(g) { return g.labels.join(' = '); }).concat(idDups);
+            _twinToast('⚠ Identical cards in this set: ' + parts.join(', ') +
+                (taggable.length ? ' — delete the extra copy, or mark them intentional.' : ' — consider deleting the extra copy.'),
+                'set:' + activeCardSet,
+                taggable.length ? { taggableGroups: taggable } : null);
+        }
+        // Per-line checklist: pick which flagged groups are deliberate; the
+        // checked ones get tagged t1..tN, the rest stay flagged for next open.
+        function _dupTagChecklist(groups, onDone) {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:30001;display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#222;border:1.5px solid #FFD700;border-radius:12px;padding:20px 22px;min-width:280px;max-width:90vw;max-height:80vh;overflow-y:auto;font-family:Segoe UI,sans-serif;color:#fff;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:14px;font-weight:bold;color:#FFD700;margin-bottom:6px;';
+            title.textContent = 'Which duplicates are intentional?';
+            box.appendChild(title);
+            var hint = document.createElement('div');
+            hint.style.cssText = 'font-size:12px;color:#ccc;margin-bottom:12px;line-height:1.4;';
+            hint.textContent = 'Checked lines get tags t1, t2, … and stop warning. Unchecked lines stay flagged and reappear next time you open the set.';
+            box.appendChild(hint);
+            var rowCss = 'display:flex;align-items:center;gap:9px;padding:6px 4px;font-size:13px;cursor:pointer;';
+            var boxes = [];
+            // "Check all"
+            var allRow = document.createElement('label');
+            allRow.style.cssText = rowCss + 'border-bottom:1px solid rgba(255,215,0,0.25);margin-bottom:4px;font-weight:600;color:#FFD700;';
+            var allCb = document.createElement('input'); allCb.type = 'checkbox';
+            allRow.appendChild(allCb);
+            var allTxt = document.createElement('span'); allTxt.textContent = 'Check all'; allRow.appendChild(allTxt);
+            box.appendChild(allRow);
+            groups.forEach(function(g) {
+                var row = document.createElement('label');
+                row.style.cssText = rowCss;
+                var cb = document.createElement('input'); cb.type = 'checkbox'; cb._group = g;
+                boxes.push(cb);
+                row.appendChild(cb);
+                var txt = document.createElement('span');
+                txt.textContent = g.labels.join(' = ');
+                row.appendChild(txt);
+                box.appendChild(row);
+            });
+            allCb.onchange = function() { boxes.forEach(function(cb) { cb.checked = allCb.checked; }); };
+            var btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:16px;';
+            var bCss = 'font:inherit;font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer;';
+            var cancel = document.createElement('button');
+            cancel.textContent = 'Cancel';
+            cancel.style.cssText = bCss + 'background:transparent;border:1px solid #888;color:#bbb;';
+            cancel.onclick = function() { document.body.removeChild(overlay); };
+            var apply = document.createElement('button');
+            apply.textContent = 'Tag selected';
+            apply.style.cssText = bCss + 'background:#FFD700;border:1px solid #FFD700;color:#3a2d00;';
+            apply.onclick = function() {
+                var chosen = boxes.filter(function(cb) { return cb.checked; }).map(function(cb) { return cb._group; });
+                if (chosen.length) _dupTagApply(chosen);
+                document.body.removeChild(overlay);
+                if (typeof onDone === 'function') onDone();
+            };
+            btnRow.appendChild(cancel);
+            btnRow.appendChild(apply);
+            box.appendChild(btnRow);
+            overlay.appendChild(box);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+            document.body.appendChild(overlay);
         }
         function _twinScanGame(game, memoKey) {
             if (!game || !game.cards) return;
@@ -3984,6 +4181,7 @@
                 window[name] = function() {
                     var r = orig.apply(this, arguments);
                     try { _applyRoleBadges(); } catch(e) {}
+                    try { _dupTagRefresh(); } catch(e) {} // render t1/t2 badges + prune/compact tags
                     return r;
                 };
             });
@@ -12078,6 +12276,11 @@
             saveVariations();
             saveCardArrangement(activeCardSet === 'abc' ? 'card-set-abc' : 'card-set-numbers');
             if (activeCardSet === 'abc') saveAbcSnapshot();
+            // A deletion may leave an intentional-duplicate tag stranded alone
+            // (group now <2) — prune/compact it, then re-evaluate the warning so
+            // a resolved set goes quiet and a still-broken group re-flags.
+            if (typeof _twinClearToasts === 'function') _twinClearToasts();
+            if (typeof _twinScanCardMaker === 'function') _twinScanCardMaker();
         }
 
         // Renumber all cards in a row sequentially: A1, A2, A3...
@@ -14102,6 +14305,7 @@
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
                     if (item.role) card.dataset.role = item.role; // restore role from storage
+                    if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {
@@ -24145,6 +24349,7 @@
                             card.dataset.custom = 'true';
                             card.dataset.uid = item.uid || generateCardUID();
                             if (item.role) card.dataset.role = item.role; // restore role from storage
+                            if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
                             if (item.stableId) card.dataset.stableId = item.stableId;
                             if (item.origin) card.dataset.origin = item.origin;
                             if (item.movedFrom) card.dataset.movedFrom = item.movedFrom;
@@ -24344,6 +24549,7 @@
                     card.dataset.custom = 'true';
                     card.dataset.uid = item.uid || generateCardUID();
                     if (item.role) card.dataset.role = item.role; // restore role from storage
+                    if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {

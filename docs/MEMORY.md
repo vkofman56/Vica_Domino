@@ -1,7 +1,81 @@
 # Vica Domino Project Memory
-**Last Updated**: June 15, 2026 — Phase 2 (mini-games) DONE · corrected mini-game model (legend-only; board = type's surface) · whole authoring side is MOUSE-ONLY. **NEXT: Phase 3 — BIG GAME composer** (lock the model with the user first; see STATUS_NOTES.md)
+**Last Updated**: June 18, 2026 — Phase 3 Big Games + **Device-Preview feature** DONE (see below + STATUS_NOTES.md). Authoring side still MOUSE-ONLY. Open: 3f Publish (deferred), 2P-Big-Game engine gap, play-icon rollout.
 
 ---
+
+## 📱 June 18, 2026 — Big Game / Device-Preview durable lessons
+
+- **Device preview = a scaled same-origin `<iframe>` of `index.html`** opened by `_bgOpenDeviceFrame`, the
+  game auto-launched via deep-links `?playGame=<gameId>&players=&legend=<JSON>` (mini-games) or
+  `?playBig=<id>&mode=&players=` (Big Games). The iframe is sized to TRUE device CSS px and `transform:
+  scale()`'d to fit; inside, responsive layout reacts as on the real device.
+- **In the preview iframe `window._bgInPreviewFrame=true`** (set by the deep-link hook) + `body.bg-preview-frame`.
+  Tile clicks inside MUST NOT open a NESTED device frame (it inherits the parent's touch+device via shared
+  localStorage) — all launch paths gate on `!window._bgInPreviewFrame`. `body.bg-preview-frame` also scopes
+  device-only board styling (e.g. page-name pill → bottom on every device) without touching the real desktop.
+- **Distinguishing devices in CSS by size:** Chromebook 1366×768 and iPad-Pro-landscape 1366×1024 share the
+  **width** (1366) but differ in **height** — use `min-height:900px` to target iPad Pro and exclude Chromebook.
+  iPad (regular) landscape ≈1180 wide → separated from Chromebook by `max-width:1280`.
+- **Per-player-count board sizing needs NO new hook:** `renderSunLevel` already adds
+  `#players-area.single-player-layout` for 1 player. Use `#players-area.single-player-layout` (1P) vs
+  `#players-area:not(.single-player-layout)` (2P+). (Reverted a `body.board-players-N` stamp attempt as
+  redundant.) Note iPad 1P=portrait, 2P=landscape (orientation matrix), so orientation ≈ player count there.
+- **`margin-top` on a board element collapses through `#game-screen`** and drags the absolute back/home
+  buttons down with it. To push the title/content down WITHOUT moving the absolute buttons, use
+  `#game-screen{padding-top:…}` (the absolute `top:15` is relative to the padding box, unaffected).
+- **Device-local UI keys must be sync-exempt:** `sync.js` `_isLocalOnlyKey` matches `vica_bg*` +
+  `vica_inputMode`. These are never uploaded, never wiped on a cloud-replace, and never overwritten by cloud
+  on apply (the bug was a stale cloud `vica_bgDevice=''` clobbering the local pick mid-preview). The
+  TOUCH/MOUSE mode persists in `vica_inputMode` (was in-memory only → reverted to mouse on every load).
+- **Cache gotcha:** `index.html` is no-cache, but a `style.css?v=NN` can be cached STALE if it was fetched
+  while the preview server briefly served the OTHER worktree (`../Domino-studio`). Bump the `?v=` to force a
+  fresh fetch. Also: the Claude-preview server sometimes restarts pointing at `--directory ../Domino-studio`
+  — verify against a main-tree server (I run `python3 -m http.server 8044 --directory <main tree>`).
+- **2P/3P Big Games still run single-player** — `_bgEnsureFindPlayer` (composed-stage launch) ignores the
+  count. 2P MINI-games (Catch; Find as "Va | Player 2") DO run 2P. Follow-up task spawned.
+- **`_gpFillGameName`** builds the board title from the GP0 subtitle: it strips the cloned mode/player glyph
+  spans and splits "Type: Name" → "Type" + `<span class="board-id-name">Name</span>` (phone: name on its own
+  line, no colon; desktop: `::before` re-adds ": ").
+
+---
+
+## 🧩 June 18, 2026 — Studio durable lessons (loupe resize, background, roles, per-set storage keys)
+
+- **The role-save bug was a STORAGE-KEY mismatch, NOT id-drift and NOT duplicates** (both were wrong
+  guesses I chased; the user's real-data scan proved ABC has 0 duplicates / 0 drift / 0 missing ids /
+  108-of-108 DOM↔storage match). Real cause: a **built-in set deleted & recreated becomes a CUSTOM set
+  under its display name** — the user's "ABC" is `activeCardSet === 'ABC'`, stored under
+  **`customDrawnCards_ABC`** (capital). But `_roleStorageKeyFor('ABC')` hardcodes `'ABC'→'abc'` →
+  `customDrawnCards_abc` (lowercase) = a STALE leftover from the original built-in. So role read/write hit
+  the wrong drawer. The "1776 vs 1778" stableIds were the SAME card seen across the two keys — not drift.
+  **Lesson: resolve a set's storage key from `activeCardSet` / the actual set, NEVER re-derive it from the
+  display name** (`_getSetStorageKey('abc')` ≠ the key of a recreated custom "ABC"). `_roleStorageKeyFor`
+  still has this latent bug (used only by `_getCardRole` in r→p, which works anyway via the
+  `_findCardDataByStableId` cross-set fallback).
+- **The fix pattern: store per-card data ON the card object** (a `data-*` attr on the `.library-card`),
+  have `_stpApplyToData` (the shared serializer helper, called by all 4 DOM→storage serializers) copy it
+  into the stored card, and have the 3 builders restore it onto `dataset.*` on render. This is how
+  `voiceNames` already works, and now how **`dataset.role`** works. Key win: the save goes through
+  `saveCustomCards` → `'customDrawnCards_' + activeCardSet` = the CORRECT per-set key (sidesteps the
+  `_roleStorageKeyFor` bug entirely). CONFIRMED working end-to-end (Card Maker + Game Maker probabilities).
+- **`_findCardDataByStableId`** searches ALL card-set keys by stableId — the robust way to find a card's
+  stored data regardless of which set key holds it (this is why the game's r→p role read still works
+  despite the wrong-key `_getCardRole`). `_setCardRole` is now dead (0 callers).
+- **ids ARE effectively stable** (builders persist via `_persistNewUIDs` + migration saves). Don't assume
+  drift — if a per-card lookup "doesn't match," suspect the KEY first.
+- **Loupe selection box** now has corner (proportional) + edge (one-directional) resize handles. Keystone:
+  **`getSvgSpaceBBox` is matrix-based** (`el.transform.baseVal.consolidate()`), so it tracks ANY transform
+  (incl. `scale(sx,sy)` and rotation/flip). Non-uniform edge stretch on rotated/flipped elements uses a
+  **root-space scale conjugated into parent space (`Vinv·S·V`)** so it stays axis-correct.
+- **Card background** = a `<rect class="card-bg">` inserted as the FIRST child of the card SVG (behind all
+  content, non-selectable, excluded from "color all", follows corner radius). Chosen via a Figure/Background
+  toggle that reuses the single color palette.
+- **Removed as obsolete:** the **IC** toolbar button (the Icons section header is its own ▸/▾ toggle) and
+  the **V+** show/hide-variations button (variations are independent cards; grouping organizes them). Kept
+  **V** (variation tools).
+- **Worktree workflow (two parallel sessions):** Studio runs in `../Domino-studio` on `work/studio`; Big
+  Game owns the main tree. Ship = fetch → rebase onto canonical → push trio → `ff-only` the main tree
+  (pm-studio-DrV.html only). The :8021 worktree preview **caches per process — restart it after each edit**.
 
 ## 🧩 June 15, 2026 — durable facts/decisions from Phase 2 (mini-games) + the pipeline
 

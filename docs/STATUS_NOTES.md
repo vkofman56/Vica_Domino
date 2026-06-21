@@ -1,11 +1,153 @@
 # Vica Domino - Project Status Notes
-**Date**: June 15, 2026 — Phase 2 (Game Previewer mini-games) COMPLETE · Studio cleanup (Gr mode gone, dead code, twin warnings) · loupe overhaul · 1.5 superseded by r→p
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `6c0e889` + this doc commit; advances with each `bash scripts/ship.sh`)
-**Total Commits**: 1430+
-**Codebase Size**: ~18,000 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-50`, `game.js?v=global-players-3`, `sync.js?v=local-wins-6`
+**Date**: June 20, 2026 — Previewer session: Catch mini-game RUNTIME + Catch HUD polish + GP 0 layout overhaul · **NEXT: Studio authoring UI for the Catch settings** (see `docs/CATCH_MINIGAMES_PLAN.md`)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `b693360`+; advances with each `bash scripts/ship.sh`). NOTE: this session ran in the MAIN tree on local branch `work/cardmaker-rowcopy`, which sits at the same commit as the 3 canonical mirrors; `ship.sh` pushes HEAD to all 3.
+**Total Commits**: 1500+
+**Codebase Size**: ~18,500 lines across 4 main files
+**Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-9`
 
 ---
+
+### ▶▶ NEXT CHAT: **Studio authoring UI for the Catch mini-game settings**
+The RUNTIME half is DONE (see "June 20 — Previewer session" below). The remaining piece is the **authoring UI in `pm-studio-DrV.html`** (Studio `work/studio` worktree) so a user can SET the per-game Catch settings the runtime already reads.
+- **Contract (already live in index.html):** `setup.catchBubbles` (2–5, fixed bubble count), `setup.catchFallSeconds` (>0, default 6), `setup.catchAutoRamp` (default true; gates ONLY the fall-time speedup). See `docs/CATCH_MINIGAMES_PLAN.md` + `docs/CATCH_MECHANICS.md`.
+- **Also live:** when `setup.catchBubbles` is NOT set, the runtime derives the fixed bubble count from the player-selected **Level** button (circle/triangle/star/L4 = 2/3/4/5). So the Level picker already drives bubbles at play time; Studio just needs to author/save the chosen count (and optionally fall time + ramp) into `setup`.
+- Studio task: expose Level→bubbles + a fall-time input + an auto-ramp toggle on the Catch setup and write `setup.catch*`. Then build the 3 mini-games (2/3/4 bubbles) and compose a Big Game. Backup before edits: `backups/savedCatchGames-2026-06-19.json`.
+
+---
+
+### ▶▶ June 20 — Previewer session (index.html + css/style.css) — DONE
+**1. Catch mini-game RUNTIME (the runtime half of `docs/CATCH_MINIGAMES_PLAN.md`):**
+- `openCatchPlayModal` reads `setup.catchBubbles` (clamped 2–5), `setup.catchFallSeconds` (>0 else 6), `setup.catchAutoRamp` (default ON) into `_catchGame.{numFalling, baseFallDuration/fallDuration, autoRamp, bubblesFixed}`.
+- **Fixed-bubble mini-games:** the bubble count is FIXED for the whole game when chosen — the old 2→3→4 auto-climb is gated behind `!bubblesFixed`; the per-round **fall-time speedup is unchanged** (gated behind `autoRamp`, default on). Both ramps decoupled in the 1P (`_catchCardClicked`) and 2P (`_catch2pAnimLoop`) paths.
+- **Level→bubbles:** new `_catchBubblesForLevel()` maps the selected Level (circle/triangle/star/L4 = 2/3/4/5) → fixed `numFalling` when `setup.catchBubbles` is absent. So the existing 3-option Level picker now drives the bubble count for every Catch game.
+
+**2. Catch HUD / bubbles polish:**
+- **+50% floating bubbles** on iPad / iPad Pro / Chromebook, **1-player only** (`_catchGame.bubbleSize` = 135 vs 90; device via `_bgSelectedDevice()` class tablet|laptop). Spawn + anim math use `bubbleSize` (margins, walls, off-screen). **Overlap fix:** the vertical spawn stagger now scales with the bubble size (`stagger = round(80×cardSize/90)`) so bigger bubbles keep the original ~minimal overlap. 2P untouched.
+- **2-PLAYER MULTITOUCH FIX (iPad):** falling bubbles now bind **`pointerdown`** (not `click`) — iOS doesn't reliably dispatch `click` for simultaneous multitouch, so one player's tapping was dropping the other player's catch. `touch-action:manipulation` added. (1P left on onclick.)
+- HUD: **"Run N"** instead of "Round N" (1P+2P); Run + hearts get `white-space:nowrap` (never wrap to 2 rows); **gems stack in vertical column(s)** (`.gem-columns`, 5/col). Player icon pulled to the left edge; **pause button lifted to the back/home icon line, far right** (fixed, follows banner in Big Games).
+- **Big-screen HUD scale-up** (`.catch-dev-big` on the overlay for tablet/laptop): player icon/name 1→1.6rem, Run .9→1.45rem, hearts 1.3→2rem, page pill 24→30px, title →2.1rem. **Big-Game overlap fix:** `body.bg-playing .catch-game-overlay .board-id-bar { min-height:48px }` (empty title collapsed → HUD rode into the icons).
+
+**3. GP 0 (intro screen) layout overhaul (index.html + css/style.css):**
+- Removed "Choose the game:" heading; **search box on the LEFT, device pills pushed RIGHT**; relabeled **"Search for more games types"**.
+- **Misc is now a normal recency-managed game type** (in `GAME_TYPE_CATALOG`, shows in the search dropdown, hidden by default, appears when picked — `_appendMiscItems` builds its column). Was a fixed always-on leftmost column.
+- **Game-tile eye + folder restyle:** eye and mini-games "folder" icons are **inset inside the card box** (absolute, right edge), stacked **eye-over-folder**, **borderless**. Folder is now a **transparent (fill:none) white-outlined folder with the count number drawn inside it as a separate fixed-size white span** (`.intro-game-mg-num`) — the old purple count badge/tag is gone. Eye ~+18% (scale 1.176), folder svg scale(1.513, 1.5735) (taller than wide); folder border matches the eye (white, 1.5). Lots of sub-mm nudges to the number/eye (see git log for exact values).
+
+---
+
+### ▶▶ STUDIO SESSION — June 20 (session 2, LATEST — resume here)
+All in **`pm-studio-DrV.html`** unless noted. Ship per change **per-path** so the concurrent Previewer session's work isn't swept in: `bash scripts/ship.sh "msg" -- pm-studio-DrV.html` (+ `docs` when touching docs). The Previewer session (index.html / css/style.css — "GP 0 game tiles" + Catch runtime) interleaves in `git log`; expected. Restart the `:8011`/`:8021` preview after edits (caches per process). Verify via preview `eval`; the **dev admin-login modal** persists when not logged in (hide `#intro-screen` via eval to inspect) — absent in the real logged-in app.
+
+**Shipped this session (all Studio / Game Creator):**
+1. **Catch domino-icon → two BUBBLES.** In a **Catch** game the upper-right icon renders as a **landscape pair** — **big bubble (left)** = the domino's upper picture, **small bubble (right)** = lower picture — vs the portrait Find tile. `_updateGameDominoIcon` toggles `.gv-catch` by `_currentGameViewType()`; `_firstMppDominoHalves()` reads `_currentGameViewGame()` so IC config drives it for Catch too. Placed **top-aligned to the description box**, **centered under "?"** (`.gv-catch-pos`).
+2. **Empty cards are legitimate, with an "empty" label.** A game card that renders with no art (deliberate blank OR a dangling ref whose source set-card was deleted) gets a dashed outline + centered **"empty"** badge (`buildGameViewCard`); `_twinScanGame` no longer flags it "missing from every set". (`0-4 A` card **A1** = a truly-dangling ref, art exists in no set → unrecoverable, now shown as a labelled empty card.)
+3. **"Add Cards to Game" picker rebuilt** (`openAddCardToGame`): a **narrow set PICKER** (recent-1 + the library folder tree via `loadFolders()` + unfiled, Safe Haven first) with the card grid moved to a **separate MOVABLE box** (`#add-card-cards-box`, drag by header) that **opens next to the clicked set** (`_addCardPlaceCardsBox`).
+4. **Add cards FROM another game** — new **"Gam"** button in the "+" box (`openAddGameToGame` → `showCardsFromGame` → `_confirmAddCardsFromGame`). Lists games (single **most-active** pinned + collapsible **Find**/**Catch** groups, current game excluded), cards **tinted by column** + **prob-badged**, deduped by stableId; copy preserves **column (`_freezeState`/`_probRed`/`_probGreen`) + ACTIVE probability + role (by stableId) + row** with a fresh uid. Recency via new `gameLastOpened` map (`_gameTouch` in `openGameView`/`openCatchGameView`). **MVP caveats:** active Prob only (not all presets); m-group membership not copied; "Most active" empty until games are opened.
+5. **Toolbar restyle/reorder.** Order: shape · **"+" box (Row / Sets / Gam)** · **Role** · **prob box (r→p / •p / 1/p)** · (flip moved out). Boxes **dropped** so the "+" box top aligns with the pink rail above the cards (`margin-top` on the shape btn). Visibility: **Role** readable when OFF (fill toggle `_setRoleBtnStyle`), **•p / 1/p** gold like r→p, **shape** icon green like the "+" box.
+6. **Flip (↔) → COLUMN SWAP.** `toggleGameFlip` is a one-shot action: red(frozen)↔green(floating), each card **keeping its probability number** (red P↔green P), **neutral unchanged**; **self-inverse**, **active-Prob only** (`_writeActiveProb`), both views, undoable. Old play-time top/bottom half-swap **retired** (`migrateRetireFlipEnabled` clears `flipEnabled`). Button **moved into the Neutral header** (`_attachFlipToNeutralHeader`, centered, 3mm below the line, styled to match the "+" box bg/border).
+7. **Two "Find the doubles: …" leak fixes.** (a) `hideGameView` now hides **all** `.screen`s before showing the return screen (intro could stack behind the Card Maker — `.screen` is `position:relative`). (b) **the real one:** `#card-maker-games` renders a "jump back to game" shortcut from a **stale `currentGameViewIndex`**; `selectCardSet` now **resets `currentGameViewIndex`/`currentCatchGameViewIndex` = -1** and re-runs `populateCardMakerGames()`, so the shortcut no longer lingers when editing an unrelated set.
+
+**Open / ideas (not done):** add-from-game phase-2 (all Prob presets + m-groups + cleaner Catch↔Find column map); explicit "move selected → red/neutral/green" buttons; the flip-button bg is slightly translucent (matches "+" box) so the rail may peek — bump opacity if undesired. Still relevant from the day before: the Catch authoring UI for the mini-game settings (see the Previewer "NEXT CHAT" block above).
+
+---
+
+### ▶▶ STUDIO SESSION — June 20 END-OF-DAY (session 1, earlier today)
+All in **`pm-studio-DrV.html`** (Studio `work/studio` worktree at `../Domino-studio`). Ship per change:
+`git fetch` → `git rebase origin/claude/review-project-docs-JOOeh` → `bash scripts/ship.sh "msg" -- pm-studio-DrV.html docs` → `git merge --ff-only` in the MAIN tree (only pm-studio-DrV.html flows over; Big Game's index.html/game.js/style.css untouched). **Restart the :8021 worktree preview after every edit** (caches per process). Latest tip **`a5237c3`**.
+
+**Shipped today (Studio):**
+1. **Intentional-duplicate TAGS (t1/t2/t3)** — a line can legitimately hold identical cards (colour-matching games). The twin warning now offers **Dismiss** vs **"Don't remind me — tag the cards"** → a per-line checklist (Check all) that tags each group `t1..tN` (gold badge, top-left of the card). Tags live ON the card (`dataset.dupTag`, serialized in `_stpApplyToData`, restored in the 3 builders — mirrors `role`). **Self-prune/compact** when a group drops <2 (`_dupTagRefresh`, hooked into `deleteCard` + the build-wrapper). The **Game-Creator** twin scan (`_twinScanGame`) is now tag-aware too — resolves each card's `dupTag` by stableId, skips distinctly-tagged groups.
+2. **Game Creator — marquee multi-select** (`_gvMarqueeJustEnded` IIFE on `#game-view-content`, mirrors the Card Maker rubber-band; fills `_gvMultiSelected`/`.gv-drag-selected`). **Per-row column move**: a multi-card bundle dropped on a zone column moves each card to that column **within its own letter row** (not all into one cell). **Undo (Cmd+Z)** now works — `_undoPushSnapshot(true)` before the drop mutation (both bundle + single paths).
+3. **Role labels** under cards (toggle = the **Role** button, `_setGameRoleLabel`/`_update... no — _applyGameRoleLabels`): role NAME on a **small white tag** (`.gv-role-pill`) at the card's bottom edge. Colors now **dark** (`_ROLE_PALETTE` = dark grey/red/blue/magenta/green, one per role). Tag is **z-index 6** so it COVERS the group underline (`.gv-grp-line::after` is z:4).
+4. **Domino ICON (upper-right, under "?")** — one tile, top half = first **left-column (red)** card / bottom half = first **right-column (green)** card; when IC icons are set it instead shows the **first configured IC domino** (`_firstMppDominoHalves` reads `game.mainPageDominos` circle→triangle→star); falls back to a **2-3-dot** default. `_updateGameDominoIcon` runs on render (`attachGameViewDrag`), move (`saveGameViewOrder`), and IC-save (`saveMainPagePictures`). Click opens IC (`openMppForCurrentView`) — the **old IC toolbar button was removed**. Sized +15%, white button-ring, left-anchored custom tooltip (native title overflowed the right edge).
+5. **Toolbar polish** — boxed the prob buttons (`r→p · •p · 1/p`) and the add buttons (`+ · +Row`) in `.gv-btn-box`es (like the Card Maker add-cards box); toolbar `align-items:center` + back-arrow shifted +7px so everything shares one centerline. **Reordered**: shape · Role · prob-box · add-box · ↔. Renamed `1/M`→`1/p` (p +25%), turned the flip arrow 90° (`↕`→`↔`).
+6. **Bug fix** — the **intro screen leaked** into the Card Maker (its game-picker buttons showed through). `selectCardSet` now hides **all** sibling `.screen`s before showing the Card Maker.
+
+**Open / ideas (not done):** explicit "move selected → red/neutral/green" buttons as an alt to drag; Catch handling for the domino icon (currently Find-only, falls back to default); a small dark pill option behind role tags if contrast ever needs more.
+
+### June 19 session — shipped (Find/Catch board polish + Big Games + docs)
+- **Play-triangle ▶ icons everywhere** (Start/New Game = sparkly; Play Again/catch replay = plain); generic `.play-ico-btn` / `.play-ico-new` CSS.
+- **GPt F/C Setup Play button**: moved to the right of the Legend, vertically centered, centered under the Type column, widened, + white border/shadow (was purple-on-purple).
+- **Board header → two boxes**: page-name pill pinned left by the home icon, game title centered (fixed a 436px stretched page-label bug in preview frames via `top:auto`).
+- **GP 0 player toggle 2/3**: figure stays centered (turns white), empty circle slides left(2)/right(3).
+- **Find board "Press to select"**: MOUSE-mode only (keyboard hints likewise); dominoes vertically + horizontally centered; coin counter back beside the dominoes.
+- **Portrait iPad/iPad-Pro/Chromebook**: dominoes 105×210, title +50%, "double" +30% (match landscape). **Chromebook LANDSCAPE** dominoes 55→105×210 (the iPad blocks had excluded it).
+- **Big Game board overlap fix**: `body.bg-playing #board-id-bar { min-height:44px }` (empty title bar collapsed → status overlapped the back/home icons) + single-line banner.
+- **iPhone Catch**: frozen target bubble 140→90 (matches floating); Game Over Play/Exit (1P) and Play Again/Close (2P) are equal-size aligned pills that fit.
+- **"Congratulations!"** now `clamp()`-sized so it fits phones.
+- **GP 0 "Big Games" Landscape/Portrait toggle** (`_bgBigOrient`): preview Big Games portrait on Chromebook/iPad (were landscape-locked).
+- **Find deal-diversity rule** (game.js `dealSunLevelCards`): no repeated value on TOP, none on BOTTOM (fixes "36 twice on top" / 4×6-6×4) via diverse selection + diversity-aware flip.
+- **Docs/backup**: `docs/CATCH_MECHANICS.md`, `docs/CATCH_MINIGAMES_PLAN.md`, `backups/` (savedCatchGames snapshot).
+
+---
+
+### ▶▶ STUDIO SESSION — June 18 END-OF-DAY (resume here tomorrow)
+All work in **`pm-studio-DrV.html`** (card-editor "loupe" + Card Maker). Running in the isolated
+**`work/studio` worktree** at `../Domino-studio`. Ship workflow each change: edit in the worktree →
+`git fetch` → `git rebase origin/claude/review-project-docs-JOOeh` → push the 3-mirror trio →
+`git merge --ff-only` in the MAIN tree (incoming = only `pm-studio-DrV.html`, so the Big Game session's
+uncommitted `index.html`/`biggame.html`/`game.js`/`style.css` are left untouched). **Restart the :8021
+worktree preview after every edit — it caches per process; a stale server serves old code.** User views
+:8011 (or :8000) = main tree, so the ff is what makes changes visible there (hard-refresh ⌘+Shift+R).
+
+**Shipped today (latest tip `d3a4bc0`):**
+1. **Loupe resize handles** — a selected stamp / text / shape / picture shows **4 corner handles**
+   (proportional, opposite corner pinned, live `×N`) **+ 4 edge handles** (one-directional, opposite edge
+   pinned, raises the `_twinToast` "You are changing the shape proportions"). Works on ROTATED/FLIPPED
+   elements (variation transform) via a root-space stretch conjugated `Vinv·S·V`. Pictures stretch via
+   width/height (`preserveAspectRatio=none`); everything else via a `scale(sx,sy)` transform.
+   **`getSvgSpaceBBox` was rewritten matrix-based** (`el.transform.baseVal.consolidate`) — handles any
+   transform incl. `scale(sx,sy)`. New helpers: `createSelHandles`/`updateSelHandles`/`_startHandleResize`/
+   `_rzEdgePoints`/`_targetIconSvg`.
+2. **Card background color** — a **"Color: Figure ⇄ Background" toggle** (two square+circle icons sized to
+   the card-shape buttons, 28px, responsive via `.ct-icon`; white = selected mode, click an icon to pick).
+   Background mode paints a `<rect class="card-bg">` behind the card (persists on save, non-selectable,
+   excluded from "color all", follows corner radius, undoable). ONE shared palette; the **"no color"
+   crossed-circle** sits on the toggle line (column 4, above the green swatch), bg-mode only.
+3. **Removed obsolete buttons** — **IC** (redundant with the Icons section's own ▸/▾ header) and **V+**
+   (variations are independent cards now) + their dead functions. **Kept V** (variation tools).
+4. **Bug fix — zoom panel leaked into the loupe**: `openLoupe` was RAISING `#zoom-panel` above the overlay;
+   now both open paths CLOSE it. Fixed.
+5. **Bug fix — card ROLES wouldn't save (ABC)**: FIXED & CONFIRMED WORKING (Card Maker + Game Maker
+   probabilities). **TRUE root cause = a storage-KEY mismatch (NOT id-drift, NOT duplicates — those were
+   wrong guesses).** The user's ABC set is a recreated/custom set, so `activeCardSet === 'ABC'` and its 108
+   cards live under **`customDrawnCards_ABC`** (capital). But `_roleStorageKeyFor('ABC')` hardcodes
+   `'ABC'→'abc'` → `customDrawnCards_abc` (lowercase) = a STALE 15-card leftover from the old built-in ABC.
+   So role read/write hit the wrong (stale) array and matched 0 cards. The "1776 vs 1778" ids in the first
+   diagnostic were the SAME card compared across the two different keys — not real drift. **Fix that
+   landed:** role now travels ON the card (`dataset.role`), written to storage by `_stpApplyToData` (all 4
+   serializers) via `saveCustomCards` → `'customDrawnCards_' + activeCardSet` = the CORRECT capital key;
+   restored by all 3 builders; read by `_applyRoleBadges` + the role dialog directly. The game's r→p
+   grouping also works because `_findCardDataByStableId` searches all set keys and finds the card under the
+   correct key. Old `_setCardRole` is dead (0 callers). Plus the additive `_ensureCardIds()` migration.
+
+**CLEANUP DONE (June 18) — prevents the wrong-key class of bug from ever recurring:**
+- **Removed `_roleStorageKeyFor`** (the wrong-key culprit: derived the storage key from the display name,
+  so it read `customDrawnCards_abc` for a recreated "ABC" that actually lives under `customDrawnCards_ABC`).
+- **Removed `_setCardRole`** (already 0 callers since roles moved onto the card object).
+- **Rewrote `_getCardRole`** to resolve a role by the card's **stableId across ALL set keys** via
+  `_findCardDataByStableId` — never guesses a per-set key from a display name. The game's r→p grouping uses
+  this, so it's now robust by construction (no longer relies on a fragile fallback). Removed the dead
+  storage-map in `_applyRoleBadges` too. Verified in preview: `_getCardRole('ABC', sid)`→role for a
+  capital-key set; `_roleStorageKeyFor`/`_setCardRole` are gone; badges still render from `dataset.role`.
+
+**Still OPEN — user's data, left untouched (data deletion is the user's call):**
+- **Stale `customDrawnCards_abc` (15 cards)** in the user's localStorage — harmless leftover from the
+  original built-in ABC (deleted + recreated as the custom "ABC"). Nothing in code reads the lowercase key
+  anymore (after the cleanup above), so it's inert. If the user wants it gone: `localStorage.removeItem(
+  'customDrawnCards_abc')` in their browser — but verify first and let THEM run it (don't auto-delete data).
+- **Audit verdict (June 18, read-only):** card SELECTION in games is robust (idx→uid→stableId→label
+  fallbacks); variations (label-linked), shared art, icons, copy/delete are SAFE. **ABC data is clean —
+  the duplicate-card diagnostic on the user's real data found 0 duplicates, 0 drift, 0 missing ids,
+  108/108 DOM cards matching storage.** No card-referencing bugs remain.
+
+### ⚠ Heads-up for Big Game / sync session (June 18) — card records now self-heal a `uid`
+Studio bugfix: built-in/older cards stored WITHOUT a `uid` were given a fresh random uid on every
+render (never saved), so per-card features keyed by uid (roles) never matched → roles silently
+didn't save. Fix = a one-time, ADDITIVE migration `_ensureCardIds()` (pm-studio-DrV.html, runs once
+at load) that fills a stable `uid` on any `customDrawnCards*` card missing one, then saves that key.
+**Impact on you (`js/sync.js`):** cards in the synced card-set keys will gain a `uid` field (the same
+field new cards already carry — no shape change, just a filled blank). Benign, but flagging since
+those keys sync to cloud. No action needed unless sync asserts on card shape.
 
 ### Studio session (parallel, June 17) — Card loupe: corner-handle resize DONE
 Running alongside the Big Game session (which owns `biggame.html`/`index.html`/`game.js`); this
@@ -120,15 +262,36 @@ gives it). DEFERRED nicety: `ship.sh` auto-rebase (deliberately skipped — manu
 
 ---
 
-## ▶▶ NEXT CHAT: **Phase 3 — 3a–3e + 3d(i–iv) DONE + Play/Scan toggle DONE. Only 3f (Publish, deferred) remains.**
+## ▶▶ NEXT CHAT: **Device-Preview feature DONE (June 18). Phase-3 only 3f (Publish) deferred. + the 2P-Big-Game engine gap.**
 **⚠ TWO-SESSION / WORKTREE SETUP (read first):** this (Big Game) session works in the MAIN tree
 `/Users/victoriakofman/CLAUDE CODE/Domino` on branch `work/cardmaker-rowcopy`; a parallel STUDIO session
 owns `pm-studio-DrV.html` in its own worktree `../Domino-studio` (`work/studio`). **Before every ship:**
 `git fetch origin && git rebase origin/claude/review-project-docs-JOOeh`, THEN `bash scripts/ship.sh "msg"`
 (or `… -- <paths>`). See the **"WORKTREE ISOLATION — LIVE"** + **"TWO-SESSION PROTOCOL"** sections at the
-top of this file. **Latest tip: `3fdc69b`.** Big Game feature work (Composer `biggame.html` + Previewer
-`index.html` + `js/game.js`) is functionally COMPLETE through 3e + the Play/Scan toggle; 3f (Publish) is
-the only deferred Phase-3 item (needs a definition — what "publish" produces, live-vs-snapshot art).
+top of this file. **Latest tip: `647ed58`.** Cache-busters: css `dgx-redesign-84`, game.js `biggame-flow-5`,
+sync.js `local-wins-9`.
+
+### ✅ Device-Preview feature — COMPLETE (June 18). Full detail in the "##### Device preview …" sub-sections below.
+On GP 0's "Choose the game:" line, a **device selector** (iPhone · iPhone 17 Pro · iPad · iPad Pro 12.9″ ·
+Chromebook) makes any game tile (mini-game OR Big Game) launch inside a **scaled `<iframe>` sized to that
+device** (`_bgOpenDeviceFrame`), in the orientation from the matrix (phone 1P portrait/2P landscape; tablet
+1P portrait-or-landscape via ↻ rotate / 2P landscape; laptop always landscape). TOUCH-mode only. Bordered
+"cradle" with the ✕ on the border; Escape closes; ▶ Play (in the per-game Mini-games popup) goes straight to
+the device board. Mini-game launch via `?playGame=<id>&players=&legend=`; Big Games via `?playBig=…`. Device
+prefs are device-local (`vica_bg*` + `vica_inputMode` exempt from sync wipe in `sync.js`). The Find board was
+re-laid-out per device (title = game name w/ concrete name on its own line, page name → bottom box on all
+device previews via `body.bg-preview-frame`, status box = yellow-box width, etc.) and the **iPad/iPad-Pro
+Find dominoes are sized per player count** (see the domino table in the sub-sections — iPad/Pro portrait &
+landscape get +40% 1P / +20% 2P; Chromebook unchanged; iPhone has its own phone-portrait block).
+
+**OPEN ITEMS:**
+- **3f (Publish)** — still deferred; needs a definition (what "publish" produces, live-vs-snapshot art).
+- **2P/3P Big Games run single-player** — composed-stage launch (`_bgEnsureFindPlayer`) ignores the count;
+  a spawned follow-up task exists. 2P mini-games (Catch, and Find as "Va | Player 2") DO run as 2P.
+- **▶ play-triangle icons** are a TRIAL on the Find end-game buttons only (gold ▶ / sparkly purple ▶ for New
+  Game). NOT yet rolled out to the Catch board / static `.controls` buttons — awaiting the user's OK.
+- **Cache gotcha:** `index.html` IS no-cache, but a bumped `style.css?v=` can sit stale if it was fetched
+  during the earlier preview-server/worktree glitch — bump the `?v=` to force a fresh fetch (did v82→v83→v84).
 - **Play/Scan toggle (DONE, June 17)**: GP 0 Big Games column, under the Composer button. PLAY = advance
   on the composed gem rule (1 gem); SCAN = advance after ~3 coins/stage (rapid preview). `window._bgPlayMode`
   (persisted `vica_bgPlayMode`); `window._bgScanMode` set at launch; Find via `addCoins`→`_bgScanCoins`,
@@ -268,9 +431,125 @@ CSS: `.end-game-btn-icon` (inline-flex centering) + `.end-game-btn-new` (gradien
 - **Equal spacing in "Press to select"**: "Press→to" was 10px (`.hint-press-left` padding-right) + 6px
   (column-gap) + 10px (`.hint-select-right` padding-left) = 26px vs the ~6px "to→select" text space. Fix
   (phone block): zero those two paddings; `column-gap:6px` already ≈ one space (6.09px @1.3rem) → equal.
-- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` (≈ −15px).
-- Verified iPhone 390×844: paddings 0, Press→to gap = 6px, margin-top −15.1px; no new console errors (only
-  the pre-existing Firebase-offline ones). css `dgx-redesign-63`.
+- **Block nudged up**: `.sun-level-tiles-container{margin-top:-4mm}` → later `-6mm` (2mm higher, June 18).
+- **"double" label moved under "select"**: base `.domino-double-label{top:-40px}` floated it ABOVE its card,
+  landing it on top of the "select" word in the one-line hint. Phone-block override `top:-6px` drops it to
+  just BELOW "select" (over the top of the double card). Verified doubleLabel.y ≥ select.bottom.
+- Verified iPhone 390×844: paddings 0, Press→to gap = 6px; hint margin −6mm; "double" under "select"; no
+  new console errors (only the pre-existing Firebase-offline ones). css `dgx-redesign-66`.
+- **Follow-up nudges (June 18):** "double" 3mm higher (`.domino-double-label{top:-6px→-17px}`); "Press to
+  select" 3mm higher + 3mm left via `transform:translate(-3mm,-3mm)` on `.hint-press-left`/`.hint-select-right`
+  (visual only — cards stay centered). Verified: hint x117/y127 (was 128/139), double y154 (was 165), still
+  under select. css `dgx-redesign-67`.
+- **+1mm more (June 18):** `.domino-double-label{top:-17px→-21px}` → double y150 (just under "select").
+  css `dgx-redesign-68`.
+
+##### Game name → TITLE at top; page name stays in bottom box (June 18)
+The earlier "page name to bottom" change fixed the WHOLE `.board-id-bar` (page label + game name) to the
+bottom, so the game name "Find the doubles…" wrongly sat in the page-name box. Fix (phone block): the
+**game name is the title at the TOP** and only the **editable page name** drops to the bottom box.
+- `#board-id-bar` back in normal flow at the top (`margin:6px auto 12px 100px; max-width:calc(100% - 112px)`)
+  → it pushes the yellow box + play buttons + xeno box DOWN to fit; left-margin 100 clears the back/home
+  buttons (title starts x105 > home right 97).
+- `.board-id-game::before{content:none}` (drop the "·") + `.board-id-bar .board-id-game{font-size:1.5rem;
+  font-weight:700}` so it reads as a title.
+- `#board-page-label{position:fixed;bottom:2cm;left:50%;translateX(-50%)}` + pill bg → the page name box at
+  the bottom shows just "GPt F1 Board".
+- Verified iPhone 390×844: title "Find the doubles:" at top (clears buttons), yellow box at y188 (shifted
+  down), page-name pill at y741. css `dgx-redesign-70`.
+
+##### Yellow box width = pink box + dominoes +12% (June 18)
+- **Yellow box (`.player-hand`) narrowed to match the pink Xeno box**: everything (main/players-area/hand)
+  is 380px; the pink box only LOOKS 365 (its `scaleX(0.96)`). So `.player-hand{width:96%;margin-inline:auto}`
+  → 365, centered in the 380 grid cell. Verified: yellow x13/w365/r377 == pink x13/w365/r377 (aligned).
+- **Dominoes +12%** (38×75 → 43×84): `#game-screen .domino.vertical{width:43px;height:84px}` — the
+  `#game-screen` prefix raises specificity so it beats the later `max-height:900 portrait` rule (which also
+  matches at 390×844 and otherwise re-sets 38×75). css `dgx-redesign-72`.
+
+##### Title 2-line (type / concrete name) aligned with home (June 18)
+- **Concrete name on its own line:** `_gpFillGameName` now wraps the text after the first ":" in a
+  `<span class="board-id-name">` ("Find the doubles:" / "Match 0-4"). Inline by default (desktop = one
+  line); phone CSS `.board-id-name{display:block}` → second line.
+- **Title lowered to align line 1 with the home button:** `#board-id-bar{margin:30px auto 12px 100px;
+  position:relative; top:16px; line-height:1.15}`. The board's top section (title + absolute back/home)
+  move together via margin-collapse, so the shared margin can't close the line1↔home gap — the `top:16px`
+  relative shift moves ONLY the title down onto the home row. Verified line1 center 69 == home center 69.
+- Taller 2-line title + margin push the status/yellow box/buttons/xeno DOWN ("everything else lower").
+  Verified iPhone 390×844; no scrollbar. css `dgx-redesign-76`.
+
+##### Page name → bottom box on ALL device previews (iPad/Chromebook/iPhone) (June 18)
+The iPhone treatment (page name fixed to the bottom, game name = title) was phone-only (`max-width:430`).
+Extended to iPad + Chromebook previews: the deep-link hook now adds `document.body.classList.add('bg-preview-frame')`
+when in a device-preview iframe, and CSS `body.bg-preview-frame #board-page-label{position:fixed;bottom:2cm;
+left:50%;translateX(-50%); + pill bg}` drops the editable page name to the bottom as its own box on EVERY
+preview device; `body.bg-preview-frame .board-id-game::before{content:none}` hides the now-orphaned "·".
+Scoped to the preview frame only (set via `_bgInPreviewFrame`), so the real desktop player is untouched
+(important since Chromebook 1366×768 == a common desktop size). Verified: iPad portrait page label y1077
+(~2cm up), Chromebook y665 (~2cm up), game name as the top title; iPhone unchanged. css `dgx-redesign-79`.
+
+##### iPad dominoes +40% (June 18)
+iPad single-player Find board: dominoes enlarged 40%. The iPad-PORTRAIT media query
+(`min-width:768px and max-width:1024px and orientation:portrait`) `.domino.vertical` 65×130 → **91×182**.
+This query targets iPad/iPad-Pro portrait (incl. the 820×1180 preview) and NOT Chromebook (landscape), so
+Chromebook is unaffected. Verified iPad portrait preview: domino 91×182, fits the board. css `dgx-redesign-80`.
+##### iPad dominoes — per-player-count sizing (June 18)
+User: +40% is right for 1 player; 2 players need a smaller increase. Key realization: on iPad, 1P is
+PORTRAIT and 2P is LANDSCAPE (orientation matrix), and `renderSunLevel` already adds
+`#players-area.single-player-layout` for 1 player — so no new hook is needed (reverted the earlier
+`body.board-players-N` stamp attempt; game.js back to `biggame-flow-5`).
+- iPad **portrait** (always 1P): `.domino.vertical` 91×182 (+40%) — unchanged from above.
+- iPad **landscape** (NEW block `min-width:768 and max-width:1280 and max-height:850 and landscape` — the
+  `max-width:1280` EXCLUDES Chromebook 1366): `#players-area.single-player-layout .domino.vertical` =
+  77×154 (1P +40%, for the rotate case); `#players-area:not(.single-player-layout) .domino.vertical` =
+  66×132 (2P +20%).
+- Verified: iPad portrait 1P 91×182; iPad landscape 2P 66×132 (2P Find runs as "Va | Player 2", cards fit);
+  Chromebook 55×110 UNCHANGED; iPhone unchanged. css `dgx-redesign-82`.
+- **iPad PRO landscape added (June 18):** it was the one gap — iPad Pro landscape is 1366×1024, which fell
+  outside the iPad-landscape block (`max-width:1280` excluded it as it shares the 1366 width with Chromebook)
+  AND outside `max-height:850`, so it sat at base 75×150. NEW block `@media (min-width:1281px) and
+  (min-height:900px) and (orientation:landscape)` — `min-height:900` separates iPad Pro (1024 tall) from
+  Chromebook (768 tall): 1P `single-player-layout` 105×210 (+40% of 75), 2P 90×180 (+20%). iPad Pro PORTRAIT
+  already got 91×182 via the `max-width:1024 portrait` rule. Verified: iPad Pro portrait 1P 91×182, iPad Pro
+  landscape 2P 90×180, Chromebook 55×110 still unchanged. css `dgx-redesign-84` (v83 was a no-content
+  cache-bust to flush a stale v82).
+##### Title redo — buttons stay, name-only 2nd row, no colon (June 18, corrections)
+User feedback on the above: the home/back buttons must NOT move; row 2 = only "Match 0-4" (no glyphs);
+no ":" after "Find the doubles".
+- **Buttons no longer move**: dropped the title `margin-top` (it collapsed through `#game-screen` and
+  dragged the absolute back/home buttons down). Now `#game-screen{padding-top:15px}` pushes the title +
+  content down WITHOUT moving the absolute buttons (top:15 is relative to the padding box, unaffected by
+  padding-top). Verified home stays at y20; line1 center 39 == home center 39 (aligned).
+- **No colon + name-only 2nd row**: `_gpFillGameName` now (a) removes the cloned `.subtitle-mode-glyph`
+  /`.subtitle-player-glyph` decorations, and (b) splits at the first ":" keeping line 1 WITHOUT the colon
+  (`slice(0,ci)`); the concrete name goes in `.board-id-name`. Inline/desktop re-adds ":\00a0" via
+  `.board-id-name::before`; phone sets `content:none` + `display:block` → "Find the doubles" / "Match 0-4".
+- Verified iPhone 390×844: titleText "Find the doublesMatch 0-4" (line1 no colon, line2 name only),
+  glyphs 0, buttons at top, no scrollbar. css `dgx-redesign-78`.
+##### Status box = yellow width + coin/domino gap + edge-flicker fix (June 18)
+- **Status box width = yellow box, ONE line**: `.status` (phone) → `width:96%; margin-inline:auto;
+  text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (dropped the old
+  `margin-left:100px` — it now sits BELOW the top title, clear of the back/home buttons). Verified
+  x13/w365/r377 == yellow box; "⏰ Game over! Time's up! Try again!" on one line (h37 = 1 line + padding).
+- **Coins/dominoes overlap (post-win)**: the tall coin/gem reward column sits on line 1 above the (now
+  bigger) dominoes; only ~6px separated them. `.coin-gem-display.coin-gem-inline{margin-bottom:12px}` →
+  gap 18px, no overlap. Targeted: pre-win the column is empty so Press/select still set the line height
+  (hint spacing unchanged).
+- **"Edge of the picture flickers"**: the preview iframe had a spurious vertical scrollbar
+  (`scrollHeight 844 > clientHeight 829`) that toggled on/off at the edge (board content is only 737, so it
+  fits — the overflow was min-height:100vh + margins ~1px over). Fix in `_bgOpenDeviceFrame`: on iframe
+  `load`, set `documentElement/body overflowY:hidden` (DEVICE-FRAME PREVIEW ONLY — real devices untouched).
+  Verified `hasVScroll:false` after. css `dgx-redesign-73`.
+
+##### Player-toggle figure +15% & win-stage overlap fix (June 18)
+- **Player-count toggle middle stick-figure +15%**: `.intro-player-toggle .player-thumb-fig{height:13px→15px}`
+  (verified 15px). 
+- **WIN stage overlap (iPhone)**: the winner gold box (`.player-hand` holding `.sun-level-winner-section`)
+  sat at top:45px while the back/home buttons reach 58px → ~13px overlap. It sits high because the win hand
+  lacks the "Va" player-name row the play hand has. Fix (phone block):
+  `#players-area:has(.sun-level-winner-section){margin-top:11mm}` pushes the winner box + play buttons + xeno
+  box down so the box clears the buttons. **NOTE:** user asked for 6mm, but 6mm left the box top at 45 (still
+  under the 58px buttons); ~11mm (≈ the missing row height) was needed to actually remove the overlap —
+  verified handTop 64 > homeBottom 58 (`cleared:true`). css `dgx-redesign-65`.
 
 #### Device-frame UX round-2 (June 18) — direct play, Escape, bordered cradle + ✕
 Three refinements to the device-preview modal (`_bgOpenDeviceFrame`):

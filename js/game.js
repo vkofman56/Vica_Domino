@@ -1031,9 +1031,13 @@ class VicaDominoGame {
         // Truly missing — recreate. The Catch interceptor uses document-
         // level delegation now, so a fresh node still gets intercepted.
         btn = document.createElement('button');
-        btn.className = 'btn btn-primary';
+        btn.className = 'btn btn-primary play-ico-btn play-ico-new';
         btn.id = 'start-game-btn';
-        btn.textContent = 'Start Game';
+        // Sparkly play-triangle icon (matches the static Start Game button in
+        // index.html). aria-label/title keep it accessible without a text label.
+        btn.setAttribute('aria-label', 'Start game');
+        btn.title = 'Start game';
+        btn.innerHTML = '<svg class="egb-ico" viewBox="0 0 30 24" width="38" height="30" aria-hidden="true"><path d="M7 5 L18 12 L7 19 Z" fill="currentColor"/><path d="M23 3 l1 2.6 2.6 1 -2.6 1 -1 2.6 -1 -2.6 -2.6 -1 2.6 -1 z" fill="#FFD54F"/><path d="M20.5 15 l.7 1.7 1.7 .7 -1.7 .7 -.7 1.7 -.7 -1.7 -1.7 -.7 1.7 -.7 z" fill="#FFE082"/></svg>';
         btn.addEventListener('click', () => this.startGame());
         playerNamesDiv.appendChild(btn);
         console.warn('[Setup] Start Game button was missing — recreated.');
@@ -1825,19 +1829,35 @@ class VicaDominoGame {
         // Deal to each player: 1 double + (numCards-1) non-doubles
         this.players.forEach(player => {
             player.hand = [];
+            // Deal diversity (user rule for Find): avoid showing the same value in
+            // the same position — e.g. two "36" on TOP, or commutative twins like
+            // 4×6 / 6×4 that share a value. Track values already placed on TOP
+            // (leftValue) and BOTTOM (rightValue); prefer cards that don't repeat
+            // them. "When possible": relax progressively if the deck can't satisfy it.
+            const usedTop = new Set();
+            const usedBottom = new Set();
             // Add 1 double
             if (availableDoubles.length > 0) {
                 const dbl = availableDoubles.pop();
                 player.hand.push(dbl);
                 thisRoundDoubles.push(dbl.id);
+                usedTop.add(dbl.leftValue);
+                usedBottom.add(dbl.rightValue);
             }
-            // Add (numCards-1) non-doubles
+            // Add (numCards-1) non-doubles, preferring distinct top & bottom values.
             for (let i = 0; i < numCards - 1; i++) {
-                if (availableNonDoubles.length > 0) {
-                    const nd = availableNonDoubles.pop();
-                    player.hand.push(nd);
-                    thisRoundNonDoubles.push(nd.id);
-                }
+                if (availableNonDoubles.length === 0) break;
+                // 1st choice: both top AND bottom value unused; then either; then any.
+                let idx = availableNonDoubles.findIndex(c =>
+                    !usedTop.has(c.leftValue) && !usedBottom.has(c.rightValue));
+                if (idx < 0) idx = availableNonDoubles.findIndex(c =>
+                    !usedTop.has(c.leftValue) || !usedBottom.has(c.rightValue));
+                if (idx < 0) idx = availableNonDoubles.length - 1;
+                const nd = availableNonDoubles.splice(idx, 1)[0];
+                player.hand.push(nd);
+                thisRoundNonDoubles.push(nd.id);
+                usedTop.add(nd.leftValue);
+                usedBottom.add(nd.rightValue);
             }
             // Shuffle the hand so double isn't always in same position
             this.shuffleArray(player.hand);
@@ -1901,19 +1921,34 @@ class VicaDominoGame {
         // the user set in Studio. Locked dominoes pass through unchanged.
         if (window.customGameFlipEnabled) {
             this.players.forEach(player => {
+                // Diversity-aware flip: instead of an independent coin-flip per card
+                // (which could put the same value on two TOPs again), choose the
+                // orientation that avoids repeating a value already on TOP or BOTTOM.
+                // Ties (both orientations equally good) stay random for variety.
+                const usedTop = new Set();
+                const usedBottom = new Set();
                 player.hand = player.hand.map(card => {
-                    if (card._lockHalves) return card;
-                    if (Math.random() < 0.5) {
-                        // Flip: swap left/right
-                        return {
-                            ...card,
-                            left: card.right,
-                            right: card.left,
-                            leftValue: card.rightValue,
-                            rightValue: card.leftValue
-                        };
+                    const flipped = card._lockHalves ? null : {
+                        ...card,
+                        left: card.right,
+                        right: card.left,
+                        leftValue: card.rightValue,
+                        rightValue: card.leftValue
+                    };
+                    const conflicts = c =>
+                        (usedTop.has(c.leftValue) ? 1 : 0) + (usedBottom.has(c.rightValue) ? 1 : 0);
+                    let chosen;
+                    if (!flipped) {
+                        chosen = card;                         // locked — can't flip
+                    } else {
+                        const co = conflicts(card), cf = conflicts(flipped);
+                        chosen = (cf < co) ? flipped
+                               : (co < cf) ? card
+                               : (Math.random() < 0.5 ? card : flipped);  // tie → random
                     }
-                    return card;
+                    usedTop.add(chosen.leftValue);
+                    usedBottom.add(chosen.rightValue);
+                    return chosen;
                 });
             });
         }
@@ -2752,6 +2787,14 @@ class VicaDominoGame {
                     }
                 }
 
+                // Keyboard hints (the 1/2/3/4 etc. UNDER each domino) tell the
+                // player which key maps to which card — useful only in MOUSE
+                // mode. In touch mode they tap, so the keys are hidden. Find
+                // boards read the mode from _findInputMode (same source as the
+                // board label). This replaces the old "2-player only" gate: now
+                // 1-player MOUSE also shows keys, and 2-player TOUCH does not.
+                const _isMouseMode = (typeof _findInputMode !== 'undefined') && _findInputMode === 'mouse';
+
                 // Show coin/gem display left of "Press"
                 const coinGemDiv = document.createElement('div');
                 coinGemDiv.className = 'coin-gem-display coin-gem-inline';
@@ -2759,8 +2802,13 @@ class VicaDominoGame {
                 this.buildCoinGemHTML(coinGemDiv, player.id);
                 tilesContainer.appendChild(coinGemDiv);
 
-                // Add "Press" label: hide for 1-player after Win0, hide for 2+ players after Win1
-                const showPressLabels = numCards > 0 && (
+                // Show the "Press … to select" hint only in MOUSE mode (it pairs
+                // with the 1/2/3/4 key hints). In TOUCH mode the player just taps
+                // the domino and the top banner already says "Select double by
+                // pressing it", so the hint is redundant — hidden on all screens.
+                // Within mouse mode it still fades: hide for 1-player after Win0,
+                // for 2+ players after Win1.
+                const showPressLabels = numCards > 0 && _isMouseMode && (
                     this.players.length >= 2
                         ? (this._multiPlayerWins || 0) < 2
                         : (this._singlePlayerWins || 0) < 1
@@ -2808,8 +2856,9 @@ class VicaDominoGame {
                         dominoWrapper.appendChild(dblLabel);
                     }
 
-                    // Add key label under this domino (2-player only; hide from Win2 onward)
-                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && this.players.length >= 2 && (this._multiPlayerWins || 0) < 2) {
+                    // Add key label under this domino — MOUSE mode only, shown
+                    // while the "Press" hint shows (1P: until Win1; 2P: until Win2).
+                    if (this.gamePhase === 'sunLevel' && keys && keys[cardIndex] && _isMouseMode && showPressLabels) {
                         const keyLabel = document.createElement('span');
                         keyLabel.className = 'key';
                         keyLabel.textContent = keys[cardIndex];

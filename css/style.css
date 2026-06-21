@@ -262,11 +262,26 @@ body {
     align-items: center;
     justify-content: center;
 }
+/* The stick-figure stays CENTERED on the track at all times (it no longer
+   rides inside the thumb). For 1 player it sits inside the centered white
+   circle (dark figure); for 2/3 the empty circle slides off to the side and
+   the figure turns white so it reads on the colored track. */
 .intro-player-toggle .player-thumb-fig {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     height: 15px;   /* +15% (was 13px) — bigger middle stick-figure */
     width: auto;
     display: block;
+    z-index: 2;     /* above the sliding circle */
+    stroke: #555;   /* dark — reads on the white circle (1 player) */
 }
+.intro-player-toggle .player-thumb-fig circle { fill: #555; }
+.intro-player-toggle[data-players="2"] .player-thumb-fig,
+.intro-player-toggle[data-players="3"] .player-thumb-fig { stroke: #fff; }
+.intro-player-toggle[data-players="2"] .player-thumb-fig circle,
+.intro-player-toggle[data-players="3"] .player-thumb-fig circle { fill: #fff; }
 .intro-player-toggle[data-players="1"] .intro-input-toggle-track {
     background: rgba(255, 167, 38, 0.6);   /* amber — 1 player */
 }
@@ -336,7 +351,7 @@ body {
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
-    margin-right: auto;        /* hug the heading; push the search to the right */
+    margin-left: auto;         /* push the device pills to the RIGHT; search sits on the left */
 }
 .ipd-btn {
     padding: 5px 11px;
@@ -586,9 +601,10 @@ body {
 /* GP 0: three-column game picker (Find / Catch / Spy) */
 .intro-columns {
     display: grid;
-    /* A narrower fixed "Miscellaneous" column on the left + one 1fr column per
-       game type. --game-cols is set by _renderIntroColumns() (defaults to 3). */
-    grid-template-columns: minmax(150px, 0.72fr) repeat(var(--game-cols, 3), 1fr);
+    /* One 1fr column per visible game type (incl. 'misc' when picked) plus the
+       Big Games column. --game-cols is set by _renderIntroColumns() (defaults
+       to 3). Misc is no longer a fixed leading track — it's a normal column. */
+    grid-template-columns: repeat(var(--game-cols, 3), 1fr);
     gap: 18px;
     margin-bottom: 10px;
 }
@@ -631,6 +647,13 @@ body {
     background: #FFD54F;
     color: #4a3a00;
     border-color: #FFD54F;
+}
+/* Orientation toggle labels are longer than Play/Scan — shrink + no-wrap so
+   "Landscape"/"Portrait" fit the half-width buttons. */
+.intro-biggame-orient .ibg-mode-btn {
+    font-size: 11px;
+    white-space: nowrap;
+    padding: 6px 2px;
 }
 .intro-biggame-tile {
     width: 100%;
@@ -909,7 +932,39 @@ body {
 .intro-game-row .intro-game-btn {
     flex: 1 1 auto;
     min-width: 0;
+    padding-right: 40px;   /* clear the inset eye/folder icons on the right */
 }
+/* Eye + mini-games(yellow) icons are INSET inside the game box (absolutely
+   positioned over its right edge), stacked vertically — eye on top, folder
+   under it — as plain icons with NO bordered box around them. */
+.intro-game-actions {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+}
+.intro-game-actions .intro-game-eye,
+.intro-game-actions .intro-game-mg {
+    flex: 0 0 auto;
+    width: auto;
+    border: none;          /* no border outside the eye / folder */
+    background: none;       /* no box fill — plain icon */
+    border-radius: 0;
+    padding: 1px;
+}
+/* Eye nudged up 1.5mm (folder stays put). */
+.intro-game-actions .intro-game-eye { transform: translateY(-1.5mm); }
+.intro-game-actions .intro-game-eye:hover,
+.intro-game-actions .intro-game-mg:hover {
+    background: none;
+    border-color: transparent;
+}
+.intro-game-actions .intro-game-eye:hover { transform: translateY(-1.5mm) scale(1.05); }
 .intro-game-eye {
     flex: 0 0 38px;
     border-radius: 12px;
@@ -930,6 +985,7 @@ body {
 }
 .intro-game-eye svg {
     display: block;
+    transform: scale(1.176);   /* eye icon +12% then +5% (1.12 × 1.05) */
 }
 
 /* Mini-games folder button (Phase 2c) — sits next to the eye on each game
@@ -954,22 +1010,18 @@ body {
     transform: scale(1.05);
     border-color: rgba(255,215,0,0.85);
 }
-.intro-game-mg svg { display: block; }
-.intro-game-mg-count {
+.intro-game-mg svg { display: block; transform: scale(1.513, 1.5735); }   /* width 1.513; height 4% taller (1.513 × 1.04); number is a separate span, unaffected */
+/* Count drawn over the folder, fixed size (NOT scaled with the folder icon). */
+.intro-game-mg-num {
     position: absolute;
-    top: -6px; right: -6px;
-    min-width: 16px; height: 16px;
-    padding: 0 3px;
-    border-radius: 8px;
-    background: #7c4dff;
+    top: 56%; left: 50%;
+    transform: translate(calc(-50% - 0.4mm), calc(-50% + 0.2mm));   /* number nudged 0.4mm left + 0.2mm down */
     color: #fff;
     font-size: 10px;
     font-weight: 700;
-    line-height: 16px;
-    text-align: center;
-    box-sizing: border-box;
+    line-height: 1;
+    pointer-events: none;
 }
-.intro-game-mg-count.zero { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.55); }
 
 /* Mini-games panel (anchored popover) */
 .mg-panel {
@@ -1216,18 +1268,18 @@ body {
    top so it never overlaps the header/HUD below; shrink-to-fit and centered.
    Readable on both the purple Find board and the dark Catch board. */
 .board-id-bar {
-    width: fit-content;
-    max-width: 86vw;
-    margin: 10px auto 12px;
-    padding: 6px 22px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    text-align: center;
+    /* Full-width row hosting TWO separate boxes: the editable page-name pill
+       pinned LEFT (next to the back/home icons) and the game-name title pill
+       CENTERED in the middle. (Was a single centered pill containing both, which
+       left a big gap between the home icon and the centered text.) */
+    width: 100%;
+    margin: 10px 0 12px;
+    padding: 0;
+    background: none;
+    text-align: center;          /* centers the title pill */
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     z-index: 95;
-    position: relative; /* sit above sibling backgrounds without leaving flow */
+    position: relative; /* anchor for the absolutely-pinned page-name pill */
 }
 /* Big Game play: the #bg-play-banner is a full-width row at the very top.
    Shift the Catch board down so it clears the banner, and move the board's
@@ -1237,7 +1289,14 @@ body {
    just push its CONTENT down below the banner and move the page-name pill left
    next to the back/home icons. */
 body.bg-playing .catch-game-overlay .board-id-bar {
-    margin: 50px auto 12px 96px;   /* down below banner + left next to icons */
+    margin: 50px 0 12px;   /* down below banner; page-name pill is pinned left by default */
+    /* In a Big Game the title (#board-id-game) is EMPTY (the banner names the
+       game), so this bar would collapse to height 0 — the absolutely-pinned
+       page-name pill then floats up and the HUD rides into the back/home icons
+       (overlap). Reserve a real row height so the pill sits in its own row and
+       the HUD drops below the icons. Sized to clear the enlarged big-screen
+       pill (mirrors the Find board's min-height fix). */
+    min-height: 48px;
 }
 /* The back/home icons are position:fixed (viewport-relative) — push them down
    below the banner explicitly so they sit on the page-name pill's row. */
@@ -1247,17 +1306,28 @@ body.bg-playing .catch-overlay-home { top: 50px; }
    banner (no margin-collapse), the page-name pill goes LEFT next to the icons,
    and the absolute back/home icons drop to the same row. */
 body.bg-playing #game-screen { padding-top: 40px; }
-body.bg-playing #game-screen #board-id-bar { margin: 0 auto 12px 96px; }
+/* In a Big Game the title (#board-id-game) is empty — the banner names the game
+   instead — so #board-id-bar collapses to height 0 and the status box rides up
+   into the back/home icons (overlap). Reserve the icon-row height so the status
+   always sits below the icons. (Mini-games fill the bar with a title, so they
+   never hit this.) */
+body.bg-playing #game-screen #board-id-bar { margin: 0 0 12px; min-height: 44px; }
 body.bg-playing #game-screen #back-arrow-btn,
 body.bg-playing #game-screen #home-btn-game { top: 40px; }
 /* The page-name label lives inside the bar now: drop its absolute corner
    positioning and render it inline next to the game name. Editing and
    persistence are unchanged (same id / gpKey / delegated handlers). */
 .board-id-bar .page-name-label {
-    position: static;
-    top: auto;
-    left: auto;
-    display: inline;
+    /* Its OWN box (pill), pinned left next to the back/home icons (which span
+       left 10–92px), vertically centered on the title row. */
+    position: absolute;
+    left: 96px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 6px 18px;
+    border-radius: 999px;
     z-index: auto;
     font-size: 24px;
 }
@@ -1265,7 +1335,15 @@ body.bg-playing #game-screen #home-btn-game { top: 40px; }
    a game name is present — an empty span collapses, leaving just the page
    name (e.g. before a game starts). */
 .board-id-game {
-    display: inline;
+    /* Its OWN centered box (pill) in the middle of the row. */
+    display: inline-block;
+    vertical-align: middle;
+    max-width: 86vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 6px 22px;
+    border-radius: 999px;
     font-size: 1.3rem;
     color: #fff;
     opacity: 0.95;
@@ -1273,11 +1351,13 @@ body.bg-playing #game-screen #home-btn-game { top: 40px; }
 .board-id-game:empty {
     display: none;
 }
+/* Separate boxes now — drop the "·" that used to join page name + title. */
 .board-id-game::before {
-    content: "·\00a0\00a0";
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: normal;
+    content: none;
 }
+/* The concrete name ("Match 0-4") is split into its own span (no colon in the
+   text). Inline (desktop) re-add the ": " separator; phone hides it (2nd line). */
+.board-id-name::before { content: ":\00a0"; }
 
 /* Input-mode glyph (✋ touch / 🖱 mouse) shown after the game name in the
    Game Preview subtitle, so the player can see which mode the toggle is in. */
@@ -1333,6 +1413,42 @@ body.bg-playing #game-screen #home-btn-game { top: 40px; }
 .setup-box-2 {
     background: rgba(126, 255, 126, 0.07);
     border-color: rgba(126, 255, 126, 0.28);
+}
+
+/* Legend + Start flex row at the bottom of Box 1. _renderStartSummary always
+   wraps the Legend here; in single-player setups it also moves #player-names
+   in (class .has-start) so the Start button sits to the RIGHT of the Legend,
+   bottom-aligned (align-items:flex-end). The button hugs the right edge via
+   margin-left:auto. 2P/Catch setups keep the button in Box 2 beside the name
+   inputs, so .has-start is absent and the Legend renders alone (as before). */
+.legend-start-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+.legend-start-row.has-start #selected-options-row {
+    flex: 0 0 auto;
+    width: auto;
+    /* Zero the top+bottom margins so the button centers on the Legend's
+       VISIBLE box (align-items:center centers margin boxes). */
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.legend-start-row.has-start #player-names {
+    display: block;
+    margin: 0 0 0 auto;
+}
+.legend-start-row.has-start #player-names > #name-inputs { margin: 0; }
+.legend-start-row.has-start #player-names > #start-game-btn { margin: 0; width: 240px; }
+
+/* The setup Start button sits on the purple setup panel, so the sparkly-purple
+   fill blended into the background. A crisp light border + drop shadow defines
+   its edge so it stands out without losing the praised sparkly look. Scoped to
+   the setup button (id) so the end-game / New Game buttons are unaffected. */
+#start-game-btn.play-ico-new {
+    border: 2px solid rgba(255, 255, 255, 0.92);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.32), 0 0 16px rgba(196, 150, 255, 0.45);
 }
 .setup-game-icon {
     display: flex;
@@ -6028,6 +6144,40 @@ body.group-edit-active .library-row-letter:hover {
     animation: nonstop-tick 1s ease-out infinite;
 }
 
+/* === Generic play-triangle icon buttons (rolled out everywhere from the
+   end-game trial) ===
+   Any button can carry .play-ico-btn to render an SVG ▶ triangle centered,
+   and .play-ico-new to get the sparkly "fresh game" look (purple bg + sparkles)
+   that distinguishes Start/New from a plain replay. Mirrors the .end-game-btn
+   icon styling but is not tied to the end-game container, so the setup Start
+   Game, the .controls New Game, the winner-modal Play Again, and the Catch
+   board's Play Again all share one look. */
+.play-ico-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.play-ico-btn .egb-ico { display: block; }
+.play-ico-btn.play-ico-new {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(135deg, #7c4dff 0%, #b06bff 60%, #d59bff 100%);
+    border: none;
+}
+.play-ico-btn.play-ico-new::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 18% 28%, rgba(255,255,255,0.95) 0 1.6px, transparent 2.4px),
+        radial-gradient(circle at 82% 38%, rgba(255,255,255,0.85) 0 1.3px, transparent 2.2px),
+        radial-gradient(circle at 64% 78%, rgba(255,255,255,0.8) 0 1.4px, transparent 2.2px),
+        radial-gradient(circle at 34% 72%, rgba(255,255,255,0.7) 0 1px, transparent 1.8px);
+}
+
 /* === Pause button + frozen-game overlay ===
    Pause button is hidden by default; visible only while a sun-level round
    is actively running. game.js toggles `body.game-round-running` on round-
@@ -7758,10 +7908,14 @@ main {
         padding: 12px;
     }
 
+    /* Portrait iPad / iPad Pro / Chromebook: match the iPad-Pro LANDSCAPE look —
+       big 105×210 dominoes, +50% title, +30% "double" (per user). */
     .domino.vertical {
-        width: 65px;
-        height: 130px;
+        width: 105px;   /* = iPad Pro landscape 1P */
+        height: 210px;
     }
+    .board-id-game { font-size: 1.95rem; }       /* title +50%, like landscape */
+    .domino-double-label { font-size: 1.105rem; } /* blinking "double" +30% */
 
     .dominoes-with-keys {
         gap: 15px;
@@ -7792,11 +7946,117 @@ main {
     }
 }
 
+/* iPad LANDSCAPE only (exclude Chromebook 1366 via max-width:1280): enlarge the
+   Find-board dominoes. iPad single-player CAN be landscape (rotate) → +40%; iPad
+   2-player IS landscape → a smaller +20% (more cards on screen). #players-area
+   gets .single-player-layout for 1 player (set in renderSunLevel), so we use it
+   to size per player count. Chromebook (1366) is excluded and stays at 55×110. */
+@media (min-width: 768px) and (max-width: 1280px) and (max-height: 850px) and (orientation: landscape) {
+    #players-area.single-player-layout .domino.vertical {
+        width: 77px;   /* iPad landscape, 1 player: +40% (was 55) */
+        height: 154px;
+    }
+    #players-area:not(.single-player-layout) .domino.vertical {
+        width: 66px;   /* iPad landscape, 2 players: +20% (was 55) */
+        height: 132px;
+    }
+}
+
+/* iPad PRO LANDSCAPE only (1366×1024). Shares its width with the Chromebook
+   (1366) but is TALLER (1024 vs 768), so min-height:900 targets iPad Pro and
+   excludes Chromebook. Base here is 75×150 → 1P +40% (105×210), 2P +20% (90×180). */
+@media (min-width: 1281px) and (min-height: 900px) and (orientation: landscape) {
+    #players-area.single-player-layout .domino.vertical {
+        width: 105px;  /* iPad Pro landscape, 1 player: +40% (was 75) */
+        height: 210px;
+    }
+    #players-area:not(.single-player-layout) .domino.vertical {
+        width: 90px;   /* iPad Pro landscape, 2 players: +20% (was 75) */
+        height: 180px;
+    }
+}
+
+/* Chromebook LANDSCAPE (1366×768) — was stuck at the base 55×110 (the iPad blocks
+   above exclude it: max-width:1280 drops it, and min-height:900 is iPad-Pro only).
+   Bump it to the iPad-Pro landscape size so the cards aren't tiny. min-width:1281
+   + max-height:850 + landscape targets Chromebook (1366×768) and excludes iPad
+   (≤1280 wide) and iPad Pro (≥900 tall). */
+@media (min-width: 1281px) and (max-height: 850px) and (orientation: landscape) {
+    #players-area.single-player-layout .domino.vertical { width: 105px; height: 210px; }
+    #players-area:not(.single-player-layout) .domino.vertical { width: 90px; height: 180px; }
+}
+
+/* ===== iPad / iPad Pro / Chromebook LANDSCAPE — Find board polish =====
+   One block for the three landscape device sizes (preview frames AND equivalent
+   real screens): iPad (1024–1194 wide), Chromebook (1366×768), iPad Pro
+   (1366×1024). min-width:1024 excludes phones; max-width:1366 excludes desktop
+   monitors (which the iPad-Pro height rule above would otherwise also catch). */
+@media (min-width: 1024px) and (max-width: 1366px) and (orientation: landscape) {
+    /* (1) Game title ("Find the doubles: …") +50% — 1.3rem → 1.95rem. */
+    .board-id-game { font-size: 1.95rem; }
+
+    /* (2) Push the status ("Game over! …") box DOWN 5mm; because it stays in
+       normal flow, every box below it (board / players / timer / buttons)
+       shifts down 5mm too, exactly as asked. */
+    .status { margin-top: 5mm; }
+
+    /* (3) Blinking "double" label +30% — 0.85rem → 1.105rem. */
+    .domino-double-label { font-size: 1.105rem; }
+
+    /* (4) "Press" + "to select" combined on ONE line to the LEFT of the dominoes
+       (they used to flank the dominoes). Flex order places both hint words
+       before the dominoes; the inner paddings are zeroed so they read as one
+       phrase. Dominoes stay on the same row (no flex-wrap). */
+    .sun-level-tiles-container { position: relative; }
+    /* "Press to select" (mouse mode only) is pinned at the left, OUT of the flex
+       flow, so it doesn't push the dominoes off-center. "Press" then "to select"
+       sit a word-space apart, vertically centered. The coin/gem counter stays IN
+       flow, so it sits right beside the dominoes (the two center together) rather
+       than stranded at the far left where "Press to select" used to be. */
+    .sun-level-tiles-container .hint-press-left {
+        position: absolute; left: 40px; top: 50%; transform: translateY(-50%);
+        padding-right: 0;
+    }
+    .sun-level-tiles-container .hint-select-right {
+        position: absolute; left: 102px; top: 50%; transform: translateY(-50%);
+        padding-left: 0;
+    }
+
+    /* Vertically center the DOMINO faces in the box. In mouse mode a key label
+       sits below each domino, so align-items:center (which centers the whole
+       domino+key column) leaves the domino ~27px high. Reserve the same height
+       ABOVE the domino (key 46px + 8px gap) so the face itself centers. Only
+       when a key is present — touch has no key and is already centered. */
+    .sun-level-tiles-container .domino-key-wrapper:has(.key) { padding-top: 54px; }
+}
+
 /* The Saved/sync badge only matters where synced data is EDITED (page names on
    GP 0 / Setup, and the Studio). Hide it on the PLAY boards — Find (#game-screen
    shown) and Catch (body.catch-active) — where there's no editing. All widths. */
 body:has(#game-screen[style*="display: block"]) #sync-status,
 body.catch-active #sync-status { display: none !important; }
+
+/* ===== Device-PREVIEW Find board: page name → its own box at the bottom =====
+   In any device-preview frame (iPhone / iPad / Chromebook), drop the editable
+   page-name pill to ~2cm above the bottom as its own box, leaving the game name
+   as the title at the top (the "·" separator is hidden since the page name is no
+   longer beside it). iPhone-portrait additionally restyles the title via the
+   max-width:430 block; this rule is what brings iPad/Chromebook in line. */
+body.bg-preview-frame #board-page-label {
+    position: fixed;
+    top: auto;          /* reset the board-bar's top:50% — with bottom set too it
+                           would stretch the pill into a tall box */
+    bottom: 2cm;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    z-index: 50;
+    font-size: 1rem;
+    background: rgba(255,255,255,0.12);
+    padding: 4px 16px;
+    border-radius: 999px;
+}
+body.bg-preview-frame .board-id-game::before { content: none; }
 
 /* ===== Phone-portrait Find board (e.g. iPhone "GPt F1 Board") =====
    Targets phone PORTRAIT widths only (landscape phone width > 430px is
@@ -7816,41 +8076,91 @@ body.catch-active #sync-status { display: none !important; }
         row-gap: 6px;
         max-width: 100%;
         box-sizing: border-box;
-        margin-top: -4mm;
+        margin-top: -6mm;
     }
     .coin-gem-display.coin-gem-inline { order: 0; }
-    .hint-press-left   { order: 1; padding-right: 0; }
-    .hint-select-right { order: 2; flex-basis: auto; text-align: left; padding-left: 0; }
+    /* "Press to select" shifted 3mm up + 3mm left (visual only — transform
+       doesn't move the cards, which stay centered on line 2). */
+    .hint-press-left   { order: 1; padding-right: 0; transform: translate(-3mm, -3mm); }
+    .hint-select-right { order: 2; flex-basis: auto; text-align: left; padding-left: 0; transform: translate(-3mm, -3mm); }
     .dominoes-with-keys { order: 3; flex-basis: 100%; justify-content: center; }
-    /* (2) Status line: narrower and starting to the RIGHT of the home button
-       (was a full-width centered bar underlapping the back/home buttons). */
+    /* (2) Status line: a box the width of the yellow box (centered), with the
+       informative text on ONE line (it now sits BELOW the top title, clear of the
+       back/home buttons, so it no longer needs the left offset it had before). */
     .status {
-        margin-left: 100px;
-        margin-right: 12px;
-        text-align: left;
+        width: 96%;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
         padding: 8px 14px;
         font-size: 1rem;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    /* (3) Move the editable page-name pill from the top to ~2cm above the
-       bottom of the screen (fixed to the device viewport — #game-screen itself
-       isn't full-height). */
-    #board-id-bar {
+    /* Coins/gem reward column sits ABOVE the dominoes after a win; give it clear
+       space so it never overlaps the (now larger) dominoes. */
+    .coin-gem-display.coin-gem-inline { margin-bottom: 12px; }
+    /* (3) Title = the game name. Line 1 ("Find the doubles", NO colon) aligns with
+       the home button; the concrete name ("Match 0-4") sits on its OWN 2nd line —
+       nothing else (glyphs dropped in JS). The back/home buttons must NOT move, so
+       we DON'T use margin-top on the title (that collapses through #game-screen and
+       drags the absolute buttons down). Instead #game-screen padding-top pushes the
+       title + everything below it down while the buttons stay put. */
+    #game-screen { padding-top: 15px; }
+    #board-id-bar { margin: 0 auto 12px 100px; max-width: calc(100% - 112px); line-height: 1.2; }
+    .board-id-game::before { content: none; }
+    .board-id-bar .board-id-game { font-size: 1.4rem; font-weight: 700; opacity: 1; }
+    .board-id-bar .board-id-name { display: block; font-size: 1.15rem; font-weight: 600; }
+    .board-id-name::before { content: none; }
+    #board-page-label {
         position: fixed;
+        top: auto;          /* reset the board-bar's top:50% so the pill isn't
+                               stretched between top and bottom */
         bottom: 2cm;
         left: 50%;
         transform: translateX(-50%);
         margin: 0;
         z-index: 50;
+        font-size: 1rem;
+        background: rgba(255,255,255,0.12);
+        padding: 4px 16px;
+        border-radius: 999px;
     }
     /* (4) Trim the pink "Xeno timer" box width by 4%. */
     .xeno-timer-box {
         transform: scaleX(0.96);
     }
-    /* (5) WIN stage only: the winner box sits high and overlaps the back/home
-       buttons. Push the players-area (winner box) + everything below it (play
-       buttons, xeno box) down 6mm. Scoped to the win state via :has(). */
+    /* (4b) The blinking "double" label floats 40px ABOVE its card (base CSS),
+       which lands it on top of the "select" word in the one-line hint. Lower it
+       so it sits just UNDER "select" (over the top of the double card). */
+    .domino-double-label {
+        top: -21px;   /* under "select", 3mm + 1mm higher (was -6px → -17px) */
+    }
+    /* (5) WIN stage only: the winner box sits high (it lacks the "Va" player-name
+       row the play state has) and its gold box overlapped the back/home buttons
+       by ~13px. Push the players-area (winner box) + everything below it (play
+       buttons, xeno box) down so it fully clears the buttons. 6mm wasn't enough
+       (box top still under the buttons); ~11mm ≈ the missing row's height clears
+       it. Scoped to the win state via :has(). */
     #players-area:has(.sun-level-winner-section) {
-        margin-top: 6mm;
+        margin-top: 11mm;
+    }
+    /* (6) Narrow the yellow box (.player-hand) to match the pink Xeno box width.
+       Everything (main/players-area/hand) is 380px; the pink box only LOOKS 365
+       because of its scaleX(0.96). So make the yellow box 96% (= 365), centered
+       in its 380 grid cell — matches the pink with no card distortion. */
+    .player-hand {
+        width: 96%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    /* (7) Dominoes +12% (38×75 → 43×84). Higher specificity (#game-screen) so it
+       beats the later max-height:900 portrait rule that also matches here. */
+    #game-screen .domino.vertical {
+        width: 43px;
+        height: 84px;
     }
 }
 
@@ -8318,7 +8628,21 @@ body.catch-active #sync-status { display: none !important; }
     width: 26px;
     height: 26px;
     font-size: 20px;
+    flex-shrink: 0;
     animation: sparkle-gem 1.5s ease-in-out infinite;
+}
+/* Gems stacked vertically (column-reverse → newest at the bottom), wrapping to
+   a new column past _CATCH_GEMS_PER_COL. Mirrors the coin-columns layout. */
+.gem-columns {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+}
+.gem-column {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 1px;
 }
 .gem-icon.gem-new {
     animation: gem-pop-in 0.6s ease-out, sparkle-gem 1.5s ease-in-out 0.6s infinite;
@@ -8469,11 +8793,15 @@ body.catch-active #sync-status { display: none !important; }
     text-align: center;
 }
 .celebration-title {
-    font-size: 3.5rem;
+    /* Scales down on phones so "Congratulations!" fits (was a fixed 3.5rem that
+       overflowed iPhone/iPhone Pro); stays 3.5rem on tablets/desktop (≥700px). */
+    font-size: clamp(1.9rem, 8vw, 3.5rem);
     color: #FFD700;
     text-shadow: 0 0 20px #FFD700, 0 0 40px #FFA500;
     animation: celebration-glow 1s ease-in-out infinite alternate;
     margin-bottom: 10px;
+    max-width: 100%;
+    overflow-wrap: break-word;
 }
 .celebration-subtitle {
     font-size: 1.5rem;
@@ -8886,7 +9214,11 @@ body.catch-active #sync-status { display: none !important; }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 20px 10px 100px;
+    /* Left padding was 100px (to clear the back/home icons when the HUD sat at
+       the very top). The board-id bar now sits above the HUD, so pull the row —
+       starting with the player icon — close to the left edge. The pause button
+       is lifted out of this row entirely (see .catch-hud .catch-pause-btn). */
+    padding: 10px 16px 10px 12px;
     background: rgba(0,0,0,0.3);
     color: white;
     font-size: 1rem;
@@ -8901,10 +9233,14 @@ body.catch-active #sync-status { display: none !important; }
 .catch-hud-lives {
     font-size: 1.3rem;
     letter-spacing: 4px;
+    white-space: nowrap;   /* hearts stay on one line, never wrap to 2 rows */
+    flex-shrink: 0;
 }
 .catch-hud-round {
     color: #aaa;
     font-size: 0.9rem;
+    white-space: nowrap;   /* "Run N" stays on one line, never wraps */
+    flex-shrink: 0;
 }
 .catch-back-btn {
     background: none;
@@ -8937,6 +9273,19 @@ body.catch-active #sync-status { display: none !important; }
 }
 .catch-pause-btn:hover { background: rgba(255,255,255,0.3); }
 .catch-pause-btn svg { display: block; }
+/* Lift the in-game pause out of the HUD row up to the back/home icon line,
+   pinned to the very right of the screen (mirror of .catch-overlay-back/home,
+   which are left:10px / left:54px at top:15px). Scoped to .catch-hud so the
+   2-player pause — also in .catch-hud — moves with it; the per-zone 2P chrome
+   is unaffected. In a Big Game the icons drop to top:50px (below the banner),
+   so the pause follows. */
+.catch-hud .catch-pause-btn {
+    position: fixed;
+    top: 15px;
+    right: 10px;
+    z-index: 10001;
+}
+body.bg-playing .catch-hud .catch-pause-btn { top: 50px; }
 
 /* Catch pause overlay: covers the in-game catch overlay while paused.
    Tap anywhere on it to resume — the resume handler also clears the
@@ -9084,6 +9433,15 @@ body.catch-active #sync-status { display: none !important; }
     font-weight: bold;
     font-size: 1rem;
 }
+/* Big-screen devices (iPad / iPad Pro / Chromebook): the HUD text + player
+   icon are sized for phones by default — scale them up here. Added by JS as
+   .catch-dev-big on the overlay (see openCatchPlayModal). The player icon is
+   1.5em, so bumping .catch-hud-player enlarges icon + name together. */
+.catch-dev-big .catch-hud-player { font-size: 1.6rem; }
+.catch-dev-big .catch-hud-round  { font-size: 1.45rem; }
+.catch-dev-big .catch-hud-lives  { font-size: 2rem; }
+.catch-dev-big .board-id-bar .page-name-label { font-size: 30px; }
+.catch-dev-big .board-id-game { font-size: 2.1rem; }
 .catch-2p-hud {
     display: flex;
     justify-content: space-between;
@@ -9092,7 +9450,7 @@ body.catch-active #sync-status { display: none !important; }
     font-size: 0.95rem;
     color: #fff;
 }
-.catch-2p-lives { letter-spacing: 1px; color: #FF5252; }
+.catch-2p-lives { letter-spacing: 1px; color: #FF5252; white-space: nowrap; }
 .catch-2p-coins { color: #FFD54F; font-weight: bold; }
 .catch-2p-zone {
     position: relative;
@@ -9140,6 +9498,7 @@ body.catch-active #sync-status { display: none !important; }
     margin-top: 8px;
     font-size: 0.85rem;
     color: rgba(255,255,255,0.7);
+    white-space: nowrap;
 }
 /* Narrow screens: stack zones vertically with target between (or above). */
 @media (max-width: 700px) {
@@ -9185,6 +9544,14 @@ body.catch-active #sync-status { display: none !important; }
     width: 100%;
     height: 100%;
 }
+/* Phones (e.g. iPhone): the 140px target overflows the 30%-wide left panel.
+   Shrink it to the floating-card size (90px) and tighten the panel/label so it
+   fits. */
+@media (max-width: 480px) {
+    .catch-static-panel { padding: 10px 6px; }
+    .catch-static-card { width: 90px; height: 90px; }
+    .catch-static-label { font-size: 0.72rem; letter-spacing: 1px; margin-bottom: 8px; }
+}
 
 /* Right panel - falling area */
 .catch-falling-area {
@@ -9203,6 +9570,9 @@ body.catch-active #sync-status { display: none !important; }
     border: 2px solid #ccc;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     cursor: pointer;
+    /* Immediate tap response + no double-tap-zoom; helps simultaneous
+       multitouch taps (2-player) register without gesture delay. */
+    touch-action: manipulation;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -9270,15 +9640,31 @@ body.catch-active #sync-status { display: none !important; }
     font-size: 1.5rem;
     margin-bottom: 30px;
 }
+/* Flex row so Play (▶) and Exit line up centered, same baseline. */
+.catch-gameover-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 4px;
+}
 .catch-gameover-btn {
     background: linear-gradient(135deg, #4caf50, #45a049);
     color: white;
     border: none;
-    border-radius: 8px;
-    padding: 14px 36px;
+    border-radius: 10px;
+    padding: 0 28px;
     font-size: 1.1rem;
+    font-weight: 600;
     cursor: pointer;
-    margin: 6px;
+    /* Equal-size pills, content centered — so the ▶ Play button and the Exit
+       text button are the same width & height and align cleanly. */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 132px;
+    height: 52px;
+    box-sizing: border-box;
 }
 .catch-gameover-btn:hover {
     background: linear-gradient(135deg, #66bb6a, #4caf50);
@@ -9295,6 +9681,15 @@ body.catch-active #sync-status { display: none !important; }
 .catch-gameover-btn.nonstop-countdown {
     font-variant-numeric: tabular-nums;
     animation: nonstop-tick 1s ease-out infinite;
+}
+
+/* Phones: Game Over sits over the (narrow) falling area, so shrink the Play/Exit
+   pills to fit side-by-side without clipping. Placed AFTER the base rules above
+   so it wins on equal specificity. */
+@media (max-width: 480px) {
+    .catch-gameover h2 { font-size: 2rem; }
+    .catch-gameover-actions { gap: 10px; }
+    .catch-gameover-btn { min-width: 110px; height: 48px; padding: 0 10px; font-size: 0.95rem; }
 }
 
 /* Missed flash */

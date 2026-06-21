@@ -698,7 +698,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:36 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -716,7 +716,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:36 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -958,7 +958,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:32 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:36 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1039,7 +1039,9 @@
                     <button class="zoom-btn" id="game-view-add-card-btn" onclick="openAddCardToGame()" title="Set: pick cards from your card sets to add to this game." style="font-size:12px;color:#7eff7e;font-weight:bold;">Sets</button>
                     <button class="zoom-btn" id="game-view-add-game-btn" onclick="openAddGameToGame()" title="Game: pick cards from another game — they come in with their column assignment and probability." style="font-size:12px;color:#7eff7e;font-weight:bold;">Gam</button>
                 </div>
-                <button class="zoom-btn" id="game-view-flip-btn" onclick="toggleGameFlip()" title="Flip columns: swap the red and green columns (each card keeps its probability); neutral cards stay. Click again to flip back.">&#x2194;</button>
+                <!-- Flip (↔) button moved into the Neutral column header, under
+                     the word — see _attachFlipToNeutralHeader(). -->
+
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <!-- Game-level shape popup (sticky inside scrollable content) -->
@@ -18011,6 +18013,7 @@
                 h.textContent = txt;
                 zonesGrid.appendChild(h);
             });
+            _attachFlipToNeutralHeader(zonesGrid);
 
             var addedCards = [];
             var orderedCards = [];
@@ -18098,11 +18101,10 @@
             container.appendChild(btnRow);
 
             // Red/green DOT button retired — the red/neutral/green COLUMNS
-            // (with their colored bracket lines) now convey each card's zone,
-            // so the dot toggle + on-card dots are gone. Keep the button
-            // hidden and freeze-mode off (drag-between-columns sets the zone).
-            var _flipBtn = document.getElementById('game-view-flip-btn');
-            if (_flipBtn) _flipBtn.style.display = 'none';
+            // (with their colored bracket lines) now convey each card's zone.
+            // The flip (↔) button now lives in the Neutral header (added by
+            // _attachFlipToNeutralHeader during the header build), shown in both
+            // Find and Catch — no longer hidden here.
 
             // Reset Edit button when leaving Library
             var _editBtn = document.getElementById('edit-card-set-btn');
@@ -18692,6 +18694,7 @@
                 h.textContent = txt;
                 zonesGrid.appendChild(h);
             });
+            _attachFlipToNeutralHeader(zonesGrid);
 
             // Group cards by row letter, splitting each row into three
             // zones (red / no-dot / green) inside _renderZoneRow.
@@ -23648,6 +23651,33 @@
             btn.style.opacity = '1';
             btn.style.boxShadow = '';
             btn.title = 'Flip columns: swap the red and green columns (each card keeps its probability); neutral cards stay. Click again to flip back.';
+        }
+
+        // Place the flip (↔) button under the "Neutral" column header, straddling
+        // the line beneath it. Called after the header row is built in BOTH the
+        // Find and Catch game views (the column grid is rebuilt every render, so
+        // the button is re-created each time). Flip swaps the red/green columns
+        // (neutral is the unchanged pivot), so the Neutral header is its home.
+        function _attachFlipToNeutralHeader(grid) {
+            if (!grid) return;
+            var headers = grid.querySelectorAll('.gv-col-header');
+            var neutral = null;
+            for (var i = 0; i < headers.length; i++) {
+                if (headers[i].textContent === 'Neutral') { neutral = headers[i]; break; }
+            }
+            if (!neutral) return;
+            neutral.style.position = 'relative';
+            neutral.style.overflow = 'visible';
+            var btn = document.createElement('button');
+            btn.className = 'zoom-btn';
+            btn.id = 'game-view-flip-btn';
+            btn.innerHTML = '↔';
+            btn.title = 'Flip columns: swap the red and green columns (each card keeps its probability); neutral cards stay. Click again to flip back.';
+            btn.onclick = toggleGameFlip;
+            // Centered under the word; top:100% + translateY(-50%) sits it on the
+            // header's bottom edge so it partially covers the line there.
+            btn.style.cssText = 'position:absolute;left:50%;top:100%;transform:translate(-50%,-50%);z-index:6;width:26px;height:26px;min-width:0;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;';
+            neutral.appendChild(btn);
         }
 
         function renderFreezeIndicators() {

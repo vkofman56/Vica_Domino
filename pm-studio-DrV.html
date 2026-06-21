@@ -698,7 +698,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -716,7 +716,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:32 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -958,7 +958,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:26 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:32 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1039,7 +1039,7 @@
                     <button class="zoom-btn" id="game-view-add-card-btn" onclick="openAddCardToGame()" title="Set: pick cards from your card sets to add to this game." style="font-size:12px;color:#7eff7e;font-weight:bold;">Sets</button>
                     <button class="zoom-btn" id="game-view-add-game-btn" onclick="openAddGameToGame()" title="Game: pick cards from another game — they come in with their column assignment and probability." style="font-size:12px;color:#7eff7e;font-weight:bold;">Gam</button>
                 </div>
-                <button class="zoom-btn" id="game-view-flip-btn" onclick="toggleGameFlip()" title="Swap top/bottom cards: randomly swaps the two halves of each domino during gameplay" style="opacity:0.4;">&#x2194;</button>
+                <button class="zoom-btn" id="game-view-flip-btn" onclick="toggleGameFlip()" title="Flip columns: swap the red and green columns (each card keeps its probability); neutral cards stay. Click again to flip back.">&#x2194;</button>
             </div>
             <div class="domino-library-content compact-view" id="game-view-content">
                 <!-- Game-level shape popup (sticky inside scrollable content) -->
@@ -23610,28 +23610,44 @@
 
         // toggleGameViewVariations removed — variations are now regular cards
 
+        // Flip the columns of the CURRENT game: red (frozen) <-> green (floating),
+        // each card carrying its probability number to its new column; neutral
+        // cards are left untouched. It's a one-shot ACTION (not a toggle) and is
+        // self-inverse — a second flip swaps everything back. Only the ACTIVE
+        // probability preset is affected (mirrored via _writeActiveProb). Works
+        // in both Find and Catch views. The old play-time top/bottom half-swap
+        // (game.flipEnabled) is no longer driven from this button.
         function toggleGameFlip() {
-            if (currentGameViewIndex < 0) return;
-            var games = loadCustomGames();
-            var game = games[currentGameViewIndex];
-            if (!game) return;
-            game.flipEnabled = !game.flipEnabled;
-            localStorage.setItem('savedCustomGames', JSON.stringify(games));
-            updateFlipBtnState(game.flipEnabled);
+            var isCatch = currentCatchGameViewIndex >= 0;
+            var games, gameIndex, storageKey;
+            if (isCatch) { games = loadCatchGames(); gameIndex = currentCatchGameViewIndex; storageKey = 'savedCatchGames'; }
+            else if (currentGameViewIndex >= 0) { games = loadCustomGames(); gameIndex = currentGameViewIndex; storageKey = 'savedCustomGames'; }
+            else return;
+            var game = games[gameIndex];
+            if (!game || !Array.isArray(game.cards)) return;
+            if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(true);
+            game.cards.forEach(function(c) {
+                if (!c || c.isVariation) return;
+                // Only red/green cards swap; neutral stays put. The probability
+                // number rides along (red P -> green P and vice versa).
+                if (c._freezeState === 'frozen') { c._freezeState = 'floating'; var a = c._probRed; c._probRed = c._probGreen; c._probGreen = a; }
+                else if (c._freezeState === 'floating') { c._freezeState = 'frozen'; var b = c._probRed; c._probRed = c._probGreen; c._probGreen = b; }
+            });
+            // Persist the flip into the ACTIVE prob preset only (others untouched).
+            if (typeof _writeActiveProb === 'function') _writeActiveProb(game);
+            try { localStorage.setItem(storageKey, JSON.stringify(games)); } catch (e) { console.error('[Flip] save error', e); }
+            if (typeof _reopenCurrentView === 'function') _reopenCurrentView();
         }
 
+        // The flip button is now a one-shot action, not a persistent toggle, so
+        // it always renders as a normal control (no gold "on" ring). Kept (and
+        // tolerant of the legacy on/off arg) so existing callers don't break.
         function updateFlipBtnState(on) {
             var btn = document.getElementById('game-view-flip-btn');
             if (!btn) return;
-            if (on) {
-                btn.style.opacity = '1';
-                btn.style.boxShadow = '0 0 0 3px #FFD700, 0 0 10px rgba(255,215,0,0.4)';
-                btn.title = 'Activated. Swap top/bottom cards: randomly swaps the two halves of each domino during gameplay';
-            } else {
-                btn.style.opacity = '0.4';
-                btn.style.boxShadow = '';
-                btn.title = 'Swap top/bottom cards: randomly swaps the two halves of each domino during gameplay';
-            }
+            btn.style.opacity = '1';
+            btn.style.boxShadow = '';
+            btn.title = 'Flip columns: swap the red and green columns (each card keeps its probability); neutral cards stay. Click again to flip back.';
         }
 
         function renderFreezeIndicators() {

@@ -1,5 +1,19 @@
 # Plan — Creating & managing mini-games in Catch
 
+> **STATUS (June 20 2026): RUNTIME HALF DONE.** `index.html` (`openCatchPlayModal`)
+> now reads the per-game Catch settings and produces fixed-bubble mini-games.
+> Implemented contract (live):
+> - `setup.catchBubbles` — number, clamped **2–5**. When set, the bubble count is
+>   FIXED for the whole game (no 2→3→4 climb). When ABSENT, the count is derived
+>   from the selected **Level** button (circle/triangle/star/L4 = 2/3/4/5).
+> - `setup.catchFallSeconds` — number > 0 (default **6**) → starting `fallDuration`.
+> - `setup.catchAutoRamp` — boolean (default **true**); gates ONLY the per-round
+>   fall-time speedup. Bubble count never auto-climbs once it's a chosen mini-game.
+> The 4 existing games (no `catch*` fields) still play as before EXCEPT the bubble
+> count now follows the selected Level (was a hardcoded 2→3→4 climb).
+> **REMAINING: the Studio authoring UI** (`pm-studio-DrV.html`) to SET these on a
+> Catch game's `setup` — see "Recommended order" below (steps 3–5).
+
 Goal (Victor, June 19 2026): make Catch's **bubble count** and **fall timer**
 **per-game settings** so you can author fixed mini-games — e.g. *"2 bubbles · 6 s"*,
 *"3 bubbles · 6 s"*, *"4 bubbles · 6 s"* — and combine them into Big Games. Read

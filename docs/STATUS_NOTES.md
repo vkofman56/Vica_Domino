@@ -1,15 +1,36 @@
 # Vica Domino - Project Status Notes
-**Date**: June 19, 2026 — board/device-preview polish day + Catch mechanics captured · **NEXT: per-game Catch mini-game settings** (see `docs/CATCH_MINIGAMES_PLAN.md`)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `1c2127c`; advances with each `bash scripts/ship.sh`)
+**Date**: June 20, 2026 — Previewer session: Catch mini-game RUNTIME + Catch HUD polish + GP 0 layout overhaul · **NEXT: Studio authoring UI for the Catch settings** (see `docs/CATCH_MINIGAMES_PLAN.md`)
+**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `b693360`+; advances with each `bash scripts/ship.sh`). NOTE: this session ran in the MAIN tree on local branch `work/cardmaker-rowcopy`, which sits at the same commit as the 3 canonical mirrors; `ship.sh` pushes HEAD to all 3.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
 **Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-9`
 
 ---
 
-### ▶▶ NEXT CHAT (June 20): **Create & manage Catch mini-games**
-Plan: **`docs/CATCH_MINIGAMES_PLAN.md`** · Mechanics: **`docs/CATCH_MECHANICS.md`** · Backup: **`backups/savedCatchGames-2026-06-19.json`** (4 games; restore steps in `backups/README.md`).
-Goal: make Catch's **bubble count** + **fall timer** per-game settings (+ an **auto-ramp on/off** flag) so fixed mini-games like "2 bubbles · 6 s", "3 · 6 s", "4 · 6 s" can be authored and composed into Big Games. Today these are HARDCODED (`numFalling:2, fallDuration:6`) and auto-ramp — index.html `_catchGame` init ~line 6205 + the two ramp `if`s in `_catchCardClicked` ~6571-6573 (and 2P ~7043-7044). **Spans two sessions**: runtime = index.html (this session); authoring UI = `pm-studio-DrV.html` (Studio worktree). Agree the `setup.catch*` field names first; start with the runtime read, keeping the 4 existing games unchanged by default.
+### ▶▶ NEXT CHAT: **Studio authoring UI for the Catch mini-game settings**
+The RUNTIME half is DONE (see "June 20 — Previewer session" below). The remaining piece is the **authoring UI in `pm-studio-DrV.html`** (Studio `work/studio` worktree) so a user can SET the per-game Catch settings the runtime already reads.
+- **Contract (already live in index.html):** `setup.catchBubbles` (2–5, fixed bubble count), `setup.catchFallSeconds` (>0, default 6), `setup.catchAutoRamp` (default true; gates ONLY the fall-time speedup). See `docs/CATCH_MINIGAMES_PLAN.md` + `docs/CATCH_MECHANICS.md`.
+- **Also live:** when `setup.catchBubbles` is NOT set, the runtime derives the fixed bubble count from the player-selected **Level** button (circle/triangle/star/L4 = 2/3/4/5). So the Level picker already drives bubbles at play time; Studio just needs to author/save the chosen count (and optionally fall time + ramp) into `setup`.
+- Studio task: expose Level→bubbles + a fall-time input + an auto-ramp toggle on the Catch setup and write `setup.catch*`. Then build the 3 mini-games (2/3/4 bubbles) and compose a Big Game. Backup before edits: `backups/savedCatchGames-2026-06-19.json`.
+
+---
+
+### ▶▶ June 20 — Previewer session (index.html + css/style.css) — DONE
+**1. Catch mini-game RUNTIME (the runtime half of `docs/CATCH_MINIGAMES_PLAN.md`):**
+- `openCatchPlayModal` reads `setup.catchBubbles` (clamped 2–5), `setup.catchFallSeconds` (>0 else 6), `setup.catchAutoRamp` (default ON) into `_catchGame.{numFalling, baseFallDuration/fallDuration, autoRamp, bubblesFixed}`.
+- **Fixed-bubble mini-games:** the bubble count is FIXED for the whole game when chosen — the old 2→3→4 auto-climb is gated behind `!bubblesFixed`; the per-round **fall-time speedup is unchanged** (gated behind `autoRamp`, default on). Both ramps decoupled in the 1P (`_catchCardClicked`) and 2P (`_catch2pAnimLoop`) paths.
+- **Level→bubbles:** new `_catchBubblesForLevel()` maps the selected Level (circle/triangle/star/L4 = 2/3/4/5) → fixed `numFalling` when `setup.catchBubbles` is absent. So the existing 3-option Level picker now drives the bubble count for every Catch game.
+
+**2. Catch HUD / bubbles polish:**
+- **+50% floating bubbles** on iPad / iPad Pro / Chromebook, **1-player only** (`_catchGame.bubbleSize` = 135 vs 90; device via `_bgSelectedDevice()` class tablet|laptop). Spawn + anim math use `bubbleSize` (margins, walls, off-screen). **Overlap fix:** the vertical spawn stagger now scales with the bubble size (`stagger = round(80×cardSize/90)`) so bigger bubbles keep the original ~minimal overlap. 2P untouched.
+- **2-PLAYER MULTITOUCH FIX (iPad):** falling bubbles now bind **`pointerdown`** (not `click`) — iOS doesn't reliably dispatch `click` for simultaneous multitouch, so one player's tapping was dropping the other player's catch. `touch-action:manipulation` added. (1P left on onclick.)
+- HUD: **"Run N"** instead of "Round N" (1P+2P); Run + hearts get `white-space:nowrap` (never wrap to 2 rows); **gems stack in vertical column(s)** (`.gem-columns`, 5/col). Player icon pulled to the left edge; **pause button lifted to the back/home icon line, far right** (fixed, follows banner in Big Games).
+- **Big-screen HUD scale-up** (`.catch-dev-big` on the overlay for tablet/laptop): player icon/name 1→1.6rem, Run .9→1.45rem, hearts 1.3→2rem, page pill 24→30px, title →2.1rem. **Big-Game overlap fix:** `body.bg-playing .catch-game-overlay .board-id-bar { min-height:48px }` (empty title collapsed → HUD rode into the icons).
+
+**3. GP 0 (intro screen) layout overhaul (index.html + css/style.css):**
+- Removed "Choose the game:" heading; **search box on the LEFT, device pills pushed RIGHT**; relabeled **"Search for more games types"**.
+- **Misc is now a normal recency-managed game type** (in `GAME_TYPE_CATALOG`, shows in the search dropdown, hidden by default, appears when picked — `_appendMiscItems` builds its column). Was a fixed always-on leftmost column.
+- **Game-tile eye + folder restyle:** eye and mini-games "folder" icons are **inset inside the card box** (absolute, right edge), stacked **eye-over-folder**, **borderless**. Folder is now a **transparent (fill:none) white-outlined folder with the count number drawn inside it as a separate fixed-size white span** (`.intro-game-mg-num`) — the old purple count badge/tag is gone. Eye ~+18% (scale 1.176), folder svg scale(1.513, 1.5735) (taller than wide); folder border matches the eye (white, 1.5). Lots of sub-mm nudges to the number/eye (see git log for exact values).
 
 ---
 

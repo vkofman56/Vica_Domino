@@ -1,5 +1,35 @@
 # Vica Domino Project Memory
-**Last Updated**: June 18, 2026 — Phase 3 Big Games + **Device-Preview feature** DONE (see below + STATUS_NOTES.md). Authoring side still MOUSE-ONLY. Open: 3f Publish (deferred), 2P-Big-Game engine gap, play-icon rollout.
+**Last Updated**: June 22, 2026 — Studio: tap-multi-select, role-colour overhaul, **add set-icons to a game**, sync-error→Offline (see below + STATUS_NOTES.md). Open: Catch authoring UI; Find-icon-size when added to a game.
+
+---
+
+## 🎯 June 22, 2026 — Studio durable lessons (icons-in-games, role colours, sync)
+
+- **A game's icons are REFERENCES, not cards.** `game.icons[]` holds `{uid, setName, sizeClass}`; the actual
+  art lives in the card set's icon store `customDrawnIcons_<set>` (`loadIconsForSet(setName)`; key via
+  `getIconsStorageKey` — 'numbers'/'Numbers and Dots'→`customDrawnIcons`, 'abc'→`_abc`, else `_<name>`). Add a
+  ref with **`_iconAddToGame(gameType, gameIndex, ref)`** (idempotent, per-size caps Find=24/Catch=4). The IC
+  (Icons' Creator) dialog (`#mpp-panel`, `openMppForCurrentView`) renders icons by resolving each ref's
+  uid+setName. **DON'T add icons to `game.cards`** — they must go in `game.icons` to show in the IC pool.
+  `_findCardDataByStableId` does NOT search icon stores (only `customDrawnCards_*`), so icon refs resolve via
+  loadIconsForSet, not the stableId card lookup.
+- **Icon size classes:** Find = square `L1` (cardShapeW 42, cornerR 15, 70% of a card); Catch = circles
+  `L1/L2/L3` (big) + `S1/S2/S3` (small), descending. Templates are `desc:'template'`/`_isTemplate` — never
+  offer/use them as real icons. `buildCardFromMarkup` only applies shape when `cardShape !== 'square'`, so a
+  square Find icon dropped into `game.cards` renders full-size (a reason icons belong in `game.icons`).
+- **Role colours by GLOBAL vocab index.** `_roleColor(role)` = `_ROLE_PALETTE[_getRoleVocab().indexOf(role) %
+  len]` → same role name = same colour everywhere. Palette is now **20 distinct colours** (was 5; a 6th role
+  wrapped onto grey). Role **dots need a thin dark border** and pills a **dark text-halo** (`.gv-role-pill`) so
+  LIGHT colours read on cream cards / white tags — that contrast trick is what allows a wide palette. Adding a
+  new role can shift later roles' colours (alphabetical vocab order); to pin per-role colours you'd store the
+  colour on the role itself.
+- **`permission-denied` in `js/sync.js` is EXPECTED, not an error.** This is a local-authoritative app
+  (LOCAL-WINS; cloud read/write gated to the Firebase `victor49` owner via `_canSuperuserSync`). A name-based
+  "Vica" session's login PULL and any PUSH get permission-denied — data stays safe locally. Map those to the
+  benign **'Offline'** sync status, NOT a red 'Sync error' (reserve 'error' for network/quota/JS faults).
+- **Card Maker bulk-select has two entry points now:** the right-click `_ctxShow` menu, and the **"Select"**
+  toolbar toggle (`toggleCmSelectMode`) for tap-to-select — both act on `groupEditSelected`. The Select box
+  reuses `_ctxShow(..., selectMode=true)`.
 
 ---
 

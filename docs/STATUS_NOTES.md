@@ -1,9 +1,26 @@
 # Vica Domino - Project Status Notes
-**Date**: June 20, 2026 — Previewer session: Catch mini-game RUNTIME + Catch HUD polish + GP 0 layout overhaul · **NEXT: Studio authoring UI for the Catch settings** (see `docs/CATCH_MINIGAMES_PLAN.md`)
-**Branch**: `claude/review-project-docs-JOOeh` (all 3 mirrors in sync at the latest tip — `b693360`+; advances with each `bash scripts/ship.sh`). NOTE: this session ran in the MAIN tree on local branch `work/cardmaker-rowcopy`, which sits at the same commit as the 3 canonical mirrors; `ship.sh` pushes HEAD to all 3.
+**Date**: June 22, 2026 — Studio session: "Select" tap-multi-select + role-colour overhaul (20 distinct + bordered dots/haloed pills) + **add set-ICONS to a game** (into the IC pool) + **Sync-error→Offline** · **NEXT: Catch authoring UI in Studio** (write `setup.catch*`, see `docs/CATCH_MINIGAMES_PLAN.md`)
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). This session committed here locally (`2928df0` + docs) — **NOT pushed** and did NOT use `ship.sh`. A concurrent "publish" workstream also lives on this branch; the canonical `claude/review-project-docs-JOOeh` trio + `ship.sh` are the older convention — confirm intended push target before shipping.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-9`
+**Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-15`
+
+---
+
+### ▶▶ STUDIO SESSION — June 22 (LATEST — resume here)
+Main tree, branch **`work/cardmaker-rowcopy`**. Studio code in **`pm-studio-DrV.html`** (+ one `js/sync.js` fix). Restart the `:8011` preview after edits (caches per process); the dev admin-login overlay (`#sync-login-overlay`, "Admin Login") persists until logged in — hide it via eval to inspect. Committed locally: **`2928df0`** (icons + sync) and earlier integrated work (Select / role colours / V); **not pushed** (`git push origin work/cardmaker-rowcopy` if wanted).
+
+**Shipped this session:**
+1. **Card Maker "Select" button** — new toolbar button between the "+" box and GM (`#cm-select-btn` / `toggleCmSelectMode`). Tap-to-select (no marquee / right-click needed); a pinned, draggable bulk-action box (reuses the right-click `_ctxShow` menu via a `selectMode` flag) follows the selection with copy / move / role / delete. Empty-state hint box ("Tap card(s) to select/deselect. Use mouse-band if needed." + "Edit by reference, set role, copy, move, insert, and delete.") with an "×" close; anchored under the Select button, sized to its first line. Esc / button toggles off. (`_cmRefreshSelectBox`, `_cmShowSelectHintBox`, `exitCmSelectMode`.)
+2. **Role colours overhauled** — `_ROLE_PALETTE` **5 → 20 maximally-distinct colours** (the old 5 wrapped a 6th role back onto grey; even 10 collided global indices 0–4 with 10–14). Role **dots get a thin dark border** (`_applyRoleBadges`, 9px) + role **pills a thin dark text-halo** (`.gv-role-pill`), so LIGHT colours (yellow/pink/white/lime…) read on cream cards / white tags. Coloured by global vocab index → same role = same colour everywhere.
+3. **V button → green** (`#var-tool-btn` `color:#7eff7e`) to match the +/⇤/W add-cards box.
+4. **Add set-ICONS to a game** (the big one — `2928df0`) — the **"Add Cards to Game"** picker (`showCardsFromSet`) now shows an **ICONS section**: the set's user-created, non-template icons matching the game's **Find/Catch** type. Selecting one adds a `{uid,setName,sizeClass}` **reference to `game.icons` via `_iconAddToGame`** → it lands in the **IC (Icons' Creator) pool**, NOT as a card in `game.cards`. Icons render **first** (above the card rows), **48px (20% smaller than cards)**, in **one horizontally-scrollable row**. Per-size caps respected, de-duped by uid. (An earlier wrong cut added icons as cards in the last line — fixed.)
+5. **"Sync error" → "Offline"** (`js/sync.js`) — `permission-denied` on the login PULL and the cloud PUSH is the EXPECTED non-owner state (local-authoritative / LOCAL-WINS; cloud gated to the Firebase victor49 owner), so it now shows the benign **Offline** status instead of a red **Sync error**. Genuine failures (network/quota/JS) still error. Cache-buster **`sync.js?v=local-wins-15`** (bumped from -14 / pm-studio's stale -6 across biggame/gallery/index/pm-studio).
+
+**Open / ideas (not done):**
+- **Square (Find) icons** added to a game render as normal full-size cards (art preserved, but the small rounded-square icon *sizing* isn't applied); circle (Catch) icons keep shape+size. Could extend `buildCardFromMarkup` to honour square-with-size if wanted.
+- Added icons are filtered to the game's type (Find game → Find icons). Could optionally offer all types.
+- Still pending: the **Catch authoring UI** in Studio to write `setup.catch*` (Previewer shipped the runtime; see `docs/CATCH_MINIGAMES_PLAN.md`).
 
 ---
 
@@ -95,7 +112,7 @@ The RUNTIME half is DONE (see "June 20 — Previewer session" below). The remain
 
 ---
 
-### ▶▶ STUDIO SESSION — June 20 (session 2, LATEST — resume here)
+### ▶▶ STUDIO SESSION — June 20 (session 2)
 All in **`pm-studio-DrV.html`** unless noted. Ship per change **per-path** so the concurrent Previewer session's work isn't swept in: `bash scripts/ship.sh "msg" -- pm-studio-DrV.html` (+ `docs` when touching docs). The Previewer session (index.html / css/style.css — "GP 0 game tiles" + Catch runtime) interleaves in `git log`; expected. Restart the `:8011`/`:8021` preview after edits (caches per process). Verify via preview `eval`; the **dev admin-login modal** persists when not logged in (hide `#intro-screen` via eval to inspect) — absent in the real logged-in app.
 
 **Shipped this session (all Studio / Game Creator):**

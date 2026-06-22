@@ -884,6 +884,11 @@
     //      generic warning instead, but setting returnValue is still
     //      what triggers the dialog at all.
     window.addEventListener('beforeunload', function (e) {
+        // Tester surfaces (gallery, published player) set this — they make no
+        // edits, so the "changes may not be saved" guard must never fire there,
+        // even if the browser still carries a stale name-based superuser session
+        // on this domain.
+        if (window._syncSuppressUnloadGuard) return;
         if (_userId && _userRole === 'superuser' && _firebaseReady) {
             var hadTimer = !!_syncTimer;
             if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }

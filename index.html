@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:04 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:04 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1121,8 +1121,11 @@
             var markup = cardInfo.svgMarkup;
             // Prefer the freshest svgContent from card-set storage if we have a
             // stableId — this picks up edits made in Card Maker after the card
-            // was added to the game, just like Studio does.
-            if (cardInfo.stableId) {
+            // was added to the game, just like Studio does. EXCEPT in published-
+            // play mode: a published bundle is FROZEN, so we use the baked
+            // svgMarkup and never reach into local card sets (which may be absent
+            // on a tester's device, or different on the author's).
+            if (cardInfo.stableId && !window._pubPlayMode) {
                 var stored = _gpResolveBySid(cardInfo.stableId);
                 if (stored && stored.svgContent) markup = stored.svgContent;
             }
@@ -4719,6 +4722,51 @@
             }
         }
 
+        // ----- Published PLAYER: run a self-contained bundle on this engine -----
+        // Remove any temporary injected published game(s) so the local library
+        // never accumulates them (called before each play + on unload).
+        function _pubStripInjected() {
+            ['savedCustomGames', 'savedCatchGames'].forEach(function (key) {
+                try {
+                    var arr = JSON.parse(localStorage.getItem(key) || '[]');
+                    var kept = arr.filter(function (g) { return !(g && g._pubInjected); });
+                    if (kept.length !== arr.length) localStorage.setItem(key, JSON.stringify(kept));
+                } catch (e) {}
+            });
+        }
+        // Play a published bundle: inject its frozen game as a temporary entry,
+        // flip on _pubPlayMode (baked art wins, no card-set lookup), and reuse the
+        // SAME tested launch path (_mgPlayLegend) with the bundle's legend. The
+        // injected entry is marked _pubInjected and stripped on unload.
+        function _pubPlayBundle(bundle) {
+            if (!bundle || !bundle.game) { alert('This published game could not be loaded.'); return false; }
+            _pubStripInjected();
+            var type = (bundle.source && bundle.source.gameType === 'catch') ? 'catch' : 'find';
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var injected = JSON.parse(JSON.stringify(bundle.game));
+            injected._pubInjected = true;
+            injected.miniGames = [];
+            var idx = games.length;
+            games.push(injected);
+            localStorage.setItem(key, JSON.stringify(games));
+            window._pubPlayMode = true;
+            window._bgInPreviewFrame = true; // play full-screen in-page, never a nested device frame
+            if (typeof _gpInvalidateCardCache === 'function') _gpInvalidateCardCache();
+            var intro = document.getElementById('intro-screen'); if (intro) intro.style.display = 'none';
+            _mgPlayLegend(type, idx, bundle.legend || null, (bundle.source && bundle.source.miniGameName) || 'Game');
+            return true;
+        }
+        // Minimal tester sign-in (reuses the email/password prompt for now; the
+        // gallery increment replaces this with a real form).
+        function _pubTesterLogin(onOk) {
+            _pubEnsureAuth().then(function () { onOk(); }).catch(function (e) { alert((e && e.message) || 'Sign-in is required to play.'); });
+        }
+        if (typeof window !== 'undefined') {
+            window._pubPlayBundle = _pubPlayBundle;
+            window.addEventListener('beforeunload', _pubStripInjected);
+        }
+
         // === Level domino icon updates ===
 
         function updateLevelDominoIcons(origCards, svgPools, svgMarkupPools) {
@@ -6227,6 +6275,45 @@
                 window.addEventListener('DOMContentLoaded', function () { setTimeout(function () { tryStart(0); }, 350); });
             } else {
                 setTimeout(function () { tryStart(0); }, 350);
+            }
+        })();
+
+        // Load hook: ?playPublished=<id> — a tester's direct link to ONE published
+        // mini-game. Hide the normal app, require a Firebase sign-in, fetch the
+        // frozen bundle from published/*, and play it standalone on this engine.
+        (function () {
+            var qp = null;
+            try { qp = new URLSearchParams(location.search); } catch (e) { return; }
+            var pubid = qp && qp.get('playPublished');
+            if (!pubid) return;
+            window._bgInPreviewFrame = true; // never open a nested device frame
+            function fetchAndPlay(tries) {
+                if (typeof window.syncPublishGet !== 'function') {
+                    if ((tries || 0) < 50) { setTimeout(function () { fetchAndPlay((tries || 0) + 1); }, 150); }
+                    return;
+                }
+                window.syncPublishGet(pubid).then(function (bundle) {
+                    if (!bundle) {
+                        document.body.innerHTML = '<div style="color:#fff;padding:48px;font-family:sans-serif;font-size:18px">This game is not available — it may have been unpublished.</div>';
+                        return;
+                    }
+                    _pubPlayBundle(bundle);
+                }).catch(function (err) {
+                    var m = String(err && err.message || err);
+                    if (/not ready/i.test(m) && (tries || 0) < 50) { setTimeout(function () { fetchAndPlay((tries || 0) + 1); }, 150); return; }
+                    // Most likely: not signed in (rules require auth to read). Prompt, then retry.
+                    _pubTesterLogin(function () { fetchAndPlay(0); });
+                });
+            }
+            function boot() {
+                var intro = document.getElementById('intro-screen'); if (intro) intro.style.display = 'none';
+                if (window.syncAuthUser && window.syncAuthUser()) fetchAndPlay(0);
+                else _pubTesterLogin(function () { fetchAndPlay(0); });
+            }
+            if (document.readyState === 'loading') {
+                window.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 400); });
+            } else {
+                setTimeout(boot, 400);
             }
         })();
 

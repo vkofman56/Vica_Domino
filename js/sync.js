@@ -824,6 +824,13 @@
         }).catch(function () { return []; });
     };
 
+    // Initialize Firebase as soon as this script loads (idempotent). The main app
+    // also inits via syncLogin, but pages that DON'T call syncLogin — e.g.
+    // gallery.html (tester sign-in only) — need Firebase ready for syncAuth*/
+    // syncPublish*. Without this, the gallery's sign-in rejected with "Firebase
+    // not ready" and showed "Sign-in failed".
+    _initFirebase();
+
     // ---- Auto-login on page load ----
 
     _userId = _origGetItem(META_KEY) || null;

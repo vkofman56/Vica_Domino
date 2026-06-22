@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:28 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:28 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -584,7 +584,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-9"></script>
+    <script src="js/sync.js?v=local-wins-10"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -1694,6 +1694,19 @@
                     edt.className = 'mg-item-act'; edt.textContent = '⚙'; edt.title = 'Edit settings';
                     edt.addEventListener('click', function(e) { e.stopPropagation(); _mgClosePanel(); _mgStartEdit(type, index, savedIdx); });
                     item.appendChild(edt);
+                    // Pub: publish this NAMED mini-game so invited testers can play
+                    // it independently. "Pub ✓" once published (click for link /
+                    // re-publish / unpublish). Default row never gets this button.
+                    var pubRec = _mgListFor(type, index)[savedIdx];
+                    var pub = document.createElement('span');
+                    pub.className = 'mg-item-act mg-item-pub';
+                    var _isPub = !!(pubRec && pubRec.publishId);
+                    pub.textContent = _isPub ? 'Pub ✓' : 'Pub';
+                    pub.style.fontWeight = '600';
+                    if (_isPub) pub.style.color = '#34c759';
+                    pub.title = _isPub ? 'Published — click for link / re-publish / unpublish' : 'Publish so invited testers can play it';
+                    pub.addEventListener('click', function(e) { e.stopPropagation(); _pubMiniClicked(type, index, savedIdx); });
+                    item.appendChild(pub);
                     var ren = document.createElement('span');
                     ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
                     ren.addEventListener('click', function(e) { e.stopPropagation(); _mgRename(type, index, savedIdx, anchorEl); });
@@ -4603,6 +4616,83 @@
         }
         if (typeof window !== 'undefined') {
             window._pubBuildBundle = _pubBuildBundle;
+        }
+
+        // ----- Pub button: publish / re-publish / unpublish a named mini-game -----
+        // The share link a tester opens. Locally this is the current origin; on
+        // mathgrain.com it's the deployed app. The gallery is the normal entry,
+        // but this direct link plays one mini-game.
+        function _pubShareUrl(id) {
+            return location.origin + location.pathname + '?playPublished=' + encodeURIComponent(id);
+        }
+        function _pubCopy(text) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function () { alert('Link copied!'); }, function () { prompt('Copy this link:', text); });
+                    return;
+                }
+            } catch (e) {}
+            prompt('Copy this link:', text);
+        }
+        // Persist (or clear) the publishId on the mini-game record so the Pub
+        // button knows its published state across reloads.
+        function _pubSetMiniPublishId(type, index, miniGameId, publishId) {
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            if (!g || !Array.isArray(g.miniGames)) return;
+            g.miniGames.forEach(function (m) {
+                if (m && m.id === miniGameId) { if (publishId) m.publishId = publishId; else delete m.publishId; }
+            });
+            localStorage.setItem(key, JSON.stringify(games));
+        }
+        function _pubDoPublish(type, index, savedIdx, mg) {
+            var bundle;
+            try { bundle = _pubBuildBundle(type, index, mg.id); }
+            catch (e) { alert('Could not publish:\n\n' + (e && e.message || e)); return; }
+            var note = (bundle.droppedCards && bundle.droppedCards.length)
+                ? ('\n\nNote: ' + bundle.droppedCards.length + ' card(s) had no art and were skipped (same as in play): ' +
+                    bundle.droppedCards.map(function (d) { return d.label; }).join(', '))
+                : '';
+            var verb = mg.publishId ? 'Update the published copy of' : 'Publish';
+            if (!confirm(verb + ' "' + (mg.name || 'Mini-game') + '" so invited testers can play it at mathgrain.com?' + note)) return;
+            var id = mg.publishId || ('pub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8));
+            bundle.publishId = id;
+            bundle.publishedAt = Date.now();
+            if (typeof window.syncPublishPut !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
+            window.syncPublishPut(id, bundle).then(function () {
+                _pubSetMiniPublishId(type, index, mg.id, id);
+                _mgClosePanel();
+                prompt('Published! Share this link with your testers:', _pubShareUrl(id));
+            }).catch(function (err) {
+                alert('Publish failed:\n\n' + (err && err.message || err) +
+                    '\n\n(You must be logged in as a superuser, and the Firestore rules must allow writing to published/*.)');
+            });
+        }
+        function _pubDoUnpublish(type, index, mg) {
+            if (!confirm('Unpublish "' + (mg.name || 'Mini-game') + '"?\n\nThe share link will stop working. This does NOT delete your mini-game.')) return;
+            if (typeof window.syncPublishRemove !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
+            window.syncPublishRemove(mg.publishId).then(function () {
+                _pubSetMiniPublishId(type, index, mg.id, null);
+                _mgClosePanel();
+                alert('Unpublished. The link no longer works.');
+            }).catch(function (err) { alert('Unpublish failed:\n\n' + (err && err.message || err)); });
+        }
+        function _pubMiniClicked(type, index, savedIdx) {
+            var mg = _mgListFor(type, index)[savedIdx];
+            if (!mg) { alert('Mini-game not found.'); return; }
+            if (mg.publishId) {
+                var url = _pubShareUrl(mg.publishId);
+                var choice = prompt('"' + (mg.name || 'Mini-game') + '" is PUBLISHED.\n\nShare link:\n' + url +
+                    '\n\nWhat do you want to do?\n  C = copy link\n  R = re-publish (push latest changes)\n  U = unpublish (delete the public copy)\n  (blank = cancel)', 'C');
+                if (!choice) return;
+                choice = choice.trim().toUpperCase();
+                if (choice === 'C') _pubCopy(url);
+                else if (choice === 'R') _pubDoPublish(type, index, savedIdx, mg);
+                else if (choice === 'U') _pubDoUnpublish(type, index, mg);
+            } else {
+                _pubDoPublish(type, index, savedIdx, mg);
+            }
         }
 
         // === Level domino icon updates ===

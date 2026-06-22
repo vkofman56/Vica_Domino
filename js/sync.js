@@ -752,6 +752,66 @@
             });
     };
 
+    // ---- Publishing: the `published/*` collection (shareable mini-games) ----
+    // A published mini-game is stored as ONE doc: light metadata on top (for the
+    // gallery list) + the whole self-contained bundle as a JSON string in `json`
+    // (stringifying sidesteps Firestore's nested-array / undefined-value rules,
+    // and the bundle is ~tens of KB, well under the 1MB doc limit). Writes are
+    // superuser-only; reads are open to any signed-in tester (enforced by the
+    // Firestore security rules — see docs/PUBLISHING_PLAN.md). Separate from the
+    // private users/{id} game library: testers can read published/* and nothing else.
+    window.syncPublishPut = function (id, bundle) {
+        if (!id || !bundle) return Promise.reject(new Error('publish: id and bundle required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        if (_userRole !== 'superuser') return Promise.reject(new Error('publish: superuser only'));
+        var doc = {
+            publishId: id,
+            schema: bundle.schema || null,
+            version: bundle.version || 1,
+            engineVersion: bundle.engineVersion || null,
+            name: (bundle.source && bundle.source.miniGameName) || 'Mini-game',
+            gameType: (bundle.source && bundle.source.gameType) || 'find',
+            publishedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            publishedBy: _userId || null,
+            json: JSON.stringify(bundle)
+        };
+        return _db.collection('published').doc(id).set(doc).then(function () { return id; });
+    };
+    window.syncPublishRemove = function (id) {
+        if (!id) return Promise.reject(new Error('publish: id required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        if (_userRole !== 'superuser') return Promise.reject(new Error('publish: superuser only'));
+        return _db.collection('published').doc(id).delete();
+    };
+    // Read one published bundle (parsed). Any signed-in user may call.
+    window.syncPublishGet = function (id) {
+        if (!id) return Promise.reject(new Error('publish: id required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        return _db.collection('published').doc(id).get().then(function (doc) {
+            if (!doc.exists) return null;
+            var d = doc.data() || {};
+            try { return JSON.parse(d.json || 'null'); } catch (e) { return null; }
+        });
+    };
+    // List published games (metadata only — no `json`) for the gallery.
+    window.syncPublishList = function () {
+        if (!_firebaseReady || !_db) return Promise.resolve([]);
+        return _db.collection('published').get().then(function (snap) {
+            var out = [];
+            snap.forEach(function (doc) {
+                var d = doc.data() || {};
+                out.push({
+                    publishId: d.publishId || doc.id,
+                    name: d.name || 'Mini-game',
+                    gameType: d.gameType || 'find',
+                    engineVersion: d.engineVersion || null,
+                    publishedAt: (d.publishedAt && d.publishedAt.toMillis) ? d.publishedAt.toMillis() : null
+                });
+            });
+            return out;
+        }).catch(function () { return []; });
+    };
+
     // ---- Auto-login on page load ----
 
     _userId = _origGetItem(META_KEY) || null;

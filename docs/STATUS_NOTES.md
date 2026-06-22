@@ -41,11 +41,24 @@ they live independently in the cloud, played by invited testers at **mathgrain.c
   claude/review-project-docs-JOOeh — Cloud Shell no longer needed). Proven: Victor
   published "fast" → tester signed in at mathgrain.com → played frozen/standalone →
   back/home → gallery (no editor leak). Boot hardened: opaque overlay + onAuthStateChanged.
-- **OPEN FOLLOW-UPS (ranked):** ① **secure the editor** — mathgrain.com ROOT is
-  publicly reachable and `syncLogin('Vica')` (name-based, no password) makes anyone
-  a superuser who can read/overwrite the library (`users/** if true`). HIGH now that
-  it's public. ② publish/login use `prompt()` → masked modal. ③ make root land on the
-  gallery for non-superusers. ④ transitions library. ⑤ advanced/telemetry publishing.
+- **✅ EDITOR SECURED (June 21 night):** two layers.
+  ① **Gate (client, index.html `_editorGate`):** on the DEPLOYED site the editor +
+  library are gated behind a Firebase sign-in as a `SUPERUSER_EMAILS` address
+  (firebase-config.js → victor49@gmail.com) — opaque overlay + login; testers get a
+  "Go to the games" link to the gallery; then the normal Vica login runs. **localhost
+  EXEMPT** (dev), **?playPublished EXEMPT** (testers). firebase-config.js?v=2.
+  ② **Rules (real lock):** `users/**` read+write restricted to victor49 email (was
+  `if true`). So `syncLogin('Vica')` by anyone else is denied at the API.
+  Verified live: incognito→login(no games); tester(lianacalc)→"can't edit"→gallery;
+  owner(victor49)→editor. Tip through `32ee267`.
+  **⚠ Workflow change:** any device EDITING content must be Firebase-signed-in as
+  victor49 to sync to cloud. Deployed editor handles it via the gate; **localhost is
+  gate-exempt so local edits save to localStorage but won't push to cloud unless you
+  firebase-sign-in as victor49 there** (sign in once). Testers/published unaffected.
+- **OPEN FOLLOW-UPS (ranked):** ① publish/editor/login use `prompt()`/basic forms →
+  masked modal polish. ② make mathgrain.com ROOT land on the gallery for non-owners
+  (currently shows the editor login). ③ transitions library. ④ advanced/telemetry
+  publishing (who played, what/which roles were hard).
 - Tester-password note: gallery + link share the SAME Firebase accounts; if a login
   fails it's the account password (reset in Authentication → Users), not a bug.
 - **Known MVP caveats:** publish/sign-in use `prompt()` (clear-text pw) — fine for the

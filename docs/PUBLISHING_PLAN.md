@@ -7,10 +7,13 @@
 > Firestore rules ✅, mathgrain.com (SSL) ✅, **auto-deploy via GitHub Action ✅**
 > (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`; every push to
 > claude/review-project-docs-JOOeh deploys — no more Cloud Shell).
-> **Open follow-ups:** secure the editor (mathgrain.com root is publicly reachable
-> via the name-based "Vica" login — HIGH); replace publish/login `prompt()` with a
-> modal; make root land on the gallery for non-superusers; then transitions
-> library + advanced/telemetry publishing.
+> **✅ Editor SECURED (June 21):** gate (index.html `_editorGate`, deployed-only,
+> SUPERUSER_EMAILS=victor49) + Firestore `users/**` restricted to victor49. The
+> "anyone can become Vica" hole is closed. localhost + ?playPublished exempt.
+> Workflow note: editing devices must be Firebase-signed-in as victor49 to sync.
+> **Open follow-ups:** replace publish/login `prompt()`/basic forms with a modal;
+> make root land on the gallery for non-owners; transitions library; advanced/
+> telemetry publishing.
 >
 > **STATUS (June 21 2026): INFRA STARTED, FEATURE BUILD BEGUN.** Design agreed
 > (this doc). Scope of the first deliverable: **simple publish for NAMED

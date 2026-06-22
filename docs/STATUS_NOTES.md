@@ -34,10 +34,20 @@ they live independently in the cloud, played by invited testers at **mathgrain.c
   `_mgPlayLegend`, `?playPublished=<id>` boot; verified board renders from baked art;
   (5) tester **`gallery.html`** — email/pw login → grid → `index.html?playPublished=`.
   Cache-buster `sync.js?v=local-wins-11`. Tips through `1b63ae7`.
-- **REMAINING (all user/infra-side):** ① paste Firestore rules (handed over:
-  published read=authed, write=email victor49); ② deploy via Cloud Shell; ③ finish
-  domain verify. Then live end-to-end: publish a mini → tester logs in at
-  mathgrain.com/gallery.html → plays → unpublish.
+- **✅ LIVE & WORKING END-TO-END (June 21 night):** Firestore rules published
+  (`published/*` read=authed, write=email victor49; `users/**` open as before);
+  deployed; **mathgrain.com Connected w/ SSL**; **auto-deploy via GitHub Action**
+  (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`, deploys on push to
+  claude/review-project-docs-JOOeh — Cloud Shell no longer needed). Proven: Victor
+  published "fast" → tester signed in at mathgrain.com → played frozen/standalone →
+  back/home → gallery (no editor leak). Boot hardened: opaque overlay + onAuthStateChanged.
+- **OPEN FOLLOW-UPS (ranked):** ① **secure the editor** — mathgrain.com ROOT is
+  publicly reachable and `syncLogin('Vica')` (name-based, no password) makes anyone
+  a superuser who can read/overwrite the library (`users/** if true`). HIGH now that
+  it's public. ② publish/login use `prompt()` → masked modal. ③ make root land on the
+  gallery for non-superusers. ④ transitions library. ⑤ advanced/telemetry publishing.
+- Tester-password note: gallery + link share the SAME Firebase accounts; if a login
+  fails it's the account password (reset in Authentication → Users), not a bug.
 - **Known MVP caveats:** publish/sign-in use `prompt()` (clear-text pw) — fine for the
   single superuser, replace with a modal later; gallery loads sync.js so it does a
   player-guest pull (harmless overhead); `users/** if true` rule keeps the pre-existing

@@ -1,5 +1,17 @@
 # Plan — Publishing mini-games (independent, cloud-hosted, tester-gated)
 
+> **STATUS (June 21 2026): ✅ LIVE & WORKING END-TO-END.** Simple publish for
+> named mini-games is shipped, deployed, and proven on the real domain: Victor
+> published "fast" → a tester signed in at mathgrain.com → played it (frozen,
+> standalone) → back/home returns to the gallery (no editor leak). Auth ✅,
+> Firestore rules ✅, mathgrain.com (SSL) ✅, **auto-deploy via GitHub Action ✅**
+> (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`; every push to
+> claude/review-project-docs-JOOeh deploys — no more Cloud Shell).
+> **Open follow-ups:** secure the editor (mathgrain.com root is publicly reachable
+> via the name-based "Vica" login — HIGH); replace publish/login `prompt()` with a
+> modal; make root land on the gallery for non-superusers; then transitions
+> library + advanced/telemetry publishing.
+>
 > **STATUS (June 21 2026): INFRA STARTED, FEATURE BUILD BEGUN.** Design agreed
 > (this doc). Scope of the first deliverable: **simple publish for NAMED
 > mini-games only**, served from **mathgrain.com** behind **per-tester

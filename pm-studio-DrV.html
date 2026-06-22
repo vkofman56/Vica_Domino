@@ -492,6 +492,12 @@
             box-shadow: 0 6px 24px rgba(0,0,0,0.5); color: #ddd;
         }
         .ctx-menu-item.has-sub::after { content: '\25B6'; margin-left: auto; font-size: 9px; color: #999; }
+        /* "Select" toolbar toggle (Card Maker) — lit purple when tap-to-select is on */
+        #cm-select-btn.cm-select-on { background: #7c4dff !important; color: #fff !important; box-shadow: 0 0 0 2px rgba(124,77,255,0.5); }
+        /* How-to header at the top of the select-mode action box + the empty-selection hint */
+        .ctx-menu-howto { padding: 6px 14px 8px; max-width: 230px; white-space: normal; color: #b39ddb; font-size: 11px; line-height: 1.4; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; }
+        .cm-select-hint { padding: 8px 14px; max-width: 202px; white-space: normal; color: #cfc4ff; font-size: 12px; line-height: 1.45; }
+        .cm-select-hint b { color: #fff; }
 
         /* Spoken Title floating panel (inside loupe) */
         .spoken-title-panel {
@@ -698,7 +704,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:41 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -716,7 +722,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:41 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -958,7 +964,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:18 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:41 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1153,6 +1159,8 @@
                     <button class="zoom-btn" id="import-word-btn" onclick="document.getElementById('docx-file-input').click()" title="Import from Word: upload a .docx file with a table to auto-create cards." style="font-size:11px;color:#7eff7e;">W</button>
                     <button class="zoom-btn" id="var-tool-btn" onclick="toggleVariationToolbar()" title="Variation tools: open toolbar to create card variations (reflections, rotations, symbol swaps).">V</button>
                 </div>
+                <!-- Select: turn on tap-to-select, then a bulk-action box (copy / move / role / delete) follows the selection. -->
+                <button class="zoom-btn" id="cm-select-btn" onclick="toggleCmSelectMode()" title="Bulk actions. Tap to see more." style="font-size:10px;font-weight:bold;color:#7eff7e;">Select</button>
                 <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker: open the list of games to add cards to or create new games.">GM</button>
                 <input type="file" id="docx-file-input" accept=".docx" style="display:none;" onchange="_handleDocxImport(this)">
             </div>
@@ -8080,6 +8088,25 @@
 
             const card = e.target.closest('.library-card');
 
+            // Tap-to-select mode (the "Select" toolbar button): a plain click
+            // toggles the card in/out of the selection — no Shift needed — and
+            // the bulk-action box re-renders to follow it. stopPropagation keeps
+            // the document-level click handler from closing that box.
+            if (cmSelectModeActive && !gameMakerActive && !shapeModeActive) {
+                if (!card) return; // clicks on empty space keep the selection + box
+                e.stopPropagation();
+                if (card.classList.contains('ge-selected')) {
+                    card.classList.remove('ge-selected');
+                    if (card === groupEditReference) { card.classList.remove('ge-reference'); groupEditReference = null; }
+                    groupEditSelected = groupEditSelected.filter(function(c) { return c !== card; });
+                } else {
+                    card.classList.add('ge-selected');
+                    groupEditSelected.push(card);
+                }
+                _cmRefreshSelectBox();
+                return;
+            }
+
             // S1: Shift+click multi-select (passive selection — reuses groupEditSelected)
             if (e.shiftKey && card && !gameMakerActive && !shapeModeActive) {
                 e.stopPropagation();
@@ -9707,11 +9734,20 @@
             });
             document.body.appendChild(overlay);
         }
-        function _ctxShow(card, x, y) {
+        function _ctxShow(card, x, y, selectMode) {
             _ctxClose();
             var menu = document.createElement('div');
             menu.className = 'ctx-menu';
             _ctxAddDragHandle(menu);
+            // Tap-to-select mode (the "Select" toolbar button) pins this box and
+            // prepends a how-to header so first-timers know the actions below act
+            // on every selected card.
+            if (selectMode) {
+                var _howto = document.createElement('div');
+                _howto.className = 'ctx-menu-howto';
+                _howto.innerHTML = '<b>Tap card(s) to select/deselect.</b><br>Use mouse-band if needed.';
+                menu.appendChild(_howto);
+            }
 
             {
                 // Normal / passive selection menu
@@ -9953,9 +9989,16 @@
             _ctxMenu = menu;
             _ctxPosition(menu, x, y);
         }
-        document.addEventListener('click', function() { _ctxClose(); });
-        document.addEventListener('scroll', function() { _ctxClose(); }, true);
-        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') _ctxClose(); });
+        // In tap-to-select mode the action box is pinned and managed by
+        // _cmRefreshSelectBox — a stray click / scroll must NOT tear it down, and
+        // Escape exits the whole mode rather than just closing the box.
+        document.addEventListener('click', function() { if (cmSelectModeActive) return; _ctxClose(); });
+        document.addEventListener('scroll', function() { if (cmSelectModeActive) return; _ctxClose(); }, true);
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            if (cmSelectModeActive) { exitCmSelectMode(); return; }
+            _ctxClose();
+        });
         // Minimal right-click menu for a ROW (works even with no card in it),
         // so empty lines can be inserted around or deleted.
         function _ctxShowRowMenu(row, x, y) {
@@ -15155,6 +15198,13 @@
         // Exit button and leaveCardMaker call this; the name survives from the
         // removed Gr mode).
         function exitGroupEditMode() {
+            // Also drop tap-to-select mode (leaveCardMaker calls this). Reset the
+            // flag/button directly — no call back into exitCmSelectMode, which
+            // would recurse here.
+            cmSelectModeActive = false;
+            var _csb = document.getElementById('cm-select-btn');
+            if (_csb) _csb.classList.remove('cm-select-on');
+            _cmBoxAnchor = null;
             groupEditSelected = [];
             groupEditReference = null;
             _geToolbarRequested = false;
@@ -15163,6 +15213,74 @@
                 c.classList.remove('ge-reference');
             });
             document.getElementById('group-edit-toolbar').style.display = 'none';
+        }
+
+        // === Tap-to-select mode (the Card Maker "Select" toolbar button) =======
+        // Turn it on → tap cards to build a selection → a pinned, draggable
+        // action box (the same right-click menu, reused) follows the selection
+        // with copy / move / set-role / delete. Solves the discoverability gap
+        // where those bulk actions were only reachable via marquee + right-click.
+        var cmSelectModeActive = false;
+        var _cmBoxAnchor = null; // {x,y} remembered position of the action box
+
+        function _cmComputeBoxAnchor() {
+            // Anchor UNDER the Select button, hugging the left rail, so the box
+            // sits over the toolbar column instead of covering the card grid.
+            var btn = document.getElementById('cm-select-btn');
+            var x = 8, y = 90;
+            if (btn) {
+                var r = btn.getBoundingClientRect();
+                x = Math.max(8, r.left - 6);
+                y = r.bottom + 8;
+            }
+            x = Math.min(x, Math.max(8, window.innerWidth - 240));
+            return { x: x, y: y };
+        }
+
+        // (Re)render the action box at its remembered position, following the
+        // live selection. 0 selected → the how-to hint box; otherwise the real
+        // action menu (group menu for 2+, single-card menu for exactly 1).
+        function _cmRefreshSelectBox() {
+            if (!cmSelectModeActive) return;
+            var pos = _cmBoxAnchor || _cmComputeBoxAnchor();
+            if (_ctxMenu) { var r = _ctxMenu.getBoundingClientRect(); pos = { x: r.left, y: r.top }; }
+            _cmBoxAnchor = pos;
+            if (groupEditSelected.length === 0) { _cmShowSelectHintBox(pos); return; }
+            _ctxShow(groupEditSelected[0], pos.x, pos.y, true);
+        }
+
+        function _cmShowSelectHintBox(pos) {
+            _ctxClose();
+            var menu = document.createElement('div');
+            menu.className = 'ctx-menu';
+            _ctxAddDragHandle(menu);
+            var hint = document.createElement('div');
+            hint.className = 'cm-select-hint';
+            hint.innerHTML = '<b>Tap card(s) to select/deselect.</b><br>Use mouse-band if needed.<br><br><span style="white-space:nowrap;">Edit by reference</span>, set role, copy, move, insert, and delete.';
+            menu.appendChild(hint);
+            menu.appendChild(_ctxSep());
+            menu.appendChild(_ctxItem('✕', '', function() { exitCmSelectMode(); }));
+            _ctxMenu = menu;
+            _ctxPosition(menu, pos.x, pos.y);
+        }
+
+        function toggleCmSelectMode() {
+            if (cmSelectModeActive) { exitCmSelectMode(); return; }
+            cmSelectModeActive = true;
+            if (typeof newCardModeActive !== 'undefined' && newCardModeActive && typeof exitNewCardMode === 'function') exitNewCardMode();
+            var btn = document.getElementById('cm-select-btn');
+            if (btn) btn.classList.add('cm-select-on');
+            _cmBoxAnchor = _cmComputeBoxAnchor();
+            _cmRefreshSelectBox();
+        }
+
+        function exitCmSelectMode() {
+            cmSelectModeActive = false;
+            var btn = document.getElementById('cm-select-btn');
+            if (btn) btn.classList.remove('cm-select-on');
+            _ctxClose();
+            _cmBoxAnchor = null;
+            exitGroupEditMode(); // clears the selection + ge classes (sets the flag false again, harmless)
         }
 
         function _updateGroupEditStatus() {
@@ -25332,6 +25450,7 @@
         }
 
         function selectCardSet(setName) {
+            if (typeof cmSelectModeActive !== 'undefined' && cmSelectModeActive && typeof exitCmSelectMode === 'function') exitCmSelectMode();
             activeCardSet = setName;
             // Update button highlights
             var numbersBtn = document.getElementById('set-numbers-btn');

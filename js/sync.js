@@ -102,10 +102,24 @@
     var MAX_CHUNK_BYTES = 800000; // ~800 KB per chunk document
 
     /** Upload all data to Firestore. */
+    // Superuser cloud-sync (read/write users/**) is allowed ONLY when the page is
+    // Firebase-signed-in as a SUPERUSER_EMAIL — this matches the Firestore rules,
+    // so the name-based "Vica" session alone never attempts a sync it can't make
+    // (which would throw permission-denied). Tester surfaces (gallery, published
+    // player) set window._syncSuppressSuperuser to opt out entirely.
+    function _canSuperuserSync() {
+        if (window._syncSuppressSuperuser) return false;
+        if (_userRole !== 'superuser') return false;
+        try {
+            var u = firebase.auth && firebase.auth().currentUser;
+            var emails = (typeof SUPERUSER_EMAILS !== 'undefined') ? SUPERUSER_EMAILS : [];
+            return !!(u && u.email && emails.indexOf(u.email) !== -1);
+        } catch (e) { return false; }
+    }
     function _pushToServer() {
         if (!_userId || !_firebaseReady || !_db) return;
         if (!_isValidFirestoreId(_userId)) return;
-        if (_userRole !== 'superuser') return; // Only superusers write data
+        if (!_canSuperuserSync()) return; // only the Firebase-authed owner writes data
         if (_syncing) { _pendingSync = true; return; }
         _syncing = true;
         _setSyncStatus('syncing');
@@ -458,12 +472,15 @@
             })
             .then(function () {
                 // Start periodic card backup after successful login
-                if (_userRole === 'superuser') _startCardBackupTimer();
+                if (_canSuperuserSync()) _startCardBackupTimer();
                 _fireDataReady(); // cloud pull/restore settled — run post-sync migrations
             })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
-                alert('[Sync] Error: ' + (err.code || '') + ' ' + (err.message || err));
+                // permission-denied is EXPECTED when not Firebase-authed as the
+                // owner (e.g. localhost without sign-in) — don't block with an
+                // alert; keep working from the local snapshot below.
+                console.warn('[Sync] ' + (err.code || '') + ' ' + (err.message || err) + ' — using local data.');
                 // Offline — restore the local snapshot so nothing is lost
                 var keysToRemove = [];
                 for (var i = 0; i < localStorage.length; i++) {
@@ -854,11 +871,11 @@
         document.addEventListener('DOMContentLoaded', _applyRoleUI);
     }
 
-    // Start card backup timer if already logged in as superuser
+    // Start card backup timer once Firebase-authed as the owner (waits for the
+    // async auth-state restore; gives up after 30s if never authorized).
     if (_userId && _userRole === 'superuser') {
-        // Wait for Firebase to initialize, then start backups
         var _fbWait = setInterval(function () {
-            if (_firebaseReady && _db) {
+            if (_firebaseReady && _db && _canSuperuserSync()) {
                 clearInterval(_fbWait);
                 _startCardBackupTimer();
             }
@@ -889,7 +906,7 @@
         // even if the browser still carries a stale name-based superuser session
         // on this domain.
         if (window._syncSuppressUnloadGuard) return;
-        if (_userId && _userRole === 'superuser' && _firebaseReady) {
+        if (_canSuperuserSync()) {
             var hadTimer = !!_syncTimer;
             if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
             // Flush whatever was queued.

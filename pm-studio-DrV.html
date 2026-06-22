@@ -707,7 +707,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:21 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:54 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -725,7 +725,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:21 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:54 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -967,7 +967,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:21 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:54 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -17372,11 +17372,8 @@
             if (!game) return;
 
             var cards = getCardsFromStorage(setId);
-
-            if (cards.length === 0) {
-                grid.innerHTML = '<p style="color:#999;font-size:13px;">No cards in this set</p>';
-                return;
-            }
+            // (Empty handled at the end — a set with no line cards may still have
+            // icons to offer, so we don't early-return here anymore.)
 
             // Determine which cards are already in the game by matching
             // storage cards against the game's saved card list.
@@ -17517,8 +17514,72 @@
                 grid.appendChild(rowCont);
             });
 
+            // --- ICONS: the set's user-created icon cards (non-template) for THIS
+            //     game's type. Icons used to be addable only during game creation;
+            //     this offers them here too. Selecting one adds a {uid,setName,
+            //     sizeClass} REFERENCE to game.icons (the IC icon pool) — NOT a card
+            //     in game.cards — so it shows up in the IC (Icons' Creator) box. ---
+            try {
+                var _icSetArg = (setId === 'numbers' || setId === 'abc') ? setId : setName;
+                var _icAll = (typeof loadIconsForSet === 'function') ? (loadIconsForSet(_icSetArg) || []) : [];
+                var _icType = (currentCatchGameViewIndex >= 0) ? 'catch' : 'find';
+                // Skip icons already referenced by this game's icon pool (by uid).
+                var _gameIconUids = {};
+                (game.icons || []).forEach(function(r) { if (r && r.uid) _gameIconUids[r.uid] = true; });
+                var _icons = _icAll.filter(function(ic) {
+                    if (!ic || ic.desc === 'template' || ic._isTemplate) return false;
+                    if ((ic.gameType || 'find') !== _icType) return false;
+                    return !(ic.uid && _gameIconUids[ic.uid]);
+                });
+                if (_icons.length) {
+                    var icSection = document.createElement('div');
+                    // Icons sit ABOVE the regular cards (mirrors the card sets, where
+                    // icons come first), so the separator goes BELOW the section.
+                    icSection.style.cssText = 'display:flex;flex-direction:column;gap:6px;border-bottom:2px solid rgba(255,215,0,0.35);margin-bottom:8px;padding-bottom:8px;';
+                    var icHdr = document.createElement('div');
+                    icHdr.textContent = 'Icons';
+                    icHdr.style.cssText = 'font-size:11px;font-weight:700;color:#FFD700;letter-spacing:0.5px;text-transform:uppercase;';
+                    icSection.appendChild(icHdr);
+                    // One row, horizontally scrollable when the icons overflow the box
+                    // width (no wrapping into multiple lines).
+                    var icLine = document.createElement('div');
+                    icLine.style.cssText = 'display:flex;flex-wrap:nowrap;gap:8px;align-items:center;overflow-x:auto;padding-bottom:2px;';
+                    _icons.forEach(function(ic) {
+                        var cd = { label: ic.label || 'icon', svgContent: ic.svgContent || '',
+                                   cardShape: ic.cardShape, cardShapeW: ic.cardShapeW, cardShapeH: ic.cardShapeH,
+                                   cardCornerR: ic.cardCornerR, _isIconCard: true,
+                                   _iconUid: ic.uid || '', _iconSetName: _icSetArg, _iconSizeClass: ic.sizeClass || '' };
+                        var w = document.createElement('div');
+                        var _round = (ic.cardShape === 'circle');
+                        // 48px = 20% smaller than the 60px regular-card previews.
+                        w.style.cssText = 'width:48px;height:48px;background:#f5e6c8;border:2px solid #c4a45a;border-radius:' + (_round ? '50%' : '8px') + ';cursor:pointer;overflow:hidden;position:relative;flex:0 0 auto;display:flex;align-items:center;justify-content:center;';
+                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('viewBox', '0 0 60 60');
+                        svg.style.cssText = 'width:44px;height:44px;overflow:hidden;';
+                        svg.innerHTML = ic.svgContent || '';
+                        w.appendChild(svg);
+                        var lbl = document.createElement('div');
+                        lbl.textContent = ic.label || '';
+                        lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;background:rgba(0,0,0,0.5);color:white;padding:1px;';
+                        w.appendChild(lbl);
+                        w.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            var sidx = _addCardSelectedCards.indexOf(cd);
+                            if (sidx === -1) { _addCardSelectedCards.push(cd); w.style.border = '3px solid #4CAF50'; w.style.boxShadow = '0 0 8px rgba(76,175,80,0.6)'; }
+                            else { _addCardSelectedCards.splice(sidx, 1); w.style.border = '2px solid #c4a45a'; w.style.boxShadow = ''; }
+                            _showAddCardConfirm(_addCardSelectedCards.length > 0);
+                        });
+                        icLine.appendChild(w);
+                    });
+                    icSection.appendChild(icLine);
+                    // Icons go FIRST in the box (before the regular card rows).
+                    grid.insertBefore(icSection, grid.firstChild);
+                }
+            } catch (e) {}
+
             if (grid.children.length === 0) {
-                grid.innerHTML = '<p style="color:#999;font-size:13px;">All cards from this set are already in the game</p>';
+                grid.innerHTML = '<p style="color:#999;font-size:13px;">' +
+                    (cards.length === 0 ? 'No cards or icons in this set' : 'All cards from this set are already in the game') + '</p>';
             }
             // Position the (movable) cards box next to the clicked set row.
             if (anchorEl && _boxEl) _addCardPlaceCardsBox(_boxEl, anchorEl);
@@ -17825,6 +17886,33 @@
         function confirmAddCards() {
             if (_addCardSelectedCards.length === 0) return;
             if (_addCardMode === 'game') { _confirmAddCardsFromGame(); return; }
+
+            // Icons picked from the "Icons" section go into the game's ICON pool
+            // (game.icons, via _iconAddToGame) so they appear in the IC (Icons'
+            // Creator) box — NOT as cards in game.cards. Handle them first; any
+            // regular line cards in the same selection fall through to the normal
+            // flow below.
+            var _iconPicks = _addCardSelectedCards.filter(function(c) { return c && c._isIconCard; });
+            if (_iconPicks.length) {
+                var _gt = (currentCatchGameViewIndex >= 0) ? 'catch' : 'find';
+                var _gi = (currentCatchGameViewIndex >= 0) ? currentCatchGameViewIndex : currentGameViewIndex;
+                var _icFull = 0;
+                _iconPicks.forEach(function(ic) {
+                    if (!ic._iconUid) return;
+                    var res = _iconAddToGame(_gt, _gi, { uid: ic._iconUid, setName: ic._iconSetName, sizeClass: ic._iconSizeClass });
+                    if (res === 'full') _icFull++;
+                });
+                if (_icFull > 0) {
+                    alert(_icFull + ' icon' + (_icFull !== 1 ? 's were' : ' was') + ' not added — that size class is already full for this game.');
+                }
+                _addCardSelectedCards = _addCardSelectedCards.filter(function(c) { return !(c && c._isIconCard); });
+                if (_addCardSelectedCards.length === 0) {
+                    closeAddCardOverlay();
+                    try { _reopenCurrentView(); } catch (e) {}
+                    return;
+                }
+            }
+
             var isCatch = currentCatchGameViewIndex >= 0;
             var games, game, storageKey;
             if (isCatch) {

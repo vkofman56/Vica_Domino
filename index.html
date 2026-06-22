@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:37 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:50 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:37 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:50 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -6292,42 +6292,92 @@
         })();
 
         // Load hook: ?playPublished=<id> — a tester's direct link to ONE published
-        // mini-game. Hide the normal app, require a Firebase sign-in, fetch the
-        // frozen bundle from published/*, and play it standalone on this engine.
+        // mini-game. A full-screen OPAQUE overlay covers the editor immediately so
+        // it never shows through; we wait for Firebase auth to RESTORE (async, via
+        // onAuthStateChanged — NOT a one-time currentUser check), show an inline
+        // login if signed out, then fetch the frozen bundle and play it on this
+        // engine. The overlay stays until the game board is actually visible.
         (function () {
             var qp = null;
             try { qp = new URLSearchParams(location.search); } catch (e) { return; }
             var pubid = qp && qp.get('playPublished');
             if (!pubid) return;
             window._bgInPreviewFrame = true; // never open a nested device frame
-            function fetchAndPlay(tries) {
-                if (typeof window.syncPublishGet !== 'function') {
-                    if ((tries || 0) < 50) { setTimeout(function () { fetchAndPlay((tries || 0) + 1); }, 150); }
-                    return;
-                }
+
+            function overlay() {
+                var o = document.getElementById('pub-boot-overlay');
+                if (o) return o;
+                o = document.createElement('div');
+                o.id = 'pub-boot-overlay';
+                o.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#6a74d8,#8a5fc0);' +
+                    'color:#fff;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;';
+                (document.body || document.documentElement).appendChild(o);
+                try { document.documentElement.style.overflow = 'hidden'; if (document.body) document.body.style.overflow = 'hidden'; } catch (e) {}
+                return o;
+            }
+            function setOverlay(html) { overlay().innerHTML = html; }
+            function removeOverlay() {
+                var o = document.getElementById('pub-boot-overlay'); if (o) o.parentNode.removeChild(o);
+                try { document.documentElement.style.overflow = ''; if (document.body) document.body.style.overflow = ''; } catch (e) {}
+            }
+
+            function play() {
+                setOverlay('<div style="font-size:18px">Loading game…</div>');
+                if (typeof window.syncPublishGet !== 'function') { setTimeout(play, 150); return; }
                 window.syncPublishGet(pubid).then(function (bundle) {
-                    if (!bundle) {
-                        document.body.innerHTML = '<div style="color:#fff;padding:48px;font-family:sans-serif;font-size:18px">This game is not available — it may have been unpublished.</div>';
-                        return;
-                    }
+                    if (!bundle) { setOverlay('<div style="font-size:18px;max-width:420px">This game is not available — it may have been unpublished.</div>'); return; }
                     _pubPlayBundle(bundle);
+                    // Keep the overlay up until the board is actually on screen (no editor flash).
+                    var t0 = Date.now();
+                    (function waitBoard() {
+                        var gs = document.getElementById('game-screen');
+                        if (gs && getComputedStyle(gs).display !== 'none') { removeOverlay(); return; }
+                        if (Date.now() - t0 < 9000) setTimeout(waitBoard, 100); else removeOverlay();
+                    })();
                 }).catch(function (err) {
-                    var m = String(err && err.message || err);
-                    if (/not ready/i.test(m) && (tries || 0) < 50) { setTimeout(function () { fetchAndPlay((tries || 0) + 1); }, 150); return; }
-                    // Most likely: not signed in (rules require auth to read). Prompt, then retry.
-                    _pubTesterLogin(function () { fetchAndPlay(0); });
+                    setOverlay('<div style="font-size:16px;max-width:420px">Could not load this game.<br><br><span style="opacity:.8;font-size:13px">' + String(err && err.message || err) + '</span></div>');
                 });
             }
-            function boot() {
-                var intro = document.getElementById('intro-screen'); if (intro) intro.style.display = 'none';
-                if (window.syncAuthUser && window.syncAuthUser()) fetchAndPlay(0);
-                else _pubTesterLogin(function () { fetchAndPlay(0); });
+
+            function loginForm() {
+                setOverlay(
+                    '<div style="background:rgba(255,255,255,.1);border-radius:16px;padding:26px 24px;max-width:340px;width:100%">' +
+                    '<div style="font-size:21px;font-weight:800;margin-bottom:4px"><span style="color:#FFD54F">Math</span><span style="color:#4DD0E1">Grain</span></div>' +
+                    '<div style="opacity:.85;font-size:13.5px;margin-bottom:16px">Sign in to play this game.</div>' +
+                    '<input id="pub-em" type="email" placeholder="email" autocomplete="username" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<input id="pub-pw" type="password" placeholder="password" autocomplete="current-password" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<button id="pub-go" style="width:100%;padding:12px;margin-top:10px;border:none;border-radius:9px;background:#7c4dff;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Sign in</button>' +
+                    '<div id="pub-er" style="color:#ffd0d0;font-size:13px;min-height:18px;margin-top:10px"></div>' +
+                    '</div>'
+                );
+                var go = document.getElementById('pub-go');
+                function submit() {
+                    var em = (document.getElementById('pub-em').value || '').trim(), pw = document.getElementById('pub-pw').value || '';
+                    if (!em || !pw) { document.getElementById('pub-er').textContent = 'Enter your email and password.'; return; }
+                    go.disabled = true;
+                    window.syncAuthSignIn(em, pw).then(function () { /* onAuthStateChanged → play() */ })
+                        .catch(function () { go.disabled = false; document.getElementById('pub-er').textContent = 'Sign-in failed — check your email and password.'; });
+                }
+                go.addEventListener('click', submit);
+                document.getElementById('pub-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
             }
-            if (document.readyState === 'loading') {
-                window.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 400); });
-            } else {
-                setTimeout(boot, 400);
+
+            function start(tries) {
+                if (!(window.firebase && firebase.auth) || typeof window.syncAuthOnChange !== 'function') {
+                    if ((tries || 0) < 80) { setTimeout(function () { start((tries || 0) + 1); }, 150); }
+                    else setOverlay('<div>Could not start. Please reload.</div>');
+                    return;
+                }
+                var playing = false;
+                window.syncAuthOnChange(function (user) {
+                    if (user) { if (!playing) { playing = true; play(); } }
+                    else { playing = false; loginForm(); }
+                });
             }
+
+            function boot() { overlay(); setOverlay('<div style="font-size:18px">Loading game…</div>'); start(0); }
+            if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', boot); }
+            else { boot(); }
         })();
 
         // Combined game confirmation stubs (admin creates these, player just plays)

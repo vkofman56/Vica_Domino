@@ -115,7 +115,7 @@
     <div id="bgc-page-label" class="bgc-page-label">GP 1</div>
     <div id="bgc-app">
         <div class="bgc-header">
-            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">12:18 AM PDT</span></h1>
+            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">12:21 AM PDT</span></h1>
         </div>
         <div class="bgc-sub" id="bgc-user">—</div>
         <div id="bgc-view"></div>
@@ -129,6 +129,33 @@
     <script src="js/firebase-config.js?v=2"></script>
     <script src="js/sync.js?v=local-wins-14"></script>
     <script>
+        // Editor surface — gate behind the owner's Firebase sign-in on the
+        // deployed site (localhost exempt for dev). Non-owners are sent to the
+        // gallery; an opaque overlay covers the composer until authorized.
+        (function () {
+            var host = location.hostname;
+            if (host === 'localhost' || host === '127.0.0.1' || host === '') return;
+            var SUPER = (typeof SUPERUSER_EMAILS !== 'undefined') ? SUPERUSER_EMAILS : [];
+            function isSuper(u) { return !!(u && u.email && SUPER.indexOf(u.email) !== -1); }
+            var o = document.createElement('div');
+            o.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#6a74d8,#8a5fc0);color:#fff;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;font-size:18px';
+            o.textContent = 'Loading…';
+            function mount() { (document.body || document.documentElement).appendChild(o); }
+            if (document.body) mount(); else window.addEventListener('DOMContentLoaded', mount);
+            function wait(t) {
+                if (typeof window.syncAuthOnChange !== 'function' || !(window.firebase && firebase.auth)) {
+                    if ((t || 0) < 80) setTimeout(function () { wait((t || 0) + 1); }, 150);
+                    return;
+                }
+                var done = false;
+                window.syncAuthOnChange(function (user) {
+                    if (isSuper(user)) { if (!done) { done = true; if (o.parentNode) o.parentNode.removeChild(o); } }
+                    else { location.href = 'gallery.html'; }
+                });
+            }
+            wait(0);
+        })();
+
         // ============================================================
         // Big Game Composer — 3a foundation + 3b compose (gather+order)
         // ============================================================

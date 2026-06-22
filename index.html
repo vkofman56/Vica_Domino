@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:19 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:28 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:19 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:28 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4510,6 +4510,99 @@
             window._mgBuildRecord = _mgBuildRecord;
             window._mgListFor = _mgListFor;
             window._mgAddTo = _mgAddTo;
+        }
+
+        // ===== Publishing: build a self-contained mini-game bundle =====
+        // Produces an IMMUTABLE snapshot of ONE named mini-game so it can run on
+        // the pinned engine with NO reference to the rest of the app's card-set
+        // storage: the parent game is deep-cloned and every (non-variation)
+        // card's live ART is baked into card.svgMarkup, the mini-game's legend +
+        // config are frozen, and identity/version stamps are added. Unresolvable
+        // card art FAILS LOUDLY (the known "dangling ref" case). The bundle is
+        // the shared foundation for both the cloud copy and a future standalone
+        // player. See docs/PUBLISHING_PLAN.md. publishId/publishedAt are filled
+        // in at cloud-write time (a later increment).
+        var PUB_SCHEMA = 'mg-pub-1';
+        function _pubLoadJSON(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+        // The pinned engine version (game.js cache-buster) this bundle was built
+        // against — model "A" independence: the published game keeps running on
+        // this engine version even as the live engine advances.
+        function _pubEngineVersion() {
+            try {
+                var scripts = document.getElementsByTagName('script');
+                for (var i = 0; i < scripts.length; i++) {
+                    var src = scripts[i].getAttribute('src') || '';
+                    var m = src.match(/game\.js\?v=([^&"']+)/);
+                    if (m) return m[1];
+                }
+            } catch (e) {}
+            return 'unknown';
+        }
+        // Resolve one card's live art markup (string), preferring the freshest
+        // card-set svgContent (like getGameCardSVG), else the card's own stale
+        // svgMarkup. Returns null if the card has no resolvable art at all.
+        function _pubResolveCardMarkup(card) {
+            var markup = null;
+            if (card.stableId) {
+                var stored = _gpResolveBySid(card.stableId);
+                if (stored && stored.svgContent) markup = stored.svgContent;
+            }
+            if (!markup && card.svgMarkup) markup = card.svgMarkup;
+            return markup || null;
+        }
+        function _pubBuildBundle(type, index, miniGameId) {
+            type = (type === 'catch') ? 'catch' : 'find';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[index];
+            if (!game) throw new Error('Publish: no ' + type + ' game at index ' + index);
+            var mg = null;
+            (game.miniGames || []).forEach(function (m) { if (m && m.id === miniGameId) mg = m; });
+            if (!mg) throw new Error('Publish: mini-game "' + miniGameId + '" not found in "' + (game.name || '') + '"');
+            // Deep-clone the parent game; drop the miniGames list (a bundle is one
+            // mini-game and shouldn't ship the others' legends).
+            var clone = JSON.parse(JSON.stringify(game));
+            delete clone.miniGames;
+            // Bake live art into every non-variation card (variations are never
+            // played — startCustomGame/openCatchPlayModal skip them, so we leave
+            // them untouched). Standalone, stableId resolves to nothing so
+            // getGameCardSVG falls back to this baked svgMarkup.
+            //
+            // PARITY-WITH-PLAY: a non-variation card with no resolvable art is
+            // DROPPED (the live engine already skips it via getGameCardSVG===null),
+            // so the bundle plays identically — but we REPORT every drop (no
+            // silent truncation). Only a game left with zero playable cards is a
+            // hard error.
+            var dropped = [];
+            clone.cards = (clone.cards || []).filter(function (c) {
+                if (c.isVariation) return true;
+                var markup = _pubResolveCardMarkup(c);
+                if (!markup) { dropped.push({ label: c.label, stableId: c.stableId || null }); return false; }
+                c.svgMarkup = markup;
+                return true;
+            });
+            var playable = clone.cards.filter(function (c) { return !c.isVariation; });
+            if (!playable.length) {
+                throw new Error('Publish blocked — "' + (game.name || '') + '" has no cards with resolvable art' +
+                    (dropped.length ? (' (' + dropped.length + ' dropped)') : '') + '.');
+            }
+            return {
+                schema: PUB_SCHEMA,
+                publishId: null,        // assigned at cloud-write time
+                version: 1,
+                engineVersion: _pubEngineVersion(),
+                publishedAt: null,      // stamped at cloud-write time
+                source: { gameType: type, gameIndex: index, miniGameId: miniGameId, miniGameName: mg.name || 'Mini-game' },
+                legend: mg.legend || null,
+                game: clone,            // art baked in; play with `legend` applied
+                droppedCards: dropped,  // cards skipped for unresolvable art (== live play)
+                meta: {                 // carried for future telemetry; NOT rendered
+                    roleVocabulary: _pubLoadJSON('roleVocabulary'),
+                    cardSetLineRoles: _pubLoadJSON('cardSetLineRoles')
+                }
+            };
+        }
+        if (typeof window !== 'undefined') {
+            window._pubBuildBundle = _pubBuildBundle;
         }
 
         // === Level domino icon updates ===

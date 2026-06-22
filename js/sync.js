@@ -760,10 +760,13 @@
     // superuser-only; reads are open to any signed-in tester (enforced by the
     // Firestore security rules — see docs/PUBLISHING_PLAN.md). Separate from the
     // private users/{id} game library: testers can read published/* and nothing else.
+    // Is a Firebase-Auth user signed in? (The real gate for publishing — the
+    // Firestore rules enforce WHICH email may write; this is the client check.)
+    function _pubAuthUser() { try { return (firebase.auth && firebase.auth().currentUser) || null; } catch (e) { return null; } }
     window.syncPublishPut = function (id, bundle) {
         if (!id || !bundle) return Promise.reject(new Error('publish: id and bundle required'));
         if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
-        if (_userRole !== 'superuser') return Promise.reject(new Error('publish: superuser only'));
+        if (!_pubAuthUser()) return Promise.reject(new Error('publish: sign in to Firebase first'));
         var doc = {
             publishId: id,
             schema: bundle.schema || null,
@@ -780,9 +783,18 @@
     window.syncPublishRemove = function (id) {
         if (!id) return Promise.reject(new Error('publish: id required'));
         if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
-        if (_userRole !== 'superuser') return Promise.reject(new Error('publish: superuser only'));
+        if (!_pubAuthUser()) return Promise.reject(new Error('publish: sign in to Firebase first'));
         return _db.collection('published').doc(id).delete();
     };
+    // ---- Firebase Auth (email/password) — testers + sign-in-to-publish ----
+    window.syncAuthUser = function () { return _pubAuthUser(); };
+    window.syncAuthSignIn = function (email, password) {
+        if (!_firebaseReady) return Promise.reject(new Error('Firebase not ready'));
+        if (!firebase.auth) return Promise.reject(new Error('Auth SDK not loaded'));
+        return firebase.auth().signInWithEmailAndPassword(email, password);
+    };
+    window.syncAuthSignOut = function () { try { return firebase.auth().signOut(); } catch (e) { return Promise.resolve(); } };
+    window.syncAuthOnChange = function (cb) { try { return firebase.auth().onAuthStateChanged(cb); } catch (e) { return function () {}; } };
     // Read one published bundle (parsed). Any signed-in user may call.
     window.syncPublishGet = function (id) {
         if (!id) return Promise.reject(new Error('publish: id required'));

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -579,12 +579,14 @@
     <!-- Firebase SDK (compat mode for simplicity) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- Auth SDK — used for publishing (sign-in-to-publish) + tester gallery login -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <!-- Firebase config (project credentials + superuser list) -->
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-10"></script>
+    <script src="js/sync.js?v=local-wins-11"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -4634,6 +4636,24 @@
             } catch (e) {}
             prompt('Copy this link:', text);
         }
+        // Sign-in-to-publish: publishing needs a Firebase-Auth user (the name-
+        // based "Vica" login is separate and stays for editing). If not already
+        // signed in, prompt for email/password once; the session persists. NOTE:
+        // prompt() shows the password in clear text — fine for the single internal
+        // superuser; a proper masked modal can replace this later.
+        function _pubEnsureAuth() {
+            return new Promise(function (resolve, reject) {
+                var u = (typeof window.syncAuthUser === 'function') ? window.syncAuthUser() : null;
+                if (u) { resolve(u); return; }
+                if (typeof window.syncAuthSignIn !== 'function') { reject(new Error('Auth not available (SDK not loaded).')); return; }
+                var email = prompt('Sign in to publish.\n\nFirebase email:');
+                if (!email) { reject(new Error('Sign-in cancelled.')); return; }
+                var pw = prompt('Password for ' + email.trim() + ':');
+                if (!pw) { reject(new Error('Sign-in cancelled.')); return; }
+                window.syncAuthSignIn(email.trim(), pw).then(function (cred) { resolve(cred && cred.user); })
+                    .catch(function (e) { reject(new Error('Sign-in failed: ' + (e && e.message || e))); });
+            });
+        }
         // Persist (or clear) the publishId on the mini-game record so the Pub
         // button knows its published state across reloads.
         function _pubSetMiniPublishId(type, index, miniGameId, publishId) {
@@ -4660,19 +4680,23 @@
             bundle.publishId = id;
             bundle.publishedAt = Date.now();
             if (typeof window.syncPublishPut !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
-            window.syncPublishPut(id, bundle).then(function () {
+            _pubEnsureAuth().then(function () {
+                return window.syncPublishPut(id, bundle);
+            }).then(function () {
                 _pubSetMiniPublishId(type, index, mg.id, id);
                 _mgClosePanel();
                 prompt('Published! Share this link with your testers:', _pubShareUrl(id));
             }).catch(function (err) {
                 alert('Publish failed:\n\n' + (err && err.message || err) +
-                    '\n\n(You must be logged in as a superuser, and the Firestore rules must allow writing to published/*.)');
+                    '\n\n(You must be signed into Firebase as the superuser, and the Firestore rules must allow writing to published/*.)');
             });
         }
         function _pubDoUnpublish(type, index, mg) {
             if (!confirm('Unpublish "' + (mg.name || 'Mini-game') + '"?\n\nThe share link will stop working. This does NOT delete your mini-game.')) return;
             if (typeof window.syncPublishRemove !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
-            window.syncPublishRemove(mg.publishId).then(function () {
+            _pubEnsureAuth().then(function () {
+                return window.syncPublishRemove(mg.publishId);
+            }).then(function () {
                 _pubSetMiniPublishId(type, index, mg.id, null);
                 _mgClosePanel();
                 alert('Unpublished. The link no longer works.');

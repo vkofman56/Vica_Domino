@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:17 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:17 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -583,7 +583,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <!-- Firebase config (project credentials + superuser list) -->
-    <script src="js/firebase-config.js?v=1"></script>
+    <script src="js/firebase-config.js?v=2"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
     <script src="js/sync.js?v=local-wins-13"></script>
@@ -595,14 +595,77 @@
         function showAdminLogin() {}
         function updateSyncUserBtn() {}
 
-        // Auto-login as player-guest on page load
+        // Editor auth gate (deployed site only). The editor + game library are
+        // gated behind a Firebase sign-in as a superuser email; the Firestore
+        // rules enforce the same on users/**. Until authorized, an opaque overlay
+        // covers the editor and shows a login (randoms get a login, not your
+        // games). onAuthorized() runs the real editor login once a superuser
+        // email is signed in. Testers are pointed to the gallery.
+        function _editorGate(onAuthorized) {
+            var SUPER = (typeof SUPERUSER_EMAILS !== 'undefined') ? SUPERUSER_EMAILS : [];
+            function isSuper(u) { return !!(u && u.email && SUPER.indexOf(u.email) !== -1); }
+            var o = document.createElement('div');
+            o.id = 'editor-gate-overlay';
+            o.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#6a74d8,#8a5fc0);color:#fff;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;';
+            function mount() { (document.body || document.documentElement).appendChild(o); try { document.documentElement.style.overflow = 'hidden'; } catch (e) {} }
+            function unmount() { if (o.parentNode) o.parentNode.removeChild(o); try { document.documentElement.style.overflow = ''; } catch (e) {} }
+            function set(html) { o.innerHTML = html; }
+            if (document.body) mount(); else window.addEventListener('DOMContentLoaded', mount);
+            set('<div style="font-size:18px">Loading…</div>');
+            function form(msg) {
+                set('<div style="background:rgba(255,255,255,.1);border-radius:16px;padding:26px 24px;max-width:340px;width:100%">' +
+                    '<div style="font-size:21px;font-weight:800;margin-bottom:4px"><span style="color:#FFD54F">Math</span><span style="color:#4DD0E1">Grain</span> <span style="font-weight:600;font-size:13px;opacity:.8">editor</span></div>' +
+                    '<div style="opacity:.85;font-size:13.5px;margin-bottom:16px">Sign in to edit.</div>' +
+                    '<input id="eg-em" type="email" placeholder="email" autocomplete="username" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<input id="eg-pw" type="password" placeholder="password" autocomplete="current-password" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<button id="eg-go" style="width:100%;padding:12px;margin-top:10px;border:none;border-radius:9px;background:#7c4dff;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Sign in</button>' +
+                    '<div id="eg-er" style="color:#ffd0d0;font-size:13px;min-height:18px;margin-top:10px">' + (msg || '') + '</div>' +
+                    '<div style="margin-top:14px;font-size:12.5px;opacity:.8">Just here to play? <a href="gallery.html" style="color:#FFD54F">Go to the games →</a></div>' +
+                    '</div>');
+                var go = document.getElementById('eg-go');
+                function submit() {
+                    var em = (document.getElementById('eg-em').value || '').trim(), pw = document.getElementById('eg-pw').value || '';
+                    if (!em || !pw) { document.getElementById('eg-er').textContent = 'Enter your email and password.'; return; }
+                    go.disabled = true;
+                    window.syncAuthSignIn(em, pw).then(function () { /* onAuthStateChanged handles success */ })
+                        .catch(function () { go.disabled = false; document.getElementById('eg-er').textContent = 'Sign-in failed — check your email and password.'; });
+                }
+                go.addEventListener('click', submit);
+                document.getElementById('eg-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+            }
+            var done = false;
+            function wait(tries) {
+                if (typeof window.syncAuthOnChange !== 'function' || !(window.firebase && firebase.auth)) {
+                    if ((tries || 0) < 80) { setTimeout(function () { wait((tries || 0) + 1); }, 150); }
+                    else set('<div>Could not start. Please reload.</div>');
+                    return;
+                }
+                window.syncAuthOnChange(function (user) {
+                    if (isSuper(user)) { if (!done) { done = true; unmount(); onAuthorized(); } }
+                    else if (user) { form('This account can’t edit. Sign in as the owner, or play in the gallery.'); }
+                    else { form(''); }
+                });
+            }
+            wait(0);
+        }
+
+        // Editor login on page load — GATED on the deployed site.
         (function() {
-            var userId = syncGetUserId();
-            if (userId) {
-                syncLogin(userId);
+            function _doLogin() {
+                var userId = syncGetUserId();
+                if (userId) { syncLogin(userId); }
+                else { syncLogin('player-guest'); }
+            }
+            var _qp = null; try { _qp = new URLSearchParams(location.search); } catch (e) {}
+            var _host = location.hostname;
+            var _isLocal = (_host === 'localhost' || _host === '127.0.0.1' || _host === '');
+            if (_qp && _qp.get('playPublished')) {
+                // Tester published-play: the ?playPublished boot handles everything;
+                // do NOT establish the editor identity here.
+            } else if (_isLocal) {
+                _doLogin(); // dev convenience: no gate on localhost
             } else {
-                // First visit: auto-login as player guest
-                syncLogin('player-guest');
+                _editorGate(_doLogin); // deployed editor: require superuser sign-in first
             }
             // Auto-show game selection (skip role choice)
             window.addEventListener('DOMContentLoaded', function() {

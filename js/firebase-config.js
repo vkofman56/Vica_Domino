@@ -25,3 +25,11 @@ const FIREBASE_CONFIG = {
  * Add names exactly as they type them at login (case-sensitive).
  */
 const SUPERUSERS = ['Vica'];
+
+/**
+ * Superuser EMAILS — the Firebase Auth accounts allowed to open the editor and
+ * read/write the game library (users/**). The editor on the deployed site is
+ * gated behind a Firebase sign-in as one of these; the Firestore rules enforce
+ * the same. Keep this in sync with the `users/**` rule in the Firestore console.
+ */
+const SUPERUSER_EMAILS = ['victor49@gmail.com'];

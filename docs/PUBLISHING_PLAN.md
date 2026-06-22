@@ -1,10 +1,25 @@
 # Plan — Publishing mini-games (independent, cloud-hosted, tester-gated)
 
-> **STATUS (June 21 2026): DESIGN AGREED, NOT BUILT.** This doc is the contract
-> from the "Big Game 21 / publishing" discussion. Scope of the first deliverable:
-> **simple publish for NAMED mini-games only**, served from **mathgrain.com**
-> behind **per-tester email/password logins**. No telemetry yet (bundle is
-> stamped so telemetry can attach later). No code written yet.
+> **STATUS (June 21 2026): INFRA STARTED, FEATURE BUILD BEGUN.** Design agreed
+> (this doc). Scope of the first deliverable: **simple publish for NAMED
+> mini-games only**, served from **mathgrain.com** behind **per-tester
+> email/password logins**. No telemetry yet (bundle is stamped so telemetry can
+> attach later).
+>
+> **Infra progress (Firebase project `vica-domino`, Spark/free):**
+> - ✅ **Auth** — Email/Password enabled; 3 tester accounts created
+>   (victor49@gmail.com, drkofman@gmail.com, lianacalc@gmail.com).
+> - ✅ **DNS** — mathgrain.com (GoDaddy) pointed at Firebase Hosting:
+>   `A @ → 199.36.158.100`, `TXT @ → hosting-site=vica-domino`; old parking A
+>   records removed; no forwarding.
+> - 🟡 **Domain verify** — TXT detected ✓, A record propagating (up to 24h). SSL
+>   auto-issues on verify → status flips to **Connected**. Re-click **Verify** in
+>   the Firebase Hosting → Custom Domains list until green.
+> - ⬜ **Deploy site files** — later, via **browser Cloud Shell** (no local CLI;
+>   the Mac is unusable for this — wrong Google account). Not needed until the
+>   gallery page exists.
+> - ⬜ **Firestore rules** for `published/*` (authed-read / superuser-write).
+> - ⬜ **Feature code** — bundler + Pub button + gallery + player (IN PROGRESS).
 
 Read alongside `docs/CATCH_MINIGAMES_PLAN.md` (the prior contract-style plan) and
 `docs/STATUS_NOTES.md`.

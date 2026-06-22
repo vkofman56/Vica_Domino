@@ -7,6 +7,28 @@
 
 ---
 
+### ▶▶ June 21 — Publishing track (design + Firebase/GoDaddy infra) — IN PROGRESS
+Big Game session (main tree, `work/cardmaker-rowcopy`). Full contract in
+**`docs/PUBLISHING_PLAN.md`**. Goal: **simple publish for NAMED mini-games** →
+they live independently in the cloud, played by invited testers at **mathgrain.com**.
+- **Design locked** (see plan): Pub button on named mini-game rows only; model **A**
+  (snapshot + pinned engine); art inlined + config frozen + roles carried-but-hidden;
+  Firebase Hosting on mathgrain.com; per-tester email/password; testers read
+  `published/*` only; Unpublish ≠ delete-source; bundle stamps `publishId`/`version`/
+  `publishedAt` for later telemetry.
+- **Infra done this session (Firebase `vica-domino`, Spark/free):**
+  - ✅ **Auth** — Email/Password ON; 3 testers (victor49 / drkofman / lianacalc @gmail).
+  - ✅ **DNS** — GoDaddy mathgrain.com → `A @ 199.36.158.100` + `TXT @ hosting-site=vica-domino`;
+    old parking A records removed; forwarding off.
+  - 🟡 **Domain verify** — TXT ✓, A propagating (≤24h); re-click **Verify** in Firebase
+    Hosting → Custom Domains until green → SSL auto-issues → **Connected**.
+- **Deploy note:** site-file deploy will be via **browser Cloud Shell** (no local CLI;
+  this Mac has the wrong Google account). Not needed until the gallery exists.
+- **NOW BUILDING:** the feature code (bundler → cloud write + rules → Pub button →
+  auth login → gallery + published player). Build order = plan's "Recommended build order".
+
+---
+
 ### ▶▶ NEXT CHAT: **Studio authoring UI for the Catch mini-game settings**
 The RUNTIME half is DONE (see "June 20 — Previewer session" below). The remaining piece is the **authoring UI in `pm-studio-DrV.html`** (Studio `work/studio` worktree) so a user can SET the per-game Catch settings the runtime already reads.
 - **Contract (already live in index.html):** `setup.catchBubbles` (2–5, fixed bubble count), `setup.catchFallSeconds` (>0, default 6), `setup.catchAutoRamp` (default true; gates ONLY the fall-time speedup). See `docs/CATCH_MINIGAMES_PLAN.md` + `docs/CATCH_MECHANICS.md`.

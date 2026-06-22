@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathGrain — Games</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+               background: linear-gradient(135deg, #6a74d8, #8a5fc0); min-height: 100vh; }
+        .gx-wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 60px; }
+        .gx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .gx-head h1 { margin: 0; font-size: 30px; font-weight: 800; }
+        .gx-head h1 .m { color: #FFD54F; } .gx-head h1 .g { color: #4DD0E1; }
+        .gx-sub { color: rgba(255,255,255,0.82); font-size: 14px; margin: 2px 0 22px; }
+        .gx-btn { padding: 9px 16px; border: none; border-radius: 9px; cursor: pointer;
+                  background: #7c4dff; color: #fff; font-weight: 700; font-size: 14px; }
+        .gx-btn:hover { background: #8d63ff; }
+        .gx-btn.ghost { background: rgba(255,255,255,0.16); }
+        .gx-btn.ghost:hover { background: rgba(255,255,255,0.28); }
+        .gx-btn:disabled { opacity: 0.5; cursor: default; }
+        /* login */
+        .gx-login { max-width: 360px; margin: 8vh auto 0; background: rgba(255,255,255,0.10);
+                    border-radius: 16px; padding: 26px 24px; }
+        .gx-login h2 { margin: 0 0 4px; font-size: 21px; }
+        .gx-login p { color: rgba(255,255,255,0.8); font-size: 13.5px; margin: 0 0 18px; }
+        .gx-field { display: block; width: 100%; padding: 11px 13px; margin: 8px 0; border-radius: 9px;
+                    border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.18); color: #fff; font-size: 15px; }
+        .gx-field::placeholder { color: rgba(255,255,255,0.55); }
+        .gx-login .gx-btn { width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; }
+        .gx-err { color: #ffd0d0; font-size: 13px; min-height: 18px; margin-top: 10px; }
+        /* grid */
+        .gx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+        .gx-tile { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14);
+                   border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .gx-tile-name { font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gx-tag { align-self: flex-start; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; letter-spacing: .3px; }
+        .gx-tag.find { background: #4DD0E1; color: #06343a; }
+        .gx-tag.catch { background: #FFD54F; color: #4a3a00; }
+        .gx-play { margin-top: auto; padding: 10px; border: none; border-radius: 9px; cursor: pointer;
+                   background: #2ecc71; color: #06351b; font-weight: 800; font-size: 15px; text-align: center; text-decoration: none; display: block; }
+        .gx-play:hover { background: #43e088; }
+        .gx-empty { color: rgba(255,255,255,0.8); font-size: 15px; padding: 30px 4px; text-align: center; }
+        .gx-muted { color: rgba(255,255,255,0.6); font-size: 12.5px; }
+    </style>
+
+    <!-- Firebase SDK (compat) + config + sync layer (publish helpers) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="js/firebase-config.js?v=2"></script>
+    <script src="js/sync.js?v=local-wins-14"></script>
+</head>
+<body>
+    <div class="gx-wrap">
+        <!-- Logged-out: login card -->
+        <div id="gx-login" class="gx-login" style="display:none;">
+            <h2><span style="color:#FFD54F">Math</span><span style="color:#4DD0E1">Grain</span></h2>
+            <p>Sign in with the email &amp; password you were given to play the games.</p>
+            <input id="gx-email" class="gx-field" type="email" placeholder="email" autocomplete="username">
+            <input id="gx-pw" class="gx-field" type="password" placeholder="password" autocomplete="current-password">
+            <button id="gx-signin" class="gx-btn">Sign in</button>
+            <div id="gx-err" class="gx-err"></div>
+        </div>
+
+        <!-- Logged-in: gallery -->
+        <div id="gx-app" style="display:none;">
+            <div class="gx-head">
+                <h1><span class="m">Math</span><span class="g">Grain</span> Games</h1>
+                <button id="gx-signout" class="gx-btn ghost">Sign out</button>
+            </div>
+            <div class="gx-sub" id="gx-who"></div>
+            <div id="gx-list"><div class="gx-empty">Loading games…</div></div>
+        </div>
+    </div>
+
+    <script>
+        // Tester surface — never sync the owner's library, and never show the
+        // editor's "unsaved changes" unload guard.
+        window._syncSuppressSuperuser = true;
+        window._syncSuppressUnloadGuard = true;
+        (function () {
+            var $ = function (id) { return document.getElementById(id); };
+            function show(view) {
+                $('gx-login').style.display = (view === 'login') ? 'block' : 'none';
+                $('gx-app').style.display = (view === 'app') ? 'block' : 'none';
+            }
+            function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+            function renderList() {
+                var box = $('gx-list');
+                box.innerHTML = '<div class="gx-empty">Loading games…</div>';
+                if (typeof window.syncPublishList !== 'function') { box.innerHTML = '<div class="gx-empty">Games unavailable right now.</div>'; return; }
+                window.syncPublishList().then(function (games) {
+                    if (!games || !games.length) {
+                        box.innerHTML = '<div class="gx-empty">No games have been published yet.<br><span class="gx-muted">Check back soon.</span></div>';
+                        return;
+                    }
+                    games.sort(function (a, b) { return (b.publishedAt || 0) - (a.publishedAt || 0); });
+                    var grid = document.createElement('div'); grid.className = 'gx-grid';
+                    games.forEach(function (gm) {
+                        var t = (gm.gameType === 'catch') ? 'catch' : 'find';
+                        var tile = document.createElement('div'); tile.className = 'gx-tile';
+                        tile.innerHTML =
+                            '<span class="gx-tag ' + t + '">' + (t === 'catch' ? 'Catch' : 'Find') + '</span>' +
+                            '<div class="gx-tile-name">' + esc(gm.name) + '</div>' +
+                            '<a class="gx-play" href="index.html?playPublished=' + encodeURIComponent(gm.publishId) + '">▶ Play</a>';
+                        grid.appendChild(tile);
+                    });
+                    box.innerHTML = '';
+                    box.appendChild(grid);
+                }).catch(function (err) {
+                    box.innerHTML = '<div class="gx-empty">Could not load games.<br><span class="gx-muted">' + esc(err && err.message || err) + '</span></div>';
+                });
+            }
+
+            function onSignedIn(user) {
+                $('gx-who').textContent = 'Signed in as ' + (user && user.email || '');
+                show('app');
+                renderList();
+            }
+
+            // Wait for the auth SDK, then react to auth state.
+            function start(tries) {
+                if (!(window.firebase && firebase.auth)) {
+                    if ((tries || 0) < 60) { setTimeout(function () { start((tries || 0) + 1); }, 150); }
+                    return;
+                }
+                if (typeof window.syncAuthOnChange === 'function') {
+                    window.syncAuthOnChange(function (user) { if (user) onSignedIn(user); else show('login'); });
+                } else {
+                    show('login');
+                }
+            }
+
+            $('gx-signin').addEventListener('click', function () {
+                var email = ($('gx-email').value || '').trim();
+                var pw = $('gx-pw').value || '';
+                $('gx-err').textContent = '';
+                if (!email || !pw) { $('gx-err').textContent = 'Enter your email and password.'; return; }
+                $('gx-signin').disabled = true;
+                window.syncAuthSignIn(email, pw).then(function () {
+                    $('gx-signin').disabled = false; // onAuthStateChanged swaps the view
+                }).catch(function (e) {
+                    $('gx-signin').disabled = false;
+                    $('gx-err').textContent = 'Sign-in failed — check your email and password.';
+                });
+            });
+            $('gx-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('gx-signin').click(); });
+            $('gx-signout').addEventListener('click', function () { if (window.syncAuthSignOut) window.syncAuthSignOut(); });
+
+            show('login');
+            start(0);
+        })();
+    </script>
+</body>
+</html>

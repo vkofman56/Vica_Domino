@@ -1,10 +1,61 @@
 # Plan — Publishing mini-games (independent, cloud-hosted, tester-gated)
 
-> **STATUS (June 21 2026): DESIGN AGREED, NOT BUILT.** This doc is the contract
-> from the "Big Game 21 / publishing" discussion. Scope of the first deliverable:
-> **simple publish for NAMED mini-games only**, served from **mathgrain.com**
-> behind **per-tester email/password logins**. No telemetry yet (bundle is
-> stamped so telemetry can attach later). No code written yet.
+> **STATUS (June 21 2026): ✅ LIVE & WORKING END-TO-END.** Simple publish for
+> named mini-games is shipped, deployed, and proven on the real domain: Victor
+> published "fast" → a tester signed in at mathgrain.com → played it (frozen,
+> standalone) → back/home returns to the gallery (no editor leak). Auth ✅,
+> Firestore rules ✅, mathgrain.com (SSL) ✅, **auto-deploy via GitHub Action ✅**
+> (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`; every push to
+> claude/review-project-docs-JOOeh deploys — no more Cloud Shell).
+> **✅ Editor SECURED (June 21):** gate (index.html `_editorGate`, deployed-only,
+> SUPERUSER_EMAILS=victor49) + Firestore `users/**` restricted to victor49. The
+> "anyone can become Vica" hole is closed. localhost + ?playPublished exempt.
+> Workflow note: editing devices must be Firebase-signed-in as victor49 to sync.
+> **Open follow-ups:** replace publish/login `prompt()`/basic forms with a modal;
+> make root land on the gallery for non-owners; transitions library; advanced/
+> telemetry publishing.
+>
+> **STATUS (June 21 2026): INFRA STARTED, FEATURE BUILD BEGUN.** Design agreed
+> (this doc). Scope of the first deliverable: **simple publish for NAMED
+> mini-games only**, served from **mathgrain.com** behind **per-tester
+> email/password logins**. No telemetry yet (bundle is stamped so telemetry can
+> attach later).
+>
+> **Infra progress (Firebase project `vica-domino`, Spark/free):**
+> - ✅ **Auth** — Email/Password enabled; 3 tester accounts created
+>   (victor49@gmail.com, drkofman@gmail.com, lianacalc@gmail.com).
+> - ✅ **DNS** — mathgrain.com (GoDaddy) pointed at Firebase Hosting:
+>   `A @ → 199.36.158.100`, `TXT @ → hosting-site=vica-domino`; old parking A
+>   records removed; no forwarding.
+> - 🟡 **Domain verify** — TXT detected ✓, A record propagating (up to 24h). SSL
+>   auto-issues on verify → status flips to **Connected**. Re-click **Verify** in
+>   the Firebase Hosting → Custom Domains list until green.
+> - ⬜ **Deploy site files** — via **browser Cloud Shell** (no local CLI; the Mac
+>   has the wrong Google account). NOW READY — gallery + player exist.
+> - ⬜ **Firestore rules** for `published/*` (authed-read / superuser-by-email-write)
+>   — rules text handed to Victor; paste in console → Firestore → Rules → Publish.
+> - ✅ **Feature code — ALL SHIPPED & verified locally** (June 21):
+>   1. **Bundler** `_pubBuildBundle` (index.html) — self-contained snapshot, art
+>      baked into svgMarkup, config+legend frozen, schema/engineVersion stamped,
+>      unresolvable cards dropped+reported. Verified ~53KB on Match 0-4.
+>   2. **Cloud layer** (sync.js) — `syncPublishPut/Remove/Get/List` on `published/*`
+>      (bundle stored as JSON string + light metadata) + **Pub button** on NAMED
+>      mini-game rows (publish / re-publish / unpublish / copy-link; publishId
+>      persisted on the record).
+>   3. **Firebase Auth** (sign-in-to-publish) — firebase-auth-compat loaded;
+>      `syncAuthSignIn/SignOut/User/OnChange`; writes gated on a Firebase-Auth user
+>      (rules enforce which email). Name-based "Vica" login untouched.
+>   4. **Published player** — `getGameCardSVG` honors `_pubPlayMode` (baked art
+>      wins = frozen/standalone); `_pubPlayBundle` injects a temp game + reuses
+>      `_mgPlayLegend`; `?playPublished=<id>` boot path (sign-in → fetch → play).
+>      Verified: a built bundle renders+plays from baked art.
+>   5. **Tester gallery** `gallery.html` — email/password login → grid of published
+>      games → each links to `index.html?playPublished=<id>`. Testers never see the
+>      editor. Verified: login renders, helpers wired.
+>   - Cache-buster: `sync.js?v=local-wins-11` (index.html + biggame.html).
+> - **REMAINING (all infra / user-side):** set Firestore rules, deploy via Cloud
+>   Shell, finish domain verify. Then live end-to-end test (publish → tester logs
+>   in at mathgrain.com → plays → unpublish).
 
 Read alongside `docs/CATCH_MINIGAMES_PLAN.md` (the prior contract-style plan) and
 `docs/STATUS_NOTES.md`.

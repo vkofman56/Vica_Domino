@@ -102,10 +102,24 @@
     var MAX_CHUNK_BYTES = 800000; // ~800 KB per chunk document
 
     /** Upload all data to Firestore. */
+    // Superuser cloud-sync (read/write users/**) is allowed ONLY when the page is
+    // Firebase-signed-in as a SUPERUSER_EMAIL — this matches the Firestore rules,
+    // so the name-based "Vica" session alone never attempts a sync it can't make
+    // (which would throw permission-denied). Tester surfaces (gallery, published
+    // player) set window._syncSuppressSuperuser to opt out entirely.
+    function _canSuperuserSync() {
+        if (window._syncSuppressSuperuser) return false;
+        if (_userRole !== 'superuser') return false;
+        try {
+            var u = firebase.auth && firebase.auth().currentUser;
+            var emails = (typeof SUPERUSER_EMAILS !== 'undefined') ? SUPERUSER_EMAILS : [];
+            return !!(u && u.email && emails.indexOf(u.email) !== -1);
+        } catch (e) { return false; }
+    }
     function _pushToServer() {
         if (!_userId || !_firebaseReady || !_db) return;
         if (!_isValidFirestoreId(_userId)) return;
-        if (_userRole !== 'superuser') return; // Only superusers write data
+        if (!_canSuperuserSync()) return; // only the Firebase-authed owner writes data
         if (_syncing) { _pendingSync = true; return; }
         _syncing = true;
         _setSyncStatus('syncing');
@@ -458,12 +472,15 @@
             })
             .then(function () {
                 // Start periodic card backup after successful login
-                if (_userRole === 'superuser') _startCardBackupTimer();
+                if (_canSuperuserSync()) _startCardBackupTimer();
                 _fireDataReady(); // cloud pull/restore settled — run post-sync migrations
             })
             .catch(function (err) {
                 console.error('[Sync] Login pull failed:', err);
-                alert('[Sync] Error: ' + (err.code || '') + ' ' + (err.message || err));
+                // permission-denied is EXPECTED when not Firebase-authed as the
+                // owner (e.g. localhost without sign-in) — don't block with an
+                // alert; keep working from the local snapshot below.
+                console.warn('[Sync] ' + (err.code || '') + ' ' + (err.message || err) + ' — using local data.');
                 // Offline — restore the local snapshot so nothing is lost
                 var keysToRemove = [];
                 for (var i = 0; i < localStorage.length; i++) {
@@ -752,6 +769,85 @@
             });
     };
 
+    // ---- Publishing: the `published/*` collection (shareable mini-games) ----
+    // A published mini-game is stored as ONE doc: light metadata on top (for the
+    // gallery list) + the whole self-contained bundle as a JSON string in `json`
+    // (stringifying sidesteps Firestore's nested-array / undefined-value rules,
+    // and the bundle is ~tens of KB, well under the 1MB doc limit). Writes are
+    // superuser-only; reads are open to any signed-in tester (enforced by the
+    // Firestore security rules — see docs/PUBLISHING_PLAN.md). Separate from the
+    // private users/{id} game library: testers can read published/* and nothing else.
+    // Is a Firebase-Auth user signed in? (The real gate for publishing — the
+    // Firestore rules enforce WHICH email may write; this is the client check.)
+    function _pubAuthUser() { try { return (firebase.auth && firebase.auth().currentUser) || null; } catch (e) { return null; } }
+    window.syncPublishPut = function (id, bundle) {
+        if (!id || !bundle) return Promise.reject(new Error('publish: id and bundle required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        if (!_pubAuthUser()) return Promise.reject(new Error('publish: sign in to Firebase first'));
+        var doc = {
+            publishId: id,
+            schema: bundle.schema || null,
+            version: bundle.version || 1,
+            engineVersion: bundle.engineVersion || null,
+            name: (bundle.source && bundle.source.miniGameName) || 'Mini-game',
+            gameType: (bundle.source && bundle.source.gameType) || 'find',
+            publishedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            publishedBy: _userId || null,
+            json: JSON.stringify(bundle)
+        };
+        return _db.collection('published').doc(id).set(doc).then(function () { return id; });
+    };
+    window.syncPublishRemove = function (id) {
+        if (!id) return Promise.reject(new Error('publish: id required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        if (!_pubAuthUser()) return Promise.reject(new Error('publish: sign in to Firebase first'));
+        return _db.collection('published').doc(id).delete();
+    };
+    // ---- Firebase Auth (email/password) — testers + sign-in-to-publish ----
+    window.syncAuthUser = function () { return _pubAuthUser(); };
+    window.syncAuthSignIn = function (email, password) {
+        if (!_firebaseReady) return Promise.reject(new Error('Firebase not ready'));
+        if (!firebase.auth) return Promise.reject(new Error('Auth SDK not loaded'));
+        return firebase.auth().signInWithEmailAndPassword(email, password);
+    };
+    window.syncAuthSignOut = function () { try { return firebase.auth().signOut(); } catch (e) { return Promise.resolve(); } };
+    window.syncAuthOnChange = function (cb) { try { return firebase.auth().onAuthStateChanged(cb); } catch (e) { return function () {}; } };
+    // Read one published bundle (parsed). Any signed-in user may call.
+    window.syncPublishGet = function (id) {
+        if (!id) return Promise.reject(new Error('publish: id required'));
+        if (!_firebaseReady || !_db) return Promise.reject(new Error('publish: Firebase not ready'));
+        return _db.collection('published').doc(id).get().then(function (doc) {
+            if (!doc.exists) return null;
+            var d = doc.data() || {};
+            try { return JSON.parse(d.json || 'null'); } catch (e) { return null; }
+        });
+    };
+    // List published games (metadata only — no `json`) for the gallery.
+    window.syncPublishList = function () {
+        if (!_firebaseReady || !_db) return Promise.resolve([]);
+        return _db.collection('published').get().then(function (snap) {
+            var out = [];
+            snap.forEach(function (doc) {
+                var d = doc.data() || {};
+                out.push({
+                    publishId: d.publishId || doc.id,
+                    name: d.name || 'Mini-game',
+                    gameType: d.gameType || 'find',
+                    engineVersion: d.engineVersion || null,
+                    publishedAt: (d.publishedAt && d.publishedAt.toMillis) ? d.publishedAt.toMillis() : null
+                });
+            });
+            return out;
+        }).catch(function () { return []; });
+    };
+
+    // Initialize Firebase as soon as this script loads (idempotent). The main app
+    // also inits via syncLogin, but pages that DON'T call syncLogin — e.g.
+    // gallery.html (tester sign-in only) — need Firebase ready for syncAuth*/
+    // syncPublish*. Without this, the gallery's sign-in rejected with "Firebase
+    // not ready" and showed "Sign-in failed".
+    _initFirebase();
+
     // ---- Auto-login on page load ----
 
     _userId = _origGetItem(META_KEY) || null;
@@ -775,11 +871,11 @@
         document.addEventListener('DOMContentLoaded', _applyRoleUI);
     }
 
-    // Start card backup timer if already logged in as superuser
+    // Start card backup timer once Firebase-authed as the owner (waits for the
+    // async auth-state restore; gives up after 30s if never authorized).
     if (_userId && _userRole === 'superuser') {
-        // Wait for Firebase to initialize, then start backups
         var _fbWait = setInterval(function () {
-            if (_firebaseReady && _db) {
+            if (_firebaseReady && _db && _canSuperuserSync()) {
                 clearInterval(_fbWait);
                 _startCardBackupTimer();
             }
@@ -805,7 +901,12 @@
     //      generic warning instead, but setting returnValue is still
     //      what triggers the dialog at all.
     window.addEventListener('beforeunload', function (e) {
-        if (_userId && _userRole === 'superuser' && _firebaseReady) {
+        // Tester surfaces (gallery, published player) set this — they make no
+        // edits, so the "changes may not be saved" guard must never fire there,
+        // even if the browser still carries a stale name-based superuser session
+        // on this domain.
+        if (window._syncSuppressUnloadGuard) return;
+        if (_canSuperuserSync()) {
             var hadTimer = !!_syncTimer;
             if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
             // Flush whatever was queued.

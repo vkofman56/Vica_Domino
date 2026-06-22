@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:41 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:21 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:41 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:21 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -579,12 +579,14 @@
     <!-- Firebase SDK (compat mode for simplicity) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- Auth SDK — used for publishing (sign-in-to-publish) + tester gallery login -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <!-- Firebase config (project credentials + superuser list) -->
-    <script src="js/firebase-config.js?v=1"></script>
+    <script src="js/firebase-config.js?v=2"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-9"></script>
+    <script src="js/sync.js?v=local-wins-14"></script>
 
     <script>
         /* ---- Player-only: auto-login as guest ---- */
@@ -593,14 +595,77 @@
         function showAdminLogin() {}
         function updateSyncUserBtn() {}
 
-        // Auto-login as player-guest on page load
+        // Editor auth gate (deployed site only). The editor + game library are
+        // gated behind a Firebase sign-in as a superuser email; the Firestore
+        // rules enforce the same on users/**. Until authorized, an opaque overlay
+        // covers the editor and shows a login (randoms get a login, not your
+        // games). onAuthorized() runs the real editor login once a superuser
+        // email is signed in. Testers are pointed to the gallery.
+        function _editorGate(onAuthorized) {
+            var SUPER = (typeof SUPERUSER_EMAILS !== 'undefined') ? SUPERUSER_EMAILS : [];
+            function isSuper(u) { return !!(u && u.email && SUPER.indexOf(u.email) !== -1); }
+            var o = document.createElement('div');
+            o.id = 'editor-gate-overlay';
+            o.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#6a74d8,#8a5fc0);color:#fff;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;';
+            function mount() { (document.body || document.documentElement).appendChild(o); try { document.documentElement.style.overflow = 'hidden'; } catch (e) {} }
+            function unmount() { if (o.parentNode) o.parentNode.removeChild(o); try { document.documentElement.style.overflow = ''; } catch (e) {} }
+            function set(html) { o.innerHTML = html; }
+            if (document.body) mount(); else window.addEventListener('DOMContentLoaded', mount);
+            set('<div style="font-size:18px">Loading…</div>');
+            function form(msg) {
+                set('<div style="background:rgba(255,255,255,.1);border-radius:16px;padding:26px 24px;max-width:340px;width:100%">' +
+                    '<div style="font-size:21px;font-weight:800;margin-bottom:4px"><span style="color:#FFD54F">Math</span><span style="color:#4DD0E1">Grain</span> <span style="font-weight:600;font-size:13px;opacity:.8">editor</span></div>' +
+                    '<div style="opacity:.85;font-size:13.5px;margin-bottom:16px">Sign in to edit.</div>' +
+                    '<input id="eg-em" type="email" placeholder="email" autocomplete="username" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<input id="eg-pw" type="password" placeholder="password" autocomplete="current-password" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<button id="eg-go" style="width:100%;padding:12px;margin-top:10px;border:none;border-radius:9px;background:#7c4dff;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Sign in</button>' +
+                    '<div id="eg-er" style="color:#ffd0d0;font-size:13px;min-height:18px;margin-top:10px">' + (msg || '') + '</div>' +
+                    '<div style="margin-top:14px;font-size:12.5px;opacity:.8">Just here to play? <a href="gallery.html" style="color:#FFD54F">Go to the games →</a></div>' +
+                    '</div>');
+                var go = document.getElementById('eg-go');
+                function submit() {
+                    var em = (document.getElementById('eg-em').value || '').trim(), pw = document.getElementById('eg-pw').value || '';
+                    if (!em || !pw) { document.getElementById('eg-er').textContent = 'Enter your email and password.'; return; }
+                    go.disabled = true;
+                    window.syncAuthSignIn(em, pw).then(function () { /* onAuthStateChanged handles success */ })
+                        .catch(function () { go.disabled = false; document.getElementById('eg-er').textContent = 'Sign-in failed — check your email and password.'; });
+                }
+                go.addEventListener('click', submit);
+                document.getElementById('eg-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+            }
+            var done = false;
+            function wait(tries) {
+                if (typeof window.syncAuthOnChange !== 'function' || !(window.firebase && firebase.auth)) {
+                    if ((tries || 0) < 80) { setTimeout(function () { wait((tries || 0) + 1); }, 150); }
+                    else set('<div>Could not start. Please reload.</div>');
+                    return;
+                }
+                window.syncAuthOnChange(function (user) {
+                    if (isSuper(user)) { if (!done) { done = true; unmount(); onAuthorized(); } }
+                    else if (user) { form('This account can’t edit. Sign in as the owner, or play in the gallery.'); }
+                    else { form(''); }
+                });
+            }
+            wait(0);
+        }
+
+        // Editor login on page load — GATED on the deployed site.
         (function() {
-            var userId = syncGetUserId();
-            if (userId) {
-                syncLogin(userId);
+            function _doLogin() {
+                var userId = syncGetUserId();
+                if (userId) { syncLogin(userId); }
+                else { syncLogin('player-guest'); }
+            }
+            var _qp = null; try { _qp = new URLSearchParams(location.search); } catch (e) {}
+            var _host = location.hostname;
+            var _isLocal = (_host === 'localhost' || _host === '127.0.0.1' || _host === '');
+            if (_qp && _qp.get('playPublished')) {
+                // Tester published-play: the ?playPublished boot handles everything;
+                // do NOT establish the editor identity here.
+            } else if (_isLocal) {
+                _doLogin(); // dev convenience: no gate on localhost
             } else {
-                // First visit: auto-login as player guest
-                syncLogin('player-guest');
+                _editorGate(_doLogin); // deployed editor: require superuser sign-in first
             }
             // Auto-show game selection (skip role choice)
             window.addEventListener('DOMContentLoaded', function() {
@@ -1119,8 +1184,11 @@
             var markup = cardInfo.svgMarkup;
             // Prefer the freshest svgContent from card-set storage if we have a
             // stableId — this picks up edits made in Card Maker after the card
-            // was added to the game, just like Studio does.
-            if (cardInfo.stableId) {
+            // was added to the game, just like Studio does. EXCEPT in published-
+            // play mode: a published bundle is FROZEN, so we use the baked
+            // svgMarkup and never reach into local card sets (which may be absent
+            // on a tester's device, or different on the author's).
+            if (cardInfo.stableId && !window._pubPlayMode) {
                 var stored = _gpResolveBySid(cardInfo.stableId);
                 if (stored && stored.svgContent) markup = stored.svgContent;
             }
@@ -1694,6 +1762,19 @@
                     edt.className = 'mg-item-act'; edt.textContent = '⚙'; edt.title = 'Edit settings';
                     edt.addEventListener('click', function(e) { e.stopPropagation(); _mgClosePanel(); _mgStartEdit(type, index, savedIdx); });
                     item.appendChild(edt);
+                    // Pub: publish this NAMED mini-game so invited testers can play
+                    // it independently. "Pub ✓" once published (click for link /
+                    // re-publish / unpublish). Default row never gets this button.
+                    var pubRec = _mgListFor(type, index)[savedIdx];
+                    var pub = document.createElement('span');
+                    pub.className = 'mg-item-act mg-item-pub';
+                    var _isPub = !!(pubRec && pubRec.publishId);
+                    pub.textContent = _isPub ? 'Pub ✓' : 'Pub';
+                    pub.style.fontWeight = '600';
+                    if (_isPub) pub.style.color = '#34c759';
+                    pub.title = _isPub ? 'Published — click for link / re-publish / unpublish' : 'Publish so invited testers can play it';
+                    pub.addEventListener('click', function(e) { e.stopPropagation(); _pubMiniClicked(type, index, savedIdx); });
+                    item.appendChild(pub);
                     var ren = document.createElement('span');
                     ren.className = 'mg-item-act'; ren.textContent = '✎'; ren.title = 'Rename';
                     ren.addEventListener('click', function(e) { e.stopPropagation(); _mgRename(type, index, savedIdx, anchorEl); });
@@ -4512,6 +4593,270 @@
             window._mgAddTo = _mgAddTo;
         }
 
+        // ===== Publishing: build a self-contained mini-game bundle =====
+        // Produces an IMMUTABLE snapshot of ONE named mini-game so it can run on
+        // the pinned engine with NO reference to the rest of the app's card-set
+        // storage: the parent game is deep-cloned and every (non-variation)
+        // card's live ART is baked into card.svgMarkup, the mini-game's legend +
+        // config are frozen, and identity/version stamps are added. Unresolvable
+        // card art FAILS LOUDLY (the known "dangling ref" case). The bundle is
+        // the shared foundation for both the cloud copy and a future standalone
+        // player. See docs/PUBLISHING_PLAN.md. publishId/publishedAt are filled
+        // in at cloud-write time (a later increment).
+        var PUB_SCHEMA = 'mg-pub-1';
+        function _pubLoadJSON(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+        // The pinned engine version (game.js cache-buster) this bundle was built
+        // against — model "A" independence: the published game keeps running on
+        // this engine version even as the live engine advances.
+        function _pubEngineVersion() {
+            try {
+                var scripts = document.getElementsByTagName('script');
+                for (var i = 0; i < scripts.length; i++) {
+                    var src = scripts[i].getAttribute('src') || '';
+                    var m = src.match(/game\.js\?v=([^&"']+)/);
+                    if (m) return m[1];
+                }
+            } catch (e) {}
+            return 'unknown';
+        }
+        // Resolve one card's live art markup (string), preferring the freshest
+        // card-set svgContent (like getGameCardSVG), else the card's own stale
+        // svgMarkup. Returns null if the card has no resolvable art at all.
+        function _pubResolveCardMarkup(card) {
+            var markup = null;
+            if (card.stableId) {
+                var stored = _gpResolveBySid(card.stableId);
+                if (stored && stored.svgContent) markup = stored.svgContent;
+            }
+            if (!markup && card.svgMarkup) markup = card.svgMarkup;
+            return markup || null;
+        }
+        function _pubBuildBundle(type, index, miniGameId) {
+            type = (type === 'catch') ? 'catch' : 'find';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var game = games[index];
+            if (!game) throw new Error('Publish: no ' + type + ' game at index ' + index);
+            var mg = null;
+            (game.miniGames || []).forEach(function (m) { if (m && m.id === miniGameId) mg = m; });
+            if (!mg) throw new Error('Publish: mini-game "' + miniGameId + '" not found in "' + (game.name || '') + '"');
+            // Deep-clone the parent game; drop the miniGames list (a bundle is one
+            // mini-game and shouldn't ship the others' legends).
+            var clone = JSON.parse(JSON.stringify(game));
+            delete clone.miniGames;
+            // Bake live art into every non-variation card (variations are never
+            // played — startCustomGame/openCatchPlayModal skip them, so we leave
+            // them untouched). Standalone, stableId resolves to nothing so
+            // getGameCardSVG falls back to this baked svgMarkup.
+            //
+            // PARITY-WITH-PLAY: a non-variation card with no resolvable art is
+            // DROPPED (the live engine already skips it via getGameCardSVG===null),
+            // so the bundle plays identically — but we REPORT every drop (no
+            // silent truncation). Only a game left with zero playable cards is a
+            // hard error.
+            var dropped = [];
+            clone.cards = (clone.cards || []).filter(function (c) {
+                if (c.isVariation) return true;
+                var markup = _pubResolveCardMarkup(c);
+                if (!markup) { dropped.push({ label: c.label, stableId: c.stableId || null }); return false; }
+                c.svgMarkup = markup;
+                return true;
+            });
+            var playable = clone.cards.filter(function (c) { return !c.isVariation; });
+            if (!playable.length) {
+                throw new Error('Publish blocked — "' + (game.name || '') + '" has no cards with resolvable art' +
+                    (dropped.length ? (' (' + dropped.length + ' dropped)') : '') + '.');
+            }
+            return {
+                schema: PUB_SCHEMA,
+                publishId: null,        // assigned at cloud-write time
+                version: 1,
+                engineVersion: _pubEngineVersion(),
+                publishedAt: null,      // stamped at cloud-write time
+                source: { gameType: type, gameIndex: index, miniGameId: miniGameId, miniGameName: mg.name || 'Mini-game' },
+                legend: mg.legend || null,
+                game: clone,            // art baked in; play with `legend` applied
+                droppedCards: dropped,  // cards skipped for unresolvable art (== live play)
+                meta: {                 // carried for future telemetry; NOT rendered
+                    roleVocabulary: _pubLoadJSON('roleVocabulary'),
+                    cardSetLineRoles: _pubLoadJSON('cardSetLineRoles')
+                }
+            };
+        }
+        if (typeof window !== 'undefined') {
+            window._pubBuildBundle = _pubBuildBundle;
+        }
+
+        // ----- Pub button: publish / re-publish / unpublish a named mini-game -----
+        // The share link a tester opens. Locally this is the current origin; on
+        // mathgrain.com it's the deployed app. The gallery is the normal entry,
+        // but this direct link plays one mini-game.
+        function _pubShareUrl(id) {
+            return location.origin + location.pathname + '?playPublished=' + encodeURIComponent(id);
+        }
+        function _pubCopy(text) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function () { alert('Link copied!'); }, function () { prompt('Copy this link:', text); });
+                    return;
+                }
+            } catch (e) {}
+            prompt('Copy this link:', text);
+        }
+        // Sign-in-to-publish: publishing needs a Firebase-Auth user (the name-
+        // based "Vica" login is separate and stays for editing). If not already
+        // signed in, prompt for email/password once; the session persists. NOTE:
+        // prompt() shows the password in clear text — fine for the single internal
+        // superuser; a proper masked modal can replace this later.
+        function _pubEnsureAuth() {
+            return new Promise(function (resolve, reject) {
+                var u = (typeof window.syncAuthUser === 'function') ? window.syncAuthUser() : null;
+                if (u) { resolve(u); return; }
+                if (typeof window.syncAuthSignIn !== 'function') { reject(new Error('Auth not available (SDK not loaded).')); return; }
+                var email = prompt('Sign in to publish.\n\nFirebase email:');
+                if (!email) { reject(new Error('Sign-in cancelled.')); return; }
+                var pw = prompt('Password for ' + email.trim() + ':');
+                if (!pw) { reject(new Error('Sign-in cancelled.')); return; }
+                window.syncAuthSignIn(email.trim(), pw).then(function (cred) { resolve(cred && cred.user); })
+                    .catch(function (e) { reject(new Error('Sign-in failed: ' + (e && e.message || e))); });
+            });
+        }
+        // Persist (or clear) the publishId on the mini-game record so the Pub
+        // button knows its published state across reloads.
+        function _pubSetMiniPublishId(type, index, miniGameId, publishId) {
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var g = games[index];
+            if (!g || !Array.isArray(g.miniGames)) return;
+            g.miniGames.forEach(function (m) {
+                if (m && m.id === miniGameId) { if (publishId) m.publishId = publishId; else delete m.publishId; }
+            });
+            localStorage.setItem(key, JSON.stringify(games));
+        }
+        function _pubDoPublish(type, index, savedIdx, mg) {
+            var bundle;
+            try { bundle = _pubBuildBundle(type, index, mg.id); }
+            catch (e) { alert('Could not publish:\n\n' + (e && e.message || e)); return; }
+            var note = (bundle.droppedCards && bundle.droppedCards.length)
+                ? ('\n\nNote: ' + bundle.droppedCards.length + ' card(s) had no art and were skipped (same as in play): ' +
+                    bundle.droppedCards.map(function (d) { return d.label; }).join(', '))
+                : '';
+            var verb = mg.publishId ? 'Update the published copy of' : 'Publish';
+            if (!confirm(verb + ' "' + (mg.name || 'Mini-game') + '" so invited testers can play it at mathgrain.com?' + note)) return;
+            var id = mg.publishId || ('pub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8));
+            bundle.publishId = id;
+            bundle.publishedAt = Date.now();
+            if (typeof window.syncPublishPut !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
+            _pubEnsureAuth().then(function () {
+                return window.syncPublishPut(id, bundle);
+            }).then(function () {
+                _pubSetMiniPublishId(type, index, mg.id, id);
+                _mgClosePanel();
+                prompt('Published! Share this link with your testers:', _pubShareUrl(id));
+            }).catch(function (err) {
+                alert('Publish failed:\n\n' + (err && err.message || err) +
+                    '\n\n(You must be signed into Firebase as the superuser, and the Firestore rules must allow writing to published/*.)');
+            });
+        }
+        function _pubDoUnpublish(type, index, mg) {
+            if (!confirm('Unpublish "' + (mg.name || 'Mini-game') + '"?\n\nThe share link will stop working. This does NOT delete your mini-game.')) return;
+            if (typeof window.syncPublishRemove !== 'function') { alert('Publishing not available (cloud layer not loaded).'); return; }
+            _pubEnsureAuth().then(function () {
+                return window.syncPublishRemove(mg.publishId);
+            }).then(function () {
+                _pubSetMiniPublishId(type, index, mg.id, null);
+                _mgClosePanel();
+                alert('Unpublished. The link no longer works.');
+            }).catch(function (err) { alert('Unpublish failed:\n\n' + (err && err.message || err)); });
+        }
+        function _pubMiniClicked(type, index, savedIdx) {
+            var mg = _mgListFor(type, index)[savedIdx];
+            if (!mg) { alert('Mini-game not found.'); return; }
+            if (mg.publishId) {
+                var url = _pubShareUrl(mg.publishId);
+                var choice = prompt('"' + (mg.name || 'Mini-game') + '" is PUBLISHED.\n\nShare link:\n' + url +
+                    '\n\nWhat do you want to do?\n  C = copy link\n  R = re-publish (push latest changes)\n  U = unpublish (delete the public copy)\n  (blank = cancel)', 'C');
+                if (!choice) return;
+                choice = choice.trim().toUpperCase();
+                if (choice === 'C') _pubCopy(url);
+                else if (choice === 'R') _pubDoPublish(type, index, savedIdx, mg);
+                else if (choice === 'U') _pubDoUnpublish(type, index, mg);
+            } else {
+                _pubDoPublish(type, index, savedIdx, mg);
+            }
+        }
+
+        // ----- Published PLAYER: run a self-contained bundle on this engine -----
+        // Remove any temporary injected published game(s) so the local library
+        // never accumulates them (called before each play + on unload).
+        function _pubStripInjected() {
+            ['savedCustomGames', 'savedCatchGames'].forEach(function (key) {
+                try {
+                    var arr = JSON.parse(localStorage.getItem(key) || '[]');
+                    var kept = arr.filter(function (g) { return !(g && g._pubInjected); });
+                    if (kept.length !== arr.length) localStorage.setItem(key, JSON.stringify(kept));
+                } catch (e) {}
+            });
+        }
+        // Play a published bundle: inject its frozen game as a temporary entry,
+        // flip on _pubPlayMode (baked art wins, no card-set lookup), and reuse the
+        // SAME tested launch path (_mgPlayLegend) with the bundle's legend. The
+        // injected entry is marked _pubInjected and stripped on unload.
+        function _pubPlayBundle(bundle) {
+            if (!bundle || !bundle.game) { alert('This published game could not be loaded.'); return false; }
+            _pubStripInjected();
+            var type = (bundle.source && bundle.source.gameType === 'catch') ? 'catch' : 'find';
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var injected = JSON.parse(JSON.stringify(bundle.game));
+            injected._pubInjected = true;
+            injected.miniGames = [];
+            var idx = games.length;
+            games.push(injected);
+            localStorage.setItem(key, JSON.stringify(games));
+            window._pubPlayMode = true;
+            window._bgInPreviewFrame = true; // play full-screen in-page, never a nested device frame
+            // CATCH-ALL containment: EVERY "back to editor" path (static + dynamic
+            // New game buttons, play-again→setup, back arrow, internal calls) goes
+            // through game.resetToSetup(). In published mode, send it to the gallery
+            // instead of the editor. (The capture-phase click interceptor handles
+            // home buttons that don't call resetToSetup.)
+            try {
+                if (window.game && typeof window.game.resetToSetup === 'function' && !window.game._pubResetPatched) {
+                    window.game.resetToSetup = function () { location.href = 'gallery.html'; };
+                    window.game._pubResetPatched = true;
+                }
+            } catch (e) {}
+            if (typeof _gpInvalidateCardCache === 'function') _gpInvalidateCardCache();
+            var intro = document.getElementById('intro-screen'); if (intro) intro.style.display = 'none';
+            _mgPlayLegend(type, idx, bundle.legend || null, (bundle.source && bundle.source.miniGameName) || 'Game');
+            return true;
+        }
+        // Minimal tester sign-in (reuses the email/password prompt for now; the
+        // gallery increment replaces this with a real form).
+        function _pubTesterLogin(onOk) {
+            _pubEnsureAuth().then(function () { onOk(); }).catch(function (e) { alert((e && e.message) || 'Sign-in is required to play.'); });
+        }
+        if (typeof window !== 'undefined') {
+            window._pubPlayBundle = _pubPlayBundle;
+            window.addEventListener('beforeunload', _pubStripInjected);
+            // CONTAIN TESTERS: in published-play mode, the board's back (‹) and
+            // home (⌂) buttons must NOT drop the tester into the editor. Intercept
+            // them in the capture phase (before the app's own handlers) and send
+            // the tester to the gallery — their real "home". Active only while
+            // _pubPlayMode is on, so normal editor use is untouched.
+            document.addEventListener('click', function (e) {
+                if (!window._pubPlayMode) return;
+                // back/home AND "New game"/play-again→setup all call resetToSetup
+                // (→ the editor). In published mode send them to the gallery. The
+                // real replay button (#play-again-game-btn) is NOT intercepted.
+                var btn = e.target && e.target.closest && e.target.closest('.back-arrow-btn, .home-btn, .catch-overlay-home, #new-game-btn, #play-again-btn');
+                if (!btn) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                location.href = 'gallery.html';
+            }, true);
+        }
+
         // === Level domino icon updates ===
 
         function updateLevelDominoIcons(origCards, svgPools, svgMarkupPools) {
@@ -6021,6 +6366,97 @@
             } else {
                 setTimeout(function () { tryStart(0); }, 350);
             }
+        })();
+
+        // Load hook: ?playPublished=<id> — a tester's direct link to ONE published
+        // mini-game. A full-screen OPAQUE overlay covers the editor immediately so
+        // it never shows through; we wait for Firebase auth to RESTORE (async, via
+        // onAuthStateChanged — NOT a one-time currentUser check), show an inline
+        // login if signed out, then fetch the frozen bundle and play it on this
+        // engine. The overlay stays until the game board is actually visible.
+        (function () {
+            var qp = null;
+            try { qp = new URLSearchParams(location.search); } catch (e) { return; }
+            var pubid = qp && qp.get('playPublished');
+            if (!pubid) return;
+            window._bgInPreviewFrame = true; // never open a nested device frame
+            window._syncSuppressSuperuser = true;   // tester surface — never sync the owner's library
+            window._syncSuppressUnloadGuard = true; // tester surface — no editor unsaved-changes guard
+
+            function overlay() {
+                var o = document.getElementById('pub-boot-overlay');
+                if (o) return o;
+                o = document.createElement('div');
+                o.id = 'pub-boot-overlay';
+                o.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#6a74d8,#8a5fc0);' +
+                    'color:#fff;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;';
+                (document.body || document.documentElement).appendChild(o);
+                try { document.documentElement.style.overflow = 'hidden'; if (document.body) document.body.style.overflow = 'hidden'; } catch (e) {}
+                return o;
+            }
+            function setOverlay(html) { overlay().innerHTML = html; }
+            function removeOverlay() {
+                var o = document.getElementById('pub-boot-overlay'); if (o) o.parentNode.removeChild(o);
+                try { document.documentElement.style.overflow = ''; if (document.body) document.body.style.overflow = ''; } catch (e) {}
+            }
+
+            function play() {
+                setOverlay('<div style="font-size:18px">Loading game…</div>');
+                if (typeof window.syncPublishGet !== 'function') { setTimeout(play, 150); return; }
+                window.syncPublishGet(pubid).then(function (bundle) {
+                    if (!bundle) { setOverlay('<div style="font-size:18px;max-width:420px">This game is not available — it may have been unpublished.</div>'); return; }
+                    _pubPlayBundle(bundle);
+                    // Keep the overlay up until the board is actually on screen (no editor flash).
+                    var t0 = Date.now();
+                    (function waitBoard() {
+                        var gs = document.getElementById('game-screen');
+                        if (gs && getComputedStyle(gs).display !== 'none') { removeOverlay(); return; }
+                        if (Date.now() - t0 < 9000) setTimeout(waitBoard, 100); else removeOverlay();
+                    })();
+                }).catch(function (err) {
+                    setOverlay('<div style="font-size:16px;max-width:420px">Could not load this game.<br><br><span style="opacity:.8;font-size:13px">' + String(err && err.message || err) + '</span></div>');
+                });
+            }
+
+            function loginForm() {
+                setOverlay(
+                    '<div style="background:rgba(255,255,255,.1);border-radius:16px;padding:26px 24px;max-width:340px;width:100%">' +
+                    '<div style="font-size:21px;font-weight:800;margin-bottom:4px"><span style="color:#FFD54F">Math</span><span style="color:#4DD0E1">Grain</span></div>' +
+                    '<div style="opacity:.85;font-size:13.5px;margin-bottom:16px">Sign in to play this game.</div>' +
+                    '<input id="pub-em" type="email" placeholder="email" autocomplete="username" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<input id="pub-pw" type="password" placeholder="password" autocomplete="current-password" style="display:block;width:100%;padding:11px;margin:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;font-size:15px">' +
+                    '<button id="pub-go" style="width:100%;padding:12px;margin-top:10px;border:none;border-radius:9px;background:#7c4dff;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Sign in</button>' +
+                    '<div id="pub-er" style="color:#ffd0d0;font-size:13px;min-height:18px;margin-top:10px"></div>' +
+                    '</div>'
+                );
+                var go = document.getElementById('pub-go');
+                function submit() {
+                    var em = (document.getElementById('pub-em').value || '').trim(), pw = document.getElementById('pub-pw').value || '';
+                    if (!em || !pw) { document.getElementById('pub-er').textContent = 'Enter your email and password.'; return; }
+                    go.disabled = true;
+                    window.syncAuthSignIn(em, pw).then(function () { /* onAuthStateChanged → play() */ })
+                        .catch(function () { go.disabled = false; document.getElementById('pub-er').textContent = 'Sign-in failed — check your email and password.'; });
+                }
+                go.addEventListener('click', submit);
+                document.getElementById('pub-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+            }
+
+            function start(tries) {
+                if (!(window.firebase && firebase.auth) || typeof window.syncAuthOnChange !== 'function') {
+                    if ((tries || 0) < 80) { setTimeout(function () { start((tries || 0) + 1); }, 150); }
+                    else setOverlay('<div>Could not start. Please reload.</div>');
+                    return;
+                }
+                var playing = false;
+                window.syncAuthOnChange(function (user) {
+                    if (user) { if (!playing) { playing = true; play(); } }
+                    else { playing = false; loginForm(); }
+                });
+            }
+
+            function boot() { overlay(); setOverlay('<div style="font-size:18px">Loading game…</div>'); start(0); }
+            if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', boot); }
+            else { boot(); }
         })();
 
         // Combined game confirmation stubs (admin creates these, player just plays)

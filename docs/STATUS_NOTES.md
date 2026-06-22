@@ -7,6 +7,67 @@
 
 ---
 
+### ▶▶ June 21 — Publishing track (design + Firebase/GoDaddy infra) — IN PROGRESS
+Big Game session (main tree, `work/cardmaker-rowcopy`). Full contract in
+**`docs/PUBLISHING_PLAN.md`**. Goal: **simple publish for NAMED mini-games** →
+they live independently in the cloud, played by invited testers at **mathgrain.com**.
+- **Design locked** (see plan): Pub button on named mini-game rows only; model **A**
+  (snapshot + pinned engine); art inlined + config frozen + roles carried-but-hidden;
+  Firebase Hosting on mathgrain.com; per-tester email/password; testers read
+  `published/*` only; Unpublish ≠ delete-source; bundle stamps `publishId`/`version`/
+  `publishedAt` for later telemetry.
+- **Infra done this session (Firebase `vica-domino`, Spark/free):**
+  - ✅ **Auth** — Email/Password ON; 3 testers (victor49 / drkofman / lianacalc @gmail).
+  - ✅ **DNS** — GoDaddy mathgrain.com → `A @ 199.36.158.100` + `TXT @ hosting-site=vica-domino`;
+    old parking A records removed; forwarding off.
+  - 🟡 **Domain verify** — TXT ✓, A propagating (≤24h); re-click **Verify** in Firebase
+    Hosting → Custom Domains until green → SSL auto-issues → **Connected**.
+- **Deploy note:** site-file deploy will be via **browser Cloud Shell** (no local CLI;
+  this Mac has the wrong Google account).
+- **✅ FEATURE CODE — ALL 5 INCREMENTS SHIPPED & verified locally (June 21):**
+  (1) bundler `_pubBuildBundle` (index.html) — self-contained, art baked, ~53KB;
+  (2) cloud layer `syncPublish*` (sync.js, `published/*`) + **Pub button** on NAMED
+  mini-game rows (publish/re-publish/unpublish/copy; publishId on the record);
+  (3) Firebase Auth sign-in-to-publish (firebase-auth-compat + `syncAuth*`; writes
+  gated on a Firebase user; name-based login untouched);
+  (4) published player — `_pubPlayMode` (baked art wins), `_pubPlayBundle` reuses
+  `_mgPlayLegend`, `?playPublished=<id>` boot; verified board renders from baked art;
+  (5) tester **`gallery.html`** — email/pw login → grid → `index.html?playPublished=`.
+  Cache-buster `sync.js?v=local-wins-11`. Tips through `1b63ae7`.
+- **✅ LIVE & WORKING END-TO-END (June 21 night):** Firestore rules published
+  (`published/*` read=authed, write=email victor49; `users/**` open as before);
+  deployed; **mathgrain.com Connected w/ SSL**; **auto-deploy via GitHub Action**
+  (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`, deploys on push to
+  claude/review-project-docs-JOOeh — Cloud Shell no longer needed). Proven: Victor
+  published "fast" → tester signed in at mathgrain.com → played frozen/standalone →
+  back/home → gallery (no editor leak). Boot hardened: opaque overlay + onAuthStateChanged.
+- **✅ EDITOR SECURED (June 21 night):** two layers.
+  ① **Gate (client, index.html `_editorGate`):** on the DEPLOYED site the editor +
+  library are gated behind a Firebase sign-in as a `SUPERUSER_EMAILS` address
+  (firebase-config.js → victor49@gmail.com) — opaque overlay + login; testers get a
+  "Go to the games" link to the gallery; then the normal Vica login runs. **localhost
+  EXEMPT** (dev), **?playPublished EXEMPT** (testers). firebase-config.js?v=2.
+  ② **Rules (real lock):** `users/**` read+write restricted to victor49 email (was
+  `if true`). So `syncLogin('Vica')` by anyone else is denied at the API.
+  Verified live: incognito→login(no games); tester(lianacalc)→"can't edit"→gallery;
+  owner(victor49)→editor. Tip through `32ee267`.
+  **⚠ Workflow change:** any device EDITING content must be Firebase-signed-in as
+  victor49 to sync to cloud. Deployed editor handles it via the gate; **localhost is
+  gate-exempt so local edits save to localStorage but won't push to cloud unless you
+  firebase-sign-in as victor49 there** (sign in once). Testers/published unaffected.
+- **OPEN FOLLOW-UPS (ranked):** ① publish/editor/login use `prompt()`/basic forms →
+  masked modal polish. ② make mathgrain.com ROOT land on the gallery for non-owners
+  (currently shows the editor login). ③ transitions library. ④ advanced/telemetry
+  publishing (who played, what/which roles were hard).
+- Tester-password note: gallery + link share the SAME Firebase accounts; if a login
+  fails it's the account password (reset in Authentication → Users), not a bug.
+- **Known MVP caveats:** publish/sign-in use `prompt()` (clear-text pw) — fine for the
+  single superuser, replace with a modal later; gallery loads sync.js so it does a
+  player-guest pull (harmless overhead); `users/** if true` rule keeps the pre-existing
+  open library (tighten only if the main app moves to Firebase login).
+
+---
+
 ### ▶▶ NEXT CHAT: **Studio authoring UI for the Catch mini-game settings**
 The RUNTIME half is DONE (see "June 20 — Previewer session" below). The remaining piece is the **authoring UI in `pm-studio-DrV.html`** (Studio `work/studio` worktree) so a user can SET the per-game Catch settings the runtime already reads.
 - **Contract (already live in index.html):** `setup.catchBubbles` (2–5, fixed bubble count), `setup.catchFallSeconds` (>0, default 6), `setup.catchAutoRamp` (default true; gates ONLY the fall-time speedup). See `docs/CATCH_MINIGAMES_PLAN.md` + `docs/CATCH_MECHANICS.md`.

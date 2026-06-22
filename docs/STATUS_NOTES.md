@@ -23,9 +23,25 @@ they live independently in the cloud, played by invited testers at **mathgrain.c
   - 🟡 **Domain verify** — TXT ✓, A propagating (≤24h); re-click **Verify** in Firebase
     Hosting → Custom Domains until green → SSL auto-issues → **Connected**.
 - **Deploy note:** site-file deploy will be via **browser Cloud Shell** (no local CLI;
-  this Mac has the wrong Google account). Not needed until the gallery exists.
-- **NOW BUILDING:** the feature code (bundler → cloud write + rules → Pub button →
-  auth login → gallery + published player). Build order = plan's "Recommended build order".
+  this Mac has the wrong Google account).
+- **✅ FEATURE CODE — ALL 5 INCREMENTS SHIPPED & verified locally (June 21):**
+  (1) bundler `_pubBuildBundle` (index.html) — self-contained, art baked, ~53KB;
+  (2) cloud layer `syncPublish*` (sync.js, `published/*`) + **Pub button** on NAMED
+  mini-game rows (publish/re-publish/unpublish/copy; publishId on the record);
+  (3) Firebase Auth sign-in-to-publish (firebase-auth-compat + `syncAuth*`; writes
+  gated on a Firebase user; name-based login untouched);
+  (4) published player — `_pubPlayMode` (baked art wins), `_pubPlayBundle` reuses
+  `_mgPlayLegend`, `?playPublished=<id>` boot; verified board renders from baked art;
+  (5) tester **`gallery.html`** — email/pw login → grid → `index.html?playPublished=`.
+  Cache-buster `sync.js?v=local-wins-11`. Tips through `1b63ae7`.
+- **REMAINING (all user/infra-side):** ① paste Firestore rules (handed over:
+  published read=authed, write=email victor49); ② deploy via Cloud Shell; ③ finish
+  domain verify. Then live end-to-end: publish a mini → tester logs in at
+  mathgrain.com/gallery.html → plays → unpublish.
+- **Known MVP caveats:** publish/sign-in use `prompt()` (clear-text pw) — fine for the
+  single superuser, replace with a modal later; gallery loads sync.js so it does a
+  player-guest pull (harmless overhead); `users/** if true` rule keeps the pre-existing
+  open library (tighten only if the main app moves to Firebase login).
 
 ---
 

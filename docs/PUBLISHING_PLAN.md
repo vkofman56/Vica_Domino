@@ -15,11 +15,32 @@
 > - 🟡 **Domain verify** — TXT detected ✓, A record propagating (up to 24h). SSL
 >   auto-issues on verify → status flips to **Connected**. Re-click **Verify** in
 >   the Firebase Hosting → Custom Domains list until green.
-> - ⬜ **Deploy site files** — later, via **browser Cloud Shell** (no local CLI;
->   the Mac is unusable for this — wrong Google account). Not needed until the
->   gallery page exists.
-> - ⬜ **Firestore rules** for `published/*` (authed-read / superuser-write).
-> - ⬜ **Feature code** — bundler + Pub button + gallery + player (IN PROGRESS).
+> - ⬜ **Deploy site files** — via **browser Cloud Shell** (no local CLI; the Mac
+>   has the wrong Google account). NOW READY — gallery + player exist.
+> - ⬜ **Firestore rules** for `published/*` (authed-read / superuser-by-email-write)
+>   — rules text handed to Victor; paste in console → Firestore → Rules → Publish.
+> - ✅ **Feature code — ALL SHIPPED & verified locally** (June 21):
+>   1. **Bundler** `_pubBuildBundle` (index.html) — self-contained snapshot, art
+>      baked into svgMarkup, config+legend frozen, schema/engineVersion stamped,
+>      unresolvable cards dropped+reported. Verified ~53KB on Match 0-4.
+>   2. **Cloud layer** (sync.js) — `syncPublishPut/Remove/Get/List` on `published/*`
+>      (bundle stored as JSON string + light metadata) + **Pub button** on NAMED
+>      mini-game rows (publish / re-publish / unpublish / copy-link; publishId
+>      persisted on the record).
+>   3. **Firebase Auth** (sign-in-to-publish) — firebase-auth-compat loaded;
+>      `syncAuthSignIn/SignOut/User/OnChange`; writes gated on a Firebase-Auth user
+>      (rules enforce which email). Name-based "Vica" login untouched.
+>   4. **Published player** — `getGameCardSVG` honors `_pubPlayMode` (baked art
+>      wins = frozen/standalone); `_pubPlayBundle` injects a temp game + reuses
+>      `_mgPlayLegend`; `?playPublished=<id>` boot path (sign-in → fetch → play).
+>      Verified: a built bundle renders+plays from baked art.
+>   5. **Tester gallery** `gallery.html` — email/password login → grid of published
+>      games → each links to `index.html?playPublished=<id>`. Testers never see the
+>      editor. Verified: login renders, helpers wired.
+>   - Cache-buster: `sync.js?v=local-wins-11` (index.html + biggame.html).
+> - **REMAINING (all infra / user-side):** set Firestore rules, deploy via Cloud
+>   Shell, finish domain verify. Then live end-to-end test (publish → tester logs
+>   in at mathgrain.com → plays → unpublish).
 
 Read alongside `docs/CATCH_MINIGAMES_PLAN.md` (the prior contract-style plan) and
 `docs/STATUS_NOTES.md`.

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:51 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4815,6 +4815,17 @@
             localStorage.setItem(key, JSON.stringify(games));
             window._pubPlayMode = true;
             window._bgInPreviewFrame = true; // play full-screen in-page, never a nested device frame
+            // CATCH-ALL containment: EVERY "back to editor" path (static + dynamic
+            // New game buttons, play-again→setup, back arrow, internal calls) goes
+            // through game.resetToSetup(). In published mode, send it to the gallery
+            // instead of the editor. (The capture-phase click interceptor handles
+            // home buttons that don't call resetToSetup.)
+            try {
+                if (window.game && typeof window.game.resetToSetup === 'function' && !window.game._pubResetPatched) {
+                    window.game.resetToSetup = function () { location.href = 'gallery.html'; };
+                    window.game._pubResetPatched = true;
+                }
+            } catch (e) {}
             if (typeof _gpInvalidateCardCache === 'function') _gpInvalidateCardCache();
             var intro = document.getElementById('intro-screen'); if (intro) intro.style.display = 'none';
             _mgPlayLegend(type, idx, bundle.legend || null, (bundle.source && bundle.source.miniGameName) || 'Game');

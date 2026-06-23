@@ -182,7 +182,13 @@
                 .catch(function (err) {
                     console.error('[Sync] Push failed:', err);
                     var detail = err.code ? (err.code + ': ' + err.message) : (err.message || String(err));
-                    _setSyncStatus('error', 'Push: ' + detail);
+                    // permission-denied here means this session isn't the Firebase-authed
+                    // owner — expected, and data stays safe locally (LOCAL-WINS). Show the
+                    // benign "Offline" state, not a red "Sync error". Real failures (network,
+                    // quota, …) still surface as an error.
+                    var _denied = err && (err.code === 'permission-denied' || /permission/i.test(err.message || err.toString() || ''));
+                    if (_denied) _setSyncStatus('offline');
+                    else _setSyncStatus('error', 'Push: ' + detail);
                 })
                 .finally(function () {
                     _syncing = false;
@@ -494,7 +500,13 @@
                     _origSetItem(k, localSnapshot[k]);
                 });
 
-                _setSyncStatus('error');
+                // permission-denied here is EXPECTED (a non-owner / not-Firebase-authed
+                // session, e.g. localhost or the name-based Vica session) and is already
+                // handled by working from the local snapshot above. Showing a red
+                // "Sync error" for it is misleading — surface it as the benign "Offline"
+                // (local-only) state instead. Real failures still show the error.
+                var _denied = err && (err.code === 'permission-denied' || /permission/i.test(err.message || err.toString() || ''));
+                _setSyncStatus(_denied ? 'offline' : 'error');
                 _fireDataReady(); // offline: local data restored — still "ready"
             });
     };

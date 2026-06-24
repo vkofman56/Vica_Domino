@@ -669,6 +669,11 @@
         /* Preview output is its own scroll area (header + Generate stay put).
            overscroll-behavior:contain stops the wheel chaining to the panel. */
         #pv-out { max-height: 50vh; overflow-y: auto; overscroll-behavior: contain; }
+        /* Stacked fraction for displayed formulas/answers: numerator over a
+           horizontal bar over the denominator (input stays linear "a/b"). */
+        .mp-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 2px; }
+        .mp-frac-num { display: block; padding: 0 4px; border-bottom: 1.3px solid currentColor; line-height: 1.15; }
+        .mp-frac-den { display: block; padding: 0 4px; line-height: 1.15; }
         .par-editor-btns { display: flex; gap: 8px; margin-top: 4px; }
         .par-btn-primary {
             font-size: 12px; padding: 5px 12px; cursor: pointer;
@@ -725,6 +730,14 @@
             border-style: dashed; border-color: rgba(255,255,255,0.3);
             background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.5);
         }
+        /* i-panel parameter palette buttons (hover shows range + constraints). */
+        .i-param-btn {
+            font-size: 14px; font-weight: bold; min-width: 30px; padding: 5px 11px;
+            cursor: pointer; color: #7eff7e; font-family: inherit;
+            background: rgba(126,255,126,0.16); border: 1px solid rgba(126,255,126,0.6);
+            border-radius: 8px;
+        }
+        .i-param-btn:hover { background: rgba(126,255,126,0.3); }
         .fx-chip .fx-chip-sym { font-weight: bold; }
         .fx-chip .fx-chip-tag {
             font-size: 9px; opacity: 0.8; text-transform: uppercase;
@@ -862,7 +875,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:42 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -880,7 +893,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:23 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:42 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1122,7 +1135,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:23 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:42 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1319,6 +1332,7 @@
                     <button class="zoom-btn par-btn" id="par-f-btn" onclick="fOpenPanel()" title="f — combine parameters into the player-visible formula (hide some as the answer)" style="font-size:14px;font-weight:bold;font-style:italic;color:#7eff7e;">f</button>
                     <button class="zoom-btn par-btn" id="par-rel-btn" onclick="relOpenPanel()" title="Rel — relations between parameters (e.g. a &gt; b), applied when generating" style="font-size:10px;font-weight:bold;color:#7eff7e;">Rel</button>
                     <button class="zoom-btn par-btn" id="par-preview-btn" onclick="pvOpenPanel()" title="Preview — generate full problem instances from this card (parameters + relations + formula)" style="font-size:15px;color:#7eff7e;">▷</button>
+                    <button class="zoom-btn par-btn" id="par-info-btn" onclick="iOpenPanel()" title="Info — see all parameters (range, constraints, relations); click one to add it to the card formula" style="font-size:14px;font-weight:bold;font-style:italic;font-family:Georgia,serif;color:#7eff7e;">i</button>
                 </div>
                 <!-- Add-cards box: the four buttons that bring cards into this set,
                      2 per row (+ new · ⇤ copy-from-set · W Word-import · V variation). -->
@@ -1429,6 +1443,9 @@
                 <div class="par-title"><span style="font-style:italic;">f</span> · Formula</div>
                 <div class="par-help">Combine your parameters into the relation the player sees. Use parameter symbols and an optional <b>= answer</b>. Tap a symbol below to hide it — hidden symbols become the answer.</div>
                 <div class="par-sym-bar" style="margin-top:6px;">
+                    <button type="button" class="par-sym-btn" id="fx-ins-mul" title="Insert × (multiply)">×</button>
+                    <button type="button" class="par-sym-btn" id="fx-ins-div" title="Insert ÷ (divide)">÷</button>
+                    <button type="button" class="par-sym-btn" id="fx-ins-belongs" title="Insert ∈ (belongs to a range)">∈</button>
                     <button type="button" class="par-sym-btn" id="fx-ins-frac" title="Insert a fraction ( )/( )"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="4" y="2" width="8" height="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="9.5" width="8" height="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></button>
                 </div>
                 <textarea class="par-input" id="fx-text" rows="2" spellcheck="false" placeholder="A + B = C" style="width:100%;box-sizing:border-box;resize:vertical;font-family:'Roboto Mono',monospace;line-height:1.5;margin-top:6px;"></textarea>
@@ -1477,6 +1494,25 @@
                 <div class="par-sample-out" id="pv-out"></div>
                 <div class="par-editor-btns">
                     <button class="par-btn-secondary" id="pv-close2-btn">Close</button>
+                </div>
+            </div>
+            <!-- Info (i) panel — opened by the "i" button. Parameters palette: a
+                 button per defined parameter (hover shows its range + constraints),
+                 plus the relations between them. Slice B will let a click write the
+                 parameter onto the card formula + an Instance button. -->
+            <div class="par-panel" id="i-panel" style="display:none;">
+                <button class="par-close-btn" id="i-close-btn" type="button" title="Close">&times;</button>
+                <div class="panel-drag-handle" id="i-panel-drag-handle" title="Drag to move · double-click to reset position">
+                    <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
+                </div>
+                <div class="par-title"><span style="font-style:italic;font-family:Georgia,serif;">i</span> · Parameters</div>
+                <div class="par-help">Everything about this card's parameters. <b>Hover</b> a button to see its range &amp; constraints.</div>
+                <div class="par-section-label">Parameters</div>
+                <div id="i-params" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                <div class="par-section-label">Relations</div>
+                <div id="i-rels" class="par-help" style="white-space:pre-wrap;"></div>
+                <div class="par-editor-btns">
+                    <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
             </div>
             <!-- Duplicate variation confirmation dialog -->
@@ -2433,6 +2469,23 @@
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
+        // Render a displayed formula/answer string to HTML, turning division
+        // (a/b or (..)/(..)) into a STACKED fraction with a horizontal bar.
+        // The input stays linear "a/b"; only what's SHOWN is typeset.
+        function _mpFracHtml(num, den) {
+            return '<span class="mp-frac"><span class="mp-frac-num">' + _mpEsc(num.trim())
+                + '</span><span class="mp-frac-den">' + _mpEsc(den.trim()) + '</span></span>';
+        }
+        function _mpRenderMath(s) {
+            s = String(s == null ? '' : s);
+            var fracs = [];
+            function stash(num, den) { fracs.push(_mpFracHtml(num, den)); return '' + (fracs.length - 1) + ''; }
+            // (expr)/(expr) first, then simple operand/operand.
+            s = s.replace(/\(([^()]*)\)\s*\/\s*\(([^()]*)\)/g, function (m, a, b) { return stash(a, b); });
+            s = s.replace(/([0-9]+|[A-Za-z_]\w*|\?)\s*\/\s*([0-9]+|[A-Za-z_]\w*|\?)/g, function (m, a, b) { return stash(a, b); });
+            s = _mpEsc(s);
+            return s.replace(/(\d+)/g, function (m, i) { return fracs[parseInt(i, 10)]; });
+        }
         // Fraction glyph: a horizontal bar with a box above and below.
         var _MP_FRAC_SVG = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
             + '<rect x="4" y="2" width="8" height="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>'
@@ -2598,7 +2651,7 @@
                 +   '<input class="par-input par-num" id="mp-hi" type="number" placeholder="max" value="' + _mpEsc(p.hi && p.hi.val != null ? p.hi.val : '') + '">'
                 + '</div>'
                 + '<div class="par-help" id="mp-range-hint" style="display:none;">With a construction set, the range just filters the built value.</div>'
-                + '<div class="par-section-label" style="display:flex;justify-content:space-between;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0;text-transform:none;letter-spacing:0;">none</span></div>'
+                + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
                 + '<div style="display:flex;gap:8px;align-items:center;">'
                 +   '<button class="par-add-btn" id="mp-add-restr-btn">+ Add constraint ▾</button>'
@@ -3291,8 +3344,8 @@
             var b = _fxBuildFromEnv(text, j.env, _fxHidden);
             if (b.error) { out.classList.add('warn'); out.textContent = '⚠ ' + b.error; return; }
             out.classList.add('ok');
-            out.innerHTML = '<div style="font-size:14px;">' + _mpEsc(b.shown) + '</div>'
-                + (b.answer.length ? '<div style="opacity:0.75;font-size:11px;margin-top:4px;">answer: ' + _mpEsc(b.answer.join(',   ')) + '</div>' : '');
+            out.innerHTML = '<div style="font-size:14px;">' + _mpRenderMath(b.shown) + '</div>'
+                + (b.answer.length ? '<div style="opacity:0.75;font-size:11px;margin-top:4px;">answer: ' + _mpRenderMath(b.answer.join(',   ')) + '</div>' : '');
         }
         function _fxSaveCfg() {
             var text = (document.getElementById('fx-text').value || '').trim();
@@ -3490,8 +3543,8 @@
                 if (cfg && cfg.text) {
                     var b = _fxBuildFromEnv(cfg.text, env, hidden);
                     if (b.error) return { error: b.error };
-                    return { html: '<div style="margin-bottom:6px;"><span style="font-size:14px;">' + _mpEsc(b.shown) + '</span>'
-                        + (b.answer.length ? '<span style="opacity:0.7;font-size:11px;"> &nbsp; answer: ' + _mpEsc(b.answer.join(', ')) + '</span>' : '') + '</div>' };
+                    return { html: '<div style="margin-bottom:6px;"><span style="font-size:14px;">' + _mpRenderMath(b.shown) + '</span>'
+                        + (b.answer.length ? '<span style="opacity:0.7;font-size:11px;"> &nbsp; answer: ' + _mpRenderMath(b.answer.join(', ')) + '</span>' : '') + '</div>' };
                 }
                 return { html: '<div style="margin-bottom:4px;font-size:13px;">'
                     + _mpEsc(params.map(function (p) { return p.sym + '=' + env[p.sym]; }).join(',  ')) + '</div>' };
@@ -3529,9 +3582,56 @@
             _pvUpdateSpaceLabel();
         }
 
-        // Only one math panel (Par / f / Rel / Preview) open at a time.
+        // ---- Info (i) panel: parameters palette (hover = range + constraints) ----
+        function iOpenPanel() {
+            var p = document.getElementById('i-panel');
+            if (!p) return;
+            if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+            _closeMathPanels('i-panel');
+            _iRender();
+            p.style.display = 'flex';
+        }
+        function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; }
+        function _iParamDetail(p) {
+            var lines = [];
+            if (p.mode === 'constructed') {
+                lines.push('Constructed:');
+                (p.def || '').split('\n').forEach(function (l) { if (l.trim()) lines.push('  ' + l.trim()); });
+            } else {
+                var loOp = (p.lo && p.lo.op === 'lt') ? '<' : '≤';
+                var hiOp = (p.hi && p.hi.op === 'lt') ? '<' : '≤';
+                if (p.lo && p.lo.val != null && p.lo.val !== '' && p.hi && p.hi.val != null && p.hi.val !== '')
+                    lines.push('Range:  ' + p.lo.val + ' ' + loOp + ' ' + p.sym + ' ' + hiOp + ' ' + p.hi.val);
+                else lines.push('Range:  (unset)');
+            }
+            if ((p.restrictions || []).length) lines.push('Constraints:  ' + p.restrictions.map(_mpRestrLabel).join(', '));
+            return lines.join('\n');
+        }
+        function _iRender() {
+            var host = document.getElementById('i-params');
+            host.innerHTML = '';
+            var params = _mpReadParams(loupeSourceCard);
+            if (!params.length) {
+                host.innerHTML = '<div class="par-help" style="font-style:italic;">No parameters yet — make some in Par.</div>';
+            }
+            params.forEach(function (p) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'i-param-btn';
+                b.textContent = p.sym || '?';
+                b.title = _iParamDetail(p);
+                b.onclick = function () { _iParamClick(p); };
+                host.appendChild(b);
+            });
+            var relText = (_relLoad(loupeSourceCard) || {}).text || '';
+            document.getElementById('i-rels').textContent = relText.trim() ? relText.trim() : 'none';
+        }
+        // Slice B: write the parameter onto the card formula. No-op for now.
+        function _iParamClick(p) { /* card-face formula authoring lands in Slice B */ }
+
+        // Only one math panel (Par / f / Rel / Preview / i) open at a time.
         function _closeMathPanels(except) {
-            ['par-panel', 'fx-panel', 'rel-panel', 'pv-panel'].forEach(function (id) {
+            ['par-panel', 'fx-panel', 'rel-panel', 'pv-panel', 'i-panel'].forEach(function (id) {
                 if (id === except) return;
                 var p = document.getElementById(id);
                 if (p) p.style.display = 'none';
@@ -3549,6 +3649,12 @@
                 // f-panel
                 var fxText = document.getElementById('fx-text');
                 if (fxText) fxText.addEventListener('input', _fxRenderChips);
+                var fxMul = document.getElementById('fx-ins-mul');
+                if (fxMul) fxMul.addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('fx-text'), '×'); _fxRenderChips(); });
+                var fxDiv = document.getElementById('fx-ins-div');
+                if (fxDiv) fxDiv.addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('fx-text'), '÷'); _fxRenderChips(); });
+                var fxBel = document.getElementById('fx-ins-belongs');
+                if (fxBel) fxBel.addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('fx-text'), '∈ '); _fxRenderChips(); });
                 var fxFrac = document.getElementById('fx-ins-frac');
                 if (fxFrac) fxFrac.addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('fx-text'), '()/()', 1); _fxRenderChips(); });
                 var fxPrev = document.getElementById('fx-preview-btn');
@@ -3590,6 +3696,11 @@
                 if (pvClose) pvClose.addEventListener('click', _pvClosePanel);
                 var pvClose2 = document.getElementById('pv-close2-btn');
                 if (pvClose2) pvClose2.addEventListener('click', _pvClosePanel);
+                // i-panel
+                var iClose = document.getElementById('i-close-btn');
+                if (iClose) iClose.addEventListener('click', _iClosePanel);
+                var iClose2 = document.getElementById('i-close2-btn');
+                if (iClose2) iClose2.addEventListener('click', _iClosePanel);
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
             else wire();
@@ -9355,6 +9466,7 @@
         var _FX_PANEL_POS_KEY = 'fxPanelPos_v1';
         var _REL_PANEL_POS_KEY = 'relPanelPos_v1';
         var _PV_PANEL_POS_KEY = 'pvPanelPos_v1';
+        var _I_PANEL_POS_KEY = 'iPanelPos_v1';
         function _loadPanelPos(key) {
             try {
                 var raw = localStorage.getItem(key);
@@ -9478,6 +9590,11 @@
             var pvHandle = document.getElementById('pv-panel-drag-handle');
             _applyPanelPos(pvPanel, _PV_PANEL_POS_KEY);
             _wirePanelDrag(pvPanel, pvHandle, _PV_PANEL_POS_KEY);
+
+            var iPanel = document.getElementById('i-panel');
+            var iHandle = document.getElementById('i-panel-drag-handle');
+            _applyPanelPos(iPanel, _I_PANEL_POS_KEY);
+            _wirePanelDrag(iPanel, iHandle, _I_PANEL_POS_KEY);
         }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', _initDraggablePanels);

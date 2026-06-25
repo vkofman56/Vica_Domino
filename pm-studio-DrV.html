@@ -780,7 +780,7 @@
             white-space: nowrap; color: #2a2a2a; line-height: 1;
             font-family: 'Roboto Mono', monospace; font-weight: bold;
         }
-        .pm-param-formula.instance { color: #14571f; }
+        .pm-param-formula.instance { color: #14571f; background: rgba(245,230,200,0.96); border-radius: 4px; padding: 0 0.3em; }
         .pm-param-tag {
             position: absolute; top: 14px; left: -6px; z-index: 4; cursor: pointer;
             font-size: 8px; font-weight: bold; color: #fff; line-height: 1;
@@ -925,7 +925,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:02 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -943,7 +943,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:02 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1185,7 +1185,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:44 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:02 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3874,6 +3874,70 @@
             return segs;
         }
 
+        // ----- Bake the parametric formula INTO the card's SVG, so it shows
+        // everywhere the card is rendered (Card Maker, A-Library preview, library
+        // set view, games) — not just via a per-view HTML overlay. -----
+        var _PC_NS = 'http://www.w3.org/2000/svg';
+        function _pcBakeToSVG(card) {
+            if (!card) return false;
+            var svg = card.querySelector('svg');
+            if (!svg) return false;
+            var old = svg.querySelector('g.pm-baked');
+            if (old) old.parentNode.removeChild(old);
+            var segs = _pcGetSegments(card);
+            if (!segs.length) return false; // no formula -> leave the SVG clean
+            var st = _pfStyle(card);
+            var vb = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width)
+                ? svg.viewBox.baseVal : { x: 0, y: 0, width: 60, height: 60 };
+            var cx = vb.x + vb.width / 2, cy = vb.y + vb.height / 2;
+            var fontSize = (st.size || 0.09) * vb.width;
+            // measure each segment width with an off-screen SVG text
+            var meas = document.createElementNS(_PC_NS, 'svg');
+            meas.setAttribute('width', '10'); meas.setAttribute('height', '10');
+            meas.style.cssText = 'position:absolute;left:-9999px;top:0;overflow:visible;';
+            document.body.appendChild(meas);
+            function measure(str) {
+                var t = document.createElementNS(_PC_NS, 'text');
+                t.setAttribute('font-size', fontSize); t.setAttribute('font-family', st.font); t.setAttribute('font-weight', 'bold');
+                t.setAttribute('xml:space', 'preserve');
+                t.textContent = str; meas.appendChild(t);
+                var w; try { w = t.getComputedTextLength(); } catch (e) { w = (str || '').length * fontSize * 0.6; }
+                meas.removeChild(t); return w;
+            }
+            // SVG collapses/trims regular spaces; non-breaking spaces are preserved,
+            // so the formula keeps its spacing in both measurement and rendering.
+            function _nb(str) { return (str == null ? '' : String(str)).replace(/ /g, ' '); }
+            var widths = segs.map(function (s) { return measure(_nb(s.t === 'param' ? s.s : s.v)); });
+            document.body.removeChild(meas);
+            var total = widths.reduce(function (a, b) { return a + b; }, 0);
+            var g = document.createElementNS(_PC_NS, 'g');
+            g.setAttribute('class', 'pm-baked');
+            var x = cx - total / 2;
+            var pad = fontSize * 0.12, rectH = fontSize * 0.95, rectY = cy - rectH * 0.6;
+            segs.forEach(function (seg, i) {
+                var w = widths[i];
+                if (seg.t === 'param') {
+                    var rect = document.createElementNS(_PC_NS, 'rect');
+                    rect.setAttribute('x', (x - pad).toFixed(2)); rect.setAttribute('y', rectY.toFixed(2));
+                    rect.setAttribute('width', (w + 2 * pad).toFixed(2)); rect.setAttribute('height', rectH.toFixed(2));
+                    rect.setAttribute('rx', (fontSize * 0.1).toFixed(2));
+                    rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#cc00cc');
+                    rect.setAttribute('stroke-width', (fontSize * 0.06).toFixed(2));
+                    g.appendChild(rect);
+                }
+                var t = document.createElementNS(_PC_NS, 'text');
+                t.setAttribute('x', x.toFixed(2)); t.setAttribute('y', cy.toFixed(2));
+                t.setAttribute('text-anchor', 'start'); t.setAttribute('dominant-baseline', 'central');
+                t.setAttribute('font-size', fontSize); t.setAttribute('font-family', st.font); t.setAttribute('font-weight', 'bold');
+                t.setAttribute('fill', st.color); t.setAttribute('xml:space', 'preserve');
+                t.textContent = _nb(seg.t === 'param' ? seg.s : seg.v);
+                g.appendChild(t);
+                x += w;
+            });
+            svg.appendChild(g);
+            return true;
+        }
+
         // Ensure the editable field (contenteditable) + instance display exist.
         function _pfEnsureEls() {
             var c = _pfContainer();
@@ -4025,6 +4089,8 @@
                 if (r.error) { el.title = r.error; return; }
                 el.innerHTML = _mpRenderMath(r.text);
                 el.classList.add('instance');
+                // hide the baked parametric formula while the instance overlay shows
+                var bg = card.querySelector(':scope > svg g.pm-baked'); if (bg) bg.style.display = 'none';
             });
         }
         // Set a parametric card's formula font from the card's REAL width × ratio.
@@ -4047,15 +4113,13 @@
                     var fEl = card.querySelector(':scope > .pm-param-formula');
                     var tag = card.querySelector(':scope > .pm-param-tag');
                     if (formula.trim()) {
+                        // The parametric "picture" is BAKED into the card's SVG so it
+                        // shows everywhere. Lazy-bake if this card's SVG isn't baked yet.
+                        if (!card.querySelector(':scope > svg g.pm-baked')) _pcBakeToSVG(card);
+                        // Keep an overlay element used ONLY for the 123-click instance.
                         if (!fEl) { fEl = document.createElement('div'); fEl.className = 'pm-param-formula'; card.appendChild(fEl); }
-                        fEl.classList.remove('instance');
-                        // render segments (text + bordered param chips), not plain text
-                        _pcRenderField(fEl, _pcGetSegments(card));
-                        var st = _pfStyle(card);
-                        _pfApplyStyleTo(fEl, st);
-                        // Size = ratio × card width. On the initial grid build the card's
-                        // width isn't settled yet, so a ResizeObserver re-sizes the moment
-                        // it gets its real width (fixes "tiny until you reopen the card").
+                        fEl.classList.remove('instance'); fEl.innerHTML = '';
+                        _pfApplyStyleTo(fEl, _pfStyle(card));
                         _pmSizeFormula(card);
                         if (!card._pmFormulaRO && typeof ResizeObserver !== 'undefined') {
                             card._pmFormulaRO = new ResizeObserver(function () { _pmSizeFormula(card); });
@@ -4073,6 +4137,7 @@
                         if (fEl) fEl.remove();
                         if (tag) tag.remove();
                         if (card._pmFormulaRO) { card._pmFormulaRO.disconnect(); card._pmFormulaRO = null; }
+                        var bk = card.querySelector(':scope > svg g.pm-baked'); if (bk) bk.parentNode.removeChild(bk);
                     }
                 });
             } catch (e) {}
@@ -4429,6 +4494,9 @@
             svgClone.style.height = '100%';
             svgClone.removeAttribute('width');
             svgClone.removeAttribute('height');
+            // Drop the baked parametric formula from the CLONE — in the loupe the
+            // editable overlay shows it instead (re-baked into the source on close).
+            var _bakedClone = svgClone.querySelector('g.pm-baked'); if (_bakedClone) _bakedClone.remove();
             container.appendChild(svgClone);
 
             // Compute variation transform matrices for coordinate conversion
@@ -4508,6 +4576,16 @@
             // Exit draw mode if active. After this returns, the source card's
             // SVG has been updated in-place with the user's edits.
             if (drawModeActive) toggleDrawMode();
+            // Bake the parametric formula INTO the (now-final) card SVG + persist, so
+            // it shows everywhere (Card Maker, A-Library preview, library set view,
+            // games). Icons are excluded (they're not parametric cards).
+            if (loupeSourceCard && loupeSourceCard.dataset && loupeSourceCard.dataset.icon !== 'true') {
+                if (typeof _pcBakeToSVG === 'function') _pcBakeToSVG(loupeSourceCard);
+                if (typeof saveCustomCards === 'function') saveCustomCards();
+                // refresh the library-preview snapshots so the A-Library page reflects the bake
+                try { if (typeof saveAbcSnapshot === 'function') saveAbcSnapshot(); } catch (e) {}
+                try { if (typeof saveNumbersSnapshot === 'function') saveNumbersSnapshot(); } catch (e) {}
+            }
             // ICON BRIDGE: if we opened the loupe on an icon card, sync its
             // (now-updated) svgContent back to customDrawnIcons_<setName>
             // AND restore the icon's authored size class (cardShapeW/H may

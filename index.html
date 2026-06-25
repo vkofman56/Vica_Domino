@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:40 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:46 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:40 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:46 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1958,12 +1958,25 @@
             var ban = document.getElementById('mg-edit-banner');
             if (ban && ban.parentNode) ban.parentNode.removeChild(ban);
         }
+        // The game this Setup page is configuring — from add-mode if active, else
+        // the currently-selected game. Lets "Save as mini-game" work on ANY game's
+        // Setup page, not only when entered via "+ Add mini-game".
+        function _mgSetupTarget() {
+            if (_mgAddMode) return { type: _mgAddMode.type, index: _mgAddMode.index, editIdx: _mgAddMode.editIdx };
+            var g = selectedIntroGame;
+            if (!g) return null;
+            if (g.indexOf('catch-') === 0) return { type: 'catch', index: parseInt(g.replace('catch-', ''), 10), editIdx: undefined };
+            if (g.indexOf('custom-') === 0) return { type: 'find', index: parseInt(g.replace('custom-', ''), 10), editIdx: undefined };
+            return null;
+        }
         function _mgInjectSaveBtn() {
-            if (!_mgAddMode) return;
+            if (window._pubPlayMode || window._bgInPreviewFrame) return; // not on tester/preview surfaces
             if (document.getElementById('mg-save-btn')) return;
+            var tgt = _mgSetupTarget();
+            if (!tgt || tgt.index == null || isNaN(tgt.index)) return;   // need a real game
             var startBtn = document.getElementById('start-game-btn');
             if (!startBtn || !startBtn.offsetParent) { setTimeout(_mgInjectSaveBtn, 120); return; }
-            var editing = (_mgAddMode.editIdx !== undefined);
+            var editing = (tgt.editIdx !== undefined);
             var b = document.createElement('button');
             b.id = 'mg-save-btn';
             b.className = 'btn';
@@ -1976,8 +1989,9 @@
             startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
         }
         function _mgSaveCurrentAsMiniGame() {
-            if (!_mgAddMode) return;
-            var type = _mgAddMode.type, index = _mgAddMode.index, editIdx = _mgAddMode.editIdx;
+            var tgt = _mgSetupTarget();
+            if (!tgt || tgt.index == null || isNaN(tgt.index)) return;
+            var type = tgt.type, index = tgt.index, editIdx = tgt.editIdx;
             var legend = _mgCaptureSetupLegend(type, index);
             if (!legend) { _mgClearAddMode(); return; }
             var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
@@ -1991,7 +2005,7 @@
                 return;
             }
             // NEW: name it and file under the game.
-            var name = prompt('Name this mini-game:', _mgAddMode.defaultName || '');
+            var name = prompt('Name this mini-game:', (_mgAddMode && _mgAddMode.defaultName) || '');
             if (name === null) return;            // cancelled — stay on Setup
             name = name.trim() || 'Mini-game';
             _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
@@ -5441,6 +5455,10 @@
                     if (offset < -2) legendBox.style.top = offset + 'px'; // only pull UP
                 });
             } catch (e) {}
+            // The Setup page always offers "Save as mini-game" (we're here only when
+            // the Level buttons are visible = a real game's Setup). Works whether or
+            // not the user entered via "+ Add mini-game".
+            try { _mgInjectSaveBtn(); } catch (e) {}
         }
         // One observer covers every Start-page show-point (find/catch, mouse/
         // touch, all player options). The lower player box always shows the

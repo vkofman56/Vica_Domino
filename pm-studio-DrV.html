@@ -740,6 +740,21 @@
         .i-param-btn:hover { background: rgba(126,255,126,0.3); }
         /* Derived parameter (defined by the f-formula, e.g. C = A + B): dashed. */
         .i-param-btn.derived { border-style: dashed; }
+        /* Parameters bar at the top of the loupe: a "Parameters" label + this card's
+           parameter buttons (reuse .i-param-btn). Click a button to place that
+           parameter on the card. */
+        .loupe-params-bar {
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 2001; display: flex; align-items: center; flex-wrap: wrap;
+            gap: 7px; max-width: 80vw; padding: 6px 12px;
+            background: rgba(20,20,34,0.92); border: 1px solid rgba(126,255,126,0.45);
+            border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+        }
+        .loupe-params-bar .loupe-params-label {
+            font-size: 13px; font-weight: bold; color: #bfffbf; margin-right: 3px;
+            font-family: inherit; white-space: nowrap;
+        }
+        .loupe-params-bar .loupe-params-hint { font-size: 11px; color: rgba(255,255,255,0.55); margin-left: 4px; white-space: nowrap; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -1378,6 +1393,10 @@
                 <div class="page-name-label" contenteditable="true" id="a-card-editor-label">A C</div>
                 <button class="help-trigger-btn" onclick="showPageHelp('cardeditor')" title="Help">?</button>
                 <button class="loupe-close-btn" id="loupe-close-btn" title="Close (Esc)">&times;</button>
+                <!-- Parameters bar: this card's parameters (A, B, C …). Click one to
+                     place it on the card as a movable letter. Filled by
+                     _loupeRenderParamsBar(); hidden when the card has no parameters. -->
+                <div class="loupe-params-bar" id="loupe-params-bar" style="display:none;"></div>
                 <div id="loupe-card-container"></div>
             </div>
             <!-- Variation creation toolbar -->
@@ -1522,14 +1541,13 @@
                 <div id="i-params" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
                 <div class="par-section-label">Relations</div>
                 <div id="i-rels" class="par-help" style="white-space:pre-wrap;"></div>
-                <div class="par-section-label">Card formula</div>
-                <div class="par-help">Click a parameter to add it to the card; type operators (− + × ÷ =) directly on the card.</div>
+                <div class="par-section-label">Place on the card</div>
+                <div class="par-help">Click a parameter (here or in the top bar), then click the card to drop it as a letter — move / scale / style it with the normal draw tools. Use <b>Instance</b> to fill the placed letters with one concrete example; <b>Parametric</b> to show the symbols again.</div>
                 <div style="display:flex;gap:8px;margin-top:4px;">
                     <button class="par-btn-secondary" id="i-instance-btn">Instance ▷</button>
                     <button class="par-btn-secondary" id="i-parametric-btn">Parametric</button>
                 </div>
                 <div class="par-sample-out" id="i-msg"></div>
-                <div class="par-help" style="margin-top:6px;">Style is set <b>on the card</b>: click a parameter's box (or any text) to change its color, size &amp; font.</div>
                 <div class="par-editor-btns">
                     <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
@@ -2552,6 +2570,10 @@
             _mpSaveStore(s);
             // Lock in any freshly-minted uid (mirrors STP's commit→save).
             if (typeof saveCustomCards === 'function') saveCustomCards();
+            // Refresh the loupe's top Parameters bar if we're editing its card.
+            if (typeof _loupeRenderParamsBar === 'function' && typeof loupeSourceCard !== 'undefined' && loupeSourceCard === cardEl) {
+                _loupeRenderParamsBar(cardEl);
+            }
         }
 
         // ---- the "Par" button: toggle the panel, start on the list view ----
@@ -3373,6 +3395,8 @@
             var out = document.getElementById('fx-out');
             out.className = 'par-sample-out ok';
             out.textContent = '✓ Saved.';
+            // The f-formula can define a derived parameter (e.g. C) — refresh the bar.
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
         }
 
         // ===================================================================
@@ -3668,6 +3692,8 @@
             var relText = (_relLoad(loupeSourceCard) || {}).text || '';
             if (relText.trim()) rels.push(relText.trim());
             document.getElementById('i-rels').textContent = rels.length ? rels.join('\n') : 'none';
+            // keep the loupe's top Parameters bar in sync with any edits here
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
         }
         // Clicking a parameter starts PLACE-ON-CARD: the next click on the card
         // drops it as a tagged letter (moved/scaled/styled with the normal draw tools).
@@ -3684,6 +3710,52 @@
             if (typeof selectDrawTool === 'function') selectDrawTool('text');
             var msg = document.getElementById('i-msg');
             if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Click the card to place "' + sym + '" — then move / scale / font / color it like any letter.'; }
+        }
+        // Render the loupe's top "Parameters" bar for a card: a label + one button
+        // per parameter (incl. the f-derived result). Click a button to place that
+        // parameter on the card as a movable letter. Hidden when the card has none.
+        function _loupeRenderParamsBar(card) {
+            var bar = document.getElementById('loupe-params-bar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            if (!card || (card.dataset && card.dataset.icon === 'true')) { bar.style.display = 'none'; return; }
+            var params = (typeof _mpReadParams === 'function') ? _mpReadParams(card) : [];
+            var seen = {}, btns = [];
+            params.forEach(function (p) {
+                if (!p.sym) return;
+                seen[p.sym] = 1;
+                btns.push(_iMakeParamBtn(p.sym, _iParamDetail(p), p));
+            });
+            // A parameter can also be DERIVED by the f-formula (e.g. "A + B = C" → C).
+            var cfg = (typeof _fxLoad === 'function') ? _fxLoad(card) : null;
+            var fLine = (cfg && cfg.text) ? cfg.text.trim() : '';
+            if (fLine) {
+                var eqIdx = fLine.indexOf('=');
+                if (eqIdx >= 0) {
+                    var lhs = fLine.slice(0, eqIdx).trim(), rhsName = fLine.slice(eqIdx + 1).trim();
+                    if (/^[A-Za-z_]\w*$/.test(rhsName) && !seen[rhsName]) {
+                        seen[rhsName] = 1;
+                        btns.push(_iMakeParamBtn(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, null));
+                    }
+                }
+            }
+            if (!btns.length) { bar.style.display = 'none'; return; }
+            var label = document.createElement('span');
+            label.className = 'loupe-params-label';
+            label.textContent = 'Parameters';
+            bar.appendChild(label);
+            var hint = document.createElement('span');
+            hint.className = 'loupe-params-hint';
+            hint.textContent = 'click one, then click the card to place it';
+            btns.forEach(function (b) {
+                // Bar-local feedback (the i-panel's #i-msg may be closed/hidden).
+                b.addEventListener('click', function () {
+                    hint.textContent = 'now click the card to place “' + b.textContent + '”';
+                });
+                bar.appendChild(b);
+            });
+            bar.appendChild(hint);
+            bar.style.display = 'flex';
         }
         // Mark a placed parameter letter (tagged data-param) so it reads as a parameter.
         function _pcMarkParamEl(el) { if (el) el.classList.add('pm-param-svg'); }
@@ -4310,6 +4382,15 @@
             if (typeof _pmStartLiveParamBoxes === 'function' && svgClone.querySelector('text[data-param]')) {
                 _pmStartLiveParamBoxes();
             }
+            // Default the editor to the Select / Move (arrow) tool — the loupe opens
+            // ready to pick up + move existing items (incl. placed-letter params),
+            // not mid-draw. (toggleDrawMode, called right after openLoupe, reads
+            // drawTool; if draw mode is already on, switch now.)
+            drawTool = 'select';
+            if (drawModeActive && typeof selectDrawTool === 'function') selectDrawTool('select');
+            // Surface this card's parameters at the top of the loupe (A, B, C …) so
+            // the user can place them on the card without opening the i palette.
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
         }
 
         function closeLoupe() {
@@ -4421,6 +4502,8 @@
             document.getElementById('loupe-overlay').style.display = 'none';
             document.getElementById('loupe-overlay').style.paddingLeft = '';
             document.getElementById('loupe-card-container').innerHTML = '';
+            var _pBar = document.getElementById('loupe-params-bar');
+            if (_pBar) { _pBar.style.display = 'none'; _pBar.innerHTML = ''; }
             // Restore toolbar z-index
             var toolbar = document.querySelector('#domino-library-screen .library-zoom-fixed');
             if (toolbar) toolbar.classList.remove('loupe-toolbar-raised');
@@ -4738,6 +4821,26 @@
         function snapToGrid(svgVal) { return Math.round(svgVal / GRID_UNIT) * GRID_UNIT; }
         function gridToSvg(gridVal) { return gridVal * GRID_UNIT; }
         function svgToGrid(svgVal) { return svgVal / GRID_UNIT; }
+        // The loupe card SVG's CURRENT viewBox. Wide / non-square cards use a viewBox
+        // wider than 60 (e.g. "-30 0 120 60", set in _applyCardShapeToLoupe). All
+        // editor mouse↔SVG mapping + drag clamps MUST use this — a hardcoded 60 pins
+        // elements on non-square cards to a narrow central band (can't reach edges).
+        function _loupeCardVB() {
+            var c = document.getElementById('loupe-card-container');
+            var svg = c && c.querySelector('svg:not(.loupe-grid)');
+            var vb = svg && svg.viewBox && svg.viewBox.baseVal;
+            if (vb && vb.width) return { x: vb.x, y: vb.y, w: vb.width, h: vb.height };
+            return { x: 0, y: 0, w: 60, h: 60 };
+        }
+        // Map a pointer event to the loupe card's SVG user-space (viewBox-aware).
+        function _loupePointerToSvg(clientX, clientY, container, vb) {
+            var rect = container.getBoundingClientRect();
+            vb = vb || _loupeCardVB();
+            return {
+                x: vb.x + ((clientX - rect.left) / rect.width) * vb.w,
+                y: vb.y + ((clientY - rect.top) / rect.height) * vb.h
+            };
+        }
 
         var drawSizeCoarse = 30;    // Aa slider (0-90, step 10)
         var drawSizeFine = 0;       // r slider (0-10, step 1)
@@ -8199,10 +8302,10 @@
                 }
                 lastMouseDownTime = now;
                 lastMouseDownTarget = target;
-                // Start drag on existing element
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // Start drag on existing element (viewBox-aware: wide cards span more
+                // than 60 units, so a hardcoded *60 would mis-map the start point).
+                var _md = _loupePointerToSvg(e.clientX, e.clientY, container);
+                var rawX = _md.x, rawY = _md.y;
                 // Transform to variation local coords if inside a variation <g>
                 if (loupeVariationInverse && isInsideVariationG(target)) {
                     var local = toVariationLocalCoords(rawX, rawY);
@@ -8230,9 +8333,9 @@
                 // If we just finished a drag, don't also draw/select
                 if (justDragged) { justDragged = false; return; }
 
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // viewBox-aware placement mapping (wide cards span > 60 units).
+                var _cp = _loupePointerToSvg(e.clientX, e.clientY, container);
+                var rawX = _cp.x, rawY = _cp.y;
                 var target = e.target;
 
                 // Click on existing element = select it (if not already dragging)
@@ -8619,9 +8722,10 @@
                 if (_loupeStartCoalesce('drag')) {
                     _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform', 'data-pos-x', 'data-pos-y', 'data-base-transform']);
                 }
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // viewBox-aware pointer mapping (wide cards span > 60 units).
+                var _vb = _loupeCardVB();
+                var _mm = _loupePointerToSvg(e.clientX, e.clientY, container, _vb);
+                var rawX = _mm.x, rawY = _mm.y;
                 // Transform to variation local coords if dragging inside a variation <g>
                 if (loupeVariationInverse && isInsideVariationG(selectedElement)) {
                     var local = toVariationLocalCoords(rawX, rawY);
@@ -8629,22 +8733,22 @@
                 }
                 var dx = rawX - dragStartX;
                 var dy = rawY - dragStartY;
-                // Widen drag bounds for any oversized element (scale > 1)
-                var clampMin = -15, clampMax = 60;
+                // Clamp to the card's viewBox (NOT a hardcoded 0..60) so elements can
+                // reach the true edges of a wide card. Base margin: 15 units low side
+                // (matches the old -15..60). Oversized elements widen both sides.
+                var loX = 15, hiX = 0, loY = 15, hiY = 0;
                 var elScale = +selectedElement.getAttribute('data-over-scale') || 1;
                 if (elScale > 1) {
                     var extraRange = elScale * 60;
-                    clampMin = -extraRange;
-                    clampMax = 60 + extraRange;
+                    loX = hiX = loY = hiY = extraRange;
                 } else if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
                     var t = selectedElement.getAttribute('transform') || '';
                     var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     var stampSz = sm ? +sm[1] * 100 : 60;
-                    clampMin = -stampSz;
-                    clampMax = 60 + stampSz;
+                    loX = hiX = loY = hiY = stampSz;
                 }
-                var newX = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartX + dx)));
-                var newY = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartY + dy)));
+                var newX = snapToGrid(Math.max(_vb.x - loX, Math.min(_vb.x + _vb.w + hiX, elemStartX + dx)));
+                var newY = snapToGrid(Math.max(_vb.y - loY, Math.min(_vb.y + _vb.h + hiY, elemStartY + dy)));
                 setElementPos(selectedElement, newX, newY);
                 updateSelectionRing();
                 hasEditedExisting = true;

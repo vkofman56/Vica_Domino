@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1989,7 +1989,12 @@
             // Match the Play button's look (same purple gradient, white border,
             // glow, rounded corners) so the pair reads as a set. Height is matched
             // to Play exactly via measurement below.
-            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;color:#fff;font-weight:bold;white-space:nowrap;' +
+            // padding-left/right trim the Save button by 1cm total off the .btn
+            // 30px sides (so the icon/text aren't swimming in slack), then the
+            // content is nudged 1.5mm to the right INSIDE the button by trading
+            // 1.5mm from right padding to left (13/9 keeps the same total width).
+            // Vertical padding stays 12px from .btn.
+            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;padding-left:13px;padding-right:9px;color:#fff;font-weight:bold;white-space:nowrap;' +
                 'border:2px solid rgba(255,255,255,0.92);border-radius:14px;' +
                 'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);' +
                 'box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
@@ -2004,8 +2009,53 @@
             } else {
                 startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
             }
-            // Match Save's height to Play exactly (after layout).
-            requestAnimationFrame(function () { try { var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px'; } catch (e) {} });
+            // After layout: match Save's height to Play, make Play the SAME WIDTH
+            // as the (now narrower) Save, and pull Play 5mm closer to Save.
+            requestAnimationFrame(function () {
+                try {
+                    var MM = 96 / 25.4; // CSS px per mm
+                    // .btn carries `transition: all .2s`, so width/margin changes
+                    // would ANIMATE and our immediate measurements would read the
+                    // mid-animation (stale) sizes. Suspend transitions while we
+                    // measure + set, then restore so hover still eases.
+                    startBtn.style.transition = 'none';
+                    b.style.transition = 'none';
+                    var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
+                    // Gap between Play's right edge and Save's left edge, BEFORE we
+                    // resize Play (resizing Play moves its right edge → changes gap).
+                    var origGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
+                    // Play matches the narrowed Save's width (inline beats the 150px rule).
+                    var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
+                    // Re-measure and shift Save's margin so the final gap is exactly
+                    // 5mm tighter than it started (clamped so the two never collide).
+                    var newGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
+                    var target = Math.max(8, origGap - 5 * MM);
+                    var curML = parseFloat(getComputedStyle(b).marginLeft) || 0;
+                    b.style.marginLeft = (curML - (newGap - target)) + 'px';
+                    // Slide the whole Play+Save group RIGHT so Save's right edge
+                    // lines up with the Type boxes' right edge. The group anchor is
+                    // the element that holds Play (player-names in the single-player
+                    // legend row, else the Play button itself); pushing its left
+                    // margin moves Play AND Save together, keeping their gap intact.
+                    var anchor = (pn && lsr && pn.parentElement === lsr && b.parentElement === lsr) ? pn : startBtn;
+                    void anchor.offsetWidth;
+                    var typeRight = 0;
+                    document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
+                        var r = t.getBoundingClientRect();
+                        if (r.width && r.right > typeRight) typeRight = r.right;
+                    });
+                    if (typeRight) {
+                        var shift = typeRight - b.getBoundingClientRect().right;
+                        if (shift > 0 && shift < 600) {
+                            var aML = parseFloat(getComputedStyle(anchor).marginLeft) || 0;
+                            anchor.style.marginLeft = (aML + shift) + 'px';
+                        }
+                    }
+                    requestAnimationFrame(function () {
+                        try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
+                    });
+                } catch (e) {}
+            });
         }
         function _mgSaveCurrentAsMiniGame() {
             var tgt = _mgSetupTarget();

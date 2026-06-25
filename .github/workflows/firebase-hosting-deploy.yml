@@ -4,12 +4,25 @@ name: Deploy to Firebase Hosting
 # on every push to the canonical branch. ship.sh pushes HEAD to all 3 mirrors,
 # but we deploy from ONE branch only so a single push = a single deploy.
 #
-# We call the firebase CLI directly (instead of FirebaseExtended/action-hosting-deploy)
-# so the deploy can be wrapped in a RETRY. Google's OAuth token endpoint
-# (https://www.googleapis.com/oauth2/v4/token) intermittently returns
-# "Premature close", which used to fail the whole run and email a red ✗ even
-# though nothing was wrong. nick-fields/retry re-runs the deploy up to 3× with a
-# pause between attempts, so a transient network flake recovers on its own.
+# WHY THIS IS HAND-ROLLED (not FirebaseExtended/action-hosting-deploy@v0):
+# Deploys were intermittently failing with
+#   "Invalid response body while trying to fetch
+#    https://www.googleapis.com/oauth2/v4/token: Premature close"
+#   → "Failed to authenticate".
+# Root cause is upstream, NOT our service-account secret: Node.js v24.17.0
+# introduced an http.Agent keep-alive regression that throws false
+# ERR_STREAM_PREMATURE_CLOSE errors, hitting googleapis clients (firebase-tools'
+# OAuth token fetch) hard. GitHub now forces Actions onto Node 24, so every
+# deploy was exposed. See nodejs/node#63989 and firebase-tools#10692.
+#
+# TWO-LAYER FIX:
+#   1. Pin Node to 24.16.0 — the last release BEFORE the regression (bisected
+#      24.16.0 good / 24.17.0 bad) — so firebase-tools runs on a clean Node.
+#   2. Wrap the deploy in nick-fields/retry (5 attempts, 30s apart) to absorb
+#      any other ordinary network flake.
+# Auth is via the same service-account secret written to a temp file and used as
+# GOOGLE_APPLICATION_CREDENTIALS (same Application Default Credentials path the
+# old action used). --debug keeps the real error visible if a future run fails.
 #
 # ONE-TIME SETUP (Victor): repo secret FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO =
 # the full JSON of a Firebase service-account key (Firebase console → Project
@@ -27,7 +40,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Pin to the last Node before the v24.17.0 keep-alive premature-close
+          # regression so firebase-tools' token fetch doesn't false-fail.
+          node-version: 24.16.0
 
       # Write the service-account JSON to a file so the firebase CLI authenticates
       # via Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS below).
@@ -38,13 +53,13 @@ jobs:
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO }}
         run: printf '%s' "$SA_JSON" > "$RUNNER_TEMP/firebase-sa.json"
 
-      # Deploy to the LIVE channel, retrying on transient googleapis token flakes.
+      # Deploy to the LIVE channel, retrying on any residual transient flake.
       - name: Deploy to Firebase Hosting (live) with retry
         uses: nick-fields/retry@v4
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
         with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_wait_seconds: 20
-          command: npx --yes firebase-tools@15 deploy --only hosting --project vica-domino --non-interactive
+          timeout_minutes: 6
+          max_attempts: 5
+          retry_wait_seconds: 30
+          command: npx --yes firebase-tools@15 deploy --only hosting --project vica-domino --non-interactive --debug

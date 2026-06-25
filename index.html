@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">02:57 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:36 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">02:57 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:36 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1181,21 +1181,26 @@
         function _gpInvalidateCardCache() { _gpStableIdCache = null; }
 
         function getGameCardSVG(cardInfo) {
-            var markup = cardInfo.svgMarkup;
-            // Prefer the freshest svgContent from card-set storage if we have a
-            // stableId — this picks up edits made in Card Maker after the card
-            // was added to the game, just like Studio does. EXCEPT in published-
-            // play mode: a published bundle is FROZEN, so we use the baked
-            // svgMarkup and never reach into local card sets (which may be absent
-            // on a tester's device, or different on the author's).
+            // Distinguish an INTENTIONALLY EMPTY card (a deliberate blank — e.g. a
+            // "zero / nothing" card — whose source exists but svgContent === '')
+            // from a TRULY MISSING card (no source at all). Empty cards must render
+            // as a blank (and stay playable); only truly-missing cards return null.
+            // (Mirrors the cards-library `sourceFound` logic; the old code folded
+            // empty into null, so zero cards got silently skipped in play + publish.)
+            var markup;
+            var sourceFound = false;
+            // Prefer the freshest svgContent from card-set storage by stableId
+            // (picks up Card Maker edits). EXCEPT in published-play mode: a bundle
+            // is FROZEN, so use the baked svgMarkup and never touch local card sets.
             if (cardInfo.stableId && !window._pubPlayMode) {
                 var stored = _gpResolveBySid(cardInfo.stableId);
-                if (stored && stored.svgContent) markup = stored.svgContent;
+                if (stored && typeof stored.svgContent === 'string') { markup = stored.svgContent; sourceFound = true; }
             }
-            if (!markup) return null;
+            if (!sourceFound && typeof cardInfo.svgMarkup === 'string') { markup = cardInfo.svgMarkup; sourceFound = true; }
+            if (!sourceFound) return null; // truly missing → caller drops / shows label
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
-            svg.innerHTML = markup;
+            if (markup && markup.trim().length > 0) svg.innerHTML = markup; // '' / whitespace → blank (empty card)
             if (cardInfo.isVariation && cardInfo.transform) {
                 return createVariationSVG(svg, cardInfo.transform);
             }
@@ -4619,17 +4624,17 @@
             } catch (e) {}
             return 'unknown';
         }
-        // Resolve one card's live art markup (string), preferring the freshest
-        // card-set svgContent (like getGameCardSVG), else the card's own stale
-        // svgMarkup. Returns null if the card has no resolvable art at all.
-        function _pubResolveCardMarkup(card) {
-            var markup = null;
+        // Resolve one card's source art, mirroring getGameCardSVG's empty-aware
+        // logic. sourceFound is TRUE even when the art is EMPTY ('') — that's a
+        // deliberate blank/zero card, which must be KEPT (baked as ''). sourceFound
+        // is FALSE only when the card has no source at all (truly missing → drop).
+        function _pubResolveCardSource(card) {
             if (card.stableId) {
                 var stored = _gpResolveBySid(card.stableId);
-                if (stored && stored.svgContent) markup = stored.svgContent;
+                if (stored && typeof stored.svgContent === 'string') return { markup: stored.svgContent, sourceFound: true };
             }
-            if (!markup && card.svgMarkup) markup = card.svgMarkup;
-            return markup || null;
+            if (typeof card.svgMarkup === 'string') return { markup: card.svgMarkup, sourceFound: true };
+            return { markup: '', sourceFound: false };
         }
         function _pubBuildBundle(type, index, miniGameId) {
             type = (type === 'catch') ? 'catch' : 'find';
@@ -4648,17 +4653,17 @@
             // them untouched). Standalone, stableId resolves to nothing so
             // getGameCardSVG falls back to this baked svgMarkup.
             //
-            // PARITY-WITH-PLAY: a non-variation card with no resolvable art is
-            // DROPPED (the live engine already skips it via getGameCardSVG===null),
-            // so the bundle plays identically — but we REPORT every drop (no
-            // silent truncation). Only a game left with zero playable cards is a
-            // hard error.
+            // PARITY-WITH-PLAY: intentionally-EMPTY cards (e.g. a "zero / nothing"
+            // card — source exists but art is '') are KEPT and baked as '' so they
+            // play as a blank, exactly like the live engine now does. Only a card
+            // with NO source at all (truly missing) is DROPPED — and every drop is
+            // REPORTED (no silent truncation). Zero playable cards = a hard error.
             var dropped = [];
             clone.cards = (clone.cards || []).filter(function (c) {
                 if (c.isVariation) return true;
-                var markup = _pubResolveCardMarkup(c);
-                if (!markup) { dropped.push({ label: c.label, stableId: c.stableId || null }); return false; }
-                c.svgMarkup = markup;
+                var r = _pubResolveCardSource(c);
+                if (!r.sourceFound) { dropped.push({ label: c.label, stableId: c.stableId || null }); return false; }
+                c.svgMarkup = r.markup; // may be '' → an intentional empty/zero card, KEPT
                 return true;
             });
             var playable = clone.cards.filter(function (c) { return !c.isVariation; });

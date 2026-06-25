@@ -756,7 +756,7 @@
            instantly distinct from regular letters. Inherits the text color. */
         .pm-param-chip {
             display: inline-block; padding: 0 0.18em; margin: 0 0.05em;
-            border: 1px solid currentColor; border-radius: 2px; line-height: 1.05;
+            border: 1.5px solid #cc00cc; border-radius: 2px; line-height: 1.05;
         }
         /* Text | Parameters mode toggle at the top of the loupe. */
         .loupe-mode-toggle { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 2001; display: flex; }
@@ -925,7 +925,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -943,7 +943,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:44 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1185,7 +1185,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:44 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3806,8 +3806,35 @@
         function _pcGetSegments(card) {
             var uid = _mpCardUid(card);
             if (!uid) return [];
-            try { var a = (JSON.parse(localStorage.getItem(_PC_STORE_KEY)) || {})[uid]; return Array.isArray(a) ? a : []; }
-            catch (e) { return []; }
+            try { var a = (JSON.parse(localStorage.getItem(_PC_STORE_KEY)) || {})[uid]; if (Array.isArray(a)) return a; }
+            catch (e) {}
+            // Legacy/migration: no segments yet, but a plain formula exists — derive
+            // segments, turning occurrences of defined parameter symbols into chips.
+            var plain = _pfLoad(card);
+            return plain ? _pcSegmentsFromPlain(plain, card) : [];
+        }
+        function _pcSegmentsFromPlain(plain, card) {
+            var syms = _mpReadParams(card).map(function (p) { return p.sym; });
+            var cfg = _fxLoad(card);
+            if (cfg && cfg.text) {
+                var eq = cfg.text.indexOf('=');
+                if (eq >= 0) { var rhs = cfg.text.slice(eq + 1).trim(); if (/^[A-Za-z_]\w*$/.test(rhs) && syms.indexOf(rhs) < 0) syms.push(rhs); }
+            }
+            syms = syms.filter(Boolean).sort(function (a, b) { return b.length - a.length; }); // longest first
+            function idChar(ch) { return ch && /[A-Za-z0-9_]/.test(ch); }
+            var segs = [], i = 0, n = plain.length, buf = '';
+            function flush() { if (buf) { segs.push({ t: 'text', v: buf }); buf = ''; } }
+            while (i < n) {
+                var hit = null;
+                for (var k = 0; k < syms.length; k++) {
+                    var s = syms[k];
+                    if (plain.substr(i, s.length) === s && !idChar(plain[i - 1]) && !idChar(plain[i + s.length])) { hit = s; break; }
+                }
+                if (hit) { flush(); segs.push({ t: 'param', s: hit }); i += hit.length; }
+                else { buf += plain[i]; i++; }
+            }
+            flush();
+            return segs;
         }
         function _pcPlain(segs) {
             return (segs || []).map(function (s) { return s.t === 'param' ? s.s : s.v; }).join('');
@@ -4000,13 +4027,21 @@
                 el.classList.add('instance');
             });
         }
+        // Set a parametric card's formula font from the card's REAL width × ratio.
+        function _pmSizeFormula(card) {
+            var fEl = card.querySelector(':scope > .pm-param-formula');
+            if (!fEl) return;
+            var w = card.clientWidth || card.offsetWidth || 0;
+            if (w > 0) fEl.style.fontSize = Math.max(5, w * (_pfStyle(card).size || 0.09)) + 'px';
+        }
         function _pmApplyParamCards() {
             try {
-                var content = document.querySelector('#domino-library-screen .domino-library-content');
-                if (!content) return;
                 var fstore = {};
                 try { fstore = JSON.parse(localStorage.getItem(_PF_STORE_KEY)) || {}; } catch (e) {}
-                content.querySelectorAll('.library-card').forEach(function (card) {
+                // Decorate EVERY card on the page (Card Maker grid, library set view,
+                // game view, recent…) so the parametric "picture" shows wherever cards
+                // are browsed — not just the Card Maker.
+                document.querySelectorAll('.library-card').forEach(function (card) {
                     var uid = card.dataset.uid;
                     var formula = (uid && fstore[uid]) ? String(fstore[uid]) : '';
                     var fEl = card.querySelector(':scope > .pm-param-formula');
@@ -4014,12 +4049,18 @@
                     if (formula.trim()) {
                         if (!fEl) { fEl = document.createElement('div'); fEl.className = 'pm-param-formula'; card.appendChild(fEl); }
                         fEl.classList.remove('instance');
-                        fEl.textContent = formula;
+                        // render segments (text + bordered param chips), not plain text
+                        _pcRenderField(fEl, _pcGetSegments(card));
                         var st = _pfStyle(card);
                         _pfApplyStyleTo(fEl, st);
-                        var w = card.clientWidth || 60;
-                        // SAME size ratio as the loupe -> consistent relative size in A-CM.
-                        fEl.style.fontSize = Math.max(5, w * (st.size || 0.09)) + 'px';
+                        // Size = ratio × card width. On the initial grid build the card's
+                        // width isn't settled yet, so a ResizeObserver re-sizes the moment
+                        // it gets its real width (fixes "tiny until you reopen the card").
+                        _pmSizeFormula(card);
+                        if (!card._pmFormulaRO && typeof ResizeObserver !== 'undefined') {
+                            card._pmFormulaRO = new ResizeObserver(function () { _pmSizeFormula(card); });
+                            card._pmFormulaRO.observe(card);
+                        }
                         if (!tag) {
                             tag = document.createElement('div');
                             tag.className = 'pm-param-tag';
@@ -4031,6 +4072,7 @@
                     } else {
                         if (fEl) fEl.remove();
                         if (tag) tag.remove();
+                        if (card._pmFormulaRO) { card._pmFormulaRO.disconnect(); card._pmFormulaRO = null; }
                     }
                 });
             } catch (e) {}
@@ -10071,6 +10113,8 @@
             libSetVarHidden = true;
             var btn = document.getElementById('toggle-lib-var-btn');
             if (btn) { btn.style.opacity = '0.4'; btn.title = 'Show variations'; }
+            // show the parametric formula on the cloned cards in this library view too
+            if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
         }
 
         function toggleLibSetVariations() {

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1835,8 +1835,9 @@
             var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
             var legParam = legend ? '&legend=' + encodeURIComponent(JSON.stringify(legend)) : '';
             if (dev) {
-                // autostart: ▶ Play auto-launches the game, so skip the full-size
-                // Setup view and show the device directly.
+                // ▶ Play auto-launches the game; the brief Setup it passes through
+                // shows full size, then only the board scales to the device (board
+                // visibility drives the frame — see _bgOpenDeviceFrame).
                 _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
                                    '&players=' + pc + legParam, dev, pc, { autostart: true });
                 return;
@@ -6135,9 +6136,13 @@
         // url = same-origin index.html?<deep-link> ; the iframe re-runs the app
         // and auto-launches via the playGame / playBig hooks below.
         var _bgDeviceModal = null;
-        // opts.autostart=true → skip the full-size Setup view entirely and show
-        // the device from the start (used by ▶ Play, which auto-launches a game
-        // so there's no Setup to interact with — go DIRECTLY to the device).
+        // The device frame scales to the chosen device ONLY while an actual BOARD
+        // is on screen (Find / Catch / Big-Game board). Every other page — intro,
+        // Setup, the Level selector, legends, celebrations — renders at FULL size
+        // inside the overlay, exactly like the normal big screen. This is decided
+        // live by _boardVisible() below (polled), so it holds for every launch
+        // path. (opts.autostart is accepted for back-compat but no longer forces
+        // device mode — board visibility alone drives it.)
         function _bgOpenDeviceFrame(url, key, players, opts) {
             // Big Game previews (?playBig=) use the GP 0 orientation toggle so any
             // device (incl. Chromebook / iPad 2P) can be checked portrait OR landscape.
@@ -6200,9 +6205,10 @@
                                key: key, players: players, url: url, autostart: autostart };
             // Is the iframe showing actual GAMEPLAY (the board) rather than the
             // intro/Setup page? Find gameplay uses #game-screen; Catch (incl. 2P)
-            // uses the #catch-game-overlay appended to <body>. The Setup page
-            // (#start-screen) and intro do NOT count — they render full size
-            // (unless autostart, where there's no Setup to interact with).
+            // uses the #catch-game-overlay appended to <body>; Big Games play
+            // through those same boards, so both checks cover them too. The
+            // intro, Setup page (#start-screen) and Level selector do NOT count —
+            // they render full size.
             function _boardVisible() {
                 try {
                     var doc = frame.contentDocument;
@@ -6218,7 +6224,7 @@
             // device PLUS its 1-inch border fit the window. (1in ≈ 96px.)
             var FRAME = 128, CAP_H = 56;
             function fit() {
-                var deviceMode = autostart || _boardVisible();
+                var deviceMode = _boardVisible();
                 if (!deviceMode) {
                     // SETUP/intro at FULL size (only the BOARD is device-sized).
                     cradle.classList.add('full');
@@ -6255,15 +6261,14 @@
             // Defer one frame so the overlay has layout dimensions.
             setTimeout(fit, 0);
             // Poll the iframe's screen state so we flip full↔device exactly when
-            // gameplay starts/ends (no game-internals hooks needed). Skipped for
-            // autostart (always device).
-            if (!autostart) {
-                var _lastBoard = null;
-                _bgDeviceModal.poll = setInterval(function () {
-                    var b = _boardVisible();
-                    if (b !== _lastBoard) { _lastBoard = b; fit(); }
-                }, 150);
-            }
+            // gameplay starts/ends (no game-internals hooks needed). Runs for
+            // every launch path so Setup/Level stay full size and only the board
+            // is device-scaled.
+            var _lastBoard = null;
+            _bgDeviceModal.poll = setInterval(function () {
+                var b = _boardVisible();
+                if (b !== _lastBoard) { _lastBoard = b; fit(); }
+            }, 150);
             window.addEventListener('resize', fit);
             _bgDeviceModal.onResize = fit;
             rotateBtn.addEventListener('click', function(e) {

@@ -1,6 +1,6 @@
 # Vica Domino - Project Status Notes
-**Date**: June 25, 2026 — Studio session: built the **Parametric Math Cards ("Par") system** in `pm-studio-DrV.html` — params (Direct + Constructed), f-formula, Rel, Preview, the **i** palette, the formula BAKED into the card SVG (shows in Card Maker / A-Library preview / library set view / games), per-parameter styling. **NEXT / WIP:** parameters-as-placed-letters (first cut, needs in-loupe testing) — see **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (read this first).
-**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`cae26af`**, pushed to `vkofman56/Vica_Domino`. NOT deployed (user: "not yet"). Commit/push only when asked; **do NOT run `ship.sh`** (its `claude/review-project-docs-JOOeh` trio convention is stale). Banner bumps on commit only (last = 10:50 PM PDT).
+**Date**: June 25, 2026 (PM update) — the **Parametric Math Cards ("Par") system** in `pm-studio-DrV.html` is now **PLACED-LETTERS-ONLY**. A parameter is a normal placed `<text data-param>` letter (moved/scaled/styled with the existing draw tools) that gets a **magenta box tracking it** through move+scale and substitutes to a **concrete instance** (grid "123" tag / loupe **i → Instance**). The old single-line on-card formula field + per-param style popup were **DELETED** (user chose "delete it fully"). Par / f / Rel / Preview / **i** palette + the no-`eval` engine all stay. See **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (rewritten for this design). **STILL TODO:** interactive place-a-letter pass in the real loupe on :8000 (all verification so far is headless-DOM + screenshot).
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`dcf4167`**, pushed to `vkofman56/Vica_Domino`. NOT deployed (user: "not yet"). Commit/push only when asked; **do NOT run `ship.sh`** (its `claude/review-project-docs-JOOeh` trio convention is stale). Banner bumps on commit only (last = 08:57 AM PDT). **⚠ `index.html` has SEPARATE in-progress device-frame work (board-visibility scaling) left UNSTAGED this session — only `pm-studio-DrV.html` was committed in `dcf4167`.**
 **Servers**: durable nohup http.server on **:8000** (the user's HOME port — their localStorage data lives there) and **:8011**. localStorage is per-port; hard-reload (Cmd-Shift-R) after a push.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
@@ -8,18 +8,28 @@
 
 ---
 
-### ▶▶ June 25 — PARAMETRIC MATH CARDS ("Par") — resume here
-Full detail in **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`**. A card becomes a
-problem TEMPLATE: named parameters (ranges/constraints/constructions) + a formula →
-generate concrete instances. UI = a left-rail box in the loupe: **Par · f · Rel · ▷ · i**.
-The parametric formula is **baked into the card's SVG** (`g.pm-baked`) so it shows
-everywhere a card renders. Data: `cardMathParams_v1` / `cardMathFormula_v1` /
-`cardMathRel_v1` / `cardParFormula_v1` / `cardParContent_v1` / `cardParStyle_v1`
-(uid-keyed localStorage). **WIP (commit `cae26af`):** parameters-as-placed-letters —
-clicking a param in **i** arms place-on-card (drops a `<text data-param>` letter you
-move/scale/style with the existing draw tools); still TODO: the magenta box on placed
-letters + Instance/Preview reading placed `data-param` elements. EXISTING parametric
-cards need an open+close in the loupe to bake into stored `svgContent`.
+### ▶▶ June 25 (PM) — PARAMETRIC MATH CARDS ("Par"): PLACED-LETTERS-ONLY — resume here
+Full detail in **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (rewritten). A card is
+a problem TEMPLATE: named parameters (ranges/constraints/constructions) + an f-formula →
+generate concrete instances. Loupe rail: **Par · f · Rel · ▷ · i**.
+
+**The model (commit `dcf4167`):** a parameter is a **placed letter** — click a param in
+the **i** palette to arm place-on-card, then click the card to drop a `<text data-param>`
+letter you move/scale/style with the normal draw tools. Each placed letter gets a
+**magenta box that tracks it** (live in the loupe via rAF; baked into the card SVG on
+close → persists in `svgContent`, shows on grid / A-Library / games). The **123 tag**
+(grid) and **i → Instance** (loupe) substitute the letters with a concrete, relation-aware
+instance (f-formula answer derived, e.g. `C = A + B`); click again returns to symbols.
+Concrete numbers are normalized back to symbols before any save, so they never persist.
+- Data still used: `cardMathParams_v1` (Par defs) / `cardMathFormula_v1` (f-formula —
+  result name on the RIGHT) / `cardMathRel_v1` (relations). `cardParFormula_v1` /
+  `cardParContent_v1` / `cardParStyle_v1` are now **orphaned** (the formula field is gone).
+- **DELETED** this session: the single-line on-card formula field + segment store +
+  segment bake (`_pcBakeToSVG`/`g.pm-baked`), the per-param style popup (`_ps*`), the
+  Text|Parameters mode toggle, the i-palette style control — see the handover for the
+  full list. Existing formula-field cards lose their on-card formula (agreed trade-off).
+- **STILL TODO:** an interactive place-a-letter pass in the real loupe on **:8000**
+  (all current verification is headless-DOM + screenshot, not a real draw-tool placement).
 
 ---
 

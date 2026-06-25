@@ -1,9 +1,25 @@
 # Vica Domino - Project Status Notes
-**Date**: June 22, 2026 — Studio session: "Select" tap-multi-select + role-colour overhaul (20 distinct + bordered dots/haloed pills) + **add set-ICONS to a game** (into the IC pool) + **Sync-error→Offline** · **NEXT: Catch authoring UI in Studio** (write `setup.catch*`, see `docs/CATCH_MINIGAMES_PLAN.md`)
-**Branch**: `work/cardmaker-rowcopy` (MAIN tree). This session committed here locally (`2928df0` + docs) — **NOT pushed** and did NOT use `ship.sh`. A concurrent "publish" workstream also lives on this branch; the canonical `claude/review-project-docs-JOOeh` trio + `ship.sh` are the older convention — confirm intended push target before shipping.
+**Date**: June 25, 2026 — Studio session: built the **Parametric Math Cards ("Par") system** in `pm-studio-DrV.html` — params (Direct + Constructed), f-formula, Rel, Preview, the **i** palette, the formula BAKED into the card SVG (shows in Card Maker / A-Library preview / library set view / games), per-parameter styling. **NEXT / WIP:** parameters-as-placed-letters (first cut, needs in-loupe testing) — see **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (read this first).
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`cae26af`**, pushed to `vkofman56/Vica_Domino`. NOT deployed (user: "not yet"). Commit/push only when asked; **do NOT run `ship.sh`** (its `claude/review-project-docs-JOOeh` trio convention is stale). Banner bumps on commit only (last = 10:50 PM PDT).
+**Servers**: durable nohup http.server on **:8000** (the user's HOME port — their localStorage data lives there) and **:8011**. localStorage is per-port; hard-reload (Cmd-Shift-R) after a push.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
 **Cache-busters**: `style.css?v=dgx-redesign-108`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-15`, `firebase-config.js?v=2`
+
+---
+
+### ▶▶ June 25 — PARAMETRIC MATH CARDS ("Par") — resume here
+Full detail in **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`**. A card becomes a
+problem TEMPLATE: named parameters (ranges/constraints/constructions) + a formula →
+generate concrete instances. UI = a left-rail box in the loupe: **Par · f · Rel · ▷ · i**.
+The parametric formula is **baked into the card's SVG** (`g.pm-baked`) so it shows
+everywhere a card renders. Data: `cardMathParams_v1` / `cardMathFormula_v1` /
+`cardMathRel_v1` / `cardParFormula_v1` / `cardParContent_v1` / `cardParStyle_v1`
+(uid-keyed localStorage). **WIP (commit `cae26af`):** parameters-as-placed-letters —
+clicking a param in **i** arms place-on-card (drops a `<text data-param>` letter you
+move/scale/style with the existing draw tools); still TODO: the magenta box on placed
+letters + Instance/Preview reading placed `data-param` elements. EXISTING parametric
+cards need an open+close in the loupe to bake into stored `svgContent`.
 
 ---
 

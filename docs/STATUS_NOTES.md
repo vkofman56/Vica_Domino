@@ -1,9 +1,75 @@
 # Vica Domino - Project Status Notes
-**Date**: June 22, 2026 — Studio session: "Select" tap-multi-select + role-colour overhaul (20 distinct + bordered dots/haloed pills) + **add set-ICONS to a game** (into the IC pool) + **Sync-error→Offline** · **NEXT: Catch authoring UI in Studio** (write `setup.catch*`, see `docs/CATCH_MINIGAMES_PLAN.md`)
-**Branch**: `work/cardmaker-rowcopy` (MAIN tree). This session committed here locally (`2928df0` + docs) — **NOT pushed** and did NOT use `ship.sh`. A concurrent "publish" workstream also lives on this branch; the canonical `claude/review-project-docs-JOOeh` trio + `ship.sh` are the older convention — confirm intended push target before shipping.
+**Date**: June 25, 2026 — Studio session: built the **Parametric Math Cards ("Par") system** in `pm-studio-DrV.html` — params (Direct + Constructed), f-formula, Rel, Preview, the **i** palette, the formula BAKED into the card SVG (shows in Card Maker / A-Library preview / library set view / games), per-parameter styling. **NEXT / WIP:** parameters-as-placed-letters (first cut, needs in-loupe testing) — see **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (read this first).
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`cae26af`**, pushed to `vkofman56/Vica_Domino`. NOT deployed (user: "not yet"). Commit/push only when asked; **do NOT run `ship.sh`** (its `claude/review-project-docs-JOOeh` trio convention is stale). Banner bumps on commit only (last = 10:50 PM PDT).
+**Servers**: durable nohup http.server on **:8000** (the user's HOME port — their localStorage data lives there) and **:8011**. localStorage is per-port; hard-reload (Cmd-Shift-R) after a push.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
-**Cache-busters**: `style.css?v=dgx-redesign-105`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-15`
+**Cache-busters**: `style.css?v=dgx-redesign-108`, `game.js?v=biggame-flow-9`, `sync.js?v=local-wins-15`, `firebase-config.js?v=2`
+
+---
+
+### ▶▶ June 25 — PARAMETRIC MATH CARDS ("Par") — resume here
+Full detail in **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`**. A card becomes a
+problem TEMPLATE: named parameters (ranges/constraints/constructions) + a formula →
+generate concrete instances. UI = a left-rail box in the loupe: **Par · f · Rel · ▷ · i**.
+The parametric formula is **baked into the card's SVG** (`g.pm-baked`) so it shows
+everywhere a card renders. Data: `cardMathParams_v1` / `cardMathFormula_v1` /
+`cardMathRel_v1` / `cardParFormula_v1` / `cardParContent_v1` / `cardParStyle_v1`
+(uid-keyed localStorage). **WIP (commit `cae26af`):** parameters-as-placed-letters —
+clicking a param in **i** arms place-on-card (drops a `<text data-param>` letter you
+move/scale/style with the existing draw tools); still TODO: the magenta box on placed
+letters + Instance/Preview reading placed `data-param` elements. EXISTING parametric
+cards need an open+close in the loupe to bake into stored `svgContent`.
+
+---
+
+### ▶▶ June 23 — GAME PREVIEW session (publishing platform + Setup-page polish) — SHIPPED & LIVE
+Main tree (`work/cardmaker-rowcopy`); shipped per-path via `ship.sh` (deploys to
+mathgrain.com via the GitHub Action). Tips through **`133dea1`**. Full publishing
+contract: **`docs/PUBLISHING_PLAN.md`**; quick orientation: **`docs/HANDOVER_2026-06-23.md`**.
+
+**A. PUBLISHING — built end-to-end & LIVE (see PUBLISHING_PLAN.md for detail):**
+- **Publish a named mini-game** → frozen self-contained bundle (`_pubBuildBundle`,
+  art baked into `svgMarkup`) → cloud `published/<id>` (`syncPublish*` in sync.js) via
+  a **Pub** button on named mini-game rows (publish / re-publish / unpublish / copy-link).
+- **Tester gallery** `gallery.html` (Firebase email/pw login → grid → play).
+- **Published player** `index.html?playPublished=<id>` (frozen art via `_pubPlayMode`;
+  contained — all editor-exit paths incl. `game.resetToSetup` re-routed → gallery).
+- **Hosting**: mathgrain.com (GoDaddy DNS → Firebase, SSL) + **auto-deploy** GitHub
+  Action on push (secret `FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO`).
+- **EDITOR SECURED**: `_editorGate` (index.html) + same gate in biggame.html — deployed
+  only, requires Firebase sign-in as a `SUPERUSER_EMAILS` (firebase-config.js =
+  victor49@gmail.com); non-owners → gallery. **localhost + `?playPublished` exempt.**
+  Firestore rules: `published/*` read=authed / write=victor49; **`users/**` = victor49 only**.
+  Superuser cloud-sync gated on Firebase auth (`_canSuperuserSync`); tester surfaces set
+  `_syncSuppressSuperuser`/`_syncSuppressUnloadGuard`. **⚠ Editing devices must be
+  Firebase-signed-in as victor49 to sync (localhost is gate-exempt → local-only until you do).**
+
+**B. EMPTY/ZERO CARDS now kept in play AND publish.** `getGameCardSVG` used to fold an
+INTENTIONALLY-EMPTY card (source resolves but `svgContent===''`, e.g. a "zero/nothing"
+card) into the same `null` as a TRULY-MISSING card, so zero cards were silently skipped.
+Now it returns a **blank SVG** when a source is found (`sourceFound`) and `null` only when
+truly missing; the publish bundler matches (`_pubResolveCardSource` — keeps empties baked
+as `''`, drops+reports only truly-missing). (`60b9367` is Studio's separate Par commit.)
+
+**C. SETUP-PAGE (`#start-screen`) polish — a series of fixes:**
+- **Scroll reachability** (`5d9aad6`): `.game-container` is fixed 100vh, so a tall Setup
+  hid the bottom buttons with no scroll. `#start-screen` → `justify-content:safe center`
+  + `max-height:100vh` + `overflow-y:auto`.
+- **"Save as mini-game" on ANY Setup page** (`34867e5`+): no longer add-mode-only —
+  `_mgSetupTarget()` derives the game from `selectedIntroGame`; `_mgInjectSaveBtn` runs on
+  every Setup render (`_renderStartSummary`, level-visible), saves the current legend as a
+  new mini-game (name prompt). Guarded OFF only on `_pubPlayMode` (NOT the device-preview
+  frame — that's the superuser configuring, `574ec80`).
+- **Legend box** lifted to ~2cm below the lower of the Level/Probabilities columns
+  (`d8257a3`); trimmed ~44px narrower.
+- **Play + Save buttons** grouped right after the Legend, matched look (same gradient/
+  border/glow/radius; Save height measured to equal Play), Play 240→150px, Save label
+  `💾 minigame` (`133dea1`).
+
+**NEXT (Game Preview, optional):** root→gallery for non-owners; masked password modals;
+transitions library; advanced/telemetry publishing. Confirm A7 (zero card) publishes
+cleanly on the live site after the empty-card fix.
 
 ---
 

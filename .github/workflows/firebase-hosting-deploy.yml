@@ -4,10 +4,16 @@ name: Deploy to Firebase Hosting
 # on every push to the canonical branch. ship.sh pushes HEAD to all 3 mirrors,
 # but we deploy from ONE branch only so a single push = a single deploy.
 #
-# ONE-TIME SETUP (Victor): add a repo secret named FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO
-# whose value is the full JSON of a Firebase service-account key
-# (Firebase console → Project Settings → Service accounts → Generate new private key).
-# See docs/PUBLISHING_PLAN.md.
+# We call the firebase CLI directly (instead of FirebaseExtended/action-hosting-deploy)
+# so the deploy can be wrapped in a RETRY. Google's OAuth token endpoint
+# (https://www.googleapis.com/oauth2/v4/token) intermittently returns
+# "Premature close", which used to fail the whole run and email a red ✗ even
+# though nothing was wrong. nick-fields/retry re-runs the deploy up to 3× with a
+# pause between attempts, so a transient network flake recovers on its own.
+#
+# ONE-TIME SETUP (Victor): repo secret FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO =
+# the full JSON of a Firebase service-account key (Firebase console → Project
+# Settings → Service accounts → Generate new private key). See docs/PUBLISHING_PLAN.md.
 
 on:
   push:
@@ -19,9 +25,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - uses: actions/setup-node@v4
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO }}
-          projectId: vica-domino
-          channelId: live
+          node-version: 22
+
+      # Write the service-account JSON to a file so the firebase CLI authenticates
+      # via Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS below).
+      # printf '%s' avoids any quoting surprises in the secret; GitHub masks it in logs.
+      - name: Write Firebase service account
+        shell: bash
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VICA_DOMINO }}
+        run: printf '%s' "$SA_JSON" > "$RUNNER_TEMP/firebase-sa.json"
+
+      # Deploy to the LIVE channel, retrying on transient googleapis token flakes.
+      - name: Deploy to Firebase Hosting (live) with retry
+        uses: nick-fields/retry@v4
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 20
+          command: npx --yes firebase-tools@15 deploy --only hosting --project vica-domino --non-interactive

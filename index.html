@@ -2009,53 +2009,69 @@
             } else {
                 startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
             }
-            // After layout: match Save's height to Play, make Play the SAME WIDTH
-            // as the (now narrower) Save, and pull Play 5mm closer to Save.
-            requestAnimationFrame(function () {
-                try {
-                    var MM = 96 / 25.4; // CSS px per mm
-                    // .btn carries `transition: all .2s`, so width/margin changes
-                    // would ANIMATE and our immediate measurements would read the
-                    // mid-animation (stale) sizes. Suspend transitions while we
-                    // measure + set, then restore so hover still eases.
-                    startBtn.style.transition = 'none';
-                    b.style.transition = 'none';
-                    var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
-                    // Gap between Play's right edge and Save's left edge, BEFORE we
-                    // resize Play (resizing Play moves its right edge → changes gap).
-                    var origGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
-                    // Play matches the narrowed Save's width (inline beats the 150px rule).
-                    var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
-                    // Re-measure and shift Save's margin so the final gap is exactly
-                    // 5mm tighter than it started (clamped so the two never collide).
-                    var newGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
-                    var target = Math.max(8, origGap - 5 * MM);
-                    var curML = parseFloat(getComputedStyle(b).marginLeft) || 0;
-                    b.style.marginLeft = (curML - (newGap - target)) + 'px';
-                    // Slide the whole Play+Save group RIGHT so Save's right edge
-                    // lines up with the Type boxes' right edge. The group anchor is
-                    // the element that holds Play (player-names in the single-player
-                    // legend row, else the Play button itself); pushing its left
-                    // margin moves Play AND Save together, keeping their gap intact.
-                    var anchor = (pn && lsr && pn.parentElement === lsr && b.parentElement === lsr) ? pn : startBtn;
-                    void anchor.offsetWidth;
-                    var typeRight = 0;
-                    document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
-                        var r = t.getBoundingClientRect();
-                        if (r.width && r.right > typeRight) typeRight = r.right;
-                    });
-                    if (typeRight) {
-                        var shift = typeRight - b.getBoundingClientRect().right;
-                        if (shift > 0 && shift < 600) {
-                            var aML = parseFloat(getComputedStyle(anchor).marginLeft) || 0;
-                            anchor.style.marginLeft = (aML + shift) + 'px';
-                        }
-                    }
-                    requestAnimationFrame(function () {
-                        try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
-                    });
-                } catch (e) {}
+            // Lay out the Play + Save pair (equal height/width, tightened gap,
+            // right-aligned to the Type boxes). Kept in _mgLayoutButtons so it can
+            // be RE-applied on every Setup re-render — _renderStartSummary wipes
+            // #player-names margins each pass, which would otherwise undo the
+            // right-align.
+            requestAnimationFrame(_mgLayoutButtons);
+        }
+        // Idempotent geometry for the Play (#start-game-btn) + Save (#mg-save-btn)
+        // pair on the Setup page. Safe to call repeatedly: it resets the props it
+        // drives to a known baseline, then recomputes from the live layout.
+        //   • Save height = Play height
+        //   • Play width  = Save width (the narrowed Save)
+        //   • gap Play↔Save = 5mm tighter than the 14px baseline (min 8px)
+        //   • the Play+Save group slides right so Save's RIGHT edge lines up with
+        //     the Type boxes' (.setup-type-line) right edge
+        function _mgLayoutButtons() {
+            var startBtn = document.getElementById('start-game-btn');
+            var b = document.getElementById('mg-save-btn');
+            if (!startBtn || !b || !startBtn.offsetParent || !b.offsetParent) return;
+            var MM = 96 / 25.4; // CSS px per mm
+            // Shift the group via the PLAY button's own margin — NOT #player-names.
+            // A MutationObserver watches #player-names' style attribute and re-runs
+            // _renderStartSummary on any change; writing player-names' margin here
+            // would fire it → re-render → re-apply → infinite loop (page freeze).
+            // The observer is not subtree, so moving #start-game-btn (a descendant)
+            // shifts Play — and Save follows in the flex flow — without tripping it.
+            var anchor = startBtn;
+            // .btn has `transition: all .2s` — suspend it so width/margin changes
+            // apply instantly and our measurements aren't read mid-animation.
+            startBtn.style.transition = 'none';
+            b.style.transition = 'none';
+            // Reset what we drive so each pass recomputes from the same baseline.
+            anchor.style.marginLeft = '0px';
+            startBtn.style.removeProperty('width');
+            b.style.marginLeft = '14px';
+            void b.offsetWidth;
+            var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
+            var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
+            // Gap at the 14px baseline, then pull 5mm tighter (clamped ≥ 8px).
+            var baseGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
+            var target = Math.max(8, baseGap - 5 * MM);
+            b.style.marginLeft = (14 - (baseGap - target)) + 'px';
+            void b.offsetWidth;
+            // Right-align the group: Save's right edge → Type boxes' right edge.
+            var typeRight = 0;
+            document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
+                var r = t.getBoundingClientRect();
+                if (r.width && r.right > typeRight) typeRight = r.right;
             });
+            if (typeRight) {
+                var shift = typeRight - b.getBoundingClientRect().right;
+                if (shift > 0 && shift < 800) anchor.style.marginLeft = shift + 'px';
+            }
+            requestAnimationFrame(function () {
+                try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
+            });
+        }
+        if (typeof window !== 'undefined') {
+            window._mgLayoutButtons = _mgLayoutButtons;
+            if (!window._mgBtnResizeWired) {
+                window._mgBtnResizeWired = true;
+                window.addEventListener('resize', function () { try { _mgLayoutButtons(); } catch (e) {} });
+            }
         }
         function _mgSaveCurrentAsMiniGame() {
             var tgt = _mgSetupTarget();
@@ -2073,14 +2089,114 @@
                 _mgBackToIntro();
                 return;
             }
-            // NEW: name it and file under the game.
-            var name = prompt('Name this mini-game:', (_mgAddMode && _mgAddMode.defaultName) || '');
-            if (name === null) return;            // cancelled — stay on Setup
-            name = name.trim() || 'Mini-game';
-            _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-                                    name: name, createdAt: Date.now(), legend: legend });
-            _mgClearAddMode();
-            _mgBackToIntro();
+            // NEW: name it and file under the game. The dialog shows the game's
+            // existing mini-game names (click one to reuse + tweak) and refuses an
+            // exact duplicate. Cancel/Esc stays on Setup (add-mode preserved).
+            var existingNames = _mgListFor(type, index).map(function (m) { return m && m.name; });
+            _mgNameDialog({
+                title: 'Name this mini-game',
+                value: (_mgAddMode && _mgAddMode.defaultName) || '',
+                existing: existingNames,
+                onSubmit: function (name) {
+                    _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                            name: name, createdAt: Date.now(), legend: legend });
+                    _mgClearAddMode();
+                    _mgBackToIntro();
+                }
+            });
+        }
+        // Custom "name this mini-game" dialog. Replaces window.prompt so the user
+        // can SEE the names already taken, click one to reuse and change it a bit,
+        // and is blocked from saving an exact (case-insensitive) duplicate.
+        // opts: { title, value, existing:[names], onSubmit(name), onCancel() }.
+        function _mgNameDialog(opts) {
+            opts = opts || {};
+            var existing = (opts.existing || []).filter(function (s) { return s != null && String(s).trim() !== ''; });
+            var taken = {};
+            existing.forEach(function (n) { taken[String(n).trim().toLowerCase()] = true; });
+            var prev = document.getElementById('mg-name-overlay'); if (prev) prev.remove();
+
+            var ov = document.createElement('div');
+            ov.id = 'mg-name-overlay';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,16,40,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+            var card = document.createElement('div');
+            card.style.cssText = 'width:min(440px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(135deg,#6a74d8,#8a5fc0);color:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,0.45);font-family:inherit;box-sizing:border-box;';
+            var h = document.createElement('div');
+            h.textContent = opts.title || 'Name this mini-game';
+            h.style.cssText = 'font-size:18px;font-weight:800;margin-bottom:12px;';
+            card.appendChild(h);
+            var input = document.createElement('input');
+            input.type = 'text'; input.value = opts.value || ''; input.placeholder = 'Type a name…';
+            input.style.cssText = 'width:100%;box-sizing:border-box;padding:11px 13px;border-radius:10px;border:2px solid rgba(255,255,255,0.5);background:rgba(0,0,0,0.18);color:#fff;font-size:15px;outline:none;';
+            card.appendChild(input);
+            var err = document.createElement('div');
+            err.style.cssText = 'min-height:18px;margin:7px 2px 0;color:#ffd54f;font-size:12.5px;';
+            card.appendChild(err);
+
+            if (existing.length) {
+                var lab = document.createElement('div');
+                lab.textContent = 'Existing names — click one to reuse and tweak:';
+                lab.style.cssText = 'margin:12px 2px 8px;font-size:12.5px;color:rgba(255,255,255,0.82);';
+                card.appendChild(lab);
+                var chips = document.createElement('div');
+                chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:7px;';
+                existing.forEach(function (n) {
+                    var c = document.createElement('button');
+                    c.type = 'button'; c.textContent = n; c.title = 'Use “' + n + '” as a starting point';
+                    c.style.cssText = 'padding:6px 11px;border-radius:9px;border:1px solid rgba(255,255,255,0.28);background:rgba(255,255,255,0.10);color:#fff;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    c.addEventListener('mouseenter', function () { c.style.background = 'rgba(255,255,255,0.22)'; });
+                    c.addEventListener('mouseleave', function () { c.style.background = 'rgba(255,255,255,0.10)'; });
+                    c.addEventListener('click', function () {
+                        input.value = n; input.focus();
+                        try { input.setSelectionRange(n.length, n.length); } catch (e) {}
+                        recheck();
+                    });
+                    chips.appendChild(c);
+                });
+                card.appendChild(chips);
+            }
+
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:18px;';
+            var cancel = document.createElement('button');
+            cancel.type = 'button'; cancel.textContent = 'Cancel';
+            cancel.style.cssText = 'padding:9px 18px;border-radius:10px;border:none;background:rgba(255,255,255,0.16);color:#fff;font-weight:700;font-size:14px;cursor:pointer;';
+            var ok = document.createElement('button');
+            ok.type = 'button'; ok.textContent = 'Save';
+            ok.style.cssText = 'padding:9px 20px;border-radius:10px;border:none;background:#7c4dff;color:#fff;font-weight:800;font-size:14px;cursor:pointer;';
+            row.appendChild(cancel); row.appendChild(ok);
+            card.appendChild(row);
+            ov.appendChild(card); document.body.appendChild(ov);
+
+            function isDup(v) { return Object.prototype.hasOwnProperty.call(taken, v.trim().toLowerCase()); }
+            function recheck() {
+                var v = input.value.trim();
+                if (v && isDup(v)) {
+                    err.textContent = '“' + v + '” already exists — change it a bit.';
+                    ok.disabled = true; ok.style.opacity = '0.5'; ok.style.cursor = 'default';
+                    return false;
+                }
+                err.textContent = ''; ok.disabled = false; ok.style.opacity = ''; ok.style.cursor = 'pointer';
+                return true;
+            }
+            function close() { document.removeEventListener('keydown', onKey, true); ov.remove(); }
+            function doCancel() { close(); if (typeof opts.onCancel === 'function') opts.onCancel(); }
+            function submit() {
+                var v = input.value.trim() || 'Mini-game';
+                if (isDup(v)) { recheck(); input.focus(); return; }
+                close(); if (typeof opts.onSubmit === 'function') opts.onSubmit(v);
+            }
+            function onKey(e) {
+                if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+                else if (e.key === 'Enter') { e.preventDefault(); if (!ok.disabled) submit(); }
+            }
+            input.addEventListener('input', recheck);
+            cancel.addEventListener('click', doCancel);
+            ok.addEventListener('click', submit);
+            ov.addEventListener('click', function (e) { if (e.target === ov) doCancel(); });
+            document.addEventListener('keydown', onKey, true);
+            recheck();
+            setTimeout(function () { input.focus(); try { input.select(); } catch (e) {} }, 0);
         }
         function _mgBackToIntro() {
             document.getElementById('start-screen').style.display = 'none';
@@ -5505,6 +5621,12 @@
             // the Level buttons are visible = a real game's Setup). Works whether or
             // not the user entered via "+ Add mini-game".
             try { _mgInjectSaveBtn(); } catch (e) {}
+            // Re-apply the Play+Save geometry AFTER the lift step above wiped any
+            // #player-names margins, so the right-align to the Type boxes sticks
+            // across re-renders. Deferred (and a late retry) so the Type column
+            // and Legend reposition have settled before we measure.
+            requestAnimationFrame(function () { try { _mgLayoutButtons(); } catch (e) {} });
+            setTimeout(function () { try { _mgLayoutButtons(); } catch (e) {} }, 200);
         }
         // One observer covers every Start-page show-point (find/catch, mouse/
         // touch, all player options). The lower player box always shows the

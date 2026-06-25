@@ -748,12 +748,31 @@
             min-width: 30%; max-width: 92%;
             background: transparent; border: none; outline: none;
             color: #2a2a2a; font-family: 'Roboto Mono', monospace; font-weight: bold;
+            /* Off by default so it never blocks the draw/stamp tools; the i-panel
+               turns it on while you're editing the formula. */
+            pointer-events: none;
         }
         .par-card-instance {
             position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
             z-index: 6; text-align: center; pointer-events: none; max-width: 96%; white-space: nowrap;
             color: #14571f; font-family: 'Roboto Mono', monospace; font-weight: bold;
         }
+        /* Library-grid (A-CM) parametric card: the formula IS the card "picture",
+           with a clickable "123" tag (hover = set size, click = one instance). */
+        .pm-param-formula {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            z-index: 3; pointer-events: none; text-align: center; max-width: 94%;
+            white-space: nowrap; color: #2a2a2a; line-height: 1;
+            font-family: 'Roboto Mono', monospace; font-weight: bold;
+        }
+        .pm-param-formula.instance { color: #14571f; }
+        .pm-param-tag {
+            position: absolute; top: 14px; left: -6px; z-index: 4; cursor: pointer;
+            font-size: 8px; font-weight: bold; color: #fff; line-height: 1;
+            background: rgba(40,40,60,0.85); border: 1px solid rgba(255,255,255,0.45);
+            border-radius: 4px; padding: 1px 3px;
+        }
+        .pm-param-tag:hover { background: rgba(126,255,126,0.92); color: #0a2a0a; }
         .fx-chip .fx-chip-sym { font-weight: bold; }
         .fx-chip .fx-chip-tag {
             font-size: 9px; opacity: 0.8; text-transform: uppercase;
@@ -891,7 +910,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:26 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -909,7 +928,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:26 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1151,7 +1170,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:32 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:26 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1534,6 +1553,20 @@
                     <button class="par-btn-secondary" id="i-parametric-btn">Parametric</button>
                 </div>
                 <div class="par-sample-out" id="i-msg"></div>
+                <div class="par-section-label">Style</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <input type="color" id="i-style-color" title="Formula color" style="width:34px;height:24px;padding:0;border:1px solid rgba(255,255,255,0.3);border-radius:4px;background:none;cursor:pointer;">
+                    <select class="par-input" id="i-style-font" title="Formula font" style="flex:1 1 auto;">
+                        <option value="'Roboto Mono', monospace">Mono</option>
+                        <option value="'Open Sans', sans-serif">Sans</option>
+                        <option value="Lora, serif">Serif</option>
+                        <option value="'Comic Neue', cursive">Comic</option>
+                        <option value="'Patrick Hand', cursive">Hand</option>
+                        <option value="'Permanent Marker', cursive">Marker</option>
+                        <option value="Anton, sans-serif">Anton</option>
+                        <option value="'Playfair Display', serif">Playfair</option>
+                    </select>
+                </div>
                 <div class="par-editor-btns">
                     <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
@@ -3609,12 +3642,13 @@
         function iOpenPanel() {
             var p = document.getElementById('i-panel');
             if (!p) return;
-            if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+            if (p.style.display !== 'none') { p.style.display = 'none'; _pfSetEditable(false); return; }
             _closeMathPanels('i-panel');
             _iRender();
             p.style.display = 'flex';
+            _pfSetEditable(true);  // formula editable while the i-panel is open
         }
-        function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; }
+        function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; _pfSetEditable(false); }
         function _iParamDetail(p) {
             var lines = [];
             if (p.mode === 'constructed') {
@@ -3672,6 +3706,20 @@
             var relText = (_relLoad(loupeSourceCard) || {}).text || '';
             if (relText.trim()) rels.push(relText.trim());
             document.getElementById('i-rels').textContent = rels.length ? rels.join('\n') : 'none';
+            // reflect the card's formula style in the controls
+            var st = _pfStyle(loupeSourceCard);
+            var colEl = document.getElementById('i-style-color'); if (colEl) colEl.value = st.color;
+            var fontEl = document.getElementById('i-style-font'); if (fontEl) fontEl.value = st.font;
+        }
+        function _iStyleChange() {
+            var st = {
+                color: document.getElementById('i-style-color').value,
+                font: document.getElementById('i-style-font').value
+            };
+            _pfSaveStyle(loupeSourceCard, st);
+            var c = _pfContainer();
+            if (c) { _pfApplyStyleTo(c.querySelector('#par-card-formula'), st); _pfApplyStyleTo(c.querySelector('#par-card-instance'), st); }
+            if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
         }
         // Clicking a parameter writes its symbol onto the card formula.
         function _iParamClick(p) { _pfInsertSym((p && p.sym) || ''); }
@@ -3681,7 +3729,26 @@
         // face. Click i-panel params to insert symbols; type operators directly.
         // "Instance" substitutes concrete values (Pars + f-derived) for one example.
         var _PF_STORE_KEY = 'cardParFormula_v1';
+        var _PF_STYLE_KEY = 'cardParStyle_v1';
+        var _PF_DEFAULT_STYLE = { color: '#2a2a2a', font: "'Roboto Mono', monospace" };
         var _pfShowingInstance = false;
+        function _pfStyle(card) {
+            var uid = _mpCardUid(card);
+            if (!uid) return Object.assign({}, _PF_DEFAULT_STYLE);
+            var s;
+            try { s = (JSON.parse(localStorage.getItem(_PF_STYLE_KEY)) || {})[uid]; } catch (e) {}
+            return Object.assign({}, _PF_DEFAULT_STYLE, s || {});
+        }
+        function _pfSaveStyle(card, style) {
+            var uid = _mpCardUid(card);
+            if (!uid) return;
+            var all;
+            try { all = JSON.parse(localStorage.getItem(_PF_STYLE_KEY)) || {}; } catch (e) { all = {}; }
+            all[uid] = style;
+            try { localStorage.setItem(_PF_STYLE_KEY, JSON.stringify(all)); } catch (e) {}
+            if (typeof saveCustomCards === 'function') saveCustomCards();
+        }
+        function _pfApplyStyleTo(el, st) { if (!el) return; el.style.color = st.color; el.style.fontFamily = st.font; }
         function _pfLoad(card) {
             var uid = _mpCardUid(card);
             if (!uid) return '';
@@ -3733,6 +3800,9 @@
             var els = _pfEnsureEls();
             if (!els) return;
             els.inp.value = _pfLoad(loupeSourceCard);
+            var st = _pfStyle(loupeSourceCard);
+            _pfApplyStyleTo(els.inp, st);
+            _pfApplyStyleTo(els.ins, st);
             _pfShowInstance(false);
         }
         function _pfShowInstance(on) {
@@ -3743,6 +3813,14 @@
             var ins = c.querySelector('#par-card-instance');
             if (inp) inp.style.display = on ? 'none' : '';
             if (ins) ins.style.display = on ? 'block' : 'none';
+        }
+        // Make the on-card formula clickable/editable ONLY while the i-panel is
+        // open — otherwise it's pointer-events:none so the draw/stamp tools work.
+        function _pfSetEditable(on) {
+            var c = _pfContainer();
+            if (!c) return;
+            var inp = c.querySelector('#par-card-formula');
+            if (inp) inp.style.pointerEvents = on ? 'auto' : 'none';
         }
         function _pfInsertSym(sym) {
             if (!sym) return;
@@ -3791,6 +3869,68 @@
             var msg = document.getElementById('i-msg');
             if (msg) { msg.className = 'par-sample-out'; msg.textContent = ''; }
         }
+
+        // ===== Parametric card thumbnails in the A-CM grid =====
+        // Each card with a saved on-card formula shows that formula as its
+        // "picture", plus a "123" tag — hover = set size, click = one instance.
+        // Runs after every grid rebuild (like _applyRoleBadges) and on loupe close.
+        function _pmWithCard(card, fn) {
+            var prev = loupeSourceCard;
+            loupeSourceCard = card;
+            try { return fn(); } finally { loupeSourceCard = prev; }
+        }
+        function _pmCardHoverInfo(card) {
+            return _pmWithCard(card, function () {
+                var sp = _mpJointSpace();
+                if (sp.error) return 'Parametric card';
+                if (sp.capped) return 'Parametric card — many possible instances';
+                return 'Parametric card — ' + sp.count + ' possible instance' + (sp.count === 1 ? '' : 's');
+            });
+        }
+        function _pmCardInstance(card) {
+            _pmWithCard(card, function () {
+                var el = card.querySelector(':scope > .pm-param-formula');
+                if (!el) return;
+                var r = _pfBuildInstance();
+                if (r.error) { el.title = r.error; return; }
+                el.innerHTML = _mpRenderMath(r.text);
+                el.classList.add('instance');
+            });
+        }
+        function _pmApplyParamCards() {
+            try {
+                var content = document.querySelector('#domino-library-screen .domino-library-content');
+                if (!content) return;
+                var fstore = {};
+                try { fstore = JSON.parse(localStorage.getItem(_PF_STORE_KEY)) || {}; } catch (e) {}
+                content.querySelectorAll('.library-card').forEach(function (card) {
+                    var uid = card.dataset.uid;
+                    var formula = (uid && fstore[uid]) ? String(fstore[uid]) : '';
+                    var fEl = card.querySelector(':scope > .pm-param-formula');
+                    var tag = card.querySelector(':scope > .pm-param-tag');
+                    if (formula.trim()) {
+                        if (!fEl) { fEl = document.createElement('div'); fEl.className = 'pm-param-formula'; card.appendChild(fEl); }
+                        fEl.classList.remove('instance');
+                        fEl.textContent = formula;
+                        _pfApplyStyleTo(fEl, _pfStyle(card));
+                        var w = card.clientWidth || 60;
+                        fEl.style.fontSize = Math.max(5, Math.min(w * 0.15, w * 1.7 / Math.max(3, formula.length))) + 'px';
+                        if (!tag) {
+                            tag = document.createElement('div');
+                            tag.className = 'pm-param-tag';
+                            tag.textContent = '123';
+                            tag.addEventListener('click', function (e) { e.stopPropagation(); _pmCardInstance(card); });
+                            card.appendChild(tag);
+                        }
+                        tag.title = _pmCardHoverInfo(card);
+                    } else {
+                        if (fEl) fEl.remove();
+                        if (tag) tag.remove();
+                    }
+                });
+            } catch (e) {}
+        }
+        if (typeof window !== 'undefined') window._pmApplyParamCards = _pmApplyParamCards;
 
         // Only one math panel (Par / f / Rel / Preview / i) open at a time.
         function _closeMathPanels(except) {
@@ -3868,6 +4008,10 @@
                 if (iInst) iInst.addEventListener('click', _iInstance);
                 var iParam = document.getElementById('i-parametric-btn');
                 if (iParam) iParam.addEventListener('click', _iParametric);
+                var iCol = document.getElementById('i-style-color');
+                if (iCol) iCol.addEventListener('input', _iStyleChange);
+                var iFont = document.getElementById('i-style-font');
+                if (iFont) iFont.addEventListener('change', _iStyleChange);
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
             else wire();
@@ -4303,6 +4447,8 @@
             // Remove border from loupe container
             var container = document.getElementById('loupe-card-container');
             container.classList.remove('show-border');
+            // Refresh the grid thumbnail: show the saved parametric formula + "123" tag.
+            if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
         }
 
         // Loupe close button
@@ -6083,6 +6229,7 @@
                     var r = orig.apply(this, arguments);
                     try { _applyRoleBadges(); } catch(e) {}
                     try { _dupTagRefresh(); } catch(e) {} // render t1/t2 badges + prune/compact tags
+                    try { _pmApplyParamCards(); } catch(e) {} // parametric formula + "123" tag on the thumbnail
                     return r;
                 };
             });

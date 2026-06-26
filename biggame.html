@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MathGrain — Big Game Composer</title>
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-108">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-109">
     <style>
         /* Phase 3a/3b — Big Game Composer. Authoring is MOUSE-ONLY. */
         body { margin: 0; font-family: 'Segoe UI', sans-serif;
@@ -112,15 +112,21 @@
            label (GP 1 = Big Games list, GP 2 = compose). Remove when no longer needed. */
         .bgc-stamp { font-size: 17px; color: rgba(255,255,255,0.45); font-weight: normal; margin-left: 8px; }
         /* Match the program's .page-name-label design (28px, faded, 0.5px tracking). */
-        .bgc-page-label { position: fixed; top: 16px; left: 14px; z-index: 50; font-size: 28px; font-weight: normal;
+        /* Page label sits to the RIGHT of the back-arrow button (which occupies the
+           top-left corner) so the two don't overlap. */
+        .bgc-page-label { position: fixed; top: 16px; left: 58px; z-index: 50; font-size: 28px; font-weight: normal;
                           color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
+        /* Standard circular "go back" button (.back-arrow-btn from style.css) →
+           fixed in the top-left corner so it rides above the scroll on every view. */
+        #bgc-back-previewer.back-arrow-btn { position: fixed; z-index: 60; }
     </style>
 </head>
 <body>
     <div id="bgc-page-label" class="bgc-page-label">GP 1</div>
+    <button id="bgc-back-previewer" class="back-arrow-btn" onclick="bgGoPreviewer()" title="Back to the Game Previewer"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <div id="bgc-app">
         <div class="bgc-header">
-            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">10:13 PM PDT</span></h1>
+            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">12:40 PM PDT</span></h1>
         </div>
         <div class="bgc-sub" id="bgc-user">—</div>
         <div id="bgc-view"></div>
@@ -299,7 +305,10 @@
             // localStorage, so Play must force 'play' or it could inherit a stale
             // 'scan' the user last picked on GP 0 and silently scan.
             frame.src = 'index.html?playBig=' + encodeURIComponent(id) + '&mode=' + (scan ? 'scan' : 'play');
-            frame.allow = 'autoplay';
+            // microphone: voice-input stages need mic access; an iframe is denied it
+            // unless explicitly allowed here (Permissions Policy). Required for voice
+            // to work inside a Big Game played from the Composer.
+            frame.allow = 'autoplay; microphone';
             ov.appendChild(bar); ov.appendChild(frame);
             document.body.appendChild(ov);
             document.addEventListener('keydown', bgPlayEsc);
@@ -340,6 +349,15 @@
         function bgClearDropHints() {
             var hints = document.querySelectorAll('.bgc-stage.bgc-drop-before, .bgc-stage.bgc-drop-after');
             for (var i = 0; i < hints.length; i++) hints[i].classList.remove('bgc-drop-before', 'bgc-drop-after');
+        }
+
+        // Back to the Game Previewer. If the Composer was opened from the Previewer
+        // (new tab via window.open), close this tab to return to it; otherwise
+        // navigate this tab to the Previewer.
+        function bgGoPreviewer() {
+            bgClosePlay();
+            if (window.opener && !window.opener.closed) { window.close(); }
+            else { window.location.href = 'index.html'; }
         }
 
         // ===== LIST VIEW =====

@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-108">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-109">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1602,10 +1602,16 @@
                 var mgBtn = document.createElement('button');
                 mgBtn.type = 'button';
                 mgBtn.className = 'intro-game-mg';
-                // Count always includes the implicit Default (the game's own
-                // configuration) → starts at 1, never 0 (user, June 13).
-                var cnt = 1 + _mgListFor(mgInfo.type, mgInfo.index).length;
-                mgBtn.title = 'Mini-games of this game (' + cnt + ')';
+                // Count = the mini-games playable at the CURRENT GP 0 player count
+                // (the implicit Default + saved ones whose supported Players include
+                // it). Reflects the active mode, so e.g. a 2-player count hides
+                // voice/1-player-only mini-games from the tally.
+                var _mgDefL = _mgDefaultLegend(mgInfo.type, mgInfo.index);
+                var cnt = _mgActiveNow(mgInfo.type, mgInfo.index, _mgDefL) ? 1 : 0;
+                _mgListFor(mgInfo.type, mgInfo.index).forEach(function (mg) {
+                    if (_mgActiveNow(mgInfo.type, mgInfo.index, mg.legend)) cnt++;
+                });
+                mgBtn.title = 'Mini-games playable now (' + cnt + ')';
                 // Folder interior filled with the old tag colour (#7c4dff); the
                 // count is a SEPARATE overlaid white span (so the folder icon can
                 // be resized WITHOUT changing the number's size). No badge/tag.
@@ -1692,7 +1698,40 @@
             if (lvl) parts.push(lvl);
             var typ = g ? _mgTypeLabel(g, legend.typeId) : '';
             if (typ) parts.push(typ);
+            // Carry the supported player counts, e.g. "Players {1}" (voice) or
+            // "Players {1,2}" — auto-derived from the game's setup + voice rule.
+            var sp = _mgSupportedPlayers(type, index, legend);
+            parts.push('Players {' + sp.join(',') + '}');
             return parts.join('  ·  ');
+        }
+        // ===== Mini-game player-count support (auto-derived) =====
+        // A mini-game is playable at a player COUNT when the game's setup enables
+        // that count AND — for voice Types — only at 1 player (voice is 1-player
+        // only). Drives the panel greying + the game-box badge count.
+        function _mgPlayerMode() { return (typeof _findInputMode !== 'undefined' && _findInputMode === 'mouse') ? 'mouse' : 'touch'; }
+        function _mgLegendIsVoice(type, index, legend) {
+            if (!legend || !legend.typeId) return false;
+            try {
+                var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+                var g = games[index];
+                var mode = _mgSetupMode(g);
+                var opts = (g && g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+                for (var i = 0; i < opts.length; i++) { if (opts[i] && opts[i].id === legend.typeId) return !!opts[i].voiceInput; }
+            } catch (e) {}
+            return false;
+        }
+        function _mgSupportedPlayers(type, index, legend) {
+            var gameId = (type === 'catch' ? 'catch-' : 'custom-') + index;
+            var mode = _mgPlayerMode();
+            var out = [];
+            [1, 2, 3].forEach(function (c) { if (_gameSupportsPlayerCount(gameId, mode, c)) out.push(c); });
+            if (!out.length) out = [1];
+            if (_mgLegendIsVoice(type, index, legend)) out = out.filter(function (c) { return c === 1; });
+            return out;
+        }
+        function _mgActiveNow(type, index, legend) {
+            var n = (typeof _gpCurrentPlayerCount === 'function') ? _gpCurrentPlayerCount() : 1;
+            return _mgSupportedPlayers(type, index, legend).indexOf(n) >= 0;
         }
         // The mini-games panel (read-only in 2c-ii): lists a game's mini-games;
         // clicking one shows its legend below.
@@ -1728,9 +1767,16 @@
             function addItem(displayName, legend, savedIdx) {
                 var item = document.createElement('div');
                 item.className = 'mg-panel-item';
+                // Greyed when it can't run at the current GP 0 player count
+                // (Play is disabled below; management actions stay usable).
+                var _activeNow = _mgActiveNow(type, index, legend);
                 var nameSpan = document.createElement('span');
                 nameSpan.textContent = displayName;
                 nameSpan.style.cssText = 'flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;';
+                if (!_activeNow) {
+                    nameSpan.style.opacity = '0.45';
+                    item.title = 'Not playable with the current player count — see Players in its legend';
+                }
                 item.appendChild(nameSpan);
                 item.style.display = 'flex';
                 item.style.alignItems = 'center';
@@ -1746,11 +1792,18 @@
                 var play = document.createElement('span');
                 play.className = 'mg-item-act mg-item-play';
                 play.textContent = '▶';
-                play.title = 'Play / preview this mini-game';
-                play.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    _mgPlayLegend(type, index, legend, displayName);
-                });
+                if (_activeNow) {
+                    play.title = 'Play / preview this mini-game';
+                    play.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        _mgPlayLegend(type, index, legend, displayName);
+                    });
+                } else {
+                    play.title = 'Not available with the current player count';
+                    play.style.opacity = '0.3';
+                    play.style.cursor = 'default';
+                    play.addEventListener('click', function(e) { e.stopPropagation(); }); // swallow — no launch
+                }
                 item.appendChild(play);
                 // Copy: start a new mini-game pre-loaded with THIS one's legend.
                 var cpy = document.createElement('span');
@@ -2909,7 +2962,7 @@
             var toggle = document.getElementById('intro-player-toggle');
             if (!toggle || toggle._wired) return;
             toggle._wired = true;
-            function applyN(n) {
+            function applyN(n, skipRefresh) {
                 // Flanks (2 left / 3 right) + thumb (1, centered) are static now;
                 // only data-players changes, which slides the thumb via CSS:
                 // middle = 1 player, left = 2 players, right = 3 players.
@@ -2917,6 +2970,10 @@
                 toggle.setAttribute('aria-checked', n > 1 ? 'true' : 'false');
                 toggle.setAttribute('aria-label', n + (n > 1 ? ' players' : ' player'));
                 toggle.title = n + (n > 1 ? ' players' : ' player') + ' — click to change';
+                // Re-render the game tiles so each mini-game folder badge reflects
+                // how many mini-games are playable at the NEW player count. Skipped
+                // on the initial sync (tiles render via their own path).
+                if (!skipRefresh && typeof populateIntroGames === 'function') populateIntroGames();
             }
             // Click by ZONE (not cycle).
             //  • Clicking the CURRENT circle (thumb), wherever it sits (it's
@@ -2949,8 +3006,9 @@
                 }
                 applyN(n);
             });
-            // Sync to the initial state (1).
-            applyN(parseInt(toggle.getAttribute('data-players'), 10) || 1);
+            // Sync to the initial state (1) — skip the tile re-render (they render
+            // via their own path; this only seeds the toggle attributes).
+            applyN(parseInt(toggle.getAttribute('data-players'), 10) || 1, true);
         }
 
         // ===== "Icons and Players" panel (Miscellaneous column) =====
@@ -5933,7 +5991,15 @@
 
         window.loadGameDeckForStage = function(stage) {
             var idx = resolveStageGameIndex(stage);
-            if (idx >= 0) startCustomGame(idx, null);
+            if (idx >= 0) {
+                // Reset the active index first: startCustomGame() TOGGLES OFF (and
+                // clears the deck) when called with the already-active game. When a
+                // Big Game stage reuses the previous stage's source game, that toggle
+                // left the board with no deck ("No game deck loaded" → no dominoes).
+                // Clearing it here forces a fresh deck load every stage.
+                activeCustomGameIndex = -1;
+                startCustomGame(idx, null);
+            }
         };
 
         // ============================================================
@@ -6058,6 +6124,14 @@
                     _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
                     var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
                     _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
+                    var _r = _origLoadDeck(stage);
+                    // startCustomGame() → _applyGameSetupToPlayerScreen() RESETS the
+                    // type/voice globals and only auto-restores them for SINGLE-type
+                    // games. A multi-type game ends up with voice OFF (and the voice
+                    // UI never appears). Re-assert the stage legend AFTER the deck
+                    // load so the chosen Type + voice survive into the round.
+                    _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
+                    return _r;
                 }
                 return _origLoadDeck(stage);
             };
@@ -6355,6 +6429,9 @@
             var frame = document.createElement('iframe');
             frame.className = 'bg-device-frame';
             frame.setAttribute('src', url);
+            // microphone: voice-input stages need mic access, which an iframe is
+            // denied unless explicitly granted (Permissions Policy).
+            frame.setAttribute('allow', 'autoplay; microphone');
             // Preview-only: suppress the iframe's spurious vertical scrollbar. The
             // board content fits the device viewport, but min-height:100vh + margins
             // can leave it ~1px over, so a scrollbar toggles on/off at the edge and

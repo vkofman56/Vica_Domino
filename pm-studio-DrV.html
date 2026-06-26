@@ -763,8 +763,10 @@
             border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
             font-family: inherit; user-select: none;
         }
-        .loupe-mag-ctl .loupe-mag-glass { font-size: 15px; }
+        .loupe-mag-ctl .loupe-mag-glass { font-size: 15px; cursor: pointer; }
+        .loupe-mag-ctl .loupe-mag-glass:hover { filter: brightness(1.3); }
         .loupe-mag-ctl .loupe-mag-val { font-size: 14px; font-weight: bold; color: #bfffbf; min-width: 30px; text-align: center; }
+        .loupe-mag-ctl .loupe-mag-val.at-default { color: #fff; text-shadow: 0 0 6px rgba(126,255,126,0.8); }
         .loupe-mag-ctl .loupe-mag-step {
             width: 24px; height: 24px; cursor: pointer; font-size: 16px; line-height: 1;
             color: #eaffea; background: rgba(126,255,126,0.18);
@@ -1416,9 +1418,9 @@
                 <!-- Magnifier: VIEW size only. ×1 = the card's real size in a game;
                      bigger = a more convenient editing size. Scales card + content. -->
                 <div class="loupe-mag-ctl" id="loupe-mag-ctl" style="display:none;" title="Magnifier — view size only (×1 = real game size). Resize the card itself with the corner handle.">
-                    <span class="loupe-mag-glass">&#128269;</span>
+                    <span class="loupe-mag-glass" id="loupe-mag-reset" title="Reset to default size">&#128269;</span>
                     <button type="button" class="loupe-mag-step" id="loupe-mag-minus" title="Smaller view">&minus;</button>
-                    <span class="loupe-mag-val">&times;<span id="loupe-mag-n">1</span></span>
+                    <span class="loupe-mag-val" id="loupe-mag-val">&times;<span id="loupe-mag-n">1</span></span>
                     <button type="button" class="loupe-mag-step" id="loupe-mag-plus" title="Bigger view">+</button>
                 </div>
                 <div id="loupe-card-container"></div>
@@ -4156,6 +4158,8 @@
                 if (magMinus) magMinus.addEventListener('click', function () { _setLoupeMag((_loupeMag || 1) - 1); });
                 var magPlus = document.getElementById('loupe-mag-plus');
                 if (magPlus) magPlus.addEventListener('click', function () { _setLoupeMag((_loupeMag || 1) + 1); });
+                var magReset = document.getElementById('loupe-mag-reset');
+                if (magReset) magReset.addEventListener('click', function () { _setLoupeMag(_loupeDefaultMag()); });
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
             else wire();
@@ -4691,6 +4695,15 @@
         function _updateMagUI() {
             var n = document.getElementById('loupe-mag-n');
             if (n) n.textContent = _loupeMag || 1;
+            var v = document.getElementById('loupe-mag-val');
+            if (v) {
+                var atDef = (_loupeMag === _loupeDefaultMag());
+                var atOne = (_loupeMag === 1);
+                v.classList.toggle('at-default', atDef);
+                // ×1 = real iPad play size; default = the standard editing size.
+                v.title = atOne ? 'Real size — as a card looks playing on an iPad'
+                        : (atDef ? 'Default editing size (click 🔍 to return here)' : '');
+            }
         }
         function _setLoupeMag(m) {
             _loupeMag = Math.max(1, Math.min(_LOUPE_MAG_MAX, Math.round(m) || 1));

@@ -3658,6 +3658,14 @@
             b.textContent = label;
             b.title = title;
             b.onclick = function () { _iParamClick(p || { sym: label }); };
+            // Drag this parameter onto the card (the button stays — drop as many as
+            // you like). A click still arms place-on-next-click as a fallback.
+            b.setAttribute('draggable', 'true');
+            b.addEventListener('dragstart', function (e) {
+                _iDragSym = label;
+                if (e.dataTransfer) { e.dataTransfer.setData('text/plain', label); e.dataTransfer.effectAllowed = 'copy'; }
+            });
+            b.addEventListener('dragend', function () { _iDragSym = ''; });
             return b;
         }
         function _iRender() {
@@ -3712,6 +3720,69 @@
             var msg = document.getElementById('i-msg');
             if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Click the card to place "' + sym + '" — then move / scale / font / color it like any letter.'; }
         }
+        // ----- Drag a parameter onto the card -----
+        // The bar/i-palette buttons are draggable; the loupe card is a drop zone. A
+        // drop drops a NEW placed-letter copy at the drop point (the button stays put,
+        // so the same parameter can be dropped many times). Reuses the draw-text setup.
+        var _iDragSym = '';
+        function _iDropParamAt(sym, clientX, clientY) {
+            if (!sym) return;
+            if (typeof drawModeActive !== 'undefined' && !drawModeActive && typeof toggleDrawMode === 'function') toggleDrawMode();
+            var container = document.getElementById('loupe-card-container');
+            var svg = container && container.querySelector('svg:not(.loupe-grid)');
+            if (!svg) return;
+            var p = _loupePointerToSvg(clientX, clientY, container);
+            var px = p.x, py = p.y;
+            var varG = svg.querySelector('g[data-variation-transform]');
+            if (varG && typeof loupeVariationInverse !== 'undefined' && loupeVariationInverse && typeof toVariationLocalCoords === 'function') {
+                var local = toVariationLocalCoords(px, py); px = local.x; py = local.y;
+            }
+            var sz = (typeof getEffectiveSize === 'function') ? getEffectiveSize() : 30;
+            var over = (typeof drawOverScale !== 'undefined') ? drawOverScale : 1;
+            var NS = 'http://www.w3.org/2000/svg';
+            var el = document.createElementNS(NS, 'text');
+            el.setAttribute('x', snapToGrid(px));
+            el.setAttribute('y', snapToGrid(py));
+            el.setAttribute('text-anchor', 'middle');
+            el.setAttribute('font-size', gridToSvg(sz * over));
+            el.setAttribute('font-family', drawFontFamily);
+            el.setAttribute('font-weight', '500');
+            el.setAttribute('fill', '#333');
+            el.setAttribute('data-draw-size', sz);
+            el.setAttribute('data-over-scale', over);
+            if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
+            el.setAttribute('data-param', sym);
+            el.textContent = (typeof autoSpaceMinus === 'function') ? autoSpaceMinus(sym) : sym;
+            el.classList.add('draw-placed');
+            if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
+            (varG || svg).appendChild(el);
+            if (typeof drawHistory !== 'undefined') { if (typeof drawRedoStack !== 'undefined') drawRedoStack.length = 0; drawHistory.push(el); }
+            if (typeof hasEditedExisting !== 'undefined') hasEditedExisting = true;
+            if (typeof _pmStartLiveParamBoxes === 'function') _pmStartLiveParamBoxes();
+            if (typeof selectDrawTool === 'function') selectDrawTool('select');
+            if (typeof selectElement === 'function') selectElement(el);
+            var msg = document.getElementById('i-msg');
+            if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Placed "' + sym + '" — drag another, or move / scale / style this one.'; }
+        }
+        // Wire the loupe card as a drop target (once). dragover must preventDefault to
+        // allow a drop; the drop reads the dragged symbol and places it.
+        function _iWireCardDropZone() {
+            var c = document.getElementById('loupe-card-container');
+            if (!c || c._iDropWired) return;
+            c._iDropWired = true;
+            c.addEventListener('dragover', function (e) {
+                if (!_iDragSym) return;
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            });
+            c.addEventListener('drop', function (e) {
+                var sym = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _iDragSym;
+                if (!sym) return;
+                e.preventDefault();
+                _iDropParamAt(sym, e.clientX, e.clientY);
+                _iDragSym = '';
+            });
+        }
         // Render the loupe's top "Parameters" bar for a card: a label + one button
         // per parameter (incl. the f-derived result). Click a button to place that
         // parameter on the card as a movable letter. Hidden when the card has none.
@@ -3747,7 +3818,7 @@
             bar.appendChild(label);
             var hint = document.createElement('span');
             hint.className = 'loupe-params-hint';
-            hint.textContent = 'click one, then click the card to place it';
+            hint.textContent = 'drag one onto the card (a copy stays here) — or click, then click the card';
             btns.forEach(function (b) {
                 // Bar-local feedback (the i-panel's #i-msg may be closed/hidden).
                 b.addEventListener('click', function () {
@@ -3952,6 +4023,13 @@
                 // tag (hover = count, click = one concrete instance) on every such
                 // card wherever it's browsed (Card Maker grid, library set view, …).
                 document.querySelectorAll('.library-card').forEach(function (card) {
+                    // Strip orphaned baked formulas (g.pm-baked) left over from the
+                    // retired on-card formula system — they show a stale equation in
+                    // the grid / Library that no longer exists in the Loupe. The
+                    // formula-bake system is gone, so any g.pm-baked is dead; removing
+                    // it here (then saveCustomCards reads the cleaned svg) clears it.
+                    var _stale = card.querySelector('svg g.pm-baked');
+                    if (_stale) _stale.parentNode.removeChild(_stale);
                     var tag = card.querySelector(':scope > .pm-param-tag');
                     var hasPlaced = !!card.querySelector(':scope > svg text[data-param]');
                     if (hasPlaced) {
@@ -4393,6 +4471,7 @@
             // Surface this card's parameters at the top of the loupe (A, B, C …) so
             // the user can place them on the card without opening the i palette.
             if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
+            if (typeof _iWireCardDropZone === 'function') _iWireCardDropZone();
         }
 
         function closeLoupe() {
@@ -4576,10 +4655,21 @@
             var maxH = window.innerHeight - 20;
             var minDim = 200;
             var defaults = _computeLoupeDefaultSize();
-            var nw = Math.max(minDim, Math.min(maxW, defaults.width * _loupeZoom));
-            var nh = Math.max(minDim, Math.min(maxH, defaults.height * _loupeZoom));
-            container.style.width = nw + 'px';
-            container.style.height = nh + 'px';
+            var dw = defaults.width * _loupeZoom;
+            var dh = defaults.height * _loupeZoom;
+            // Clamp UNIFORMLY — one scale factor for BOTH axes — so the container
+            // keeps the card's aspect ratio. Clamping width and height independently
+            // (the old code) skewed the box when only one side hit a limit, and the
+            // card SVG uses preserveAspectRatio="none", so that skew got painted onto
+            // the content — squashing the placed letters and artwork into a "narrow
+            // font" look. defaults already carry the card's true aspect.
+            var k = Math.min(1, maxW / dw, maxH / dh);   // shrink to fit; never upscale past the zoom size
+            if (Math.min(dw, dh) * k < minDim) {          // keep a sensible floor without breaking aspect
+                var mk = minDim / Math.min(dw, dh);
+                if (dw * mk <= maxW && dh * mk <= maxH) k = mk;
+            }
+            container.style.width = (dw * k) + 'px';
+            container.style.height = (dh * k) + 'px';
         }
         // Reserve right-side space on the overlay for the draw-tools panel so the
         // card is flex-centered between the left toolbar and the right panel.

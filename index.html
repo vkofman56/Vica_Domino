@@ -1721,7 +1721,15 @@
             return false;
         }
         function _mgSupportedPlayers(type, index, legend) {
-            var gameId = (type === 'catch' ? 'catch-' : 'custom-') + index;
+            // Catch has its OWN player rule: 1 player always, 2 only in TOUCH mode,
+            // never 3. It does NOT use the Find-style setup.players.options, so
+            // _gameSupportsPlayerCount would fall through to "supports all" and
+            // wrongly mark Catch as 3-player-capable.
+            if (type === 'catch') {
+                var cMode = (typeof _catchInputMode !== 'undefined' && _catchInputMode === 'mouse') ? 'mouse' : 'touch';
+                return (cMode === 'touch') ? [1, 2] : [1];
+            }
+            var gameId = 'custom-' + index;
             var mode = _mgPlayerMode();
             var out = [];
             [1, 2, 3].forEach(function (c) { if (_gameSupportsPlayerCount(gameId, mode, c)) out.push(c); });

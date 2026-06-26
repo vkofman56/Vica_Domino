@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-108">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-109">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5933,7 +5933,15 @@
 
         window.loadGameDeckForStage = function(stage) {
             var idx = resolveStageGameIndex(stage);
-            if (idx >= 0) startCustomGame(idx, null);
+            if (idx >= 0) {
+                // Reset the active index first: startCustomGame() TOGGLES OFF (and
+                // clears the deck) when called with the already-active game. When a
+                // Big Game stage reuses the previous stage's source game, that toggle
+                // left the board with no deck ("No game deck loaded" → no dominoes).
+                // Clearing it here forces a fresh deck load every stage.
+                activeCustomGameIndex = -1;
+                startCustomGame(idx, null);
+            }
         };
 
         // ============================================================
@@ -6058,6 +6066,14 @@
                     _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
                     var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
                     _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
+                    var _r = _origLoadDeck(stage);
+                    // startCustomGame() → _applyGameSetupToPlayerScreen() RESETS the
+                    // type/voice globals and only auto-restores them for SINGLE-type
+                    // games. A multi-type game ends up with voice OFF (and the voice
+                    // UI never appears). Re-assert the stage legend AFTER the deck
+                    // load so the chosen Type + voice survive into the round.
+                    _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
+                    return _r;
                 }
                 return _origLoadDeck(stage);
             };
@@ -6355,6 +6371,9 @@
             var frame = document.createElement('iframe');
             frame.className = 'bg-device-frame';
             frame.setAttribute('src', url);
+            // microphone: voice-input stages need mic access, which an iframe is
+            // denied unless explicitly granted (Permissions Policy).
+            frame.setAttribute('allow', 'autoplay; microphone');
             // Preview-only: suppress the iframe's spurious vertical scrollbar. The
             // board content fits the device viewport, but min-height:100vh + margins
             // can leave it ~1px over, so a scrollbar toggles on/off at the edge and

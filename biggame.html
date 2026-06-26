@@ -38,10 +38,15 @@
         .bgc-row-act:disabled { opacity: 0.4; cursor: default; }
         .bgc-foot { text-align: center; margin-top: 26px; color: rgba(255,255,255,0.6); font-size: 12.5px; }
         .bgc-foot a { color: #FFD54F; }
-        .bgc-play-btn { flex: 0 0 auto; padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer;
+        .bgc-play-btn { flex: 0 0 auto; height: 28px; box-sizing: border-box; padding: 0 13px; border: none; border-radius: 8px; cursor: pointer;
+                        display: inline-flex; align-items: center; justify-content: center; line-height: 1;
                         background: #2ecc71; color: #06351b; font-weight: 800; font-size: 13px; }
         .bgc-play-btn:hover { background: #43e088; }
         .bgc-play-btn:disabled { opacity: 0.4; cursor: default; }
+        /* Scan = the fast preview mode (same as Scan on GP 0) — amber to set it
+           apart from the green Play. */
+        .bgc-scan-btn { background: #f5a623; color: #3a2600; }
+        .bgc-scan-btn:hover { background: #ffb733; }
         /* embedded-play modal: the real Previewer in an iframe */
         .bgc-play-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(20,16,40,0.92);
                             display: flex; flex-direction: column; }
@@ -279,17 +284,21 @@
         // 3d-i: play a Big Game by embedding the REAL Previewer in an iframe,
         // deep-linked to ?playBig=<id>. Same engine, framed — "same as it plays
         // in the Previewer". 3d-i plays the first (Find) stage only.
-        function bgOpenPlay(id, name) {
+        function bgOpenPlay(id, name, mode) {
             bgClosePlay();
+            var scan = (mode === 'scan');
             var ov = document.createElement('div'); ov.className = 'bgc-play-overlay'; ov.id = 'bgc-play-overlay';
             var bar = document.createElement('div'); bar.className = 'bgc-play-bar';
-            var t = document.createElement('span'); t.textContent = '▶ Playing: ' + (name || 'Big Game');
+            var t = document.createElement('span'); t.textContent = (scan ? '⚡ Scanning: ' : '▶ Playing: ') + (name || 'Big Game');
             var sp = document.createElement('span'); sp.className = 'sp';
-            var hint = document.createElement('span'); hint.style.cssText = 'font-weight:400;font-size:12px;opacity:0.75;'; hint.textContent = 'Plays all stages (Find + Catch) with Level-Up transitions';
+            var hint = document.createElement('span'); hint.style.cssText = 'font-weight:400;font-size:12px;opacity:0.75;'; hint.textContent = scan ? 'Scan: races through all stages (~3 coins each)' : 'Plays all stages (Find + Catch) with Level-Up transitions';
             var close = document.createElement('button'); close.textContent = '✕ Close'; close.addEventListener('click', bgClosePlay);
             bar.appendChild(t); bar.appendChild(sp); bar.appendChild(hint); bar.appendChild(close);
             var frame = document.createElement('iframe'); frame.className = 'bgc-play-frame';
-            frame.src = 'index.html?playBig=' + encodeURIComponent(id);
+            // Always pass an explicit mode: the Previewer seeds _bgPlayMode from
+            // localStorage, so Play must force 'play' or it could inherit a stale
+            // 'scan' the user last picked on GP 0 and silently scan.
+            frame.src = 'index.html?playBig=' + encodeURIComponent(id) + '&mode=' + (scan ? 'scan' : 'play');
             frame.allow = 'autoplay';
             ov.appendChild(bar); ov.appendChild(frame);
             document.body.appendChild(ov);
@@ -361,11 +370,14 @@
                     var n = (bg.stages && bg.stages.length) || 0; meta.textContent = n + (n === 1 ? ' stage' : ' stages');
                     var play = document.createElement('button'); play.className = 'bgc-play-btn'; play.textContent = '▶ Play';
                     play.title = n ? 'Play this Big Game' : 'Add stages first'; play.disabled = !n;
-                    if (n) play.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
+                    if (n) play.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'play'); });
+                    var scan = document.createElement('button'); scan.className = 'bgc-play-btn bgc-scan-btn'; scan.textContent = '⚡ Scan';
+                    scan.title = n ? 'Scan: race through all stages (~3 coins each) — same as Scan on GP 0' : 'Add stages first'; scan.disabled = !n;
+                    if (n) scan.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'scan'); });
                     var open = mkAct('✎', 'Compose stages', function () { bgState.view = 'compose'; bgState.editingId = bg.id; bgState.openGameKey = null; bgRender(); });
                     var ren = mkAct('🏷', 'Rename', function () { var nm = prompt('Rename Big Game:', bg.name || ''); if (nm === null) return; bgRename(bg.id, nm); bgRenderList(); });
                     var del = mkAct('✗', 'Delete', function () { if (!confirm('Delete Big Game “' + (bg.name || 'Big Game') + '”?')) return; bgDelete(bg.id); bgRenderList(); });
-                    row.appendChild(name); row.appendChild(meta); row.appendChild(play); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
+                    row.appendChild(name); row.appendChild(meta); row.appendChild(play); row.appendChild(scan); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
                     card.appendChild(row);
                 });
             }
@@ -395,8 +407,11 @@
             var nStages = (bg.stages && bg.stages.length) || 0;
             var playC = document.createElement('button'); playC.className = 'bgc-play-btn'; playC.textContent = '▶ Play';
             playC.title = nStages ? 'Play this Big Game' : 'Add stages first'; playC.disabled = !nStages;
-            if (nStages) playC.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name); });
-            head.appendChild(playC);
+            if (nStages) playC.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'play'); });
+            var scanC = document.createElement('button'); scanC.className = 'bgc-play-btn bgc-scan-btn'; scanC.textContent = '⚡ Scan';
+            scanC.title = nStages ? 'Scan: race through all stages (~3 coins each) — same as Scan on GP 0' : 'Add stages first'; scanC.disabled = !nStages;
+            if (nStages) scanC.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'scan'); });
+            head.appendChild(playC); head.appendChild(scanC);
             card.appendChild(head);
 
             var cols = document.createElement('div'); cols.className = 'bgc-compose';

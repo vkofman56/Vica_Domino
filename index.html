@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:33 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:32 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1989,7 +1989,12 @@
             // Match the Play button's look (same purple gradient, white border,
             // glow, rounded corners) so the pair reads as a set. Height is matched
             // to Play exactly via measurement below.
-            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;color:#fff;font-weight:bold;white-space:nowrap;' +
+            // padding-left/right trim the Save button by 1cm total off the .btn
+            // 30px sides (so the icon/text aren't swimming in slack), then the
+            // content is nudged 1.5mm to the right INSIDE the button by trading
+            // 1.5mm from right padding to left (13/9 keeps the same total width).
+            // Vertical padding stays 12px from .btn.
+            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;padding-left:13px;padding-right:9px;color:#fff;font-weight:bold;white-space:nowrap;' +
                 'border:2px solid rgba(255,255,255,0.92);border-radius:14px;' +
                 'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);' +
                 'box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
@@ -2004,8 +2009,69 @@
             } else {
                 startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
             }
-            // Match Save's height to Play exactly (after layout).
-            requestAnimationFrame(function () { try { var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px'; } catch (e) {} });
+            // Lay out the Play + Save pair (equal height/width, tightened gap,
+            // right-aligned to the Type boxes). Kept in _mgLayoutButtons so it can
+            // be RE-applied on every Setup re-render — _renderStartSummary wipes
+            // #player-names margins each pass, which would otherwise undo the
+            // right-align.
+            requestAnimationFrame(_mgLayoutButtons);
+        }
+        // Idempotent geometry for the Play (#start-game-btn) + Save (#mg-save-btn)
+        // pair on the Setup page. Safe to call repeatedly: it resets the props it
+        // drives to a known baseline, then recomputes from the live layout.
+        //   • Save height = Play height
+        //   • Play width  = Save width (the narrowed Save)
+        //   • gap Play↔Save = 5mm tighter than the 14px baseline (min 8px)
+        //   • the Play+Save group slides right so Save's RIGHT edge lines up with
+        //     the Type boxes' (.setup-type-line) right edge
+        function _mgLayoutButtons() {
+            var startBtn = document.getElementById('start-game-btn');
+            var b = document.getElementById('mg-save-btn');
+            if (!startBtn || !b || !startBtn.offsetParent || !b.offsetParent) return;
+            var MM = 96 / 25.4; // CSS px per mm
+            // Shift the group via the PLAY button's own margin — NOT #player-names.
+            // A MutationObserver watches #player-names' style attribute and re-runs
+            // _renderStartSummary on any change; writing player-names' margin here
+            // would fire it → re-render → re-apply → infinite loop (page freeze).
+            // The observer is not subtree, so moving #start-game-btn (a descendant)
+            // shifts Play — and Save follows in the flex flow — without tripping it.
+            var anchor = startBtn;
+            // .btn has `transition: all .2s` — suspend it so width/margin changes
+            // apply instantly and our measurements aren't read mid-animation.
+            startBtn.style.transition = 'none';
+            b.style.transition = 'none';
+            // Reset what we drive so each pass recomputes from the same baseline.
+            anchor.style.marginLeft = '0px';
+            startBtn.style.removeProperty('width');
+            b.style.marginLeft = '14px';
+            void b.offsetWidth;
+            var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
+            var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
+            // Gap at the 14px baseline, then pull 5mm tighter (clamped ≥ 8px).
+            var baseGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
+            var target = Math.max(8, baseGap - 5 * MM);
+            b.style.marginLeft = (14 - (baseGap - target)) + 'px';
+            void b.offsetWidth;
+            // Right-align the group: Save's right edge → Type boxes' right edge.
+            var typeRight = 0;
+            document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
+                var r = t.getBoundingClientRect();
+                if (r.width && r.right > typeRight) typeRight = r.right;
+            });
+            if (typeRight) {
+                var shift = typeRight - b.getBoundingClientRect().right;
+                if (shift > 0 && shift < 800) anchor.style.marginLeft = shift + 'px';
+            }
+            requestAnimationFrame(function () {
+                try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
+            });
+        }
+        if (typeof window !== 'undefined') {
+            window._mgLayoutButtons = _mgLayoutButtons;
+            if (!window._mgBtnResizeWired) {
+                window._mgBtnResizeWired = true;
+                window.addEventListener('resize', function () { try { _mgLayoutButtons(); } catch (e) {} });
+            }
         }
         function _mgSaveCurrentAsMiniGame() {
             var tgt = _mgSetupTarget();
@@ -5555,6 +5621,12 @@
             // the Level buttons are visible = a real game's Setup). Works whether or
             // not the user entered via "+ Add mini-game".
             try { _mgInjectSaveBtn(); } catch (e) {}
+            // Re-apply the Play+Save geometry AFTER the lift step above wiped any
+            // #player-names margins, so the right-align to the Type boxes sticks
+            // across re-renders. Deferred (and a late retry) so the Type column
+            // and Legend reposition have settled before we measure.
+            requestAnimationFrame(function () { try { _mgLayoutButtons(); } catch (e) {} });
+            setTimeout(function () { try { _mgLayoutButtons(); } catch (e) {} }, 200);
         }
         // One observer covers every Start-page show-point (find/catch, mouse/
         // touch, all player options). The lower player box always shows the

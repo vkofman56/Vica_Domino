@@ -740,47 +740,39 @@
         .i-param-btn:hover { background: rgba(126,255,126,0.3); }
         /* Derived parameter (defined by the f-formula, e.g. C = A + B): dashed. */
         .i-param-btn.derived { border-style: dashed; }
-        /* On-card parametric formula (editable) + the concrete instance display,
-           centered on the loupe card face. */
-        .par-card-formula {
-            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-            z-index: 5; text-align: center; box-sizing: border-box;
-            min-width: 30%; max-width: 92%;
-            background: transparent; border: none; outline: none; white-space: nowrap;
-            color: #2a2a2a; font-family: 'Roboto Mono', monospace; font-weight: bold;
-            /* Off by default so it never blocks the draw/stamp tools; Parameter
-               mode turns it on (pointer-events:auto) for editing. */
-            pointer-events: none;
+        /* Parameters bar at the top of the loupe: a "Parameters" label + this card's
+           parameter buttons (reuse .i-param-btn). Click a button to place that
+           parameter on the card. */
+        .loupe-params-bar {
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 2001; display: flex; align-items: center; flex-wrap: wrap;
+            gap: 7px; max-width: 80vw; padding: 6px 12px;
+            background: rgba(20,20,34,0.92); border: 1px solid rgba(126,255,126,0.45);
+            border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
         }
-        /* A parameter inside the card text: a thin rectangular border so it's
-           instantly distinct from regular letters. Inherits the text color. */
-        .pm-param-chip {
-            display: inline-block; padding: 0 0.18em; margin: 0 0.05em;
-            border: 1.5px solid #cc00cc; border-radius: 2px; line-height: 1.05;
+        .loupe-params-bar .loupe-params-label {
+            font-size: 13px; font-weight: bold; color: #bfffbf; margin-right: 3px;
+            font-family: inherit; white-space: nowrap;
         }
-        /* Text | Parameters mode toggle at the top of the loupe. */
-        .loupe-mode-toggle { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 2001; display: flex; }
-        .loupe-mode-btn {
-            font-size: 13px; padding: 6px 16px; cursor: pointer; font-family: inherit;
-            background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.35); color: #ddd;
+        .loupe-params-bar .loupe-params-hint { font-size: 11px; color: rgba(255,255,255,0.55); margin-left: 4px; white-space: nowrap; }
+        /* Magnifier (🔍 ×N) — VIEW size only. Sits bottom-right of the loupe. */
+        .loupe-mag-ctl {
+            position: fixed; right: 16px; bottom: 16px; z-index: 2002;
+            display: flex; align-items: center; gap: 6px; padding: 5px 9px;
+            background: rgba(20,20,34,0.92); border: 1px solid rgba(126,255,126,0.45);
+            border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+            font-family: inherit; user-select: none;
         }
-        .loupe-mode-btn:first-child { border-radius: 8px 0 0 8px; }
-        .loupe-mode-btn:last-child { border-radius: 0 8px 8px 0; border-left: none; }
-        .loupe-mode-btn.active { background: rgba(126,255,126,0.25); border-color: rgba(126,255,126,0.7); color: #eaffea; font-weight: bold; }
-        .par-card-instance {
-            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-            z-index: 6; text-align: center; pointer-events: none; max-width: 96%; white-space: nowrap;
-            color: #14571f; font-family: 'Roboto Mono', monospace; font-weight: bold;
+        .loupe-mag-ctl .loupe-mag-glass { font-size: 15px; }
+        .loupe-mag-ctl .loupe-mag-val { font-size: 14px; font-weight: bold; color: #bfffbf; min-width: 30px; text-align: center; }
+        .loupe-mag-ctl .loupe-mag-step {
+            width: 24px; height: 24px; cursor: pointer; font-size: 16px; line-height: 1;
+            color: #eaffea; background: rgba(126,255,126,0.18);
+            border: 1px solid rgba(126,255,126,0.5); border-radius: 6px; font-family: inherit;
         }
-        /* Library-grid (A-CM) parametric card: the formula IS the card "picture",
-           with a clickable "123" tag (hover = set size, click = one instance). */
-        .pm-param-formula {
-            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-            z-index: 3; pointer-events: none; text-align: center; max-width: 94%;
-            white-space: nowrap; color: #2a2a2a; line-height: 1;
-            font-family: 'Roboto Mono', monospace; font-weight: bold;
-        }
-        .pm-param-formula.instance { color: #14571f; background: rgba(245,230,200,0.96); border-radius: 4px; padding: 0 0.3em; }
+        .loupe-mag-ctl .loupe-mag-step:hover { background: rgba(126,255,126,0.34); }
+        /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
+           placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
             position: absolute; top: 14px; left: -6px; z-index: 4; cursor: pointer;
             font-size: 8px; font-weight: bold; color: #fff; line-height: 1;
@@ -925,7 +917,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:32 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -943,7 +935,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:32 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1185,7 +1177,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:02 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:32 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1417,9 +1409,17 @@
                 <div class="page-name-label" contenteditable="true" id="a-card-editor-label">A C</div>
                 <button class="help-trigger-btn" onclick="showPageHelp('cardeditor')" title="Help">?</button>
                 <button class="loupe-close-btn" id="loupe-close-btn" title="Close (Esc)">&times;</button>
-                <div class="loupe-mode-toggle" id="loupe-mode-toggle">
-                    <button type="button" class="loupe-mode-btn active" id="loupe-mode-text" data-mode="text" title="Edit the card normally: text, drawing, stamps">Text</button>
-                    <button type="button" class="loupe-mode-btn" id="loupe-mode-param" data-mode="param" title="Insert parameters into the card (bordered); type plain text too">Parameters</button>
+                <!-- Parameters bar: this card's parameters (A, B, C …). Click one to
+                     place it on the card as a movable letter. Filled by
+                     _loupeRenderParamsBar(); hidden when the card has no parameters. -->
+                <div class="loupe-params-bar" id="loupe-params-bar" style="display:none;"></div>
+                <!-- Magnifier: VIEW size only. ×1 = the card's real size in a game;
+                     bigger = a more convenient editing size. Scales card + content. -->
+                <div class="loupe-mag-ctl" id="loupe-mag-ctl" style="display:none;" title="Magnifier — view size only (×1 = real game size). Resize the card itself with the corner handle.">
+                    <span class="loupe-mag-glass">&#128269;</span>
+                    <button type="button" class="loupe-mag-step" id="loupe-mag-minus" title="Smaller view">&minus;</button>
+                    <span class="loupe-mag-val">&times;<span id="loupe-mag-n">1</span></span>
+                    <button type="button" class="loupe-mag-step" id="loupe-mag-plus" title="Bigger view">+</button>
                 </div>
                 <div id="loupe-card-container"></div>
             </div>
@@ -1565,29 +1565,13 @@
                 <div id="i-params" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
                 <div class="par-section-label">Relations</div>
                 <div id="i-rels" class="par-help" style="white-space:pre-wrap;"></div>
-                <div class="par-section-label">Card formula</div>
-                <div class="par-help">Click a parameter to add it to the card; type operators (− + × ÷ =) directly on the card.</div>
+                <div class="par-section-label">Place on the card</div>
+                <div class="par-help">Click a parameter (here or in the top bar), then click the card to drop it as a letter — move / scale / style it with the normal draw tools. Use <b>Instance</b> to fill the placed letters with one concrete example; <b>Parametric</b> to show the symbols again.</div>
                 <div style="display:flex;gap:8px;margin-top:4px;">
                     <button class="par-btn-secondary" id="i-instance-btn">Instance ▷</button>
                     <button class="par-btn-secondary" id="i-parametric-btn">Parametric</button>
                 </div>
                 <div class="par-sample-out" id="i-msg"></div>
-                <div class="par-section-label">Style</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="color" id="i-style-color" title="Text color" style="width:34px;height:24px;padding:0;border:1px solid rgba(255,255,255,0.3);border-radius:4px;background:none;cursor:pointer;">
-                    <span class="par-help" style="margin:0;">Size</span>
-                    <input type="range" id="i-style-size" title="Text size" min="3" max="22" step="1" style="flex:1 1 60px;">
-                    <select class="par-input" id="i-style-font" title="Text font" style="flex:1 1 auto;">
-                        <option value="'Roboto Mono', monospace">Mono</option>
-                        <option value="'Open Sans', sans-serif">Sans</option>
-                        <option value="Lora, serif">Serif</option>
-                        <option value="'Comic Neue', cursive">Comic</option>
-                        <option value="'Patrick Hand', cursive">Hand</option>
-                        <option value="'Permanent Marker', cursive">Marker</option>
-                        <option value="Anton, sans-serif">Anton</option>
-                        <option value="'Playfair Display', serif">Playfair</option>
-                    </select>
-                </div>
                 <div class="par-editor-btns">
                     <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
@@ -2464,6 +2448,7 @@
         var loupeOrigShapeW = 60;
         var loupeOrigShapeH = 60;
         var loupeOrigCornerR = -1;
+        var loupeOrigFrameScale = 1;
 
         // === Spoken Title panel (per-card voice names) ===
         var _STP_LANGS = [
@@ -2610,6 +2595,10 @@
             _mpSaveStore(s);
             // Lock in any freshly-minted uid (mirrors STP's commit→save).
             if (typeof saveCustomCards === 'function') saveCustomCards();
+            // Refresh the loupe's top Parameters bar if we're editing its card.
+            if (typeof _loupeRenderParamsBar === 'function' && typeof loupeSourceCard !== 'undefined' && loupeSourceCard === cardEl) {
+                _loupeRenderParamsBar(cardEl);
+            }
         }
 
         // ---- the "Par" button: toggle the panel, start on the list view ----
@@ -3431,6 +3420,8 @@
             var out = document.getElementById('fx-out');
             out.className = 'par-sample-out ok';
             out.textContent = '✓ Saved.';
+            // The f-formula can define a derived parameter (e.g. C) — refresh the bar.
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
         }
 
         // ===================================================================
@@ -3667,7 +3658,6 @@
             _closeMathPanels('i-panel');
             _iRender();
             p.style.display = 'flex';
-            _pmSetMode('param');  // opening the palette puts the card in Parameter mode
         }
         function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; }
         function _iParamDetail(p) {
@@ -3692,6 +3682,14 @@
             b.textContent = label;
             b.title = title;
             b.onclick = function () { _iParamClick(p || { sym: label }); };
+            // Drag this parameter onto the card (the button stays — drop as many as
+            // you like). A click still arms place-on-next-click as a fallback.
+            b.setAttribute('draggable', 'true');
+            b.addEventListener('dragstart', function (e) {
+                _iDragSym = label;
+                if (e.dataTransfer) { e.dataTransfer.setData('text/plain', label); e.dataTransfer.effectAllowed = 'copy'; }
+            });
+            b.addEventListener('dragend', function () { _iDragSym = ''; });
             return b;
         }
         function _iRender() {
@@ -3727,339 +3725,288 @@
             var relText = (_relLoad(loupeSourceCard) || {}).text || '';
             if (relText.trim()) rels.push(relText.trim());
             document.getElementById('i-rels').textContent = rels.length ? rels.join('\n') : 'none';
-            // reflect the card's formula style in the controls
-            var st = _pfStyle(loupeSourceCard);
-            var colEl = document.getElementById('i-style-color'); if (colEl) colEl.value = st.color;
-            var fontEl = document.getElementById('i-style-font'); if (fontEl) fontEl.value = st.font;
-            var sizeEl = document.getElementById('i-style-size'); if (sizeEl) sizeEl.value = Math.round((st.size || 0.09) * 100);
+            // keep the loupe's top Parameters bar in sync with any edits here
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
         }
-        function _iStyleChange() {
-            var sizeEl = document.getElementById('i-style-size');
-            var st = {
-                color: document.getElementById('i-style-color').value,
-                font: document.getElementById('i-style-font').value,
-                size: (parseInt(sizeEl && sizeEl.value, 10) || 9) / 100
-            };
-            _pfSaveStyle(loupeSourceCard, st);
-            var c = _pfContainer();
-            if (c) {
-                var fs = Math.max(8, Math.round(c.clientWidth * st.size));
-                ['#par-card-formula', '#par-card-instance'].forEach(function (sel) {
-                    var el = c.querySelector(sel);
-                    if (el) { _pfApplyStyleTo(el, st); el.style.fontSize = fs + 'px'; }
-                });
-            }
-            if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
+        // Clicking a parameter starts PLACE-ON-CARD: the next click on the card
+        // drops it as a tagged letter (moved/scaled/styled with the normal draw tools).
+        var _pendingParamPlace = '';
+        function _iParamClick(p) {
+            var sym = (p && p.sym) || '';
+            if (sym) _iStartPlaceParam(sym);
         }
-        // Clicking a parameter writes its symbol onto the card formula.
-        function _iParamClick(p) { _pfInsertParamChip((p && p.sym) || ''); }
-
-        // ===== On-card parametric formula (Slice B) =====
-        // The card carries a parametric problem (e.g. "C − B = A") typeset on its
-        // face. Click i-panel params to insert symbols; type operators directly.
-        // "Instance" substitutes concrete values (Pars + f-derived) for one example.
-        var _PF_STORE_KEY = 'cardParFormula_v1';
-        var _PF_STYLE_KEY = 'cardParStyle_v1';
-        // size is a RATIO of card width, so the formula keeps the same relative
-        // size in the loupe (A-C) and the grid thumbnail (A-CM).
-        var _PF_DEFAULT_STYLE = { color: '#2a2a2a', font: "'Roboto Mono', monospace", size: 0.09 };
-        var _pfShowingInstance = false;
-        function _pfStyle(card) {
-            var uid = _mpCardUid(card);
-            if (!uid) return Object.assign({}, _PF_DEFAULT_STYLE);
-            var s;
-            try { s = (JSON.parse(localStorage.getItem(_PF_STYLE_KEY)) || {})[uid]; } catch (e) {}
-            return Object.assign({}, _PF_DEFAULT_STYLE, s || {});
+        function _iStartPlaceParam(sym) {
+            _pendingParamPlace = sym;
+            // enter draw mode + the text tool so the next card click places the letter
+            if (typeof drawModeActive !== 'undefined' && !drawModeActive && typeof toggleDrawMode === 'function') toggleDrawMode();
+            if (typeof selectedTextChar !== 'undefined') selectedTextChar = sym;
+            if (typeof selectDrawTool === 'function') selectDrawTool('text');
+            var msg = document.getElementById('i-msg');
+            if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Click the card to place "' + sym + '" — then move / scale / font / color it like any letter.'; }
         }
-        function _pfSaveStyle(card, style) {
-            var uid = _mpCardUid(card);
-            if (!uid) return;
-            var all;
-            try { all = JSON.parse(localStorage.getItem(_PF_STYLE_KEY)) || {}; } catch (e) { all = {}; }
-            all[uid] = style;
-            try { localStorage.setItem(_PF_STYLE_KEY, JSON.stringify(all)); } catch (e) {}
-            if (typeof saveCustomCards === 'function') saveCustomCards();
-        }
-        function _pfApplyStyleTo(el, st) { if (!el) return; el.style.color = st.color; el.style.fontFamily = st.font; }
-        function _pfLoad(card) {
-            var uid = _mpCardUid(card);
-            if (!uid) return '';
-            try { return (JSON.parse(localStorage.getItem(_PF_STORE_KEY)) || {})[uid] || ''; }
-            catch (e) { return ''; }
-        }
-        function _pfSave(card, text) {
-            var uid = _mpCardUid(card);
-            if (!uid) return;
-            var s;
-            try { s = JSON.parse(localStorage.getItem(_PF_STORE_KEY)) || {}; } catch (e) { s = {}; }
-            if (!text || !text.trim()) delete s[uid]; else s[uid] = text;
-            try { localStorage.setItem(_PF_STORE_KEY, JSON.stringify(s)); } catch (e) {}
-            if (typeof saveCustomCards === 'function') saveCustomCards();
-        }
-        function _pfContainer() { return document.getElementById('loupe-card-container'); }
-
-        // ----- Card content = a sequence of segments: plain text + parameter chips.
-        // Stored as JSON in cardParContent_v1; the plain string is mirrored into
-        // cardParFormula_v1 so the instance/thumbnail logic keeps working. -----
-        var _PC_STORE_KEY = 'cardParContent_v1';
-        var _pmMode = 'text';   // 'text' | 'param'
-        function _pcGetSegments(card) {
-            var uid = _mpCardUid(card);
-            if (!uid) return [];
-            try { var a = (JSON.parse(localStorage.getItem(_PC_STORE_KEY)) || {})[uid]; if (Array.isArray(a)) return a; }
-            catch (e) {}
-            // Legacy/migration: no segments yet, but a plain formula exists — derive
-            // segments, turning occurrences of defined parameter symbols into chips.
-            var plain = _pfLoad(card);
-            return plain ? _pcSegmentsFromPlain(plain, card) : [];
-        }
-        function _pcSegmentsFromPlain(plain, card) {
-            var syms = _mpReadParams(card).map(function (p) { return p.sym; });
-            var cfg = _fxLoad(card);
-            if (cfg && cfg.text) {
-                var eq = cfg.text.indexOf('=');
-                if (eq >= 0) { var rhs = cfg.text.slice(eq + 1).trim(); if (/^[A-Za-z_]\w*$/.test(rhs) && syms.indexOf(rhs) < 0) syms.push(rhs); }
-            }
-            syms = syms.filter(Boolean).sort(function (a, b) { return b.length - a.length; }); // longest first
-            function idChar(ch) { return ch && /[A-Za-z0-9_]/.test(ch); }
-            var segs = [], i = 0, n = plain.length, buf = '';
-            function flush() { if (buf) { segs.push({ t: 'text', v: buf }); buf = ''; } }
-            while (i < n) {
-                var hit = null;
-                for (var k = 0; k < syms.length; k++) {
-                    var s = syms[k];
-                    if (plain.substr(i, s.length) === s && !idChar(plain[i - 1]) && !idChar(plain[i + s.length])) { hit = s; break; }
-                }
-                if (hit) { flush(); segs.push({ t: 'param', s: hit }); i += hit.length; }
-                else { buf += plain[i]; i++; }
-            }
-            flush();
-            return segs;
-        }
-        function _pcPlain(segs) {
-            return (segs || []).map(function (s) { return s.t === 'param' ? s.s : s.v; }).join('');
-        }
-        function _pcSaveSegments(card, segs) {
-            var uid = _mpCardUid(card);
-            if (!uid) return;
-            var s;
-            try { s = JSON.parse(localStorage.getItem(_PC_STORE_KEY)) || {}; } catch (e) { s = {}; }
-            if (!segs || !segs.length) delete s[uid]; else s[uid] = segs;
-            try { localStorage.setItem(_PC_STORE_KEY, JSON.stringify(s)); } catch (e) {}
-            _pfSave(card, _pcPlain(segs));  // mirror plain string for instance/thumbnail
-        }
-        function _pcChip(sym) {
-            var el = document.createElement('span');
-            el.className = 'pm-param-chip';
-            el.setAttribute('contenteditable', 'false');
-            el.dataset.sym = sym;
-            el.textContent = sym;
-            return el;
-        }
-        function _pcRenderField(field, segs) {
-            field.innerHTML = '';
-            (segs || []).forEach(function (seg) {
-                if (seg.t === 'param') field.appendChild(_pcChip(seg.s));
-                else field.appendChild(document.createTextNode(seg.v));
-            });
-        }
-        function _pcSerialize(field) {
-            var segs = [];
-            Array.prototype.forEach.call(field.childNodes, function (node) {
-                if (node.nodeType === 3) { if (node.textContent) segs.push({ t: 'text', v: node.textContent }); }
-                else if (node.nodeType === 1 && node.classList && node.classList.contains('pm-param-chip')) {
-                    segs.push({ t: 'param', s: node.dataset.sym || node.textContent });
-                } else if (node.nodeType === 1) { var tc = node.textContent; if (tc) segs.push({ t: 'text', v: tc }); }
-            });
-            return segs;
-        }
-
-        // ----- Bake the parametric formula INTO the card's SVG, so it shows
-        // everywhere the card is rendered (Card Maker, A-Library preview, library
-        // set view, games) — not just via a per-view HTML overlay. -----
-        var _PC_NS = 'http://www.w3.org/2000/svg';
-        function _pcBakeToSVG(card) {
-            if (!card) return false;
-            var svg = card.querySelector('svg');
-            if (!svg) return false;
-            var old = svg.querySelector('g.pm-baked');
-            if (old) old.parentNode.removeChild(old);
-            var segs = _pcGetSegments(card);
-            if (!segs.length) return false; // no formula -> leave the SVG clean
-            var st = _pfStyle(card);
-            var vb = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width)
-                ? svg.viewBox.baseVal : { x: 0, y: 0, width: 60, height: 60 };
-            var cx = vb.x + vb.width / 2, cy = vb.y + vb.height / 2;
-            var fontSize = (st.size || 0.09) * vb.width;
-            // measure each segment width with an off-screen SVG text
-            var meas = document.createElementNS(_PC_NS, 'svg');
-            meas.setAttribute('width', '10'); meas.setAttribute('height', '10');
-            meas.style.cssText = 'position:absolute;left:-9999px;top:0;overflow:visible;';
-            document.body.appendChild(meas);
-            function measure(str) {
-                var t = document.createElementNS(_PC_NS, 'text');
-                t.setAttribute('font-size', fontSize); t.setAttribute('font-family', st.font); t.setAttribute('font-weight', 'bold');
-                t.setAttribute('xml:space', 'preserve');
-                t.textContent = str; meas.appendChild(t);
-                var w; try { w = t.getComputedTextLength(); } catch (e) { w = (str || '').length * fontSize * 0.6; }
-                meas.removeChild(t); return w;
-            }
-            // SVG collapses/trims regular spaces; non-breaking spaces are preserved,
-            // so the formula keeps its spacing in both measurement and rendering.
-            function _nb(str) { return (str == null ? '' : String(str)).replace(/ /g, ' '); }
-            var widths = segs.map(function (s) { return measure(_nb(s.t === 'param' ? s.s : s.v)); });
-            document.body.removeChild(meas);
-            var total = widths.reduce(function (a, b) { return a + b; }, 0);
-            var g = document.createElementNS(_PC_NS, 'g');
-            g.setAttribute('class', 'pm-baked');
-            var x = cx - total / 2;
-            var pad = fontSize * 0.12, rectH = fontSize * 0.95, rectY = cy - rectH * 0.6;
-            segs.forEach(function (seg, i) {
-                var w = widths[i];
-                if (seg.t === 'param') {
-                    var rect = document.createElementNS(_PC_NS, 'rect');
-                    rect.setAttribute('x', (x - pad).toFixed(2)); rect.setAttribute('y', rectY.toFixed(2));
-                    rect.setAttribute('width', (w + 2 * pad).toFixed(2)); rect.setAttribute('height', rectH.toFixed(2));
-                    rect.setAttribute('rx', (fontSize * 0.1).toFixed(2));
-                    rect.setAttribute('fill', 'none'); rect.setAttribute('stroke', '#cc00cc');
-                    rect.setAttribute('stroke-width', (fontSize * 0.06).toFixed(2));
-                    g.appendChild(rect);
-                }
-                var t = document.createElementNS(_PC_NS, 'text');
-                t.setAttribute('x', x.toFixed(2)); t.setAttribute('y', cy.toFixed(2));
-                t.setAttribute('text-anchor', 'start'); t.setAttribute('dominant-baseline', 'central');
-                t.setAttribute('font-size', fontSize); t.setAttribute('font-family', st.font); t.setAttribute('font-weight', 'bold');
-                t.setAttribute('fill', st.color); t.setAttribute('xml:space', 'preserve');
-                t.textContent = _nb(seg.t === 'param' ? seg.s : seg.v);
-                g.appendChild(t);
-                x += w;
-            });
-            svg.appendChild(g);
-            return true;
-        }
-
-        // Ensure the editable field (contenteditable) + instance display exist.
-        function _pfEnsureEls() {
-            var c = _pfContainer();
-            if (!c) return null;
-            var fld = c.querySelector('#par-card-formula');
-            if (!fld) {
-                fld = document.createElement('div');
-                fld.id = 'par-card-formula';
-                fld.className = 'par-card-formula';
-                fld.setAttribute('spellcheck', 'false');
-                fld.addEventListener('input', function () { _pcSaveSegments(loupeSourceCard, _pcSerialize(fld)); });
-                fld.addEventListener('focus', function () { _pfShowInstance(false); });
-                fld.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); }); // single line
-                c.appendChild(fld);
-            }
-            var ins = c.querySelector('#par-card-instance');
-            if (!ins) {
-                ins = document.createElement('div');
-                ins.id = 'par-card-instance';
-                ins.className = 'par-card-instance';
-                ins.style.display = 'none';
-                c.appendChild(ins);
-            }
-            var st = _pfStyle(loupeSourceCard);
-            var fs = Math.max(8, Math.round(c.clientWidth * (st.size || 0.09)));
-            [fld, ins].forEach(function (el) { el.style.fontSize = fs + 'px'; _pfApplyStyleTo(el, st); });
-            return { fld: fld, ins: ins };
-        }
-        function _pfRenderOnCard() {
-            var els = _pfEnsureEls();
-            if (!els) return;
-            var segs = _pcGetSegments(loupeSourceCard);
-            _pcRenderField(els.fld, segs);
-            _pfShowInstance(false);
-            // parametric cards open ready to edit; blank cards start in Text mode
-            _pmSetMode(segs.length ? 'param' : 'text');
-        }
-        function _pfShowInstance(on) {
-            _pfShowingInstance = !!on;
-            var c = _pfContainer();
-            if (!c) return;
-            var fld = c.querySelector('#par-card-formula');
-            var ins = c.querySelector('#par-card-instance');
-            if (fld) fld.style.display = on ? 'none' : '';
-            if (ins) ins.style.display = on ? 'block' : 'none';
-        }
-        // Text vs Parameter mode. In Parameter mode the field is editable; in Text
-        // mode it's passive (pointer-events:none) so the draw/stamp tools work.
-        function _pmSetMode(mode) {
-            _pmMode = (mode === 'param') ? 'param' : 'text';
-            var c = _pfContainer();
-            var fld = c && c.querySelector('#par-card-formula');
-            if (fld) {
-                fld.setAttribute('contenteditable', _pmMode === 'param' ? 'true' : 'false');
-                fld.style.pointerEvents = _pmMode === 'param' ? 'auto' : 'none';
-                if (_pmMode === 'param') _pfShowInstance(false);
-            }
-            ['loupe-mode-text', 'loupe-mode-param'].forEach(function (id) {
-                var b = document.getElementById(id);
-                if (b) b.classList.toggle('active', b.dataset.mode === _pmMode);
-            });
-        }
-        function _pfInsertParamChip(sym) {
+        // ----- Drag a parameter onto the card -----
+        // The bar/i-palette buttons are draggable; the loupe card is a drop zone. A
+        // drop drops a NEW placed-letter copy at the drop point (the button stays put,
+        // so the same parameter can be dropped many times). Reuses the draw-text setup.
+        var _iDragSym = '';
+        function _iDropParamAt(sym, clientX, clientY) {
             if (!sym) return;
-            var els = _pfEnsureEls();
-            if (!els) return;
-            _pmSetMode('param');
-            var fld = els.fld;
-            fld.focus();
-            var chip = _pcChip(sym);
-            var sel = window.getSelection();
-            if (sel && sel.rangeCount && fld.contains(sel.anchorNode)) {
-                var r = sel.getRangeAt(0);
-                r.deleteContents();
-                r.insertNode(chip);
-                r.setStartAfter(chip); r.setEndAfter(chip);
-                sel.removeAllRanges(); sel.addRange(r);
-            } else {
-                fld.appendChild(chip);
-                var rr = document.createRange(); rr.selectNodeContents(fld); rr.collapse(false);
-                var s2 = window.getSelection(); s2.removeAllRanges(); s2.addRange(rr);
+            if (typeof drawModeActive !== 'undefined' && !drawModeActive && typeof toggleDrawMode === 'function') toggleDrawMode();
+            var container = document.getElementById('loupe-card-container');
+            var svg = container && container.querySelector('svg:not(.loupe-grid)');
+            if (!svg) return;
+            var p = _loupePointerToSvg(clientX, clientY, container);
+            var px = p.x, py = p.y;
+            var varG = svg.querySelector('g[data-variation-transform]');
+            if (varG && typeof loupeVariationInverse !== 'undefined' && loupeVariationInverse && typeof toVariationLocalCoords === 'function') {
+                var local = toVariationLocalCoords(px, py); px = local.x; py = local.y;
             }
-            _pcSaveSegments(loupeSourceCard, _pcSerialize(fld));
+            var sz = (typeof getEffectiveSize === 'function') ? getEffectiveSize() : 30;
+            var over = (typeof drawOverScale !== 'undefined') ? drawOverScale : 1;
+            var NS = 'http://www.w3.org/2000/svg';
+            var el = document.createElementNS(NS, 'text');
+            el.setAttribute('x', snapToGrid(px));
+            el.setAttribute('y', snapToGrid(py));
+            el.setAttribute('text-anchor', 'middle');
+            el.setAttribute('font-size', gridToSvg(sz * over));
+            el.setAttribute('font-family', drawFontFamily);
+            el.setAttribute('font-weight', '500');
+            el.setAttribute('fill', '#333');
+            el.setAttribute('data-draw-size', sz);
+            el.setAttribute('data-over-scale', over);
+            if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
+            el.setAttribute('data-param', sym);
+            el.textContent = (typeof autoSpaceMinus === 'function') ? autoSpaceMinus(sym) : sym;
+            el.classList.add('draw-placed');
+            if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
+            (varG || svg).appendChild(el);
+            if (typeof drawHistory !== 'undefined') { if (typeof drawRedoStack !== 'undefined') drawRedoStack.length = 0; drawHistory.push(el); }
+            if (typeof hasEditedExisting !== 'undefined') hasEditedExisting = true;
+            if (typeof _pmStartLiveParamBoxes === 'function') _pmStartLiveParamBoxes();
+            if (typeof selectDrawTool === 'function') selectDrawTool('select');
+            if (typeof selectElement === 'function') selectElement(el);
+            var msg = document.getElementById('i-msg');
+            if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Placed "' + sym + '" — drag another, or move / scale / style this one.'; }
         }
-        // Build one concrete instance: sample Pars (relation-aware), derive any
-        // f-formula answer, substitute into the parametric formula.
-        function _pfBuildInstance() {
-            var segs = _pcGetSegments(loupeSourceCard);
-            if (!segs.length) return { error: 'Build a formula first — switch to Parameters and insert some.' };
-            var j = _mpGenerateJointEnv(800);
-            if (j.error) return { error: j.error };
-            var env = j.env;
-            // derive the f-formula answer (e.g. C = A + B)
-            var cfg = _fxLoad(loupeSourceCard);
-            if (cfg && cfg.text) {
-                var eqIdx = cfg.text.indexOf('=');
+        // Wire the loupe card as a drop target (once). dragover must preventDefault to
+        // allow a drop; the drop reads the dragged symbol and places it.
+        function _iWireCardDropZone() {
+            var c = document.getElementById('loupe-card-container');
+            if (!c || c._iDropWired) return;
+            c._iDropWired = true;
+            c.addEventListener('dragover', function (e) {
+                if (!_iDragSym) return;
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            });
+            c.addEventListener('drop', function (e) {
+                var sym = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || _iDragSym;
+                if (!sym) return;
+                e.preventDefault();
+                _iDropParamAt(sym, e.clientX, e.clientY);
+                _iDragSym = '';
+            });
+        }
+        // Render the loupe's top "Parameters" bar for a card: a label + one button
+        // per parameter (incl. the f-derived result). Click a button to place that
+        // parameter on the card as a movable letter. Hidden when the card has none.
+        function _loupeRenderParamsBar(card) {
+            var bar = document.getElementById('loupe-params-bar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            if (!card || (card.dataset && card.dataset.icon === 'true')) { bar.style.display = 'none'; return; }
+            var params = (typeof _mpReadParams === 'function') ? _mpReadParams(card) : [];
+            var seen = {}, btns = [];
+            params.forEach(function (p) {
+                if (!p.sym) return;
+                seen[p.sym] = 1;
+                btns.push(_iMakeParamBtn(p.sym, _iParamDetail(p), p));
+            });
+            // A parameter can also be DERIVED by the f-formula (e.g. "A + B = C" → C).
+            var cfg = (typeof _fxLoad === 'function') ? _fxLoad(card) : null;
+            var fLine = (cfg && cfg.text) ? cfg.text.trim() : '';
+            if (fLine) {
+                var eqIdx = fLine.indexOf('=');
                 if (eqIdx >= 0) {
-                    var lhs = cfg.text.slice(0, eqIdx).trim();
-                    var rhsName = cfg.text.slice(eqIdx + 1).trim();
-                    if (/^[A-Za-z_]\w*$/.test(rhsName)) {
-                        try { env[rhsName] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) {}
+                    var lhs = fLine.slice(0, eqIdx).trim(), rhsName = fLine.slice(eqIdx + 1).trim();
+                    if (/^[A-Za-z_]\w*$/.test(rhsName) && !seen[rhsName]) {
+                        seen[rhsName] = 1;
+                        btns.push(_iMakeParamBtn(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, null));
                     }
                 }
             }
-            // Only the PARAMETER chips are substituted; typed text stays as-is.
-            var shown = segs.map(function (seg) {
-                if (seg.t === 'param') return (env[seg.s] != null ? String(env[seg.s]) : seg.s);
-                return seg.v;
-            }).join('');
-            return { text: shown, env: env };
+            if (!btns.length) { bar.style.display = 'none'; return; }
+            var label = document.createElement('span');
+            label.className = 'loupe-params-label';
+            label.textContent = 'Parameters';
+            bar.appendChild(label);
+            var hint = document.createElement('span');
+            hint.className = 'loupe-params-hint';
+            hint.textContent = 'drag one onto the card (a copy stays here) — or click, then click the card';
+            btns.forEach(function (b) {
+                // Bar-local feedback (the i-panel's #i-msg may be closed/hidden).
+                b.addEventListener('click', function () {
+                    hint.textContent = 'now click the card to place “' + b.textContent + '”';
+                });
+                bar.appendChild(b);
+            });
+            bar.appendChild(hint);
+            bar.style.display = 'flex';
         }
+        // Mark a placed parameter letter (tagged data-param) so it reads as a parameter.
+        function _pcMarkParamEl(el) { if (el) el.classList.add('pm-param-svg'); }
+
+        // ===== Placed-letter parameters: the magenta box =====
+        // A parameter can live on the card as a normal <text data-param="A"> letter
+        // (placed / moved / scaled / styled with the regular draw tools). Each such
+        // letter gets a magenta box drawn AROUND it, recomputed from the letter's
+        // live bbox so it tracks through move + scale. Boxes live in one idempotently
+        // rebuilt <g> — baked statically into the card SVG (so they show on the grid
+        // and in games, like g.pm-baked) and shown live in the loupe while editing.
+        var _PM_BOX_NS = 'http://www.w3.org/2000/svg';
+        function _pmParamTexts(svg) {
+            return svg ? Array.prototype.slice.call(svg.querySelectorAll('text[data-param]')) : [];
+        }
+        function _pmDrawParamBoxes(svg, groupCls) {
+            if (!svg) return;
+            var old = svg.querySelector('g.' + groupCls);
+            if (old) old.parentNode.removeChild(old);
+            var texts = _pmParamTexts(svg);
+            if (!texts.length) return;  // no placed params -> leave the SVG clean
+            var g = document.createElementNS(_PM_BOX_NS, 'g');
+            g.setAttribute('class', groupCls);
+            g.style.pointerEvents = 'none';
+            texts.forEach(function (t) {
+                // Skip a letter currently showing a concrete instance value — the box
+                // belongs to the template view, not the generated problem.
+                if (t.getAttribute('data-param-orig') != null) return;
+                var b; try { b = getSvgSpaceBBox(t); } catch (e) { return; }
+                // Skip degenerate bboxes — a letter in a display:none subtree measures
+                // as 0×0; baking a box from that would stamp a stray magenta speck.
+                if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return;
+                var pad = Math.max(0.6, b.height * 0.14);
+                var rect = document.createElementNS(_PM_BOX_NS, 'rect');
+                rect.setAttribute('x', (b.x - pad).toFixed(2));
+                rect.setAttribute('y', (b.y - pad).toFixed(2));
+                rect.setAttribute('width', (b.width + 2 * pad).toFixed(2));
+                rect.setAttribute('height', (b.height + 2 * pad).toFixed(2));
+                rect.setAttribute('rx', Math.max(0.4, b.height * 0.1).toFixed(2));
+                rect.setAttribute('fill', 'none');
+                rect.setAttribute('stroke', '#cc00cc');
+                rect.setAttribute('stroke-width', Math.max(0.25, b.height * 0.06).toFixed(2));
+                g.appendChild(rect);
+            });
+            if (g.childNodes.length) svg.appendChild(g);
+        }
+        // Static bake into a source card's SVG (persists in svgContent).
+        function _pmBakeParamBoxes(card) {
+            if (!card) return;
+            _pmDrawParamBoxes(card.querySelector('svg'), 'pm-param-boxes');
+        }
+        // Live boxes in the loupe — a cheap rAF loop so each box follows its letter
+        // through move / scale. Started on placement / loupe-open; stopped on close.
+        var _pmLiveBoxRAF = null;
+        function _pmStartLiveParamBoxes() {
+            if (_pmLiveBoxRAF) return;
+            (function tick() {
+                var container = document.getElementById('loupe-card-container');
+                var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
+                if (svg) _pmDrawParamBoxes(svg, 'pm-param-live-boxes');
+                _pmLiveBoxRAF = requestAnimationFrame(tick);
+            })();
+        }
+        function _pmStopLiveParamBoxes() {
+            if (_pmLiveBoxRAF) { cancelAnimationFrame(_pmLiveBoxRAF); _pmLiveBoxRAF = null; }
+            var container = document.getElementById('loupe-card-container');
+            var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
+            var g = svg && svg.querySelector('g.pm-param-live-boxes');
+            if (g) g.parentNode.removeChild(g);
+        }
+
+        // ===== Placed-letter parameters: concrete instances =====
+        // Generate ONE joint env for a card: every Par sampled so the relations
+        // hold, plus the f-formula answer (e.g. C = A + B). Reuses the same engine
+        // the formula-field instance uses, just keyed off the card's stored params.
+        function _pmGenEnvForCard(card) {
+            return _pmWithCard(card, function () {
+                var j = _mpGenerateJointEnv(800);
+                if (j.error) return { error: j.error };
+                var env = j.env;
+                var cfg = (typeof _fxLoad === 'function') ? _fxLoad(card) : null;
+                if (cfg && cfg.text) {
+                    var i = cfg.text.indexOf('=');
+                    if (i >= 0) {
+                        var lhs = cfg.text.slice(0, i).trim(), rn = cfg.text.slice(i + 1).trim();
+                        if (/^[A-Za-z_]\w*$/.test(rn)) { try { env[rn] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) {} }
+                    }
+                }
+                return { env: env };
+            });
+        }
+        // Swap each placed-letter param to a concrete value (stashing the original
+        // symbol in data-param-orig so it can be restored). The magenta boxes hide
+        // while the concrete problem shows.
+        function _pmShowPlacedInstance(svg, env) {
+            if (!svg) return;
+            _pmParamTexts(svg).forEach(function (t) {
+                var sym = t.getAttribute('data-param');
+                if (env[sym] == null) return;
+                if (t.getAttribute('data-param-orig') == null) t.setAttribute('data-param-orig', t.textContent);
+                t.textContent = String(env[sym]);
+            });
+            var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = 'none';
+            var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = 'none';
+        }
+        // Restore placed letters to their symbols (undo an instance). Safe to call
+        // when no instance is showing. Used before any SVG serialization so concrete
+        // values never get persisted into svgContent.
+        function _pmClearPlacedInstance(svg) {
+            if (!svg) return;
+            svg.querySelectorAll('text[data-param][data-param-orig]').forEach(function (t) {
+                t.textContent = t.getAttribute('data-param-orig');
+                t.removeAttribute('data-param-orig');
+            });
+            var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = '';
+            var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = '';
+        }
+        function _pmHasPlacedInstance(svg) {
+            return !!(svg && svg.querySelector('text[data-param][data-param-orig]'));
+        }
+        // Restore EVERY placed-letter instance on the page to its template symbols.
+        // Called before serialization (saveCustomCards) so a transient on-card
+        // instance is never written to storage.
+        function _pmNormalizePlacedForSave(root) {
+            (root || document).querySelectorAll('.library-card svg text[data-param][data-param-orig]').forEach(function (t) {
+                t.textContent = t.getAttribute('data-param-orig');
+                t.removeAttribute('data-param-orig');
+            });
+        }
+
         function _iInstance() {
             var msg = document.getElementById('i-msg');
-            var r = _pfBuildInstance();
-            if (r.error) { if (msg) { msg.className = 'par-sample-out warn'; msg.textContent = '⚠ ' + r.error; } return; }
-            var els = _pfEnsureEls();
-            if (els) { els.ins.innerHTML = _mpRenderMath(r.text); _pfShowInstance(true); }
-            if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Instance on card: ' + r.text; }
+            // Placed-letter card: toggle a concrete instance on the loupe's letters.
+            var lc = document.getElementById('loupe-card-container');
+            var lsvg = lc ? lc.querySelector('svg:not(.loupe-grid)') : null;
+            if (lsvg && lsvg.querySelector('text[data-param]')) {
+                if (_pmHasPlacedInstance(lsvg)) {
+                    _pmClearPlacedInstance(lsvg);
+                    if (msg) { msg.className = 'par-sample-out'; msg.textContent = ''; }
+                    return;
+                }
+                var g = _pmGenEnvForCard(loupeSourceCard);
+                if (g.error) { if (msg) { msg.className = 'par-sample-out warn'; msg.textContent = '⚠ ' + g.error; } return; }
+                _pmShowPlacedInstance(lsvg, g.env);
+                if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Instance: ' + Object.keys(g.env).map(function (k) { return k + '=' + g.env[k]; }).join(',  ') + '  — click i again for a new one.'; }
+                return;
+            }
+            // No placed-letter params yet — guide the user to place some.
+            if (msg) { msg.className = 'par-sample-out warn'; msg.textContent = '⚠ Place a parameter on the card first: click a parameter above, then click the card.'; }
         }
         function _iParametric() {
-            _pfShowInstance(false);
-            var els = _pfEnsureEls(); if (els) els.fld.focus();
+            // Restore the template symbols (undo a showing instance).
+            var lc = document.getElementById('loupe-card-container');
+            var lsvg = lc ? lc.querySelector('svg:not(.loupe-grid)') : null;
+            if (lsvg) _pmClearPlacedInstance(lsvg);
             var msg = document.getElementById('i-msg');
             if (msg) { msg.className = 'par-sample-out'; msg.textContent = ''; }
         }
@@ -4082,49 +4029,35 @@
             });
         }
         function _pmCardInstance(card) {
-            _pmWithCard(card, function () {
-                var el = card.querySelector(':scope > .pm-param-formula');
-                if (!el) return;
-                var r = _pfBuildInstance();
-                if (r.error) { el.title = r.error; return; }
-                el.innerHTML = _mpRenderMath(r.text);
-                el.classList.add('instance');
-                // hide the baked parametric formula while the instance overlay shows
-                var bg = card.querySelector(':scope > svg g.pm-baked'); if (bg) bg.style.display = 'none';
-            });
-        }
-        // Set a parametric card's formula font from the card's REAL width × ratio.
-        function _pmSizeFormula(card) {
-            var fEl = card.querySelector(':scope > .pm-param-formula');
-            if (!fEl) return;
-            var w = card.clientWidth || card.offsetWidth || 0;
-            if (w > 0) fEl.style.fontSize = Math.max(5, w * (_pfStyle(card).size || 0.09)) + 'px';
+            // Placed-letter card: substitute the letters on the card's face. Each
+            // click generates a fresh instance; clicking while one shows returns to
+            // the template symbols.
+            var psvg = card.querySelector(':scope > svg');
+            if (!psvg || !psvg.querySelector('text[data-param]')) return;
+            if (_pmHasPlacedInstance(psvg)) { _pmClearPlacedInstance(psvg); return; }
+            var g = _pmGenEnvForCard(card);
+            var tg = card.querySelector(':scope > .pm-param-tag');
+            if (g.error) { if (tg) tg.title = g.error; return; }
+            _pmShowPlacedInstance(psvg, g.env);
         }
         function _pmApplyParamCards() {
             try {
-                var fstore = {};
-                try { fstore = JSON.parse(localStorage.getItem(_PF_STORE_KEY)) || {}; } catch (e) {}
-                // Decorate EVERY card on the page (Card Maker grid, library set view,
-                // game view, recent…) so the parametric "picture" shows wherever cards
-                // are browsed — not just the Card Maker.
+                // A card is parametric when it carries placed-letter params
+                // (<text data-param>) on its face. Draw the magenta boxes + a "123"
+                // tag (hover = count, click = one concrete instance) on every such
+                // card wherever it's browsed (Card Maker grid, library set view, …).
                 document.querySelectorAll('.library-card').forEach(function (card) {
-                    var uid = card.dataset.uid;
-                    var formula = (uid && fstore[uid]) ? String(fstore[uid]) : '';
-                    var fEl = card.querySelector(':scope > .pm-param-formula');
+                    // Strip orphaned baked formulas (g.pm-baked) left over from the
+                    // retired on-card formula system — they show a stale equation in
+                    // the grid / Library that no longer exists in the Loupe. The
+                    // formula-bake system is gone, so any g.pm-baked is dead; removing
+                    // it here (then saveCustomCards reads the cleaned svg) clears it.
+                    var _stale = card.querySelector('svg g.pm-baked');
+                    if (_stale) _stale.parentNode.removeChild(_stale);
                     var tag = card.querySelector(':scope > .pm-param-tag');
-                    if (formula.trim()) {
-                        // The parametric "picture" is BAKED into the card's SVG so it
-                        // shows everywhere. Lazy-bake if this card's SVG isn't baked yet.
-                        if (!card.querySelector(':scope > svg g.pm-baked')) _pcBakeToSVG(card);
-                        // Keep an overlay element used ONLY for the 123-click instance.
-                        if (!fEl) { fEl = document.createElement('div'); fEl.className = 'pm-param-formula'; card.appendChild(fEl); }
-                        fEl.classList.remove('instance'); fEl.innerHTML = '';
-                        _pfApplyStyleTo(fEl, _pfStyle(card));
-                        _pmSizeFormula(card);
-                        if (!card._pmFormulaRO && typeof ResizeObserver !== 'undefined') {
-                            card._pmFormulaRO = new ResizeObserver(function () { _pmSizeFormula(card); });
-                            card._pmFormulaRO.observe(card);
-                        }
+                    var hasPlaced = !!card.querySelector(':scope > svg text[data-param]');
+                    if (hasPlaced) {
+                        _pmBakeParamBoxes(card);
                         if (!tag) {
                             tag = document.createElement('div');
                             tag.className = 'pm-param-tag';
@@ -4134,10 +4067,8 @@
                         }
                         tag.title = _pmCardHoverInfo(card);
                     } else {
-                        if (fEl) fEl.remove();
                         if (tag) tag.remove();
-                        if (card._pmFormulaRO) { card._pmFormulaRO.disconnect(); card._pmFormulaRO = null; }
-                        var bk = card.querySelector(':scope > svg g.pm-baked'); if (bk) bk.parentNode.removeChild(bk);
+                        var bx0 = card.querySelector(':scope > svg g.pm-param-boxes'); if (bx0) bx0.parentNode.removeChild(bx0);
                     }
                 });
             } catch (e) {}
@@ -4220,17 +4151,11 @@
                 if (iInst) iInst.addEventListener('click', _iInstance);
                 var iParam = document.getElementById('i-parametric-btn');
                 if (iParam) iParam.addEventListener('click', _iParametric);
-                var iCol = document.getElementById('i-style-color');
-                if (iCol) iCol.addEventListener('input', _iStyleChange);
-                var iFont = document.getElementById('i-style-font');
-                if (iFont) iFont.addEventListener('change', _iStyleChange);
-                var iSize = document.getElementById('i-style-size');
-                if (iSize) iSize.addEventListener('input', _iStyleChange);
-                // loupe Text | Parameters mode toggle
-                var modeText = document.getElementById('loupe-mode-text');
-                if (modeText) modeText.addEventListener('click', function () { _pmSetMode('text'); });
-                var modeParam = document.getElementById('loupe-mode-param');
-                if (modeParam) modeParam.addEventListener('click', function () { _pmSetMode('param'); });
+                // Magnifier (🔍 ×N) steppers
+                var magMinus = document.getElementById('loupe-mag-minus');
+                if (magMinus) magMinus.addEventListener('click', function () { _setLoupeMag((_loupeMag || 1) - 1); });
+                var magPlus = document.getElementById('loupe-mag-plus');
+                if (magPlus) magPlus.addEventListener('click', function () { _setLoupeMag((_loupeMag || 1) + 1); });
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
             else wire();
@@ -4497,6 +4422,9 @@
             // Drop the baked parametric formula from the CLONE — in the loupe the
             // editable overlay shows it instead (re-baked into the source on close).
             var _bakedClone = svgClone.querySelector('g.pm-baked'); if (_bakedClone) _bakedClone.remove();
+            // Drop static placed-param boxes too — live boxes track the letters while
+            // editing (re-baked into the source on close).
+            var _boxClone = svgClone.querySelector('g.pm-param-boxes'); if (_boxClone) _boxClone.remove();
             container.appendChild(svgClone);
 
             // Compute variation transform matrices for coordinate conversion
@@ -4553,13 +4481,28 @@
             loupeOrigShapeW = currentCardWidth;
             loupeOrigShapeH = currentCardHeight;
             loupeOrigCornerR = currentCardCornerRadius;
+            loupeOrigFrameScale = currentCardFrameScale;
             _applyCardShapeToLoupe();
-            // L4: apply persisted zoom on top of shape-computed defaults
-            _loupeZoom = _loadLoupeZoom();
+            // Open at the standard editing magnification for this card.
+            _loupeMag = _loupeDefaultMag();
             _applyLoupeZoom();
             _positionLoupeResizeHandles();
-            // Slice B: render the card's parametric formula on its face.
-            if (typeof _pfRenderOnCard === 'function') _pfRenderOnCard();
+            // Placed-letter params: live magenta boxes that track each letter.
+            if (typeof _pmStartLiveParamBoxes === 'function' && svgClone.querySelector('text[data-param]')) {
+                _pmStartLiveParamBoxes();
+            }
+            // Default the editor to the Select / Move (arrow) tool — the loupe opens
+            // ready to pick up + move existing items (incl. placed-letter params),
+            // not mid-draw. (toggleDrawMode, called right after openLoupe, reads
+            // drawTool; if draw mode is already on, switch now.)
+            drawTool = 'select';
+            if (drawModeActive && typeof selectDrawTool === 'function') selectDrawTool('select');
+            // Surface this card's parameters at the top of the loupe (A, B, C …) so
+            // the user can place them on the card without opening the i palette.
+            if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
+            if (typeof _iWireCardDropZone === 'function') _iWireCardDropZone();
+            var _magCtl = document.getElementById('loupe-mag-ctl');
+            if (_magCtl) { _magCtl.style.display = 'flex'; _updateMagUI(); }
         }
 
         function closeLoupe() {
@@ -4573,14 +4516,22 @@
                     _borderBtnHome = null;
                 }
             })();
+            // Tear down the live placed-param boxes (re-baked statically below) and
+            // undo any on-card instance so symbols (not numbers) are what gets saved.
+            (function () {
+                var _lc = document.getElementById('loupe-card-container');
+                var _lsvg = _lc ? _lc.querySelector('svg:not(.loupe-grid)') : null;
+                if (_lsvg && typeof _pmClearPlacedInstance === 'function') _pmClearPlacedInstance(_lsvg);
+            })();
+            if (typeof _pmStopLiveParamBoxes === 'function') _pmStopLiveParamBoxes();
             // Exit draw mode if active. After this returns, the source card's
             // SVG has been updated in-place with the user's edits.
             if (drawModeActive) toggleDrawMode();
-            // Bake the parametric formula INTO the (now-final) card SVG + persist, so
-            // it shows everywhere (Card Maker, A-Library preview, library set view,
-            // games). Icons are excluded (they're not parametric cards).
+            // Bake the placed-letter parameter boxes INTO the (now-final) card SVG +
+            // persist, so they show everywhere (Card Maker, A-Library preview, library
+            // set view, games). Icons are excluded (they're not parametric cards).
             if (loupeSourceCard && loupeSourceCard.dataset && loupeSourceCard.dataset.icon !== 'true') {
-                if (typeof _pcBakeToSVG === 'function') _pcBakeToSVG(loupeSourceCard);
+                if (typeof _pmBakeParamBoxes === 'function') _pmBakeParamBoxes(loupeSourceCard);
                 if (typeof saveCustomCards === 'function') saveCustomCards();
                 // refresh the library-preview snapshots so the A-Library page reflects the bake
                 try { if (typeof saveAbcSnapshot === 'function') saveAbcSnapshot(); } catch (e) {}
@@ -4663,6 +4614,10 @@
             document.getElementById('loupe-overlay').style.display = 'none';
             document.getElementById('loupe-overlay').style.paddingLeft = '';
             document.getElementById('loupe-card-container').innerHTML = '';
+            var _pBar = document.getElementById('loupe-params-bar');
+            if (_pBar) { _pBar.style.display = 'none'; _pBar.innerHTML = ''; }
+            var _magCtl2 = document.getElementById('loupe-mag-ctl');
+            if (_magCtl2) _magCtl2.style.display = 'none';
             // Restore toolbar z-index
             var toolbar = document.querySelector('#domino-library-screen .library-zoom-fixed');
             if (toolbar) toolbar.classList.remove('loupe-toolbar-raised');
@@ -4707,36 +4662,57 @@
         // Zoom persists across loupe opens via localStorage 'loupeZoom_v1'.
         var _loupeHandles = null;
         var _loupeResizeObserver = null;
-        var _LOUPE_ZOOM_KEY = 'loupeZoom_v1';
-        var _loupeZoom = 1;
-        function _loadLoupeZoom() {
-            try {
-                var raw = localStorage.getItem(_LOUPE_ZOOM_KEY);
-                if (!raw) return 1;
-                var n = parseFloat(raw);
-                if (isFinite(n) && n > 0.1 && n < 10) return n;
-            } catch(e) {}
-            return 1;
+        // ===== Loupe view MAGNIFICATION (the 🔍 control) =====
+        // Integer ×N over the card's REAL (game/grid) size. ×1 = exactly how big the
+        // card is in a game; bigger = a more convenient editing size. This is a VIEW
+        // zoom ONLY (scales card + content together) — completely separate from the
+        // card's real size (the corner frame-scale handle). It does NOT persist on the
+        // card. `_loupeMag` is null until computed (per card) on open.
+        var _LOUPE_MAG_MAX = 16;
+        var _loupeMag = null;
+        var _loupeZoom = 1;   // legacy alias (unused by sizing now; kept for safety)
+        // The card's REAL on-screen size (the ×1 reference) = its grid/game tile px,
+        // which already scales with width AND frame scale (70px per 60 SVG units).
+        function _loupeRealCardPx() {
+            var F = currentCardFrameScale || 1;
+            var w = (typeof currentCardWidth === 'number' ? currentCardWidth : 60);
+            var s = 70 / 60;
+            return { width: w * F * s, height: 60 * F * s };
         }
-        function _saveLoupeZoom(z) {
-            try { localStorage.setItem(_LOUPE_ZOOM_KEY, String(z)); } catch(e) {}
+        // The DEFAULT magnification = the biggest whole ×N that still fits the card
+        // comfortably on screen — i.e. the "standard editing amplification".
+        function _loupeDefaultMag() {
+            var ref = _loupeRealCardPx();
+            var availW = _loupeMaxContainerWidth();
+            var availH = window.innerHeight * 0.85;
+            var m = Math.floor(Math.min(availW / Math.max(1, ref.width), availH / Math.max(1, ref.height)));
+            return Math.max(1, Math.min(_LOUPE_MAG_MAX, m || 1));
         }
-        function _clearLoupeZoom() {
-            try { localStorage.removeItem(_LOUPE_ZOOM_KEY); } catch(e) {}
+        function _updateMagUI() {
+            var n = document.getElementById('loupe-mag-n');
+            if (n) n.textContent = _loupeMag || 1;
         }
+        function _setLoupeMag(m) {
+            _loupeMag = Math.max(1, Math.min(_LOUPE_MAG_MAX, Math.round(m) || 1));
+            _applyLoupeZoom();
+        }
+        // Back-compat no-ops (the old zoom persisted; magnification does not).
+        function _loadLoupeZoom() { return 1; }
+        function _saveLoupeZoom(z) {}
+        function _clearLoupeZoom() {}
         function _applyLoupeZoom() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
             _syncLoupeOverlayPadding();
-            var toolbarWidth = 60;
-            var maxW = _loupeMaxContainerWidth();
-            var maxH = window.innerHeight - 20;
-            var minDim = 200;
-            var defaults = _computeLoupeDefaultSize();
-            var nw = Math.max(minDim, Math.min(maxW, defaults.width * _loupeZoom));
-            var nh = Math.max(minDim, Math.min(maxH, defaults.height * _loupeZoom));
-            container.style.width = nw + 'px';
-            container.style.height = nh + 'px';
+            if (_loupeMag == null || !isFinite(_loupeMag)) _loupeMag = _loupeDefaultMag();
+            _loupeMag = Math.max(1, Math.min(_LOUPE_MAG_MAX, Math.round(_loupeMag)));
+            var ref = _loupeRealCardPx();
+            // container = REAL card size × magnification. UNIFORM (one factor on both
+            // axes) so the box keeps the card's aspect — the SVG uses
+            // preserveAspectRatio="none", so any skew would squash the content.
+            container.style.width = (ref.width * _loupeMag) + 'px';
+            container.style.height = (ref.height * _loupeMag) + 'px';
+            _updateMagUI();
         }
         // Reserve right-side space on the overlay for the draw-tools panel so the
         // card is flex-centered between the left toolbar and the right panel.
@@ -4785,7 +4761,9 @@
         function _computeLoupeDefaultSize() {
             var toolbarWidth = 60;
             var availH = window.innerHeight;
-            var square = Math.min(window.innerWidth - toolbarWidth, availH) * 0.85;
+            // Frame scale grows the whole card on screen (content keeps its size).
+            var _F = currentCardFrameScale || 1;
+            var square = Math.min(window.innerWidth - toolbarWidth, availH) * 0.85 * _F;
             var maxW = _loupeMaxContainerWidth();
             var w = (typeof currentCardWidth === 'number' ? currentCardWidth : 60);
             // Any non-default width uses rect-like aspect math (applies to rect AND
@@ -4808,11 +4786,8 @@
         function _loupeResetSize() {
             var container = document.getElementById('loupe-card-container');
             if (!container) return;
-            _loupeZoom = 1;
-            _clearLoupeZoom();
-            var d = _computeLoupeDefaultSize();
-            container.style.width = d.width + 'px';
-            container.style.height = d.height + 'px';
+            _loupeMag = _loupeDefaultMag();   // back to the standard editing magnification
+            _applyLoupeZoom();
             _positionLoupeResizeHandles();
         }
         // L4: W/H ratio indicator — shows current width/height percentage during drag.
@@ -4881,6 +4856,8 @@
                 // For 'e' (shape change) drag, lock in starting defaults + shape state
                 var dragStartCardShape = currentCardShape;
                 var dragStartCardWidth = currentCardWidth;
+                var dragStartFrameScale = currentCardFrameScale || 1;
+                var dragStartMag = _loupeMag || _loupeDefaultMag();
                 var eShapeChanged = false; // deferred: only convert to 'rect' after real drag
                 function onMove(ev) {
                     var dx = ev.clientX - startX;
@@ -4891,27 +4868,31 @@
                         if (currentCardShape === 'square') currentCardShape = 'rect';
                         eShapeChanged = true;
                     }
-                    if (axis === 's' || axis === 'se') {
-                        // Proportional zoom: derive scale from vertical drag, apply to both dims
-                        var newH = Math.max(minDim, Math.min(maxH, startH + dy));
-                        var defaults = _computeLoupeDefaultSize();
-                        _loupeZoom = newH / defaults.height;
+                    if (axis === 'se') {
+                        // CORNER = make the CARD bigger/smaller (frame scale). The card
+                        // frame grows but the content keeps its absolute size (more empty
+                        // space) — and it PERSISTS (saved per card). Grow F with the drag.
+                        var grow = (startH + dy) / Math.max(1, startH);
+                        var newF = Math.max(0.5, Math.min(4, dragStartFrameScale * grow));
+                        currentCardFrameScale = newF;
+                        _applyCardShapeToLoupe();
+                        _applyLoupeZoom();
+                        _showLoupeRatio();
+                    } else if (axis === 's') {
+                        // Bottom edge = MAGNIFIER (view zoom): scales card + content
+                        // together. Drag down = bigger view. (Same as the 🔍 control.)
+                        var grow = (startH + dy) / Math.max(1, startH);
+                        _loupeMag = Math.max(1, Math.min(_LOUPE_MAG_MAX, Math.round(dragStartMag * grow)));
                         _applyLoupeZoom();
                     } else if (axis === 'e') {
-                        // Shape change: update currentCardWidth live, keep container
-                        // height = defaults.height × zoom, recompute container width.
-                        var newContainerW = Math.max(minDim, Math.min(maxW, startW + dx));
-                        var defaults = _computeLoupeDefaultSize();
-                        var targetH = defaults.height * _loupeZoom;
-                        var border = 6;
-                        var innerH = Math.max(1, targetH - border);
-                        var innerW = Math.max(1, newContainerW - border);
-                        var pixelsPerUnit = innerH / 60;
-                        var newCardW = innerW / pixelsPerUnit;
+                        // Right edge = card WIDTH (shape). Derive the new cardShapeW from
+                        // the container width at the current magnification + frame scale.
+                        var newContainerW = Math.max(40, startW + dx);
+                        var F = currentCardFrameScale || 1;
+                        var pxPerUnit = (70 / 60) * (_loupeMag || 1) * F;  // container px per cardShapeW unit
+                        var newCardW = newContainerW / Math.max(0.01, pxPerUnit);
                         newCardW = Math.max(20, Math.min(240, newCardW));
                         currentCardWidth = newCardW;
-                        // Re-apply shape (updates SVG viewBox, rebuilds grid, sets
-                        // container dims to the new rect defaults) then apply zoom.
                         _applyCardShapeToLoupe();
                         _applyLoupeZoom();
                         _showLoupeRatio();
@@ -4923,13 +4904,10 @@
                     document.body.classList.remove('loupe-resizing');
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('mouseup', onUp);
-                    if (axis === 's' || axis === 'se') {
-                        _saveLoupeZoom(_loupeZoom);
-                    }
-                    if (axis === 'e') _hideLoupeRatio();
-                    // 'e' drags leave currentCardShape/currentCardWidth modified;
-                    // drawSave() persists them as a shape change. Closing without
-                    // saving discards via _loadCardShapeFromCard on next loupe open.
+                    if (axis === 'e' || axis === 'se') _hideLoupeRatio();
+                    // 'e'/'se' drags leave currentCardWidth / currentCardFrameScale
+                    // modified; drawSave() persists them. Closing without saving discards
+                    // via _loadCardShapeFromCard on next loupe open.
                 }
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
@@ -4937,6 +4915,8 @@
             handle.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                // Corner double-click also resets the card's real size (frame scale).
+                if (axis === 'se') { currentCardFrameScale = 1; _applyCardShapeToLoupe(); }
                 _loupeResetSize();
             });
             handle.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -4980,6 +4960,26 @@
         function snapToGrid(svgVal) { return Math.round(svgVal / GRID_UNIT) * GRID_UNIT; }
         function gridToSvg(gridVal) { return gridVal * GRID_UNIT; }
         function svgToGrid(svgVal) { return svgVal / GRID_UNIT; }
+        // The loupe card SVG's CURRENT viewBox. Wide / non-square cards use a viewBox
+        // wider than 60 (e.g. "-30 0 120 60", set in _applyCardShapeToLoupe). All
+        // editor mouse↔SVG mapping + drag clamps MUST use this — a hardcoded 60 pins
+        // elements on non-square cards to a narrow central band (can't reach edges).
+        function _loupeCardVB() {
+            var c = document.getElementById('loupe-card-container');
+            var svg = c && c.querySelector('svg:not(.loupe-grid)');
+            var vb = svg && svg.viewBox && svg.viewBox.baseVal;
+            if (vb && vb.width) return { x: vb.x, y: vb.y, w: vb.width, h: vb.height };
+            return { x: 0, y: 0, w: 60, h: 60 };
+        }
+        // Map a pointer event to the loupe card's SVG user-space (viewBox-aware).
+        function _loupePointerToSvg(clientX, clientY, container, vb) {
+            var rect = container.getBoundingClientRect();
+            vb = vb || _loupeCardVB();
+            return {
+                x: vb.x + ((clientX - rect.left) / rect.width) * vb.w,
+                y: vb.y + ((clientY - rect.top) / rect.height) * vb.h
+            };
+        }
 
         var drawSizeCoarse = 30;    // Aa slider (0-90, step 10)
         var drawSizeFine = 0;       // r slider (0-10, step 1)
@@ -4997,6 +4997,28 @@
         var currentCardWidth = 60;  // SVG units; height is always 60
         var currentCardHeight = 60;
         var currentCardCornerRadius = -1; // -1 = default (12px), 0-50 = active (percentage)
+        // Frame scale: how much BIGGER the card is around its content. F>1 grows the
+        // card's viewBox (revealing empty margin) AND its tile pixel size by the same
+        // factor, so the content keeps its absolute size while the card gets bigger.
+        // Driven by the loupe corner handle; persisted per card (cardFrameScale).
+        var currentCardFrameScale = 1;
+        // The frame-scaled viewBox: the content box (square 60×60, or rect w×60 —
+        // both centered so their middle is (30,30)) scaled by F about that center.
+        function _frameViewBox(w, F) {
+            F = F || 1;
+            var bw = (w && w !== 60) ? w : 60;          // content-box width
+            var vbw = bw * F, vbh = 60 * F;
+            var vx = 30 - vbw / 2, vy = 30 - vbh / 2;   // keep content centered at (30,30)
+            return vx + ' ' + vy + ' ' + vbw + ' ' + vbh;
+        }
+        // Persist a card's frame scale into its saved data (only when > 1, so default
+        // cards stay untouched). Runs for EVERY card incl. squares (the shape block
+        // above it is skipped for squares).
+        function _cardDataFrameScale(cardData, card) {
+            if (!cardData || !card) return;
+            var f = parseFloat(card.dataset.cardFrameScale);
+            if (isFinite(f) && f > 1) cardData.cardFrameScale = f;
+        }
 
         function setCardShape(shape) {
             currentCardShape = shape;
@@ -5200,10 +5222,14 @@
             var isSquareAspect = (currentCardShape === 'square' || currentCardShape === 'circle') && w === 60;
 
             if (isSquareAspect) {
-                cardSvg.setAttribute('viewBox', '0 0 60 60');
+                var F0 = currentCardFrameScale || 1;
+                var sq = _frameViewBox(60, F0).split(' ').map(parseFloat);
+                cardSvg.setAttribute('viewBox', sq.join(' '));
                 cardSvg.removeAttribute('preserveAspectRatio');
-                _buildGrid(container, 0, 0, 60, 60);
-                var size = Math.min(availW, screenH) * 0.85;
+                _buildGrid(container, sq[0], sq[1], sq[2], sq[3]);
+                // Card frame grows on screen with F (content keeps its size). The final
+                // container size is re-applied by _applyLoupeZoom (F + magnifier aware).
+                var size = Math.min(availW, screenH) * 0.85 * F0;
                 container.style.width = size + 'px';
                 container.style.height = size + 'px';
                 container.style.borderRadius = borderR;
@@ -5211,28 +5237,28 @@
             }
 
             // Non-square aspect: rect shape, or circle/square with width != 60 (ellipse).
-            var extraW = w - 60;
-            var offsetX = extraW / 2;
-            cardSvg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
+            var F = currentCardFrameScale || 1;
+            var fvb = _frameViewBox(w, F).split(' ').map(parseFloat);
+            cardSvg.setAttribute('viewBox', fvb.join(' '));
             cardSvg.setAttribute('preserveAspectRatio', 'none');
 
             var border = 6;
-            var squareSize = Math.min(availW, screenH) * 0.85;
+            var squareSize = Math.min(availW, screenH) * 0.85 * F;  // frame grows the view
             var cH = squareSize;
             var innerH = cH - border;
-            var pixelsPerUnit = innerH / 60;
-            var cW = w * pixelsPerUnit + border;
+            var pixelsPerUnit = innerH / (60 * F);   // px per VIEWBOX unit (60*F tall)
+            var cW = fvb[2] * pixelsPerUnit + border;
             if (cW > availW - 100) {
                 cW = availW - 100;
                 var innerW = cW - border;
-                pixelsPerUnit = innerW / w;
-                cH = 60 * pixelsPerUnit + border;
+                pixelsPerUnit = innerW / fvb[2];
+                cH = (60 * F) * pixelsPerUnit + border;
             }
             container.style.width = cW + 'px';
             container.style.height = cH + 'px';
             container.style.borderRadius = borderR;
 
-            _buildGrid(container, -offsetX, 0, w, 60);
+            _buildGrid(container, fvb[0], fvb[1], fvb[2], fvb[3]);
         }
 
 
@@ -5251,6 +5277,8 @@
             currentCardWidth = w;
             currentCardHeight = h;
             currentCardCornerRadius = cornerR;
+            var fs = parseFloat(cardEl.dataset.cardFrameScale);
+            currentCardFrameScale = (isFinite(fs) && fs > 0) ? fs : 1;
             // Update shape buttons
             document.querySelectorAll('.draw-shape-btn[data-shape]').forEach(function(b) {
                 b.classList.toggle('active', b.dataset.shape === shape);
@@ -5284,6 +5312,8 @@
             cardEl.dataset.cardShapeW = currentCardWidth;
             cardEl.dataset.cardShapeH = currentCardHeight;
             cardEl.dataset.cardCornerR = currentCardCornerRadius;
+            if (currentCardFrameScale && currentCardFrameScale !== 1) cardEl.dataset.cardFrameScale = currentCardFrameScale;
+            else delete cardEl.dataset.cardFrameScale;
             console.log('[_saveCardShapeToCard] label=' + (cardEl.querySelector('.library-label')||{}).textContent,
                 'shape=' + currentCardShape, 'W=' + currentCardWidth, 'H=' + currentCardHeight);
         }
@@ -5298,10 +5328,14 @@
             if (isNaN(cornerR)) cornerR = -1;
             var preview = cardEl.querySelector('.domino-half-preview');
             if (!preview) return;
-            // Scale to preview size: base is 70px for 60 units
+            // Frame scale: grows the tile AND the viewBox by the same factor, so the
+            // content keeps its absolute size while the card gets bigger.
+            var fsRaw = parseFloat(cardEl.dataset.cardFrameScale);
+            var F = (isFinite(fsRaw) && fsRaw > 0) ? fsRaw : 1;
+            // Scale to preview size: base is 70px for 60 units, ×F for the frame.
             var scale = 70 / 60;
-            var previewW = Math.round(w * scale);
-            var previewH = Math.round(h * scale);
+            var previewW = Math.round(w * scale * F);
+            var previewH = Math.round(h * scale * F);
             preview.style.width = previewW + 'px';
             preview.style.height = previewH + 'px';
             // Border radius: circle → 50% (ellipse when w != h); corner override; else default
@@ -5316,13 +5350,10 @@
             if (svg) {
                 svg.style.width = (previewW - 10) + 'px';
                 svg.style.height = (previewH - 10) + 'px';
-                if (w !== 60) {
-                    // Non-default width: use offsetX-centered viewBox (rect OR ellipse).
-                    var offsetX = (w - 60) / 2;
-                    svg.setAttribute('viewBox', (-offsetX) + ' 0 ' + w + ' 60');
-                } else {
-                    svg.setAttribute('viewBox', '0 0 60 60');
-                }
+                var pvb = _frameViewBox(w, F);
+                svg.setAttribute('viewBox', pvb);
+                if (w !== 60 || F !== 1) svg.setAttribute('preserveAspectRatio', 'none');
+                else svg.removeAttribute('preserveAspectRatio');
             }
         }
 
@@ -6780,7 +6811,7 @@
             // L4: attach resize handles + apply persisted zoom
             _attachLoupeResizeHandles();
             overlay.style.display = 'flex';
-            _loupeZoom = _loadLoupeZoom();
+            _loupeMag = _loupeDefaultMag();
             _applyLoupeZoom();
             _positionLoupeResizeHandles();
         }
@@ -8441,10 +8472,10 @@
                 }
                 lastMouseDownTime = now;
                 lastMouseDownTarget = target;
-                // Start drag on existing element
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // Start drag on existing element (viewBox-aware: wide cards span more
+                // than 60 units, so a hardcoded *60 would mis-map the start point).
+                var _md = _loupePointerToSvg(e.clientX, e.clientY, container);
+                var rawX = _md.x, rawY = _md.y;
                 // Transform to variation local coords if inside a variation <g>
                 if (loupeVariationInverse && isInsideVariationG(target)) {
                     var local = toVariationLocalCoords(rawX, rawY);
@@ -8472,9 +8503,9 @@
                 // If we just finished a drag, don't also draw/select
                 if (justDragged) { justDragged = false; return; }
 
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // viewBox-aware placement mapping (wide cards span > 60 units).
+                var _cp = _loupePointerToSvg(e.clientX, e.clientY, container);
+                var rawX = _cp.x, rawY = _cp.y;
                 var target = e.target;
 
                 // Click on existing element = select it (if not already dragging)
@@ -8608,6 +8639,15 @@
                 }
                 if (el) {
                     el.classList.add('draw-placed');
+                    // A pending parameter placement: tag this letter as a parameter
+                    // (it stays a normal draw element — move/scale/font/color as usual).
+                    if (_pendingParamPlace && el.tagName.toLowerCase() === 'text') {
+                        el.setAttribute('data-param', _pendingParamPlace);
+                        if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
+                        _pendingParamPlace = '';
+                        var _im = document.getElementById('i-msg'); if (_im) { _im.className = 'par-sample-out'; _im.textContent = ''; }
+                        if (typeof _pmStartLiveParamBoxes === 'function') _pmStartLiveParamBoxes();
+                    }
                     // Append inside variation <g> if present, otherwise on SVG root
                     var appendTarget = cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
                     appendTarget.appendChild(el);
@@ -8852,9 +8892,10 @@
                 if (_loupeStartCoalesce('drag')) {
                     _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform', 'data-pos-x', 'data-pos-y', 'data-base-transform']);
                 }
-                var rect = container.getBoundingClientRect();
-                var rawX = ((e.clientX - rect.left) / rect.width) * 60;
-                var rawY = ((e.clientY - rect.top) / rect.height) * 60;
+                // viewBox-aware pointer mapping (wide cards span > 60 units).
+                var _vb = _loupeCardVB();
+                var _mm = _loupePointerToSvg(e.clientX, e.clientY, container, _vb);
+                var rawX = _mm.x, rawY = _mm.y;
                 // Transform to variation local coords if dragging inside a variation <g>
                 if (loupeVariationInverse && isInsideVariationG(selectedElement)) {
                     var local = toVariationLocalCoords(rawX, rawY);
@@ -8862,22 +8903,22 @@
                 }
                 var dx = rawX - dragStartX;
                 var dy = rawY - dragStartY;
-                // Widen drag bounds for any oversized element (scale > 1)
-                var clampMin = -15, clampMax = 60;
+                // Clamp to the card's viewBox (NOT a hardcoded 0..60) so elements can
+                // reach the true edges of a wide card. Base margin: 15 units low side
+                // (matches the old -15..60). Oversized elements widen both sides.
+                var loX = 15, hiX = 0, loY = 15, hiY = 0;
                 var elScale = +selectedElement.getAttribute('data-over-scale') || 1;
                 if (elScale > 1) {
                     var extraRange = elScale * 60;
-                    clampMin = -extraRange;
-                    clampMax = 60 + extraRange;
+                    loX = hiX = loY = hiY = extraRange;
                 } else if (selectedElement.tagName.toLowerCase() === 'g' && selectedElement.hasAttribute('data-imported-stamp')) {
                     var t = selectedElement.getAttribute('transform') || '';
                     var sm = t.match(/scale\(\s*([\d.e+-]+)\s*\)/);
                     var stampSz = sm ? +sm[1] * 100 : 60;
-                    clampMin = -stampSz;
-                    clampMax = 60 + stampSz;
+                    loX = hiX = loY = hiY = stampSz;
                 }
-                var newX = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartX + dx)));
-                var newY = snapToGrid(Math.max(clampMin, Math.min(clampMax, elemStartY + dy)));
+                var newX = snapToGrid(Math.max(_vb.x - loX, Math.min(_vb.x + _vb.w + hiX, elemStartX + dx)));
+                var newY = snapToGrid(Math.max(_vb.y - loY, Math.min(_vb.y + _vb.h + hiY, elemStartY + dy)));
                 setElementPos(selectedElement, newX, newY);
                 updateSelectionRing();
                 hasEditedExisting = true;
@@ -9226,10 +9267,13 @@
             var container = document.getElementById('loupe-card-container');
             var cardSvg = container.querySelector('svg:not(.loupe-grid)');
             if (!cardSvg) return;
+            // Never persist a showing placed-letter instance — restore symbols first.
+            if (typeof _pmClearPlacedInstance === 'function') _pmClearPlacedInstance(cardSvg);
             var shapeChanged = (currentCardShape !== loupeOrigShape ||
                 currentCardWidth !== loupeOrigShapeW ||
                 currentCardHeight !== loupeOrigShapeH ||
-                currentCardCornerRadius !== loupeOrigCornerR);
+                currentCardCornerRadius !== loupeOrigCornerR ||
+                currentCardFrameScale !== loupeOrigFrameScale);
             console.log('[drawSave] shape=' + currentCardShape + ' (was ' + loupeOrigShape + ')',
                 'W=' + currentCardWidth + ' (was ' + loupeOrigShapeW + ')',
                 'shapeChanged=' + shapeChanged,
@@ -9254,7 +9298,7 @@
             cleanSvg.querySelectorAll('.draw-selected').forEach(function(el) {
                 el.classList.remove('draw-selected');
             });
-            cleanSvg.querySelectorAll('.draw-sel-ring, .draw-resize-handle, .draw-scale-label').forEach(function(el) {
+            cleanSvg.querySelectorAll('.draw-sel-ring, .draw-resize-handle, .draw-scale-label, g.pm-param-live-boxes').forEach(function(el) {
                 el.parentNode.removeChild(el);
             });
 
@@ -11012,6 +11056,7 @@
                                     card.dataset.cardShapeW = e.cardShapeW || 60;
                                     card.dataset.cardShapeH = e.cardShapeH || 60;
                                     card.dataset.cardCornerR = e.cardCornerR || 0;
+                                    if (e.cardFrameScale && e.cardFrameScale > 1) card.dataset.cardFrameScale = e.cardFrameScale;
                                     if (typeof _applyShapeToPreview === 'function') { try { _applyShapeToPreview(card); } catch (ex) {} }
                                 }
                                 newIdsIns[card.dataset.stableId] = { role: e.role || '', sharedArtId: e.sharedArtId || '' };
@@ -11091,6 +11136,7 @@
                                     card.dataset.cardShapeW = e.cardShapeW || 60;
                                     card.dataset.cardShapeH = e.cardShapeH || 60;
                                     card.dataset.cardCornerR = e.cardCornerR || 0;
+                                    if (e.cardFrameScale && e.cardFrameScale > 1) card.dataset.cardFrameScale = e.cardFrameScale;
                                     if (typeof _applyShapeToPreview === 'function') { try { _applyShapeToPreview(card); } catch (ex) {} }
                                 }
                                 newIds[card.dataset.stableId] = {
@@ -13943,6 +13989,7 @@
                 cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
                 cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
             }
+            _cardDataFrameScale(cardData, card);
             var existing = [];
             try { var raw = localStorage.getItem(targetKey); if (raw) existing = JSON.parse(raw); } catch(e) {}
             existing.push(cardData);
@@ -14006,6 +14053,7 @@
                 cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
                 cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
             }
+            _cardDataFrameScale(cardData, card);
             var existing = [];
             try { var raw = localStorage.getItem(targetKey); if (raw) existing = JSON.parse(raw); } catch(e) {}
             existing.push(cardData);
@@ -14163,6 +14211,7 @@
                 cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
                 cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
             }
+            _cardDataFrameScale(cardData, card);
 
             // Determine target storage key
             var targetKey;
@@ -16461,6 +16510,9 @@
         function saveCustomCards() {
             // Guard: do NOT save if Card Maker was never opened/built
             if (!_cardMakerBuilt) { console.log('[saveCustomCards] Skipped: _cardMakerBuilt is false'); return; }
+            // A transient on-card instance (placed letters showing concrete numbers)
+            // must never be persisted — restore the template symbols first.
+            if (typeof _pmNormalizePlacedForSave === 'function') _pmNormalizePlacedForSave();
             var content = document.querySelector('#domino-library-screen .domino-library-content');
             var numbersDiv = document.getElementById('card-set-numbers');
             var abcDiv = document.getElementById('card-set-abc');
@@ -16489,6 +16541,7 @@
                             cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
                             cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                         }
+                        _cardDataFrameScale(cardData, card);
                         _stpApplyToData(cardData, card);
                         data.push(cardData);
                     }
@@ -16518,6 +16571,7 @@
                                 cardData.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
                                 cardData.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
                             }
+                            _cardDataFrameScale(cardData, card);
                             _stpApplyToData(cardData, card);
                             data.push(cardData);
                         }
@@ -16664,6 +16718,7 @@
                         card.dataset.cardShapeH = item.cardShapeH || 60;
                         card.dataset.cardCornerR = item.cardCornerR || 0;
                     }
+                    if (item.cardFrameScale && item.cardFrameScale > 1) card.dataset.cardFrameScale = item.cardFrameScale;
                     var labelDiv = document.createElement('div');
                     labelDiv.className = 'library-label';
                     labelDiv.textContent = item.label;
@@ -25129,6 +25184,7 @@
                 card.dataset.cardShapeH = cardInfo.cardShapeH || 60;
                 card.dataset.cardCornerR = cardInfo.cardCornerR || 0;
             }
+            if (cardInfo.cardFrameScale && cardInfo.cardFrameScale > 1) card.dataset.cardFrameScale = cardInfo.cardFrameScale;
             var labelDiv = document.createElement('div');
             labelDiv.className = 'library-label';
             labelDiv.textContent = cardInfo.label;
@@ -25150,7 +25206,7 @@
             desc.className = 'library-desc';
             desc.textContent = cardInfo.desc || '';
             card.appendChild(desc);
-            if (cardInfo.cardShape && cardInfo.cardShape !== 'square') {
+            if ((cardInfo.cardShape && cardInfo.cardShape !== 'square') || (cardInfo.cardFrameScale && cardInfo.cardFrameScale > 1)) {
                 _applyShapeToPreview(card);
             }
             // Add action buttons (no var button in game view)
@@ -27628,6 +27684,7 @@
                                 card.dataset.cardShapeH = item.cardShapeH || 60;
                                 card.dataset.cardCornerR = item.cardCornerR || 0;
                             }
+                            if (item.cardFrameScale && item.cardFrameScale > 1) card.dataset.cardFrameScale = item.cardFrameScale;
                             var labelEl = document.createElement('div');
                             labelEl.className = 'library-label';
                             labelEl.textContent = item.label;
@@ -27840,6 +27897,7 @@
                         card.dataset.cardShapeH = item.cardShapeH || 60;
                         card.dataset.cardCornerR = item.cardCornerR || 0;
                     }
+                    if (item.cardFrameScale && item.cardFrameScale > 1) card.dataset.cardFrameScale = item.cardFrameScale;
                     var labelDiv = document.createElement('div');
                     labelDiv.className = 'library-label';
                     labelDiv.textContent = item.label;

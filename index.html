@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-108">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-109">
 </head>
 <body>
     <div class="game-container">
@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:13 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1835,8 +1835,9 @@
             var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
             var legParam = legend ? '&legend=' + encodeURIComponent(JSON.stringify(legend)) : '';
             if (dev) {
-                // autostart: ▶ Play auto-launches the game, so skip the full-size
-                // Setup view and show the device directly.
+                // ▶ Play auto-launches the game; the brief Setup it passes through
+                // shows full size, then only the board scales to the device (board
+                // visibility drives the frame — see _bgOpenDeviceFrame).
                 _bgOpenDeviceFrame('index.html?playGame=' + encodeURIComponent(gameId) +
                                    '&players=' + pc + legParam, dev, pc, { autostart: true });
                 return;
@@ -1988,7 +1989,12 @@
             // Match the Play button's look (same purple gradient, white border,
             // glow, rounded corners) so the pair reads as a set. Height is matched
             // to Play exactly via measurement below.
-            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;color:#fff;font-weight:bold;white-space:nowrap;' +
+            // padding-left/right trim the Save button by 1cm total off the .btn
+            // 30px sides (so the icon/text aren't swimming in slack), then the
+            // content is nudged 1.5mm to the right INSIDE the button by trading
+            // 1.5mm from right padding to left (13/9 keeps the same total width).
+            // Vertical padding stays 12px from .btn.
+            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;padding-left:13px;padding-right:9px;color:#fff;font-weight:bold;white-space:nowrap;' +
                 'border:2px solid rgba(255,255,255,0.92);border-radius:14px;' +
                 'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);' +
                 'box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
@@ -2003,8 +2009,69 @@
             } else {
                 startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
             }
-            // Match Save's height to Play exactly (after layout).
-            requestAnimationFrame(function () { try { var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px'; } catch (e) {} });
+            // Lay out the Play + Save pair (equal height/width, tightened gap,
+            // right-aligned to the Type boxes). Kept in _mgLayoutButtons so it can
+            // be RE-applied on every Setup re-render — _renderStartSummary wipes
+            // #player-names margins each pass, which would otherwise undo the
+            // right-align.
+            requestAnimationFrame(_mgLayoutButtons);
+        }
+        // Idempotent geometry for the Play (#start-game-btn) + Save (#mg-save-btn)
+        // pair on the Setup page. Safe to call repeatedly: it resets the props it
+        // drives to a known baseline, then recomputes from the live layout.
+        //   • Save height = Play height
+        //   • Play width  = Save width (the narrowed Save)
+        //   • gap Play↔Save = 5mm tighter than the 14px baseline (min 8px)
+        //   • the Play+Save group slides right so Save's RIGHT edge lines up with
+        //     the Type boxes' (.setup-type-line) right edge
+        function _mgLayoutButtons() {
+            var startBtn = document.getElementById('start-game-btn');
+            var b = document.getElementById('mg-save-btn');
+            if (!startBtn || !b || !startBtn.offsetParent || !b.offsetParent) return;
+            var MM = 96 / 25.4; // CSS px per mm
+            // Shift the group via the PLAY button's own margin — NOT #player-names.
+            // A MutationObserver watches #player-names' style attribute and re-runs
+            // _renderStartSummary on any change; writing player-names' margin here
+            // would fire it → re-render → re-apply → infinite loop (page freeze).
+            // The observer is not subtree, so moving #start-game-btn (a descendant)
+            // shifts Play — and Save follows in the flex flow — without tripping it.
+            var anchor = startBtn;
+            // .btn has `transition: all .2s` — suspend it so width/margin changes
+            // apply instantly and our measurements aren't read mid-animation.
+            startBtn.style.transition = 'none';
+            b.style.transition = 'none';
+            // Reset what we drive so each pass recomputes from the same baseline.
+            anchor.style.marginLeft = '0px';
+            startBtn.style.removeProperty('width');
+            b.style.marginLeft = '14px';
+            void b.offsetWidth;
+            var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
+            var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
+            // Gap at the 14px baseline, then pull 5mm tighter (clamped ≥ 8px).
+            var baseGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
+            var target = Math.max(8, baseGap - 5 * MM);
+            b.style.marginLeft = (14 - (baseGap - target)) + 'px';
+            void b.offsetWidth;
+            // Right-align the group: Save's right edge → Type boxes' right edge.
+            var typeRight = 0;
+            document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
+                var r = t.getBoundingClientRect();
+                if (r.width && r.right > typeRight) typeRight = r.right;
+            });
+            if (typeRight) {
+                var shift = typeRight - b.getBoundingClientRect().right;
+                if (shift > 0 && shift < 800) anchor.style.marginLeft = shift + 'px';
+            }
+            requestAnimationFrame(function () {
+                try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
+            });
+        }
+        if (typeof window !== 'undefined') {
+            window._mgLayoutButtons = _mgLayoutButtons;
+            if (!window._mgBtnResizeWired) {
+                window._mgBtnResizeWired = true;
+                window.addEventListener('resize', function () { try { _mgLayoutButtons(); } catch (e) {} });
+            }
         }
         function _mgSaveCurrentAsMiniGame() {
             var tgt = _mgSetupTarget();
@@ -2022,14 +2089,114 @@
                 _mgBackToIntro();
                 return;
             }
-            // NEW: name it and file under the game.
-            var name = prompt('Name this mini-game:', (_mgAddMode && _mgAddMode.defaultName) || '');
-            if (name === null) return;            // cancelled — stay on Setup
-            name = name.trim() || 'Mini-game';
-            _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-                                    name: name, createdAt: Date.now(), legend: legend });
-            _mgClearAddMode();
-            _mgBackToIntro();
+            // NEW: name it and file under the game. The dialog shows the game's
+            // existing mini-game names (click one to reuse + tweak) and refuses an
+            // exact duplicate. Cancel/Esc stays on Setup (add-mode preserved).
+            var existingNames = _mgListFor(type, index).map(function (m) { return m && m.name; });
+            _mgNameDialog({
+                title: 'Name this mini-game',
+                value: (_mgAddMode && _mgAddMode.defaultName) || '',
+                existing: existingNames,
+                onSubmit: function (name) {
+                    _mgAddTo(type, index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                            name: name, createdAt: Date.now(), legend: legend });
+                    _mgClearAddMode();
+                    _mgBackToIntro();
+                }
+            });
+        }
+        // Custom "name this mini-game" dialog. Replaces window.prompt so the user
+        // can SEE the names already taken, click one to reuse and change it a bit,
+        // and is blocked from saving an exact (case-insensitive) duplicate.
+        // opts: { title, value, existing:[names], onSubmit(name), onCancel() }.
+        function _mgNameDialog(opts) {
+            opts = opts || {};
+            var existing = (opts.existing || []).filter(function (s) { return s != null && String(s).trim() !== ''; });
+            var taken = {};
+            existing.forEach(function (n) { taken[String(n).trim().toLowerCase()] = true; });
+            var prev = document.getElementById('mg-name-overlay'); if (prev) prev.remove();
+
+            var ov = document.createElement('div');
+            ov.id = 'mg-name-overlay';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,16,40,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+            var card = document.createElement('div');
+            card.style.cssText = 'width:min(440px,94vw);max-height:86vh;overflow:auto;background:linear-gradient(135deg,#6a74d8,#8a5fc0);color:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,0.45);font-family:inherit;box-sizing:border-box;';
+            var h = document.createElement('div');
+            h.textContent = opts.title || 'Name this mini-game';
+            h.style.cssText = 'font-size:18px;font-weight:800;margin-bottom:12px;';
+            card.appendChild(h);
+            var input = document.createElement('input');
+            input.type = 'text'; input.value = opts.value || ''; input.placeholder = 'Type a name…';
+            input.style.cssText = 'width:100%;box-sizing:border-box;padding:11px 13px;border-radius:10px;border:2px solid rgba(255,255,255,0.5);background:rgba(0,0,0,0.18);color:#fff;font-size:15px;outline:none;';
+            card.appendChild(input);
+            var err = document.createElement('div');
+            err.style.cssText = 'min-height:18px;margin:7px 2px 0;color:#ffd54f;font-size:12.5px;';
+            card.appendChild(err);
+
+            if (existing.length) {
+                var lab = document.createElement('div');
+                lab.textContent = 'Existing names — click one to reuse and tweak:';
+                lab.style.cssText = 'margin:12px 2px 8px;font-size:12.5px;color:rgba(255,255,255,0.82);';
+                card.appendChild(lab);
+                var chips = document.createElement('div');
+                chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:7px;';
+                existing.forEach(function (n) {
+                    var c = document.createElement('button');
+                    c.type = 'button'; c.textContent = n; c.title = 'Use “' + n + '” as a starting point';
+                    c.style.cssText = 'padding:6px 11px;border-radius:9px;border:1px solid rgba(255,255,255,0.28);background:rgba(255,255,255,0.10);color:#fff;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    c.addEventListener('mouseenter', function () { c.style.background = 'rgba(255,255,255,0.22)'; });
+                    c.addEventListener('mouseleave', function () { c.style.background = 'rgba(255,255,255,0.10)'; });
+                    c.addEventListener('click', function () {
+                        input.value = n; input.focus();
+                        try { input.setSelectionRange(n.length, n.length); } catch (e) {}
+                        recheck();
+                    });
+                    chips.appendChild(c);
+                });
+                card.appendChild(chips);
+            }
+
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:18px;';
+            var cancel = document.createElement('button');
+            cancel.type = 'button'; cancel.textContent = 'Cancel';
+            cancel.style.cssText = 'padding:9px 18px;border-radius:10px;border:none;background:rgba(255,255,255,0.16);color:#fff;font-weight:700;font-size:14px;cursor:pointer;';
+            var ok = document.createElement('button');
+            ok.type = 'button'; ok.textContent = 'Save';
+            ok.style.cssText = 'padding:9px 20px;border-radius:10px;border:none;background:#7c4dff;color:#fff;font-weight:800;font-size:14px;cursor:pointer;';
+            row.appendChild(cancel); row.appendChild(ok);
+            card.appendChild(row);
+            ov.appendChild(card); document.body.appendChild(ov);
+
+            function isDup(v) { return Object.prototype.hasOwnProperty.call(taken, v.trim().toLowerCase()); }
+            function recheck() {
+                var v = input.value.trim();
+                if (v && isDup(v)) {
+                    err.textContent = '“' + v + '” already exists — change it a bit.';
+                    ok.disabled = true; ok.style.opacity = '0.5'; ok.style.cursor = 'default';
+                    return false;
+                }
+                err.textContent = ''; ok.disabled = false; ok.style.opacity = ''; ok.style.cursor = 'pointer';
+                return true;
+            }
+            function close() { document.removeEventListener('keydown', onKey, true); ov.remove(); }
+            function doCancel() { close(); if (typeof opts.onCancel === 'function') opts.onCancel(); }
+            function submit() {
+                var v = input.value.trim() || 'Mini-game';
+                if (isDup(v)) { recheck(); input.focus(); return; }
+                close(); if (typeof opts.onSubmit === 'function') opts.onSubmit(v);
+            }
+            function onKey(e) {
+                if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+                else if (e.key === 'Enter') { e.preventDefault(); if (!ok.disabled) submit(); }
+            }
+            input.addEventListener('input', recheck);
+            cancel.addEventListener('click', doCancel);
+            ok.addEventListener('click', submit);
+            ov.addEventListener('click', function (e) { if (e.target === ov) doCancel(); });
+            document.addEventListener('keydown', onKey, true);
+            recheck();
+            setTimeout(function () { input.focus(); try { input.select(); } catch (e) {} }, 0);
         }
         function _mgBackToIntro() {
             document.getElementById('start-screen').style.display = 'none';
@@ -5454,6 +5621,12 @@
             // the Level buttons are visible = a real game's Setup). Works whether or
             // not the user entered via "+ Add mini-game".
             try { _mgInjectSaveBtn(); } catch (e) {}
+            // Re-apply the Play+Save geometry AFTER the lift step above wiped any
+            // #player-names margins, so the right-align to the Type boxes sticks
+            // across re-renders. Deferred (and a late retry) so the Type column
+            // and Legend reposition have settled before we measure.
+            requestAnimationFrame(function () { try { _mgLayoutButtons(); } catch (e) {} });
+            setTimeout(function () { try { _mgLayoutButtons(); } catch (e) {} }, 200);
         }
         // One observer covers every Start-page show-point (find/catch, mouse/
         // touch, all player options). The lower player box always shows the
@@ -5760,7 +5933,15 @@
 
         window.loadGameDeckForStage = function(stage) {
             var idx = resolveStageGameIndex(stage);
-            if (idx >= 0) startCustomGame(idx, null);
+            if (idx >= 0) {
+                // Reset the active index first: startCustomGame() TOGGLES OFF (and
+                // clears the deck) when called with the already-active game. When a
+                // Big Game stage reuses the previous stage's source game, that toggle
+                // left the board with no deck ("No game deck loaded" → no dominoes).
+                // Clearing it here forces a fresh deck load every stage.
+                activeCustomGameIndex = -1;
+                startCustomGame(idx, null);
+            }
         };
 
         // ============================================================
@@ -5885,6 +6066,14 @@
                     _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
                     var ci = (window.game && window.game.combinedGame) ? window.game.combinedGame.currentStage : 0;
                     _bgShowBanner(_bgStageBanner(cfg.name, ci, cfg.stages.length, stage));
+                    var _r = _origLoadDeck(stage);
+                    // startCustomGame() → _applyGameSetupToPlayerScreen() RESETS the
+                    // type/voice globals and only auto-restores them for SINGLE-type
+                    // games. A multi-type game ends up with voice OFF (and the voice
+                    // UI never appears). Re-assert the stage legend AFTER the deck
+                    // load so the chosen Type + voice survive into the round.
+                    _bgApplyLegendHeadless(stage.legend, stage.gameType, stage.gameIndex);
+                    return _r;
                 }
                 return _origLoadDeck(stage);
             };
@@ -6135,9 +6324,13 @@
         // url = same-origin index.html?<deep-link> ; the iframe re-runs the app
         // and auto-launches via the playGame / playBig hooks below.
         var _bgDeviceModal = null;
-        // opts.autostart=true → skip the full-size Setup view entirely and show
-        // the device from the start (used by ▶ Play, which auto-launches a game
-        // so there's no Setup to interact with — go DIRECTLY to the device).
+        // The device frame scales to the chosen device ONLY while an actual BOARD
+        // is on screen (Find / Catch / Big-Game board). Every other page — intro,
+        // Setup, the Level selector, legends, celebrations — renders at FULL size
+        // inside the overlay, exactly like the normal big screen. This is decided
+        // live by _boardVisible() below (polled), so it holds for every launch
+        // path. (opts.autostart is accepted for back-compat but no longer forces
+        // device mode — board visibility alone drives it.)
         function _bgOpenDeviceFrame(url, key, players, opts) {
             // Big Game previews (?playBig=) use the GP 0 orientation toggle so any
             // device (incl. Chromebook / iPad 2P) can be checked portrait OR landscape.
@@ -6178,6 +6371,9 @@
             var frame = document.createElement('iframe');
             frame.className = 'bg-device-frame';
             frame.setAttribute('src', url);
+            // microphone: voice-input stages need mic access, which an iframe is
+            // denied unless explicitly granted (Permissions Policy).
+            frame.setAttribute('allow', 'autoplay; microphone');
             // Preview-only: suppress the iframe's spurious vertical scrollbar. The
             // board content fits the device viewport, but min-height:100vh + margins
             // can leave it ~1px over, so a scrollbar toggles on/off at the edge and
@@ -6200,9 +6396,10 @@
                                key: key, players: players, url: url, autostart: autostart };
             // Is the iframe showing actual GAMEPLAY (the board) rather than the
             // intro/Setup page? Find gameplay uses #game-screen; Catch (incl. 2P)
-            // uses the #catch-game-overlay appended to <body>. The Setup page
-            // (#start-screen) and intro do NOT count — they render full size
-            // (unless autostart, where there's no Setup to interact with).
+            // uses the #catch-game-overlay appended to <body>; Big Games play
+            // through those same boards, so both checks cover them too. The
+            // intro, Setup page (#start-screen) and Level selector do NOT count —
+            // they render full size.
             function _boardVisible() {
                 try {
                     var doc = frame.contentDocument;
@@ -6218,7 +6415,7 @@
             // device PLUS its 1-inch border fit the window. (1in ≈ 96px.)
             var FRAME = 128, CAP_H = 56;
             function fit() {
-                var deviceMode = autostart || _boardVisible();
+                var deviceMode = _boardVisible();
                 if (!deviceMode) {
                     // SETUP/intro at FULL size (only the BOARD is device-sized).
                     cradle.classList.add('full');
@@ -6255,15 +6452,14 @@
             // Defer one frame so the overlay has layout dimensions.
             setTimeout(fit, 0);
             // Poll the iframe's screen state so we flip full↔device exactly when
-            // gameplay starts/ends (no game-internals hooks needed). Skipped for
-            // autostart (always device).
-            if (!autostart) {
-                var _lastBoard = null;
-                _bgDeviceModal.poll = setInterval(function () {
-                    var b = _boardVisible();
-                    if (b !== _lastBoard) { _lastBoard = b; fit(); }
-                }, 150);
-            }
+            // gameplay starts/ends (no game-internals hooks needed). Runs for
+            // every launch path so Setup/Level stay full size and only the board
+            // is device-scaled.
+            var _lastBoard = null;
+            _bgDeviceModal.poll = setInterval(function () {
+                var b = _boardVisible();
+                if (b !== _lastBoard) { _lastBoard = b; fit(); }
+            }, 150);
             window.addEventListener('resize', fit);
             _bgDeviceModal.onResize = fit;
             rotateBtn.addEventListener('click', function(e) {

@@ -774,6 +774,18 @@
             border: 1px solid rgba(126,255,126,0.5); border-radius: 6px; font-family: inherit;
         }
         .loupe-mag-ctl .loupe-mag-step:hover { background: rgba(126,255,126,0.34); }
+        /* "123" instance tag — upper-left of the loupe card. Click = one instance. */
+        .loupe-instance-tag {
+            position: absolute; top: 8px; left: 8px; z-index: 40;
+            display: flex; align-items: center; justify-content: center;
+            min-width: 30px; height: 26px; padding: 0 9px;
+            font-size: 14px; font-weight: bold; cursor: pointer; user-select: none;
+            color: #fff; background: rgba(40,40,74,0.92);
+            border: 1.5px solid rgba(126,255,126,0.6); border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+        }
+        .loupe-instance-tag:hover { background: rgba(60,60,100,0.96); }
+        .loupe-instance-tag.showing { background: rgba(20,87,31,0.96); border-color: #7eff7e; color: #eaffea; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -920,7 +932,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:35 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -938,7 +950,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:35 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1180,7 +1192,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:22 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:35 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3818,6 +3830,8 @@
         // per parameter (incl. the f-derived result). Click a button to place that
         // parameter on the card as a movable letter. Hidden when the card has none.
         function _loupeRenderParamsBar(card) {
+            // Keep the "123" instance tag in sync with the parameter set too.
+            if (typeof _loupeUpdateInstanceTag === 'function') { try { _loupeUpdateInstanceTag(); } catch (e) {} }
             var bar = document.getElementById('loupe-params-bar');
             if (!bar) return;
             bar.innerHTML = '';
@@ -3859,6 +3873,54 @@
             });
             bar.appendChild(hint);
             bar.style.display = 'flex';
+        }
+        // ===== Loupe "123" instance tag (upper-left of the card) =====
+        // Mirrors the grid 123 tag: when the card has ≥1 parameter, a 123 badge sits
+        // on the card's upper-left. Click = fill the placed-letter params with one
+        // concrete instance; click again = back to the parameter (symbol) view.
+        function _loupeToggleInstance() {
+            var lc = document.getElementById('loupe-card-container');
+            var lsvg = lc && lc.querySelector('svg:not(.loupe-grid)');
+            var tag = document.getElementById('loupe-instance-tag');
+            if (!lsvg) return;
+            if (typeof _pmHasPlacedInstance === 'function' && _pmHasPlacedInstance(lsvg)) {
+                _pmClearPlacedInstance(lsvg);
+                if (tag) { tag.classList.remove('showing'); tag.title = 'Show an example (one instance)'; }
+                return;
+            }
+            if (!lsvg.querySelector('text[data-param]')) {
+                if (tag) tag.title = 'Place a parameter on the card first — drag one from the Parameters bar.';
+                return;
+            }
+            var g = _pmGenEnvForCard(loupeSourceCard);
+            if (g.error) { if (tag) tag.title = '⚠ ' + g.error; return; }
+            _pmShowPlacedInstance(lsvg, g.env);
+            if (tag) { tag.classList.add('showing'); tag.title = 'Showing an example — click to return to the parameters'; }
+        }
+        function _loupeUpdateInstanceTag() {
+            var lc = document.getElementById('loupe-card-container');
+            if (!lc) return;
+            var tag = document.getElementById('loupe-instance-tag');
+            var card = (typeof loupeSourceCard !== 'undefined') ? loupeSourceCard : null;
+            var icon = card && card.dataset && card.dataset.icon === 'true';
+            var hasParams = false;
+            try {
+                var params = (typeof _mpReadParams === 'function' && card) ? _mpReadParams(card) : [];
+                hasParams = (params && params.length > 0) || !!lc.querySelector('svg:not(.loupe-grid) text[data-param]');
+            } catch (e) {}
+            if (!card || icon || !hasParams) { if (tag) tag.style.display = 'none'; return; }
+            if (!tag || tag.parentNode !== lc) {
+                tag = document.createElement('div');
+                tag.id = 'loupe-instance-tag';
+                tag.className = 'loupe-instance-tag';
+                tag.textContent = '123';
+                tag.title = 'Show an example (one instance)';
+                tag.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+                tag.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _loupeToggleInstance(); });
+                lc.style.position = 'relative';
+                lc.appendChild(tag);
+            }
+            tag.style.display = 'flex';
         }
         // Mark a placed parameter letter (tagged data-param) so it reads as a parameter.
         function _pcMarkParamEl(el) { if (el) el.classList.add('pm-param-svg'); }

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:34 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:01 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">10:34 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1741,6 +1741,26 @@
             var n = (typeof _gpCurrentPlayerCount === 'function') ? _gpCurrentPlayerCount() : 1;
             return _mgSupportedPlayers(type, index, legend).indexOf(n) >= 0;
         }
+        // A Big Game's playable counts = intersection of its stages' support;
+        // hasVoice if any stage uses a voice Type. Used to disable GP 0 Big Game
+        // tiles at unsupported counts (3 players, or 2 players + voice).
+        function _bgTileSupport(bg) {
+            var stages = (bg && bg.stages) || [];
+            if (!stages.length) return { counts: [1, 2, 3], hasVoice: false };
+            var inter = [1, 2, 3], hasVoice = false;
+            stages.forEach(function (s) {
+                var t = s.gameType, idx = (s.gameRef ? s.gameRef.index : -1);
+                var leg = s.legend || _mgDefaultLegend(t, idx);
+                if (_mgLegendIsVoice(t, idx, leg)) hasVoice = true;
+                var sp = _mgSupportedPlayers(t, idx, leg);
+                inter = inter.filter(function (c) { return sp.indexOf(c) >= 0; });
+            });
+            return { counts: inter, hasVoice: hasVoice };
+        }
+        function _bgTileBlockMsg(count, hasVoice) {
+            if (count === 2 && hasVoice) return '2 player mode with voice is not supported. Choose a different mode.';
+            return count + ' player mode is not supported. Choose a different mode.';
+        }
         // The mini-games panel (read-only in 2c-ii): lists a game's mini-games;
         // clicking one shows its legend below.
         function _mgClosePanel() {
@@ -2511,21 +2531,32 @@
                     var n = bg.stages.length;
                     var mt = document.createElement('span'); mt.className = 'ibg-meta'; mt.textContent = n + (n === 1 ? ' stage' : ' stages');
                     tile.appendChild(nm); tile.appendChild(mt);
-                    tile.addEventListener('click', function() {
-                        // Device preview: open the Big Game in a scaled device
-                        // iframe (carries the Play/Scan mode + player count).
-                        // TOUCH mode only; never when we ARE the preview iframe.
-                        var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
-                        if (dev) {
-                            var pt = document.getElementById('intro-player-toggle');
-                            var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
-                            _bgOpenDeviceFrame('index.html?playBig=' + encodeURIComponent(bg.id) +
-                                               '&mode=' + (window._bgPlayMode || 'play') +
-                                               '&players=' + pc, dev, pc);
-                            return;
-                        }
-                        if (window.startBigGameFromId) window.startBigGameFromId(bg.id);
-                    });
+                    // Not playable at the current GP 0 player count (3-player, or
+                    // 2-player + voice) → non-responsive, with a hover message.
+                    var _sup = _bgTileSupport(bg);
+                    var _cnt = (typeof _gpCurrentPlayerCount === 'function') ? _gpCurrentPlayerCount() : 1;
+                    if (_sup.counts.indexOf(_cnt) < 0) {
+                        tile.title = _bgTileBlockMsg(_cnt, _sup.hasVoice);
+                        tile.style.opacity = '0.4';
+                        tile.style.cursor = 'not-allowed';
+                        tile.setAttribute('aria-disabled', 'true');
+                    } else {
+                        tile.addEventListener('click', function() {
+                            // Device preview: open the Big Game in a scaled device
+                            // iframe (carries the Play/Scan mode + player count).
+                            // TOUCH mode only; never when we ARE the preview iframe.
+                            var dev = (_bgInputIsTouch() && !window._bgInPreviewFrame) ? _bgSelectedDevice() : '';
+                            if (dev) {
+                                var pt = document.getElementById('intro-player-toggle');
+                                var pc = pt ? (parseInt(pt.getAttribute('data-players'), 10) || 1) : 1;
+                                _bgOpenDeviceFrame('index.html?playBig=' + encodeURIComponent(bg.id) +
+                                                   '&mode=' + (window._bgPlayMode || 'play') +
+                                                   '&players=' + pc, dev, pc);
+                                return;
+                            }
+                            if (window.startBigGameFromId) window.startBigGameFromId(bg.id);
+                        });
+                    }
                     bgList.appendChild(tile);
                 });
             }
@@ -2978,10 +3009,15 @@
                 toggle.setAttribute('aria-checked', n > 1 ? 'true' : 'false');
                 toggle.setAttribute('aria-label', n + (n > 1 ? ' players' : ' player'));
                 toggle.title = n + (n > 1 ? ' players' : ' player') + ' — click to change';
-                // Re-render the game tiles so each mini-game folder badge reflects
-                // how many mini-games are playable at the NEW player count. Skipped
-                // on the initial sync (tiles render via their own path).
-                if (!skipRefresh && typeof populateIntroGames === 'function') populateIntroGames();
+                // Re-render the intro columns so each mini-game folder badge AND
+                // the Big Game tiles reflect the NEW player count (Big Game tiles
+                // disable at unsupported counts). _renderIntroColumns rebuilds the
+                // Big Games column and calls populateIntroGames. Skipped on the
+                // initial sync (tiles render via their own path).
+                if (!skipRefresh) {
+                    if (typeof _renderIntroColumns === 'function') _renderIntroColumns();
+                    else if (typeof populateIntroGames === 'function') populateIntroGames();
+                }
             }
             // Click by ZONE (not cycle).
             //  • Clicking the CURRENT circle (thumb), wherever it sits (it's

@@ -47,6 +47,25 @@
            apart from the green Play. */
         .bgc-scan-btn { background: #f5a623; color: #3a2600; }
         .bgc-scan-btn:hover { background: #ffb733; }
+        /* 2-1-3 player toggle (in the list header) + unavailable-row styling. */
+        .bgc-ptoggle { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid rgba(255,255,255,0.22); }
+        .bgc-ptoggle button { padding: 6px 14px; border: none; background: rgba(255,255,255,0.08); color: #fff;
+                              font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .bgc-ptoggle button.active { background: #7c4dff; }
+        .bgc-ptoggle button:hover:not(.active) { background: rgba(255,255,255,0.18); }
+        .bgc-ptoggle-lbl { font-size: 12.5px; color: rgba(255,255,255,0.7); margin-right: 8px; }
+        .bgc-row { flex-wrap: wrap; }
+        .bgc-row.bgc-row-unavail .bgc-row-name,
+        .bgc-row.bgc-row-unavail .bgc-row-meta { opacity: 0.5; }
+        .bgc-row-reason { flex: 0 0 100%; font-size: 11.5px; color: #ffd54f; margin-top: 4px; }
+        /* Warning modal (voice / unsupported player count). */
+        .bgc-warn-ov { position: fixed; inset: 0; z-index: 11000; background: rgba(20,16,40,0.55);
+                       display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .bgc-warn-card { max-width: 390px; background: linear-gradient(135deg,#6a74d8,#8a5fc0); color: #fff;
+                         border-radius: 14px; padding: 18px 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.45); }
+        .bgc-warn-msg { font-size: 14.5px; line-height: 1.5; margin-bottom: 14px; }
+        .bgc-warn-ok { padding: 8px 20px; border: none; border-radius: 9px; background: #7c4dff; color: #fff;
+                       font-weight: 800; font-size: 14px; cursor: pointer; float: right; }
         /* embedded-play modal: the real Previewer in an iframe */
         .bgc-play-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(20,16,40,0.92);
                             display: flex; flex-direction: column; }
@@ -112,21 +131,21 @@
            label (GP 1 = Big Games list, GP 2 = compose). Remove when no longer needed. */
         .bgc-stamp { font-size: 17px; color: rgba(255,255,255,0.45); font-weight: normal; margin-left: 8px; }
         /* Match the program's .page-name-label design (28px, faded, 0.5px tracking). */
-        .bgc-page-label { position: fixed; top: 16px; left: 14px; z-index: 50; font-size: 28px; font-weight: normal;
+        /* Page label sits to the RIGHT of the back-arrow button (which occupies the
+           top-left corner) so the two don't overlap. */
+        .bgc-page-label { position: fixed; top: 16px; left: 58px; z-index: 50; font-size: 28px; font-weight: normal;
                           color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
-        /* Always-visible "back to the Previewer" button (both list + compose views). */
-        .bgc-back-previewer { position: fixed; top: 14px; right: 14px; z-index: 60; padding: 8px 15px;
-                              border: none; border-radius: 9px; cursor: pointer; background: rgba(255,255,255,0.16);
-                              color: #fff; font-weight: 700; font-size: 14px; font-family: inherit; }
-        .bgc-back-previewer:hover { background: rgba(255,255,255,0.28); }
+        /* Standard circular "go back" button (.back-arrow-btn from style.css) →
+           fixed in the top-left corner so it rides above the scroll on every view. */
+        #bgc-back-previewer.back-arrow-btn { position: fixed; z-index: 60; }
     </style>
 </head>
 <body>
     <div id="bgc-page-label" class="bgc-page-label">GP 1</div>
-    <button id="bgc-back-previewer" class="bgc-back-previewer" onclick="bgGoPreviewer()" title="Back to the Game Previewer">← Previewer</button>
+    <button id="bgc-back-previewer" class="back-arrow-btn" onclick="bgGoPreviewer()" title="Back to the Game Previewer"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <div id="bgc-app">
         <div class="bgc-header">
-            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">12:40 PM PDT</span></h1>
+            <h1><span class="m">Math</span><span class="g">Grain</span> Big Game Composer <span class="bgc-stamp">10:29 PM PDT</span></h1>
         </div>
         <div class="bgc-sub" id="bgc-user">—</div>
         <div id="bgc-view"></div>
@@ -290,9 +309,10 @@
         // 3d-i: play a Big Game by embedding the REAL Previewer in an iframe,
         // deep-linked to ?playBig=<id>. Same engine, framed — "same as it plays
         // in the Previewer". 3d-i plays the first (Find) stage only.
-        function bgOpenPlay(id, name, mode) {
+        function bgOpenPlay(id, name, mode, players) {
             bgClosePlay();
             var scan = (mode === 'scan');
+            var pc = parseInt(players, 10) || 1;
             var ov = document.createElement('div'); ov.className = 'bgc-play-overlay'; ov.id = 'bgc-play-overlay';
             var bar = document.createElement('div'); bar.className = 'bgc-play-bar';
             var t = document.createElement('span'); t.textContent = (scan ? '⚡ Scanning: ' : '▶ Playing: ') + (name || 'Big Game');
@@ -304,7 +324,7 @@
             // Always pass an explicit mode: the Previewer seeds _bgPlayMode from
             // localStorage, so Play must force 'play' or it could inherit a stale
             // 'scan' the user last picked on GP 0 and silently scan.
-            frame.src = 'index.html?playBig=' + encodeURIComponent(id) + '&mode=' + (scan ? 'scan' : 'play');
+            frame.src = 'index.html?playBig=' + encodeURIComponent(id) + '&mode=' + (scan ? 'scan' : 'play') + '&players=' + pc;
             // microphone: voice-input stages need mic access; an iframe is denied it
             // unless explicitly allowed here (Permissions Policy). Required for voice
             // to work inside a Big Game played from the Composer.
@@ -360,6 +380,85 @@
             else { window.location.href = 'index.html'; }
         }
 
+        // ===== Player-mode availability (mirrors the Previewer's mini-game rules) =====
+        // Selected player count for the list's 2-1-3 toggle (visibility + the count
+        // a Big Game launches at). Default 1.
+        var bgPlayers = 1;
+        function bgSetupModeOf(g) { return (g && g.setup && g.setup.mouse) ? 'mouse' : 'touch'; }
+        // Does a stage's Type use voice? (voice ⇒ 1-player only). Catch has no voice.
+        function bgStageIsVoice(stage) {
+            if (!stage || stage.gameType === 'catch') return false;
+            var leg = bgResolveLegend(stage) || stage.legend;
+            if (!leg || !leg.typeId) return false;
+            var g = bgFindGames()[stage.gameRef ? stage.gameRef.index : -1];
+            var mode = bgSetupModeOf(g);
+            var opts = (g && g.setup && g.setup[mode] && g.setup[mode].types && g.setup[mode].types.options) || [];
+            for (var i = 0; i < opts.length; i++) { if (opts[i] && opts[i].id === leg.typeId) return !!opts[i].voiceInput; }
+            return false;
+        }
+        // Player counts a single stage can run at: Catch → 1,2 (2P is touch-capable),
+        // never 3; Find → the game setup's enabled counts; voice Types → 1 only.
+        function bgStageSupportedPlayers(stage) {
+            if (!stage) return [1, 2, 3];
+            if (stage.gameType === 'catch') return [1, 2];
+            var g = bgFindGames()[stage.gameRef ? stage.gameRef.index : -1];
+            var mode = bgSetupModeOf(g);
+            var opts = (g && g.setup && g.setup[mode] && g.setup[mode].players && g.setup[mode].players.options) || [];
+            var out = [];
+            opts.forEach(function (o) { if (o && o.on && o.id) { var c = parseInt(String(o.id).slice(1), 10); if (c) out.push(c); } });
+            if (!out.length) out = [1, 2, 3];
+            if (bgStageIsVoice(stage)) out = out.filter(function (c) { return c === 1; });
+            return out;
+        }
+        // A Big Game runs at a count only if EVERY stage does. { counts, hasVoice }.
+        function bgGameSupportedPlayers(bg) {
+            var stages = (bg && bg.stages) || [];
+            if (!stages.length) return { counts: [1, 2, 3], hasVoice: false };
+            var inter = [1, 2, 3], hasVoice = false;
+            stages.forEach(function (s) {
+                if (bgStageIsVoice(s)) hasVoice = true;
+                var sp = bgStageSupportedPlayers(s);
+                inter = inter.filter(function (c) { return sp.indexOf(c) >= 0; });
+            });
+            return { counts: inter, hasVoice: hasVoice };
+        }
+        function bgUnavailReason(bg, sup) {
+            var nm = bg.name || 'Big Game';
+            if (sup.hasVoice) return '“' + nm + '” has voice — 1-player only.';
+            return '“' + nm + '” — no ' + bgPlayers + '-player support.';
+        }
+        function bgUnavailMsg(bg, sup) {
+            var nm = bg.name || 'Big Game';
+            if (sup.hasVoice) return '“' + nm + '” has voice. This game can be played only in 1-player mode.';
+            return '“' + nm + '” can’t be played with ' + bgPlayers + ' players.';
+        }
+        // The 2-1-3 player toggle (matches GP 0's left-center-right layout).
+        function bgBuildPlayerToggle() {
+            var wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;align-items:center;';
+            var lbl = document.createElement('span'); lbl.className = 'bgc-ptoggle-lbl'; lbl.textContent = 'Players';
+            var seg = document.createElement('div'); seg.className = 'bgc-ptoggle';
+            seg.title = 'Show which Big Games are playable at this player count';
+            [[2, '2'], [1, '1'], [3, '3']].forEach(function (p) {
+                var b = document.createElement('button'); b.textContent = p[1];
+                if (bgPlayers === p[0]) b.classList.add('active');
+                b.addEventListener('click', function () { bgPlayers = p[0]; bgRenderList(); });
+                seg.appendChild(b);
+            });
+            wrap.appendChild(lbl); wrap.appendChild(seg);
+            return wrap;
+        }
+        // Small warning modal (voice / unsupported player count).
+        function bgWarn(msg) {
+            var prev = document.getElementById('bgc-warn'); if (prev) prev.remove();
+            var ov = document.createElement('div'); ov.id = 'bgc-warn'; ov.className = 'bgc-warn-ov';
+            var card = document.createElement('div'); card.className = 'bgc-warn-card';
+            var m = document.createElement('div'); m.className = 'bgc-warn-msg'; m.textContent = msg;
+            var ok = document.createElement('button'); ok.className = 'bgc-warn-ok'; ok.textContent = 'OK';
+            ok.addEventListener('click', function () { ov.remove(); });
+            card.appendChild(m); card.appendChild(ok); ov.appendChild(card); document.body.appendChild(ov);
+            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+        }
+
         // ===== LIST VIEW =====
         function bgSetPageLabel(txt) { var el = document.getElementById('bgc-page-label'); if (el) el.textContent = txt; }
         function bgRenderList() {
@@ -368,13 +467,15 @@
             var games = bgLoad();
             var card = document.createElement('div'); card.className = 'bgc-card';
             var head = document.createElement('div'); head.className = 'bgc-card-head';
+            var left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:18px;flex-wrap:wrap;';
             var h2 = document.createElement('h2'); h2.textContent = 'Big Games';
+            left.appendChild(h2); left.appendChild(bgBuildPlayerToggle());
             var nw = document.createElement('button'); nw.className = 'bgc-btn'; nw.textContent = '+ New Big Game';
             nw.addEventListener('click', function () {
                 var n = prompt('Name this Big Game:', ''); if (n === null) return;
                 bgAdd(n); bgRenderList();
             });
-            head.appendChild(h2); head.appendChild(nw); card.appendChild(head);
+            head.appendChild(left); head.appendChild(nw); card.appendChild(head);
 
             if (!games.length) {
                 var e = document.createElement('div'); e.className = 'bgc-empty';
@@ -386,16 +487,29 @@
                     var name = document.createElement('span'); name.className = 'bgc-row-name'; name.textContent = bg.name || 'Big Game';
                     var meta = document.createElement('span'); meta.className = 'bgc-row-meta';
                     var n = (bg.stages && bg.stages.length) || 0; meta.textContent = n + (n === 1 ? ' stage' : ' stages');
+                    // Playable at the toggle's player count? (empty games aren't anyway).
+                    var sup = bgGameSupportedPlayers(bg);
+                    var avail = sup.counts.indexOf(bgPlayers) >= 0;
+                    if (n && !avail) row.classList.add('bgc-row-unavail');
+                    function launch(mode) {
+                        if (!avail) { bgWarn(bgUnavailMsg(bg, sup)); return; }   // greyed AND warns on click
+                        bgOpenPlay(bg.id, bg.name, mode, bgPlayers);
+                    }
                     var play = document.createElement('button'); play.className = 'bgc-play-btn'; play.textContent = '▶ Play';
                     play.title = n ? 'Play this Big Game' : 'Add stages first'; play.disabled = !n;
-                    if (n) play.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'play'); });
+                    if (n) play.addEventListener('click', function () { launch('play'); });
                     var scan = document.createElement('button'); scan.className = 'bgc-play-btn bgc-scan-btn'; scan.textContent = '⚡ Scan';
                     scan.title = n ? 'Scan: race through all stages (~3 coins each) — same as Scan on GP 0' : 'Add stages first'; scan.disabled = !n;
-                    if (n) scan.addEventListener('click', function () { bgOpenPlay(bg.id, bg.name, 'scan'); });
+                    if (n) scan.addEventListener('click', function () { launch('scan'); });
                     var open = mkAct('✎', 'Compose stages', function () { bgState.view = 'compose'; bgState.editingId = bg.id; bgState.openGameKey = null; bgRender(); });
                     var ren = mkAct('🏷', 'Rename', function () { var nm = prompt('Rename Big Game:', bg.name || ''); if (nm === null) return; bgRename(bg.id, nm); bgRenderList(); });
                     var del = mkAct('✗', 'Delete', function () { if (!confirm('Delete Big Game “' + (bg.name || 'Big Game') + '”?')) return; bgDelete(bg.id); bgRenderList(); });
                     row.appendChild(name); row.appendChild(meta); row.appendChild(play); row.appendChild(scan); row.appendChild(open); row.appendChild(ren); row.appendChild(del);
+                    if (n && !avail) {
+                        var reason = document.createElement('div'); reason.className = 'bgc-row-reason';
+                        reason.textContent = bgUnavailReason(bg, sup);
+                        row.appendChild(reason);
+                    }
                     card.appendChild(row);
                 });
             }

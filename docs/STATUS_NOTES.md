@@ -1,6 +1,6 @@
 # Vica Domino - Project Status Notes
-**Date**: June 25, 2026 (PM update) — the **Parametric Math Cards ("Par") system** in `pm-studio-DrV.html` is now **PLACED-LETTERS-ONLY**. A parameter is a normal placed `<text data-param>` letter (moved/scaled/styled with the existing draw tools) that gets a **magenta box tracking it** through move+scale and substitutes to a **concrete instance** (grid "123" tag / loupe **i → Instance**). The old single-line on-card formula field + per-param style popup were **DELETED** (user chose "delete it fully"). Par / f / Rel / Preview / **i** palette + the no-`eval` engine all stay. See **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (rewritten for this design). **STILL TODO:** interactive place-a-letter pass in the real loupe on :8000 (all verification so far is headless-DOM + screenshot).
-**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`dcf4167`**, pushed to `vkofman56/Vica_Domino`. NOT deployed (user: "not yet"). Commit/push only when asked; **do NOT run `ship.sh`** (its `claude/review-project-docs-JOOeh` trio convention is stale). Banner bumps on commit only (last = 08:57 AM PDT). **⚠ `index.html` has SEPARATE in-progress device-frame work (board-visibility scaling) left UNSTAGED this session — only `pm-studio-DrV.html` was committed in `dcf4167`.**
+**Date**: June 26, 2026 — big **loupe parametric-authoring** session in `pm-studio-DrV.html`. The "Par" system is **placed-letters-only**; this session added the loupe **Parameters bar** + **drag-drop** of params onto the card, **card frame-resize** (corner handle), the **🔍 magnifier** (×1 = 100px real size), the on-card **"123" instance tag**, the per-parameter **space-box** (fixed digit width), **f-Formula "Print on card"** (whole formula as one unit), and **per-element left/center/right alignment** (template stays put, instance moves, toggle pinned to the box). Full detail: **`docs/HANDOVER_2026-06-26_LOUPE-PARAMS.md`** (read this first). **STILL TODO:** a real interactive loupe pass on :8000 (all verification is headless-DOM + screenshot).
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`1177d0b`** (+ this docs commit), pushed to `vkofman56/Vica_Domino`. **DEPLOYED to mathgrain.com** by merging `work/cardmaker-rowcopy` → **`claude/review-project-docs-JOOeh`** (the only branch the Firebase Action deploys from; **merge, don't force-push** — it has CI-only Node-pin commits). `index.html` (device-preview) + `biggame.html` (Big Game Scan/warnings) are a SEPARATE parallel session's work; I only commit `pm-studio-DrV.html`. Banner bumps on commit only.
 **Servers**: durable nohup http.server on **:8000** (the user's HOME port — their localStorage data lives there) and **:8011**. localStorage is per-port; hard-reload (Cmd-Shift-R) after a push.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files
@@ -8,7 +8,31 @@
 
 ---
 
-### ▶▶ June 25 (PM) — PARAMETRIC MATH CARDS ("Par"): PLACED-LETTERS-ONLY — resume here
+### ▶▶ June 26 — LOUPE PARAMETRIC AUTHORING — resume here
+Full detail in **`docs/HANDOVER_2026-06-26_LOUPE-PARAMS.md`**. Built this session, all in
+`pm-studio-DrV.html`, verified headlessly (no real-loupe pass yet):
+- **Parameters bar** atop the loupe + **drag-drop** params onto the card (a copy stays);
+  loupe opens on the Select/arrow tool. (`_loupeRenderParamsBar`, `_iDropParamAt`.)
+- **Card frame-resize** — corner handle grows the card (more empty space) with content at
+  its absolute size; persisted (`cardFrameScale`, `_frameViewBox`).
+- **🔍 Magnifier** — view zoom over the card's REAL size; **×1 = 100px** (`_LOUPE_X1_PX`),
+  default = biggest ×N that fits, click 🔍 to reset; bottom-left, z 2300.
+- **On-card "123" tag** — instance toggle when the card has ≥1 parameter
+  (`_loupeToggleInstance`).
+- **Space-box** — per-param fixed digit width (`param.width`), pads instances with U+2007.
+- **f-Formula "Print on card"** — whole formula as one movable unit (`data-formula`),
+  left-anchored; substitutes all symbols on instance (`_fxPrintOnCard`, `_pmSubstIdentifiers`).
+- **Per-element alignment** — `data-align` L/C/R (default left). 123 shows a toggle pinned
+  to the template box; the **template stays put**, only the **instance** re-aligns
+  (`_pmApplyAlign`/`_pmPositionInstance`/`_pmRestoreTemplate`).
+- **Wide-card drag fix** (viewBox-aware mapping) + **stale `g.pm-baked` cleanup**.
+**Deploy**: merge `work/cardmaker-rowcopy` → `claude/review-project-docs-JOOeh`, push → the
+Firebase Action deploys mathgrain.com. **Merge, don't force-push** (deploy branch has CI-only
+Node-pin/retry commits). `scripts/ship.sh` 3-mirror convention is stale.
+
+---
+
+### ▶▶ June 25 (PM) — PARAMETRIC MATH CARDS ("Par"): PLACED-LETTERS-ONLY
 Full detail in **`docs/HANDOVER_2026-06-25_PARAMETRIC-CARDS.md`** (rewritten). A card is
 a problem TEMPLATE: named parameters (ranges/constraints/constructions) + an f-formula →
 generate concrete instances. Loupe rail: **Par · f · Rel · ▷ · i**.

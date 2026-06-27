@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:01 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:01 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:14 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:01 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4154,9 +4154,19 @@
                     });
                     host.appendChild(tog);
                 }
-                var r; try { r = t.getBoundingClientRect(); } catch (e) { return; }
-                tog.style.left = Math.round(r.left) + 'px';
-                tog.style.top = Math.round(r.top - 22) + 'px';
+                // Pin the toggle to the TEMPLATE box's upper-left (its fixed home), NOT
+                // the moving instance — so it stays put and stays clickable as the
+                // instance shifts. Convert the stored template box (SVG units) to screen.
+                var sx = null, sy = null;
+                var refL = parseFloat(t.getAttribute('data-ref-left')), refT = parseFloat(t.getAttribute('data-ref-top'));
+                var svgEl = t.ownerSVGElement, ctm = svgEl && svgEl.getScreenCTM && svgEl.getScreenCTM();
+                if (isFinite(refL) && isFinite(refT) && ctm && svgEl.createSVGPoint) {
+                    var pt = svgEl.createSVGPoint(); pt.x = refL; pt.y = refT;
+                    var sp = pt.matrixTransform(ctm); sx = sp.x; sy = sp.y;
+                }
+                if (sx == null) { var r; try { r = t.getBoundingClientRect(); } catch (e) { return; } sx = r.left; sy = r.top; }
+                tog.style.left = Math.round(sx) + 'px';
+                tog.style.top = Math.round(sy - 24) + 'px';
                 var cur = t.getAttribute('data-align') || 'left';
                 Array.prototype.forEach.call(tog.querySelectorAll('.pm-align-btn'), function (b) { b.classList.toggle('on', b.dataset.align === cur); });
             });
@@ -4217,7 +4227,7 @@
                     t.setAttribute('data-orig-x', t.getAttribute('x') || '');
                     t.setAttribute('data-orig-anchor', t.getAttribute('text-anchor') || 'start');
                     var tb; try { tb = t.getBBox(); } catch (e) { tb = null; }
-                    if (tb) { t.setAttribute('data-ref-left', tb.x); t.setAttribute('data-ref-width', tb.width); }
+                    if (tb) { t.setAttribute('data-ref-left', tb.x); t.setAttribute('data-ref-width', tb.width); t.setAttribute('data-ref-top', tb.y); }
                 }
                 var newText;
                 if (isFormula) {
@@ -4241,7 +4251,7 @@
             t.textContent = t.getAttribute('data-param-orig');
             var ox = t.getAttribute('data-orig-x'); if (ox != null && ox !== '') t.setAttribute('x', ox);
             var oa = t.getAttribute('data-orig-anchor'); if (oa != null) t.setAttribute('text-anchor', oa);
-            ['data-param-orig', 'data-orig-x', 'data-orig-anchor', 'data-ref-left', 'data-ref-width'].forEach(function (a) { t.removeAttribute(a); });
+            ['data-param-orig', 'data-orig-x', 'data-orig-anchor', 'data-ref-left', 'data-ref-width', 'data-ref-top'].forEach(function (a) { t.removeAttribute(a); });
         }
         function _pmClearPlacedInstance(svg) {
             if (!svg) return;

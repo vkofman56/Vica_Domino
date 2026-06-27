@@ -786,6 +786,18 @@
         }
         .loupe-instance-tag:hover { background: rgba(60,60,100,0.96); }
         .loupe-instance-tag.showing { background: rgba(20,87,31,0.96); border-color: #7eff7e; color: #eaffea; }
+        /* Per-element alignment toggle (left/center/right), shown on each placed
+           parameter / formula while an instance is displayed. */
+        #pm-align-toggles { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
+        .pm-align-toggle { position: fixed; display: flex; gap: 0; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+        .pm-align-btn {
+            width: 20px; height: 19px; font-size: 12px; line-height: 1; cursor: pointer;
+            color: #cfeede; background: rgba(20,20,34,0.95);
+            border: 1px solid rgba(126,255,126,0.45); border-left-width: 0; font-family: inherit;
+        }
+        .pm-align-btn:first-child { border-left-width: 1px; border-radius: 5px 0 0 5px; }
+        .pm-align-btn:last-child { border-radius: 0 5px 5px 0; }
+        .pm-align-btn.on { background: rgba(126,255,126,0.85); color: #06210b; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -932,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:05 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -950,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:05 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1192,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:56 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:05 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3522,6 +3534,7 @@
             if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
             el.setAttribute('data-param', 'formula');
             el.setAttribute('data-formula', formula);
+            el.setAttribute('data-align', 'left');
             el.setAttribute('xml:space', 'preserve');
             el.textContent = _fxPretty(formula);
             el.classList.add('draw-placed');
@@ -3883,7 +3896,7 @@
             var el = document.createElementNS(NS, 'text');
             el.setAttribute('x', snapToGrid(px));
             el.setAttribute('y', snapToGrid(py));
-            el.setAttribute('text-anchor', 'middle');
+            el.setAttribute('text-anchor', 'start');   // left-aligned by default
             el.setAttribute('font-size', gridToSvg(sz * over));
             el.setAttribute('font-family', drawFontFamily);
             el.setAttribute('font-weight', '500');
@@ -3892,6 +3905,7 @@
             el.setAttribute('data-over-scale', over);
             if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
             el.setAttribute('data-param', sym);
+            el.setAttribute('data-align', 'left');
             el.textContent = (typeof autoSpaceMinus === 'function') ? autoSpaceMinus(sym) : sym;
             el.classList.add('draw-placed');
             if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
@@ -4077,7 +4091,7 @@
             (function tick() {
                 var container = document.getElementById('loupe-card-container');
                 var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
-                if (svg) _pmDrawParamBoxes(svg, 'pm-param-live-boxes');
+                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes'); _pmSyncAlignToggles(svg); }
                 _pmLiveBoxRAF = requestAnimationFrame(tick);
             })();
         }
@@ -4087,6 +4101,59 @@
             var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
             var g = svg && svg.querySelector('g.pm-param-live-boxes');
             if (g) g.parentNode.removeChild(g);
+            var host = document.getElementById('pm-align-toggles'); if (host) host.innerHTML = '';
+        }
+        // ----- Per-element alignment (left / center / right) -----
+        // Which edge of a placed parameter / printed formula stays fixed as the
+        // instance value's length changes. Stored in data-align (persisted in the
+        // SVG) → text-anchor. Toggling keeps the element visually in place.
+        function _pmApplyAlign(el, align) {
+            if (!el) return;
+            align = (align === 'center' || align === 'right') ? align : 'left';
+            var bb = null; try { bb = el.getBBox(); } catch (e) {}
+            if (bb && bb.width) {
+                if (align === 'center') { el.setAttribute('x', (bb.x + bb.width / 2).toFixed(2)); el.setAttribute('text-anchor', 'middle'); }
+                else if (align === 'right') { el.setAttribute('x', (bb.x + bb.width).toFixed(2)); el.setAttribute('text-anchor', 'end'); }
+                else { el.setAttribute('x', bb.x.toFixed(2)); el.setAttribute('text-anchor', 'start'); }
+            } else {
+                el.setAttribute('text-anchor', align === 'center' ? 'middle' : (align === 'right' ? 'end' : 'start'));
+            }
+            el.setAttribute('data-align', align);
+        }
+        var _PM_ALIGN_ICONS = { left: '⤙', center: '⇔', right: '⤚' };
+        var _pmAlignSeq = 0;
+        // Show a left/center/right toggle at the upper-left of each placed param /
+        // formula WHILE an instance is displayed; hidden otherwise.
+        function _pmSyncAlignToggles(svg) {
+            var overlay = document.getElementById('loupe-overlay');
+            if (!overlay) return;
+            var host = document.getElementById('pm-align-toggles');
+            var showing = svg && _pmHasPlacedInstance(svg);
+            if (!showing) { if (host) host.innerHTML = ''; return; }
+            if (!host) { host = document.createElement('div'); host.id = 'pm-align-toggles'; overlay.appendChild(host); }
+            var texts = _pmParamTexts(svg), keep = {};
+            texts.forEach(function (t) {
+                if (!t.__alignKey) t.__alignKey = 'ak' + (++_pmAlignSeq);
+                var key = t.__alignKey; keep[key] = 1;
+                var tog = host.querySelector('[data-ak="' + key + '"]');
+                if (!tog) {
+                    tog = document.createElement('div'); tog.className = 'pm-align-toggle'; tog.setAttribute('data-ak', key);
+                    ['left', 'center', 'right'].forEach(function (a) {
+                        var b = document.createElement('button'); b.className = 'pm-align-btn'; b.dataset.align = a;
+                        b.textContent = _PM_ALIGN_ICONS[a]; b.title = a + '-align';
+                        b.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                        b.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _pmApplyAlign(t, a); });
+                        tog.appendChild(b);
+                    });
+                    host.appendChild(tog);
+                }
+                var r; try { r = t.getBoundingClientRect(); } catch (e) { return; }
+                tog.style.left = Math.round(r.left) + 'px';
+                tog.style.top = Math.round(r.top - 22) + 'px';
+                var cur = t.getAttribute('data-align') || 'left';
+                Array.prototype.forEach.call(tog.querySelectorAll('.pm-align-btn'), function (b) { b.classList.toggle('on', b.dataset.align === cur); });
+            });
+            Array.prototype.slice.call(host.children).forEach(function (c) { if (!keep[c.getAttribute('data-ak')]) c.remove(); });
         }
 
         // ===== Placed-letter parameters: concrete instances =====
@@ -8854,6 +8921,8 @@
                     // (it stays a normal draw element — move/scale/font/color as usual).
                     if (_pendingParamPlace && el.tagName.toLowerCase() === 'text') {
                         el.setAttribute('data-param', _pendingParamPlace);
+                        el.setAttribute('data-align', 'left');
+                        el.setAttribute('text-anchor', 'start');   // left-aligned by default
                         if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
                         _pendingParamPlace = '';
                         var _im = document.getElementById('i-msg'); if (_im) { _im.className = 'par-sample-out'; _im.textContent = ''; }

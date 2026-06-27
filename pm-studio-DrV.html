@@ -932,7 +932,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:54 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -950,7 +950,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:54 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1192,7 +1192,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:35 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:54 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2736,6 +2736,18 @@
                 +   '<input class="par-input par-num" id="mp-hi" type="number" placeholder="max" value="' + _mpEsc(p.hi && p.hi.val != null ? p.hi.val : '') + '">'
                 + '</div>'
                 + '<div class="par-help" id="mp-range-hint" style="display:none;">With a construction set, the range just filters the built value.</div>'
+                // Space-box: reserve a fixed digit width for EVERY instance of this
+                // parameter, so a short value (e.g. "5") keeps the rest of the slot
+                // empty and layouts don't shift. Proposed from the range's largest value.
+                + '<div class="par-section-label">Space-box</div>'
+                + '<div class="par-range-row" id="mp-box-row">'
+                +   '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">'
+                +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '> reserve'
+                +   '</label>'
+                +   '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
+                +   '<span style="font-size:12px;color:#cfeede;">-digit space for every instance</span>'
+                + '</div>'
+                + '<div class="par-help" id="mp-box-hint" style="margin-top:0;">Off = free width. A 1-digit value then pads the slot with space (so it lines up).</div>'
                 + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
                 + '<div style="display:flex;gap:8px;align-items:center;">'
@@ -2774,6 +2786,22 @@
             document.getElementById('mp-sample-btn').addEventListener('click', _mpSampleCurrent);
             document.getElementById('mp-save-btn').addEventListener('click', _mpSaveParam);
             document.getElementById('mp-cancel-btn').addEventListener('click', _mpShowList);
+            // Space-box: propose digit count from the range; auto-fill on enable.
+            (function () {
+                var on = document.getElementById('mp-box-on');
+                var nIn = document.getElementById('mp-box-n');
+                if (!on || !nIn) return;
+                function propose() {
+                    var hi = parseInt(document.getElementById('mp-hi').value, 10);
+                    var lo = parseInt(document.getElementById('mp-lo').value, 10);
+                    var m = Math.max(isFinite(hi) ? Math.abs(hi) : 0, isFinite(lo) ? Math.abs(lo) : 0);
+                    return m ? String(m).length : 1;
+                }
+                nIn.placeholder = propose();
+                on.addEventListener('change', function () { if (on.checked && !nIn.value) nIn.value = propose(); });
+                document.getElementById('mp-hi').addEventListener('input', function () { nIn.placeholder = propose(); });
+                document.getElementById('mp-lo').addEventListener('input', function () { nIn.placeholder = propose(); });
+            })();
             _mpRenderRestrList();
             // Open the construction editor if this parameter already has one.
             _mpShowConstruct(!!(p.def && p.def.trim()));
@@ -2924,6 +2952,14 @@
             var hiV = document.getElementById('mp-hi').value;
             var defEl = document.getElementById('mp-def');
             var def = defEl ? defEl.value : '';
+            // Space-box: a fixed digit width reserved for every instance (0 = off).
+            var boxOn = document.getElementById('mp-box-on');
+            var boxN = document.getElementById('mp-box-n');
+            var width = 0;
+            if (boxOn && boxOn.checked) {
+                var n = parseInt(boxN && (boxN.value || boxN.placeholder), 10);
+                width = (isFinite(n) && n > 0) ? Math.min(9, n) : 1;
+            }
             return {
                 sym: (document.getElementById('mp-sym').value || '').trim(),
                 type: 'int',
@@ -2932,7 +2968,8 @@
                 def: def,
                 lo: { val: (loV === '' ? null : parseInt(loV, 10)), op: document.getElementById('mp-lo-op').value },
                 hi: { val: (hiV === '' ? null : parseInt(hiV, 10)), op: document.getElementById('mp-hi-op').value },
-                restrictions: _mpDraftRestr.map(function (r) { return JSON.parse(JSON.stringify(r)); })
+                restrictions: _mpDraftRestr.map(function (r) { return JSON.parse(JSON.stringify(r)); }),
+                width: width
             };
         }
 
@@ -3894,7 +3931,7 @@
             }
             var g = _pmGenEnvForCard(loupeSourceCard);
             if (g.error) { if (tag) tag.title = '⚠ ' + g.error; return; }
-            _pmShowPlacedInstance(lsvg, g.env);
+            _pmShowPlacedInstance(lsvg, g.env, g.widths);
             if (tag) { tag.classList.add('showing'); tag.title = 'Showing an example — click to return to the parameters'; }
         }
         function _loupeUpdateInstanceTag() {
@@ -4009,19 +4046,27 @@
                         if (/^[A-Za-z_]\w*$/.test(rn)) { try { env[rn] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) {} }
                     }
                 }
-                return { env: env };
+                // Per-parameter space-box widths (sym → reserved digit count).
+                var widths = {};
+                try { (_mpReadParams(card) || []).forEach(function (p) { if (p.sym && p.width > 0) widths[p.sym] = p.width; }); } catch (e) {}
+                return { env: env, widths: widths };
             });
         }
         // Swap each placed-letter param to a concrete value (stashing the original
         // symbol in data-param-orig so it can be restored). The magenta boxes hide
-        // while the concrete problem shows.
-        function _pmShowPlacedInstance(svg, env) {
+        // while the concrete problem shows. `widths` (sym→N) right-pads short values
+        // with figure-spaces (digit-width) so every instance keeps a fixed slot.
+        function _pmShowPlacedInstance(svg, env, widths) {
             if (!svg) return;
+            widths = widths || {};
             _pmParamTexts(svg).forEach(function (t) {
                 var sym = t.getAttribute('data-param');
                 if (env[sym] == null) return;
                 if (t.getAttribute('data-param-orig') == null) t.setAttribute('data-param-orig', t.textContent);
-                t.textContent = String(env[sym]);
+                var val = String(env[sym]);
+                var w = widths[sym] || 0;
+                if (w > val.length) val = val + String.fromCharCode(0x2007).repeat(w - val.length);
+                t.textContent = val;
             });
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = 'none';
             var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = 'none';
@@ -4064,7 +4109,7 @@
                 }
                 var g = _pmGenEnvForCard(loupeSourceCard);
                 if (g.error) { if (msg) { msg.className = 'par-sample-out warn'; msg.textContent = '⚠ ' + g.error; } return; }
-                _pmShowPlacedInstance(lsvg, g.env);
+                _pmShowPlacedInstance(lsvg, g.env, g.widths);
                 if (msg) { msg.className = 'par-sample-out ok'; msg.textContent = 'Instance: ' + Object.keys(g.env).map(function (k) { return k + '=' + g.env[k]; }).join(',  ') + '  — click i again for a new one.'; }
                 return;
             }
@@ -4107,7 +4152,7 @@
             var g = _pmGenEnvForCard(card);
             var tg = card.querySelector(':scope > .pm-param-tag');
             if (g.error) { if (tg) tg.title = g.error; return; }
-            _pmShowPlacedInstance(psvg, g.env);
+            _pmShowPlacedInstance(psvg, g.env, g.widths);
         }
         function _pmApplyParamCards() {
             try {

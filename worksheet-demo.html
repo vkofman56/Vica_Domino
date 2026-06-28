@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MathGrain — Interactive Worksheet (demo)</title>
+<style>
+  :root{
+    --accent:#f5c518; --accent2:#36c5f0; --ok:#2ecc71; --bad:#e74c3c; --warn:#e8a33d;
+    --ink:#23304a; --paper:#fffdf5;
+    /* ---- the ONE geometry source of truth (constant across all choices) ---- */
+    --cols:2;            /* fixed columns */
+    --cellH:64px;        /* fixed problem-cell height */
+    --markW:34px;        /* fixed feedback slot — reserved even when empty */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,#222c4d,#3a3170);min-height:100vh;color:#fff;}
+
+  /* ---------- AUTHOR setup ---------- */
+  .setup{background:rgba(0,0,0,.22);padding:14px 18px;display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;}
+  .setup .brand{font-weight:800;font-size:1.05rem;align-self:center;margin-right:8px;}
+  .setup .brand b{color:var(--accent)} .setup .brand i{color:var(--accent2);font-style:normal}
+  .setup .tag{font-size:.65rem;opacity:.6;border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:2px 8px;margin-left:6px;}
+  .fld{display:flex;flex-direction:column;gap:4px;}
+  .fld label{font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}
+  .fld input[type=text],.fld input[type=number],.fld select{
+    font:inherit;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:7px 10px;}
+  .fld input[type=number]{width:72px;}
+  .fld input[type=text]{width:210px;}
+  .setup .go{margin-left:auto;align-self:center;}
+  .setup .go button{background:var(--accent);color:#222;font-weight:700;border:0;border-radius:9px;padding:9px 16px;cursor:pointer;}
+
+  /* ---------- STUDENT worksheet ---------- */
+  .wrap{padding:22px;display:flex;justify-content:center;}
+  .sheet{background:var(--paper);color:var(--ink);width:760px;max-width:100%;border-radius:10px;
+    box-shadow:0 18px 50px rgba(0,0,0,.35);padding:30px 38px 30px;}
+  .sheet h1{margin:0 0 22px;font-size:1.5rem;min-height:1.5rem;}
+
+  /* stable grid: identical cell box no matter the options */
+  .grid{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:6px 32px;}
+  .prob{display:flex;align-items:center;gap:8px;height:var(--cellH);}
+  .prob .n{color:#aab;font-size:.8rem;width:24px;text-align:right;flex:none;}
+  .prob .q{font-size:1.4rem;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .prob input{width:60px;font:inherit;font-size:1.25rem;text-align:center;border:0;border-bottom:2px solid #9aa;
+    background:transparent;color:var(--ink);padding:2px 0;}
+  .prob input:focus{outline:0;border-bottom-color:var(--accent2);}
+  .prob input:disabled{opacity:1;}
+  .prob .mark{width:var(--markW);flex:none;font-size:1.05rem;text-align:center;}
+  .prob.correct input{border-bottom-color:var(--ok);color:var(--ok);}
+  .prob.correct .mark{color:var(--ok);}
+  .prob.wrong input{border-bottom-color:var(--bad);color:var(--bad);}
+  .prob.wrong .mark{color:var(--bad);}
+
+  /* status bar — fixed height so it never reflows the sheet */
+  .statusbar{margin-top:24px;padding-top:14px;border-top:1px dashed #cfc9b0;display:flex;align-items:center;gap:14px;min-height:54px;}
+  .status{font-size:1rem;font-weight:600;color:var(--ink);flex:1;}
+  .status .pill{display:inline-block;background:#eef0f5;border-radius:20px;padding:3px 12px;margin-right:10px;font-size:.82rem;color:#555;}
+  .status.good{color:var(--ok);} .status.bad{color:var(--bad);} .status.done{color:var(--warn);}
+  .statusbar button{background:var(--ink);color:#fff;border:0;border-radius:9px;padding:9px 18px;font:inherit;font-weight:600;cursor:pointer;}
+  .statusbar button:disabled{opacity:.4;cursor:default;}
+</style>
+</head>
+<body>
+
+  <!-- ======================= AUTHOR SETUP ======================= -->
+  <div class="setup">
+    <div class="brand"><b>Math</b><i>Grain</i> Worksheet<span class="tag">interactive · prototype</span></div>
+
+    <div class="fld">
+      <label>Title</label>
+      <input type="text" id="opt-title" value="Addition Practice">
+    </div>
+
+    <div class="fld">
+      <label>Problems / page</label>
+      <input type="number" id="opt-count" min="1" max="40" value="10">
+    </div>
+
+    <div class="fld">
+      <label>Attempts</label>
+      <input type="number" id="opt-attempts" min="1" max="9" value="3">
+    </div>
+
+    <div class="fld">
+      <label>Parameter set</label>
+      <select id="opt-kind">
+        <option value="add">A + B   (1–20)</option>
+        <option value="sub">A − B   (A ≥ B, 1–20)</option>
+        <option value="mul">A × B   (2–9)</option>
+      </select>
+    </div>
+
+    <div class="go"><button id="apply">↻ Build page</button></div>
+  </div>
+
+  <!-- ======================= STUDENT WORKSHEET ======================= -->
+  <div class="wrap">
+    <div class="sheet">
+      <h1 id="title">Addition Practice</h1>
+      <div class="grid" id="grid"></div>
+      <div class="statusbar">
+        <div class="status" id="status"><span class="pill" id="attempt-pill">Attempt 1 of 3</span>Fill in the answers, then press Check.</div>
+        <button id="check">Check</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* The ONE parameter set drives everything (mirrors the Studio card model:
+   integer-range params + an f-formula whose answer symbol is hidden).
+   Flow: the student gets N attempts. While attempts remain we reveal ONLY the
+   number of mistakes — never which ones. After the last attempt we reveal WHICH
+   problems are incorrect. The correct answers are NEVER shown.                  */
+const SETS = {
+  add:{params:{A:[1,20],B:[1,20]}, op:'+'},
+  sub:{params:{A:[1,20],B:[1,20]}, op:'−', constraint:e=>e.A>=e.B},
+  mul:{params:{A:[2,9], B:[2,9]},  op:'×'},
+};
+const apply={'+':(a,b)=>a+b,'−':(a,b)=>a-b,'×':(a,b)=>a*b};
+const rnd=(lo,hi)=>lo+Math.floor(Math.random()*(hi-lo+1));
+
+let cfg={}, problems=[], attemptsUsed=0, locked=false;
+
+function readOptions(){
+  return {
+    title:document.getElementById('opt-title').value || 'Worksheet',
+    count:Math.max(1,Math.min(40, +document.getElementById('opt-count').value||10)),
+    attempts:Math.max(1,Math.min(9, +document.getElementById('opt-attempts').value||3)),
+    kind:document.getElementById('opt-kind').value,
+  };
+}
+
+function generate(kind,n){
+  const S=SETS[kind], seen=new Set(), out=[]; let tries=0;
+  while(out.length<n && tries<n*300){
+    tries++;
+    const e={}; for(const p in S.params){const[lo,hi]=S.params[p]; e[p]=rnd(lo,hi);}
+    if(S.constraint && !S.constraint(e)) continue;
+    const key=e.A+','+e.B; if(seen.has(key)) continue; seen.add(key);
+    out.push({a:e.A,b:e.B,op:S.op,answer:apply[S.op](e.A,e.B)});
+  }
+  return out;
+}
+
+function build(){
+  cfg=readOptions();
+  problems=generate(cfg.kind,cfg.count);
+  attemptsUsed=0; locked=false;
+  document.getElementById('title').textContent=cfg.title;
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  problems.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='prob'; row.dataset.i=i;
+    row.innerHTML=`<span class="n">${i+1}.</span>`+
+      `<span class="q">${p.a} ${p.op} ${p.b} =</span>`+
+      `<input inputmode="numeric" autocomplete="off">`+
+      `<span class="mark"></span>`;
+    grid.appendChild(row);
+  });
+  document.getElementById('check').disabled=false;
+  document.getElementById('check').textContent='Check';
+  setStatus('', `Fill in the answers, then press Check.`);
+}
+
+function setStatus(cls,html){
+  const s=document.getElementById('status');
+  s.className='status'+(cls?(' '+cls):'');
+  const cur=Math.min(attemptsUsed+1,cfg.attempts);
+  s.innerHTML=`<span class="pill">Attempt ${cur} of ${cfg.attempts}</span>`+html;
+}
+
+function evaluate(){
+  if(locked) return;
+  attemptsUsed++;
+  let wrong=[], blank=0;
+  problems.forEach((p,i)=>{
+    const inp=document.querySelector(`.prob[data-i="${i}"] input`);
+    const v=inp.value.trim();
+    if(v==='') blank++;
+    if(v==='' || +v!==p.answer) wrong.push(i);
+  });
+
+  if(wrong.length===0){                       // solved
+    locked=true; lockInputs(); markAll(wrong); // marks all correct
+    document.getElementById('check').disabled=true;
+    setStatus('good', `🎉 All ${problems.length} correct!`);
+    return;
+  }
+
+  if(attemptsUsed < cfg.attempts){            // attempts remain → COUNT ONLY, no marks
+    setStatus('bad',
+      `You have <b>${wrong.length}</b> mistake${wrong.length>1?'s':''} on this page`+
+      `${blank?` (${blank} blank)`:''}. Try again.`);
+    document.getElementById('check').textContent='Check again';
+  } else {                                    // last attempt used → reveal WHICH are wrong (not the answers)
+    locked=true; lockInputs(); markAll(wrong);
+    document.getElementById('check').disabled=true;
+    setStatus('done',
+      `Finished. <b>${wrong.length}</b> problem${wrong.length>1?'s are':' is'} incorrect (shown in red).`);
+  }
+}
+
+/* mark every problem ✓/✗ — used only on the solved or final-attempt state */
+function markAll(wrong){
+  const wset=new Set(wrong);
+  problems.forEach((p,i)=>{
+    const row=document.querySelector(`.prob[data-i="${i}"]`);
+    const mark=row.querySelector('.mark');
+    row.classList.remove('correct','wrong');
+    if(wset.has(i)){ row.classList.add('wrong'); mark.textContent='✗'; }
+    else { row.classList.add('correct'); mark.textContent='✓'; }
+  });
+}
+function lockInputs(){ document.querySelectorAll('.prob input').forEach(i=>i.disabled=true); }
+
+document.getElementById('apply').onclick=build;
+document.getElementById('check').onclick=evaluate;
+build();
+</script>
+</body>
+</html>

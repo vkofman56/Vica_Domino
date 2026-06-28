@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:01 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:16 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:01 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:16 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:01 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:16 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3493,6 +3493,10 @@
             out.textContent = '✓ Saved.';
             // The f-formula can define a derived parameter (e.g. C) — refresh the bar.
             if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
+            // Invisible (hidden) parameters render half-transparent on the card —
+            // re-apply now so toggling visible/invisible shows immediately.
+            var _loupeSvg = (function () { var c = document.getElementById('loupe-card-container'); return c && c.querySelector('svg:not(.loupe-grid)'); })();
+            if (_loupeSvg) _pmApplyParamVisibility(_loupeSvg, loupeSourceCard);
         }
         // Prettify operators for on-card display (substitution still works — it only
         // touches A–Z identifiers, never these symbols).
@@ -3519,38 +3523,82 @@
             var sz = (typeof getEffectiveSize === 'function') ? getEffectiveSize() : 30;
             var over = (typeof drawOverScale !== 'undefined') ? drawOverScale : 1;
             var NS = 'http://www.w3.org/2000/svg';
-            var el = document.createElementNS(NS, 'text');
-            // LEFT-aligned (text-anchor:start) so a longer instance grows to the RIGHT
-            // and the first symbol's left edge stays put (aligned with the template).
-            el.setAttribute('x', vb.x);
-            el.setAttribute('y', (vb.y + vb.h / 2));
-            el.setAttribute('text-anchor', 'start');
-            el.setAttribute('font-size', gridToSvg(sz * over));
-            el.setAttribute('font-family', drawFontFamily);
-            el.setAttribute('font-weight', '500');
-            el.setAttribute('fill', '#333');
-            el.setAttribute('data-draw-size', sz);
-            el.setAttribute('data-over-scale', over);
-            if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
-            el.setAttribute('data-param', 'formula');
-            el.setAttribute('data-formula', formula);
-            el.setAttribute('data-align', 'left');
-            el.setAttribute('xml:space', 'preserve');
-            el.textContent = _fxPretty(formula);
-            el.classList.add('draw-placed');
-            if (typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
-            var varG = svg.querySelector('g[data-variation-transform]');
-            (varG || svg).appendChild(el);
-            // Center the TEMPLATE horizontally, keeping its left edge fixed.
-            try { var _bb = el.getBBox(); if (_bb && _bb.width) el.setAttribute('x', (vb.x + vb.w / 2) - _bb.width / 2); }
-            catch (e) { el.setAttribute('x', vb.x + vb.w * 0.08); }
-            if (typeof drawHistory !== 'undefined') { if (typeof drawRedoStack !== 'undefined') drawRedoStack.length = 0; drawHistory.push(el); }
+            var fontSize = gridToSvg(sz * over);
+            // Tokenise the formula into PARTS: parameter identifiers and the symbol
+            // groups in-between (+, −, =, ...). Whitespace is dropped — spacing is
+            // re-imposed as a STANDARD gap so the line is evenly aligned. Each part
+            // is printed as its own movable <text> (a parameter part is a real
+            // data-param letter so it instances + dims individually).
+            var rawToks = formula.match(/[A-Za-z_]\w*|[^A-Za-z_\s]+|\s+/g) || [];
+            var toks = [];
+            rawToks.forEach(function (t) {
+                if (/^\s+$/.test(t)) return;
+                var isParam = /^[A-Za-z_]\w*$/.test(t);
+                toks.push({ raw: t, isParam: isParam, text: isParam ? t : _fxPretty(t) });
+            });
+            if (!toks.length) { if (out) { out.className = 'par-sample-out warn'; out.textContent = '⚠ Nothing to print.'; } return; }
+            var varG = svg.querySelector('g[data-variation-transform]') || svg;
+            var GAP = fontSize * 0.30;            // standard distance between parts
+            var y = vb.y + vb.h / 2;
+            var els = [], advs = [];
+            // Reserved digit-widths (SPACE-BOX), so each parameter's slot leaves room
+            // for its largest instance before the next part — no collisions.
+            var pwidths = {};
+            try { (typeof _mpReadParams === 'function' ? _mpReadParams(loupeSourceCard) : []).forEach(function (p) { if (p.sym && p.width > 0) pwidths[p.sym] = p.width; }); } catch (e) {}
+            toks.forEach(function (tok) {
+                var el = document.createElementNS(NS, 'text');
+                el.setAttribute('x', 0);
+                el.setAttribute('y', y);
+                // LEFT-aligned so a longer instance grows to the RIGHT, first edge fixed.
+                el.setAttribute('text-anchor', 'start');
+                el.setAttribute('font-size', fontSize);
+                el.setAttribute('font-family', drawFontFamily);
+                el.setAttribute('font-weight', '500');
+                el.setAttribute('fill', '#333');
+                el.setAttribute('data-draw-size', sz);
+                el.setAttribute('data-over-scale', over);
+                if (typeof drawOverScaleMax !== 'undefined') el.setAttribute('data-over-scale-max', drawOverScaleMax);
+                if (tok.isParam) { el.setAttribute('data-param', tok.text); el.setAttribute('data-align', 'left'); }
+                el.setAttribute('xml:space', 'preserve');
+                el.textContent = tok.text;
+                el.classList.add('draw-placed');
+                if (tok.isParam && typeof _pcMarkParamEl === 'function') _pcMarkParamEl(el);
+                varG.appendChild(el);
+                var bw, bh; try { var bb = el.getBBox(); bw = bb.width; bh = bb.height; } catch (e) { bw = fontSize * 0.6 * tok.text.length; bh = fontSize * 0.72; }
+                // Advance by the reserved slot (≈ N digit-widths) when the part is a
+                // parameter with a space-box, so its largest instance still fits.
+                var adv = bw, nres = (tok.isParam && pwidths[tok.text]) ? pwidths[tok.text] : 0;
+                if (nres > 0) { var slot = nres * _pmDigitRatio(svg) * bh; if (slot > adv) adv = slot; }
+                advs.push(adv);
+                els.push(el);
+            });
+            // Total line width at the base font (reserved slots + standard gaps).
+            var totalW = advs.reduce(function (a, v) { return a + v; }, 0) + GAP * Math.max(0, els.length - 1);
+            // AUTO-FIT: scale the whole line down so it fits the card width (never up),
+            // then centre it. Font + draw-size shrink together so the print stays on
+            // the card no matter how many parts / how wide the reservations are.
+            var s = (totalW > 0 && totalW > vb.w * 0.92) ? (vb.w * 0.92 / totalW) : 1;
+            var cx = vb.x + (vb.w - totalW * s) / 2;
+            els.forEach(function (el, idx) {
+                el.setAttribute('x', cx.toFixed(2));
+                if (s < 1) {
+                    el.setAttribute('font-size', (fontSize * s).toFixed(3));
+                    el.setAttribute('data-draw-size', (sz * s).toFixed(3));
+                }
+                cx += advs[idx] * s + GAP * s;
+            });
+            if (typeof drawHistory !== 'undefined') {
+                if (typeof drawRedoStack !== 'undefined') drawRedoStack.length = 0;
+                els.forEach(function (el) { drawHistory.push(el); });
+            }
             if (typeof hasEditedExisting !== 'undefined') hasEditedExisting = true;
             if (typeof _pmStartLiveParamBoxes === 'function') _pmStartLiveParamBoxes();
             if (typeof selectDrawTool === 'function') selectDrawTool('select');
-            if (typeof selectElement === 'function') selectElement(el);
+            if (els.length && typeof selectElement === 'function') selectElement(els[0]);
             if (typeof _loupeRenderParamsBar === 'function') _loupeRenderParamsBar(loupeSourceCard);
-            if (out) { out.className = 'par-sample-out ok'; out.textContent = 'Printed on the card — move/scale it; press ▷ or the 123 tag to show an example.'; }
+            // Apply visible/invisible dimming to the freshly-printed parameters.
+            if (typeof _pmApplyParamVisibility === 'function') _pmApplyParamVisibility(svg, loupeSourceCard);
+            if (out) { out.className = 'par-sample-out ok'; out.textContent = 'Printed as separate parts on one line — move any part; press ▷ or 123 for an example.'; }
         }
 
         // ===================================================================
@@ -3574,6 +3622,23 @@
             if (!cfg || !cfg.text) delete s[uid]; else s[uid] = cfg;
             try { localStorage.setItem(_REL_STORE_KEY, JSON.stringify(s)); } catch (e) {}
             if (typeof saveCustomCards === 'function') saveCustomCards();
+        }
+        // Carry a card's full parametric authoring data to a copy: parameter
+        // definitions (ranges/constraints/constructions), the f-formula, and the
+        // relations. Keyed by uid, so a fresh copy would otherwise lose them.
+        // Lets the user copy a parametric card and keep all properties + relations
+        // (e.g. problem on one card, answer on a copy; or alt problems same params).
+        function _pmCopyCardMathData(srcUid, dstUid) {
+            if (!srcUid || !dstUid || srcUid === dstUid) return;
+            [_MP_STORE_KEY, _FX_STORE_KEY, _REL_STORE_KEY].forEach(function (key) {
+                try {
+                    var store = JSON.parse(localStorage.getItem(key) || '{}');
+                    if (store && store[srcUid] != null) {
+                        store[dstUid] = JSON.parse(JSON.stringify(store[srcUid]));
+                        localStorage.setItem(key, JSON.stringify(store));
+                    }
+                } catch (e) {}
+            });
         }
         function _relParse(text) {
             var list = [], errors = [];
@@ -3937,6 +4002,42 @@
                 _iDragSym = '';
             });
         }
+        // ===== Loupe visible/invisible option (per parameter) =====
+        // A parameter can be VISIBLE (shown on the card) or INVISIBLE (the answer
+        // the student fills in — rendered half-transparent). The invisible set is
+        // the f-formula's hidden set, so it's the single source of truth shared
+        // with generation and carried by a card copy.
+        function _loupeParamIsInvisible(card, sym) {
+            var cfg = (typeof _fxLoad === 'function' && card) ? _fxLoad(card) : null;
+            return !!(cfg && cfg.hidden && cfg.hidden.indexOf(sym) !== -1);
+        }
+        // The same eye icon used on GP 0 (Game Preview). Visible = full eye;
+        // invisible = the eye with a slash (eye-off).
+        var _LOUPE_EYE_SVG = '<svg viewBox="0 0 24 16" width="19" height="12" aria-hidden="true">' +
+            '<path d="M12 1C6 1 2 8 2 8s4 7 10 7 10-7 10-7-4-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+            '<circle cx="12" cy="8" r="3" fill="currentColor"/></svg>';
+        var _LOUPE_EYE_OFF_SVG = '<svg viewBox="0 0 24 16" width="19" height="12" aria-hidden="true">' +
+            '<path d="M12 1C6 1 2 8 2 8s4 7 10 7 10-7 10-7-4-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+            '<circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.3"/>' +
+            '<line x1="3" y1="2.5" x2="21" y2="13.5" stroke="currentColor" stroke-width="1.8"/></svg>';
+        function _loupeToggleParamVisibility(card, sym) {
+            if (typeof _fxLoad !== 'function' || typeof _fxSave !== 'function') return;
+            var cfg = _fxLoad(card) || { text: '', hidden: [] };
+            cfg.hidden = cfg.hidden || [];
+            var i = cfg.hidden.indexOf(sym);
+            if (i === -1) cfg.hidden.push(sym); else cfg.hidden.splice(i, 1);
+            _pmWithCard(card, function () { _fxSave(card, cfg); });
+            // Re-render the bar (toggle states) and dim the placed letters live.
+            _loupeRenderParamsBar(card);
+            var c = document.getElementById('loupe-card-container');
+            var svg = c && c.querySelector('svg:not(.loupe-grid)');
+            if (svg) _pmApplyParamVisibility(svg, card);
+            if (typeof _fxHidden !== 'undefined') { // keep the f-panel chips in sync if open
+                _fxHidden = {}; cfg.hidden.forEach(function (h) { _fxHidden[h] = true; });
+                if (typeof _fxRenderChips === 'function' && document.getElementById('fx-chips')) { try { _fxRenderChips(); } catch (e) {} }
+            }
+        }
+
         // Render the loupe's top "Parameters" bar for a card: a label + one button
         // per parameter (incl. the f-derived result). Click a button to place that
         // parameter on the card as a movable letter. Hidden when the card has none.
@@ -3976,11 +4077,34 @@
             hint.className = 'loupe-params-hint';
             hint.textContent = 'drag one onto the card (a copy stays here) — or click, then click the card';
             btns.forEach(function (b) {
+                var sym = b.textContent;
                 // Bar-local feedback (the i-panel's #i-msg may be closed/hidden).
                 b.addEventListener('click', function () {
-                    hint.textContent = 'now click the card to place “' + b.textContent + '”';
+                    hint.textContent = 'now click the card to place “' + sym + '”';
                 });
-                bar.appendChild(b);
+                // Each parameter gets a visible/invisible eye toggle. Invisible =
+                // the answer; the chip dims and the placed letter renders faint.
+                var invis = _loupeParamIsInvisible(card, sym);
+                if (invis) b.style.opacity = '0.5';
+                var eye = document.createElement('button');
+                eye.type = 'button';
+                eye.className = 'loupe-vis-toggle' + (invis ? ' invisible' : '');
+                eye.style.cssText = 'background:transparent;border:0;cursor:pointer;line-height:0;padding:2px 1px;margin-left:1px;color:#fff;display:inline-flex;align-items:center;opacity:' + (invis ? '0.6' : '0.95') + ';';
+                eye.innerHTML = invis ? _LOUPE_EYE_OFF_SVG : _LOUPE_EYE_SVG;
+                eye.title = invis
+                    ? sym + ' is invisible (the answer the student fills in). Click to make it visible.'
+                    : sym + ' is visible. Click to make it invisible (the answer).';
+                eye.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+                eye.addEventListener('click', function (e) {
+                    e.stopPropagation(); e.preventDefault();
+                    _loupeToggleParamVisibility(card, sym);
+                });
+                var item = document.createElement('span');
+                item.className = 'loupe-param-item';
+                item.style.cssText = 'display:inline-flex;align-items:center;';
+                item.appendChild(b);
+                item.appendChild(eye);
+                bar.appendChild(item);
             });
             bar.appendChild(hint);
             bar.style.display = 'flex';
@@ -4047,12 +4171,46 @@
         function _pmParamTexts(svg) {
             return svg ? Array.prototype.slice.call(svg.querySelectorAll('text[data-param]')) : [];
         }
-        function _pmDrawParamBoxes(svg, groupCls) {
+        // Measured ratio of a digit's advance width ÷ a glyph's bbox height for the
+        // draw font (cached). The space-box reservation = N × this × the letter's
+        // bbox height. Measuring beats estimating: getBBox height here is ≈1.1em
+        // (not cap-height), so a height-only guess over-reserved and left a big gap
+        // after a value that already filled its slot.
+        var _pmDigitRatioCache = null;
+        function _pmDigitRatio(svg) {
+            if (_pmDigitRatioCache != null) return _pmDigitRatioCache;
+            try {
+                var t = document.createElementNS(_PM_BOX_NS, 'text');
+                t.setAttribute('x', -9999); t.setAttribute('y', -9999);
+                t.setAttribute('font-size', 100);
+                t.setAttribute('font-family', (typeof drawFontFamily !== 'undefined' ? drawFontFamily : 'Arial'));
+                t.setAttribute('font-weight', '500');
+                t.textContent = '0';
+                svg.appendChild(t);
+                var b = t.getBBox(); if (t.parentNode) t.parentNode.removeChild(t);
+                if (b && b.width > 0 && b.height > 0) {
+                    var r = b.width / b.height;
+                    if (r > 0.25 && r < 0.85) { _pmDigitRatioCache = r; return r; } // sane → cache
+                }
+            } catch (e) {}
+            return 0.5; // fallback; not cached so it can re-measure once the font is ready
+        }
+        function _pmDrawParamBoxes(svg, groupCls, card) {
             if (!svg) return;
             var old = svg.querySelector('g.' + groupCls);
             if (old) old.parentNode.removeChild(old);
             var texts = _pmParamTexts(svg);
             if (!texts.length) return;  // no placed params -> leave the SVG clean
+            // sym -> reserved digit-width (the SPACE-BOX): the box must be wide
+            // enough for the parameter's largest instance, so the user sees how
+            // much room it takes (e.g. A reserves 2 digits, C reserves 3).
+            var widths = {};
+            try {
+                var pcard = card || (typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
+                (typeof _mpReadParams === 'function' && pcard ? _mpReadParams(pcard) : []).forEach(function (p) {
+                    if (p.sym && p.width > 0) widths[p.sym] = p.width;
+                });
+            } catch (e) {}
             var g = document.createElementNS(_PM_BOX_NS, 'g');
             g.setAttribute('class', groupCls);
             g.style.pointerEvents = 'none';
@@ -4064,11 +4222,19 @@
                 // Skip degenerate bboxes — a letter in a display:none subtree measures
                 // as 0×0; baking a box from that would stamp a stray magenta speck.
                 if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return;
+                // Reserved width = N digit-slots. One digit advance ≈ 0.78 × the
+                // glyph cap-height (Arial 0/■ ≈ 0.556em, cap-height ≈ 0.716em). The
+                // box keeps its left edge at the letter and grows RIGHT (the slot
+                // the instance fills), matching the left-anchored instance growth.
+                var sym = t.getAttribute('data-param');
+                var n = (sym && widths[sym]) ? widths[sym] : 0;
+                var boxW = b.width;
+                if (n > 0) { var reserved = n * _pmDigitRatio(svg) * b.height; if (reserved > boxW) boxW = reserved; }
                 var pad = Math.max(0.6, b.height * 0.14);
                 var rect = document.createElementNS(_PM_BOX_NS, 'rect');
                 rect.setAttribute('x', (b.x - pad).toFixed(2));
                 rect.setAttribute('y', (b.y - pad).toFixed(2));
-                rect.setAttribute('width', (b.width + 2 * pad).toFixed(2));
+                rect.setAttribute('width', (boxW + 2 * pad).toFixed(2));
                 rect.setAttribute('height', (b.height + 2 * pad).toFixed(2));
                 rect.setAttribute('rx', Math.max(0.4, b.height * 0.1).toFixed(2));
                 rect.setAttribute('fill', 'none');
@@ -4081,17 +4247,47 @@
         // Static bake into a source card's SVG (persists in svgContent).
         function _pmBakeParamBoxes(card) {
             if (!card) return;
-            _pmDrawParamBoxes(card.querySelector('svg'), 'pm-param-boxes');
+            _pmDrawParamBoxes(card.querySelector('svg'), 'pm-param-boxes', card);
+            _pmApplyParamVisibility(card.querySelector('svg'), card);
+        }
+        // The set of INVISIBLE parameters for a card = the f-formula's hidden set.
+        // Invisible parameters are the answers; on the card face they render
+        // half-transparent (set in the Card Editor; fixed for the Game Maker).
+        var _PM_INVIS_OPACITY = '0.4';
+        function _pmParamHiddenSet(card) {
+            var hidden = {};
+            var cfg = (typeof _fxLoad === 'function' && card) ? _fxLoad(card) : null;
+            ((cfg && cfg.hidden) || []).forEach(function (h) { hidden[h] = true; });
+            return hidden;
+        }
+        // Dim each placed parameter letter whose symbol is invisible. Applied to
+        // the live loupe view AND baked into svgContent (so the grid / games show
+        // it too). Persists via the inline style on the <text>.
+        function _pmApplyParamVisibility(svg, card) {
+            if (!svg) return;
+            var hidden = _pmParamHiddenSet(card);
+            _pmParamTexts(svg).forEach(function (t) {
+                if (t.hasAttribute('data-formula')) return; // whole-formula unit (no per-symbol opacity)
+                var sym = t.getAttribute('data-param');
+                t.style.opacity = hidden[sym] ? _PM_INVIS_OPACITY : '';
+            });
         }
         // Live boxes in the loupe — a cheap rAF loop so each box follows its letter
         // through move / scale. Started on placement / loupe-open; stopped on close.
         var _pmLiveBoxRAF = null;
         function _pmStartLiveParamBoxes() {
             if (_pmLiveBoxRAF) return;
+            // Apply invisible-parameter dimming once on open (boxes redraw every
+            // frame, but the letters' opacity is stable, so it needn't re-run).
+            (function () {
+                var c = document.getElementById('loupe-card-container');
+                var svg = c && c.querySelector('svg:not(.loupe-grid)');
+                if (svg) _pmApplyParamVisibility(svg, loupeSourceCard);
+            })();
             (function tick() {
                 var container = document.getElementById('loupe-card-container');
                 var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
-                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes'); _pmSyncAlignToggles(svg); }
+                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes', loupeSourceCard); _pmSyncAlignToggles(svg); }
                 _pmLiveBoxRAF = requestAnimationFrame(tick);
             })();
         }
@@ -8747,6 +8943,62 @@
         var drawMouseDownHandler = null;
         var drawClickHandler = null;
         var justDragged = false; // flag to prevent click after drag
+        var _dragGroup = null;            // [{el,x,y}] — move a multi-selection together
+        var marqueeJustEndedLoupe = false; // suppress the empty-space deselect click
+
+        // Rubber-band (marquee) selection of card elements: drag on empty space to
+        // draw a box; everything it touches becomes the (multi-)selection. Works
+        // alongside Shift+click (clicking each one). Uses its own document-level
+        // listeners so it never tangles with element dragging.
+        function _loupeStartMarquee(e, container) {
+            var svg = container && container.querySelector('svg:not(.loupe-grid)');
+            if (!svg) return;
+            var p0 = _loupePointerToSvg(e.clientX, e.clientY, container);
+            var NS = 'http://www.w3.org/2000/svg';
+            var rect = document.createElementNS(NS, 'rect');
+            rect.setAttribute('class', 'draw-marquee');
+            rect.setAttribute('fill', 'rgba(54,197,240,0.14)');
+            rect.setAttribute('stroke', '#36c5f0');
+            rect.setAttribute('stroke-width', '0.5');
+            rect.setAttribute('stroke-dasharray', '2 1.5');
+            rect.style.pointerEvents = 'none';
+            svg.appendChild(rect);
+            var state = { x0: p0.x, y0: p0.y, moved: false };
+            function onMove(ev) {
+                var q = _loupePointerToSvg(ev.clientX, ev.clientY, container);
+                var x = Math.min(state.x0, q.x), y = Math.min(state.y0, q.y);
+                var w = Math.abs(q.x - state.x0), h = Math.abs(q.y - state.y0);
+                rect.setAttribute('x', x.toFixed(2)); rect.setAttribute('y', y.toFixed(2));
+                rect.setAttribute('width', w.toFixed(2)); rect.setAttribute('height', h.toFixed(2));
+                if (w > 1 || h > 1) state.moved = true;
+            }
+            function onUp(ev) {
+                document.removeEventListener('mousemove', onMove, true);
+                document.removeEventListener('mouseup', onUp, true);
+                if (rect.parentNode) rect.parentNode.removeChild(rect);
+                if (!state.moved) return; // a plain click, not a drag — let it deselect
+                var q = _loupePointerToSvg(ev.clientX, ev.clientY, container);
+                var rx0 = Math.min(state.x0, q.x), ry0 = Math.min(state.y0, q.y);
+                var rx1 = Math.max(state.x0, q.x), ry1 = Math.max(state.y0, q.y);
+                deselectElement();
+                var first = true;
+                Array.prototype.forEach.call(svg.querySelectorAll('*'), function (el) {
+                    if (!isSelectableElement(el)) return;
+                    // Skip decorative, non-interactive layers (magenta boxes, selection
+                    // rings, grid) — a click can't hit them, so a marquee shouldn't either.
+                    var pe; try { pe = window.getComputedStyle(el).pointerEvents; } catch (e3) { pe = ''; }
+                    if (pe === 'none') return;
+                    var b; try { b = getSvgSpaceBBox(el); } catch (e2) { return; }
+                    if (!b || !isFinite(b.width)) return;
+                    var hit = !(b.x > rx1 || (b.x + b.width) < rx0 || b.y > ry1 || (b.y + b.height) < ry0);
+                    if (hit) { selectElement(el, !first); first = false; }
+                });
+                marqueeJustEndedLoupe = true;
+            }
+            document.addEventListener('mousemove', onMove, true);
+            document.addEventListener('mouseup', onUp, true);
+            e.preventDefault();
+        }
 
         function attachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
@@ -8758,7 +9010,11 @@
                 if (!drawModeActive) return;
 
                 var target = e.target;
-                if (!isSelectableElement(target)) return;
+                if (!isSelectableElement(target)) {
+                    // Empty space + Select tool → start a rubber-band marquee.
+                    if (drawTool === 'select' || !drawTool) _loupeStartMarquee(e, container);
+                    return;
+                }
                 target = getSelectableElement(target);
                 // Detect rapid clicks — open editor immediately instead of waiting for dblclick
                 var now = Date.now();
@@ -8787,16 +9043,26 @@
                     var local = toVariationLocalCoords(rawX, rawY);
                     rawX = local.x; rawY = local.y;
                 }
-                selectElement(target, e.shiftKey);
+                // Multi-select aware: if the clicked element is already part of a
+                // 2+ selection and Shift isn't held, KEEP the whole selection and
+                // drag it as a group (don't collapse it to this one element).
+                var _curSel = getAllSelectedElements();
+                if (e.shiftKey) {
+                    selectElement(target, true);
+                    selectDrawTool('select');
+                    e.preventDefault(); return; // Shift+click = toggle only, no drag
+                }
+                if (!(_curSel.length > 1 && _curSel.indexOf(target) !== -1)) selectElement(target, false);
                 selectDrawTool('select');
-                if (e.shiftKey) { e.preventDefault(); return; } // Shift+click = toggle only, no drag
                 isDragging = true;
                 justDragged = false;
                 dragStartX = rawX;
                 dragStartY = rawY;
-                var pos = getElementPos(target);
+                var pos = getElementPos(selectedElement || target);
                 elemStartX = pos.x;
                 elemStartY = pos.y;
+                // Snapshot every selected element's start position for a group drag.
+                _dragGroup = getAllSelectedElements().map(function (el) { var gp = getElementPos(el); return { el: el, x: gp.x, y: gp.y }; });
                 _loupeEndCoalesce(); // first mousemove will push pre-drag snapshot
                 e.preventDefault();
             };
@@ -8821,8 +9087,10 @@
                     return;
                 }
 
-                // Click on empty space in select mode = deselect
+                // Click on empty space in select mode = deselect — unless a marquee
+                // drag just finished (its selection must survive the trailing click).
                 if (drawTool === 'select') {
+                    if (marqueeJustEndedLoupe) { marqueeJustEndedLoupe = false; return; }
                     deselectElement();
                     return;
                 }
@@ -9228,6 +9496,16 @@
                 var newX = snapToGrid(Math.max(_vb.x - loX, Math.min(_vb.x + _vb.w + hiX, elemStartX + dx)));
                 var newY = snapToGrid(Math.max(_vb.y - loY, Math.min(_vb.y + _vb.h + hiY, elemStartY + dy)));
                 setElementPos(selectedElement, newX, newY);
+                // Group drag: shift the other selected elements by the same actual
+                // delta (preserves their relative positions — e.g. a whole formula).
+                if (_dragGroup && _dragGroup.length > 1) {
+                    var _adx = newX - elemStartX, _ady = newY - elemStartY;
+                    for (var _gi = 0; _gi < _dragGroup.length; _gi++) {
+                        var _g = _dragGroup[_gi];
+                        if (_g.el === selectedElement) continue;
+                        setElementPos(_g.el, _g.x + _adx, _g.y + _ady);
+                    }
+                }
                 updateSelectionRing();
                 hasEditedExisting = true;
                 justDragged = true;
@@ -9239,6 +9517,7 @@
             drawMouseUpHandler = function(e) {
                 if (isDragging) {
                     isDragging = false;
+                    _dragGroup = null;
                     _loupeEndCoalesce();
                 }
             };
@@ -13607,6 +13886,9 @@
             card.dataset.uid = generateCardUID();
             card.dataset.stableId = generateStableId(copyLabel, getCurrentCardSetName());
             card.dataset.origin = 'copy';
+            // Carry parameters + f-formula + relations onto the copy so the user
+            // can reuse the same parameter set (problem/answer split, alt problems).
+            _pmCopyCardMathData(sourceCard.dataset.uid, card.dataset.uid);
 
             // Carry over the source card's shape so a round/rectangle/etc. card
             // copies as the same shape instead of reverting to square.
@@ -17352,6 +17634,7 @@
             newBtn.onclick = function() {
                 popup.style.display = 'none';
                 _showGameTypeChoice(function(type) {
+                    if (type === 'math') { wsOpenGenerator(); return; }
                     var name = prompt('Game name:');
                     if (!name || !name.trim()) return;
                     var unique = _resolveGameNameCollision(name, type, -1);
@@ -17474,6 +17757,12 @@
             catchBtn.onclick = function() { document.body.removeChild(overlay); callback('catch'); };
             box.appendChild(catchBtn);
 
+            var mathBtn = document.createElement('button');
+            mathBtn.style.cssText = 'padding:10px 16px;border:2px solid #2ecc71;border-radius:8px;background:transparent;color:#2ecc71;font-size:13px;font-weight:bold;cursor:pointer;';
+            mathBtn.textContent = 'Math Problems';
+            mathBtn.onclick = function() { document.body.removeChild(overlay); callback('math'); };
+            box.appendChild(mathBtn);
+
             var cancelBtn = document.createElement('button');
             cancelBtn.style.cssText = 'padding:8px 16px;border:1px solid #666;border-radius:8px;background:transparent;color:#999;font-size:12px;cursor:pointer;margin-top:4px;';
             cancelBtn.textContent = 'Cancel';
@@ -17497,6 +17786,281 @@
                 closeAllSubmenus();
             }
         });
+
+        // ============================================================
+        //  GENERATE PAGE — interactive worksheet from a parametric card
+        //  Sibling to "Generate Game". Uses the real instance engine
+        //  (_mpJointSpace / _mpGenerateJointEnv / _fxBuildFromEnv) via
+        //  _pmWithCard, so problems come from the card's own params+formula.
+        //  Author choices: title, problems/page, attempts. Flow: while
+        //  attempts remain we reveal only the mistake COUNT; after the last
+        //  attempt we reveal WHICH problems are wrong (never the answers).
+        // ============================================================
+        var _wsCard = null, _wsProblems = [], _wsAttemptsUsed = 0, _wsLocked = false;
+
+        // Parametric cards in the current set (have ≥1 parameter), deduped by uid.
+        function _wsParamCardsInSet() {
+            var nodes = document.querySelectorAll(
+                '#card-set-custom .library-card, #card-library-screen .library-card');
+            var seen = {}, out = [];
+            nodes.forEach(function (el) {
+                if (!_mpReadParams(el).length) return;
+                var u = el.dataset.uid;
+                if (u && !seen[u]) { seen[u] = 1; out.push(el); }
+            });
+            return out;
+        }
+
+        // Generate N distinct problems from one card's params + f-formula.
+        function _wsGenerate(cardEl, n, hiddenSet) {
+            return _pmWithCard(cardEl, function () {
+                var params = _mpReadParams(cardEl);
+                if (!params.length) return { error: 'This card has no parameters. Open it → Par → add some.' };
+                var cfg = (typeof _fxLoad === 'function') ? _fxLoad(cardEl) : null;
+                if (!cfg || !cfg.text) return { error: 'This card has no f-formula. Open it → f, write one and hide the answer.' };
+                var hidden = {};
+                // The invisible parameters ARE the blanks/answers. Prefer the
+                // live toggle set; fall back to the card's stored hidden set.
+                var hsrc = hiddenSet || (cfg.hidden || []);
+                (Array.isArray(hsrc) ? hsrc : Object.keys(hsrc).filter(function (k) { return hsrc[k]; }))
+                    .forEach(function (h) { hidden[h] = true; });
+                if (!Object.keys(hidden).length) return { error: 'No blank chosen — make a parameter invisible (that becomes the answer).' };
+                var space = _mpJointSpace();
+                if (space.error) return { error: space.error };
+                var chosen;
+                if (space.capped) {
+                    var s = {}, envs = [], t = 0;
+                    while (envs.length < n && t < n * 400) {
+                        t++;
+                        var j = _mpGenerateJointEnv(800);
+                        if (j.error) return { error: j.error };
+                        var k = JSON.stringify(j.env);
+                        if (!s[k]) { s[k] = 1; envs.push(j.env); }
+                    }
+                    chosen = envs;
+                } else {
+                    if (space.count === 0) return { error: 'No valid combinations — the parameters/relations may contradict.' };
+                    var idxs = _pvPickDistinct(space.envs.length, Math.min(n, space.count));
+                    chosen = idxs.map(function (i) { return space.envs[i]; });
+                }
+                var probs = [];
+                for (var c = 0; c < chosen.length; c++) {
+                    var b = _fxBuildFromEnv(cfg.text, chosen[c], hidden);
+                    if (b.error) return { error: b.error };
+                    probs.push({ shown: b.shown, answers: b.answer.map(function (a) { return a.split('=').pop().trim(); }) });
+                }
+                return { problems: probs, total: space.capped ? null : space.count };
+            });
+        }
+
+        // Inject the overlay DOM + styles once.
+        function _wsEnsureDom() {
+            if (document.getElementById('ws-overlay')) return;
+            var st = document.createElement('style');
+            st.id = 'ws-style';
+            st.textContent =
+                '#ws-overlay{position:fixed;inset:0;z-index:2600;background:rgba(18,22,40,.92);display:none;flex-direction:column;overflow:auto;}' +
+                '#ws-overlay.show{display:flex;}' +
+                '.ws-bar{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;padding:14px 20px;background:rgba(0,0,0,.25);}' +
+                '.ws-bar .ws-brand{font-weight:800;font-size:1.05rem;color:#fff;align-self:center;margin-right:6px;}' +
+                '.ws-bar .ws-brand b{color:#f5c518;} .ws-bar .ws-brand i{color:#36c5f0;font-style:normal;}' +
+                '.ws-fld{display:flex;flex-direction:column;gap:4px;}' +
+                '.ws-fld label{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;color:#fff;}' +
+                '.ws-fld input,.ws-fld select{font:inherit;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:7px 10px;}' +
+                '.ws-fld input[type=number]{width:72px;} .ws-fld input[type=text]{width:200px;} .ws-fld select{max-width:230px;}' +
+                '.ws-bar .ws-go{margin-left:auto;align-self:center;display:flex;gap:8px;}' +
+                '.ws-bar .ws-go button{font:inherit;font-weight:700;border:0;border-radius:9px;padding:9px 16px;cursor:pointer;}' +
+                '.ws-build{background:#f5c518;color:#222;}' +
+                '.ws-close{background:rgba(255,255,255,.14);color:#fff;}' +
+                '.ws-wrap{padding:24px;display:flex;justify-content:center;}' +
+                '.ws-sheet{background:#fffdf5;color:#23304a;width:780px;max-width:100%;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.4);padding:30px 38px;}' +
+                '.ws-sheet h1{margin:0 0 22px;font-size:1.5rem;min-height:1.5rem;}' +
+                '.ws-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 34px;}' +
+                '.ws-prob{display:flex;align-items:center;gap:8px;height:64px;}' +
+                '.ws-prob .ws-n{color:#aab;font-size:.8rem;width:26px;text-align:right;flex:none;}' +
+                '.ws-prob .ws-q{font-size:1.4rem;font-variant-numeric:tabular-nums;white-space:nowrap;display:flex;align-items:center;gap:6px;}' +
+                '.ws-prob input.ws-ans{width:60px;font:inherit;font-size:1.25rem;text-align:center;border:0;border-bottom:2px solid #9aa;background:transparent;color:#23304a;padding:2px 0;}' +
+                '.ws-prob input.ws-ans:focus{outline:0;border-bottom-color:#36c5f0;}' +
+                '.ws-prob input.ws-ans:disabled{opacity:1;}' +
+                '.ws-prob .ws-mark{width:34px;flex:none;font-size:1.05rem;text-align:center;}' +
+                '.ws-prob.correct input.ws-ans{border-bottom-color:#2ecc71;color:#2ecc71;} .ws-prob.correct .ws-mark{color:#2ecc71;}' +
+                '.ws-prob.wrong input.ws-ans{border-bottom-color:#e74c3c;color:#e74c3c;} .ws-prob.wrong .ws-mark{color:#e74c3c;}' +
+                '.ws-statusbar{margin-top:24px;padding-top:14px;border-top:1px dashed #cfc9b0;display:flex;align-items:center;gap:14px;min-height:54px;}' +
+                '.ws-status{font-size:1rem;font-weight:600;color:#23304a;flex:1;}' +
+                '.ws-status .ws-pill{display:inline-block;background:#eef0f5;border-radius:20px;padding:3px 12px;margin-right:10px;font-size:.82rem;color:#555;}' +
+                '.ws-status.good{color:#2ecc71;} .ws-status.bad{color:#e74c3c;} .ws-status.done{color:#e8a33d;}' +
+                '.ws-statusbar button{background:#23304a;color:#fff;border:0;border-radius:9px;padding:9px 18px;font:inherit;font-weight:600;cursor:pointer;}' +
+                '.ws-statusbar button:disabled{opacity:.4;cursor:default;}';
+            document.head.appendChild(st);
+
+            var ov = document.createElement('div');
+            ov.id = 'ws-overlay';
+            ov.innerHTML =
+                '<div class="ws-bar">' +
+                  '<div class="ws-brand"><b>Math</b><i>Grain</i> Page</div>' +
+                  '<div class="ws-fld"><label>Title</label><input type="text" id="ws-title"></div>' +
+                  '<div class="ws-fld"><label>Source card</label><select id="ws-source"></select></div>' +
+                  '<div class="ws-fld"><label>Problems / page</label><input type="number" id="ws-count" min="1" max="40" value="10"></div>' +
+                  '<div class="ws-fld"><label>Attempts</label><input type="number" id="ws-attempts" min="1" max="9" value="3"></div>' +
+                  '<div class="ws-go">' +
+                    '<button class="ws-build" id="ws-build">↻ Build page</button>' +
+                    '<button class="ws-close" id="ws-closebtn">✕ Close</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="ws-wrap"><div class="ws-sheet">' +
+                  '<h1 id="ws-h1">Worksheet</h1>' +
+                  '<div class="ws-grid" id="ws-gridhost"></div>' +
+                  '<div class="ws-statusbar">' +
+                    '<div class="ws-status" id="ws-status"></div>' +
+                    '<button id="ws-check">Check</button>' +
+                  '</div>' +
+                '</div></div>';
+            document.body.appendChild(ov);
+
+            document.getElementById('ws-build').onclick = _wsBuildPage;
+            document.getElementById('ws-check').onclick = _wsCheck;
+            document.getElementById('ws-closebtn').onclick = _wsClose;
+            document.getElementById('ws-source').onchange = function () {
+                var cards = _wsParamCardsInSet();
+                _wsCard = cards[+this.value] || _wsCard;
+                _wsBuildPage();
+            };
+        }
+
+        // Entry from the GM popup.
+        function wsOpenGenerator() {
+            _wsEnsureDom();
+            var cards = _wsParamCardsInSet();
+            if (!cards.length) {
+                // Non-blocking: show the overlay with a guidance message instead
+                // of a modal alert (which would freeze the page).
+                var sel0 = document.getElementById('ws-source'); if (sel0) sel0.innerHTML = '';
+                _wsCard = null; _wsProblems = [];
+                document.getElementById('ws-title').value =
+                    ((typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : 'Worksheet') || 'Worksheet';
+                document.getElementById('ws-h1').textContent = document.getElementById('ws-title').value;
+                document.getElementById('ws-gridhost').innerHTML = '';
+                document.getElementById('ws-check').disabled = true;
+                _wsSetStatus('done', 'No parametric cards in this set yet. Open a card → <b>Par</b> (add parameters) and <b>f</b> (write a formula, hide the answer), then try again.');
+                document.getElementById('ws-overlay').classList.add('show');
+                return;
+            }
+            // populate source dropdown (label by formula, falling back to index)
+            var sel = document.getElementById('ws-source');
+            sel.innerHTML = '';
+            cards.forEach(function (el, i) {
+                var f = (typeof _fxLoad === 'function' && _fxLoad(el)) || {};
+                var lbl = f.text ? f.text : '(no formula yet)';
+                var o = document.createElement('option');
+                o.value = i; o.textContent = 'Card ' + (i + 1) + ' — ' + lbl;
+                sel.appendChild(o);
+            });
+            _wsCard = cards[0];
+            sel.value = '0';
+            var nm = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : 'Worksheet';
+            document.getElementById('ws-title').value = nm || 'Worksheet';
+            document.getElementById('ws-overlay').classList.add('show');
+            _wsBuildPage();
+        }
+
+        function _wsClose() {
+            var ov = document.getElementById('ws-overlay');
+            if (ov) ov.classList.remove('show');
+        }
+
+        function _wsBuildPage() {
+            if (!_wsCard) return;
+            var n = Math.max(1, Math.min(40, parseInt(document.getElementById('ws-count').value, 10) || 10));
+            // The game maker does NOT edit the card — it uses each card's own
+            // stored invisible/hidden config (set in the Card Editor).
+            var r = _wsGenerate(_wsCard, n);
+            var host = document.getElementById('ws-gridhost');
+            document.getElementById('ws-h1').textContent = document.getElementById('ws-title').value || 'Worksheet';
+            _wsAttemptsUsed = 0; _wsLocked = false;
+            document.getElementById('ws-check').disabled = false;
+            document.getElementById('ws-check').textContent = 'Check';
+            if (r.error) {
+                _wsProblems = [];
+                host.innerHTML = '';
+                _wsSetStatus('done', _mpEsc(r.error));
+                document.getElementById('ws-check').disabled = true;
+                return;
+            }
+            _wsProblems = r.problems;
+            host.innerHTML = '';
+            _wsProblems.forEach(function (p, i) {
+                var row = document.createElement('div');
+                row.className = 'ws-prob'; row.dataset.i = i;
+                var ai = 0;
+                var qhtml = _mpRenderMath(p.shown).replace(/\?/g, function () {
+                    var a = (p.answers[ai] != null) ? p.answers[ai] : '';
+                    ai++;
+                    return '<input class="ws-ans" data-ans="' + _mpEsc(a) + '" inputmode="numeric" autocomplete="off">';
+                });
+                row.innerHTML = '<span class="ws-n">' + (i + 1) + '.</span><span class="ws-q">' + qhtml + '</span><span class="ws-mark"></span>';
+                host.appendChild(row);
+            });
+            _wsSetStatus('', 'Fill in the answers, then press Check.');
+        }
+
+        function _wsSetStatus(cls, html) {
+            var s = document.getElementById('ws-status');
+            var attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('ws-attempts').value, 10) || 3));
+            var cur = Math.min(_wsAttemptsUsed + 1, attempts);
+            s.className = 'ws-status' + (cls ? (' ' + cls) : '');
+            s.innerHTML = '<span class="ws-pill">Attempt ' + cur + ' of ' + attempts + '</span>' + html;
+        }
+
+        function _wsCheck() {
+            if (_wsLocked || !_wsProblems.length) return;
+            var attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('ws-attempts').value, 10) || 3));
+            _wsAttemptsUsed++;
+            var wrong = [], blank = 0;
+            _wsProblems.forEach(function (p, i) {
+                var row = document.querySelector('.ws-prob[data-i="' + i + '"]');
+                var inputs = row.querySelectorAll('input.ws-ans');
+                var bad = false, anyBlank = false;
+                inputs.forEach(function (inp) {
+                    var v = inp.value.trim();
+                    if (v === '') anyBlank = true;
+                    if (v === '' || v !== String(inp.dataset.ans)) bad = true;
+                });
+                if (anyBlank) blank++;
+                if (bad) wrong.push(i);
+            });
+
+            if (wrong.length === 0) {                 // solved
+                _wsLocked = true; _wsLockInputs(); _wsMarkAll(wrong);
+                document.getElementById('ws-check').disabled = true;
+                _wsSetStatus('good', '🎉 All ' + _wsProblems.length + ' correct!');
+                return;
+            }
+            if (_wsAttemptsUsed < attempts) {         // attempts remain → COUNT ONLY
+                _wsSetStatus('bad', 'You have <b>' + wrong.length + '</b> mistake' + (wrong.length > 1 ? 's' : '') +
+                    ' on this page' + (blank ? ' (' + blank + ' blank)' : '') + '. Try again.');
+                document.getElementById('ws-check').textContent = 'Check again';
+            } else {                                  // out of attempts → reveal WHICH (not the answers)
+                _wsLocked = true; _wsLockInputs(); _wsMarkAll(wrong);
+                document.getElementById('ws-check').disabled = true;
+                _wsSetStatus('done', 'Finished. <b>' + wrong.length + '</b> problem' +
+                    (wrong.length > 1 ? 's are' : ' is') + ' incorrect (shown in red).');
+            }
+        }
+
+        function _wsMarkAll(wrong) {
+            var wset = {};
+            wrong.forEach(function (i) { wset[i] = 1; });
+            _wsProblems.forEach(function (p, i) {
+                var row = document.querySelector('.ws-prob[data-i="' + i + '"]');
+                var mark = row.querySelector('.ws-mark');
+                row.classList.remove('correct', 'wrong');
+                if (wset[i]) { row.classList.add('wrong'); mark.textContent = '✗'; }
+                else { row.classList.add('correct'); mark.textContent = '✓'; }
+            });
+        }
+        function _wsLockInputs() {
+            document.querySelectorAll('#ws-overlay input.ws-ans').forEach(function (i) { i.disabled = true; });
+        }
 
         function enterSelectionMode() {
             // Save all card edits before entering game maker mode

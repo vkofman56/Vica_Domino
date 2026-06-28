@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:10 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:10 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3767,12 +3767,12 @@
             (parsed.derived || []).forEach(function (d) { if (d.name !== p.sym && names.indexOf(d.name) === -1) names.push(d.name); });
             return names;
         }
-        // ---- The colour-chip cross-constraint builder (Rel panel) ----
-        // The line is a token sequence serialised to a relation expression over
-        // qualified names (e.g. "Int( A / 10 ) != Int( B / 10 )"). Tokens: an
-        // operand {op:{big,sub}} or a raw piece {raw:'Int('|'/'|'*'|'10'|'!='...}.
-        var _xcLine = [];
-        var _xcNumDraft = '';
+        // ---- The cross-constraint builder (Rel panel) ----
+        // One relation EXPRESSION over qualified names (e.g. "Int(A/10) != Int(B/10)").
+        // Type numbers / parens from the keyboard; tap the colour chips (params),
+        // Int, ÷, ×, and the comparators to insert at the cursor. A live coloured
+        // preview shows the constraint as chips.
+        var _xcText = '';
         function _xcOpGlyph(op) { var m = { '==': '=', '!=': '≠', '<=': '≤', '>=': '≥', '<': '<', '>': '>' }; return m[op] || op; }
         function _xcRawGlyph(r) { var m = { '/': '÷', '*': '×', '!=': '≠', '<=': '≤', '>=': '≥', '==': '=' }; return m[r] || r; }
         function _xcChip(operand, onClick, extra) {
@@ -3785,11 +3785,29 @@
             if (onClick) c.onclick = onClick;
             return c;
         }
-        function _xcTokenText(t) { return t.op ? _xcOperandName(t.op) : t.raw; }
-        function _xcLineString() { return _xcLine.map(_xcTokenText).join(' '); }
-        function _xcLineValid() { if (!_xcLine.length) return false; try { var pr = _relParse(_xcLineString()); return !!(pr.list && pr.list.length === 1); } catch (e) { return false; } }
-        function _xcAppendRaw(raw) { _xcLine.push({ raw: raw }); _xcRenderBuilder(); }
-        // Render a saved relation STRING into a row as coloured chips + symbols.
+        function _xcValid() { if (!_xcText.trim()) return false; try { var pr = _relParse(_xcText); return !!(pr.list && pr.list.length === 1); } catch (e) { return false; } }
+        // Insert text at the constraint field's cursor (used by every chip/button),
+        // then refresh the live preview — without re-rendering (keeps focus/caret).
+        function _xcInsert(text) {
+            var inp = document.getElementById('xc-input');
+            if (!inp) { _xcText += text; _xcUpdatePreview(); return; }
+            var s = inp.selectionStart != null ? inp.selectionStart : inp.value.length;
+            var e = inp.selectionEnd != null ? inp.selectionEnd : inp.value.length;
+            inp.value = inp.value.slice(0, s) + text + inp.value.slice(e);
+            var pos = s + text.length; inp.selectionStart = inp.selectionEnd = pos;
+            _xcText = inp.value; inp.focus(); _xcUpdatePreview();
+        }
+        function _xcUpdatePreview() {
+            var prev = document.getElementById('xc-preview');
+            if (prev) {
+                prev.innerHTML = '';
+                if (!_xcText.trim()) { var ph = document.createElement('span'); ph.textContent = 'preview appears here'; ph.style.cssText = 'color:#8a90a0;font-style:italic;font-size:12px;'; prev.appendChild(ph); }
+                else _xcRenderRelInto(prev, _xcText);
+            }
+            var add = document.getElementById('xc-add');
+            if (add) { var ok = _xcValid(); add.disabled = !ok; add.style.background = ok ? '#23c552' : 'rgba(46,204,113,0.4)'; add.style.cursor = ok ? 'pointer' : 'default'; }
+        }
+        // Render a relation STRING into a row as coloured chips + symbols.
         function _xcRenderRelInto(container, str) {
             var params = (typeof _mpReadParams === 'function') ? _mpReadParams(loupeSourceCard) : [];
             var bigset = {}; params.forEach(function (p) { bigset[p.sym] = 1; });
@@ -3811,88 +3829,59 @@
             if (!host) return;
             host.innerHTML = '';
             var params = (typeof _mpReadParams === 'function') ? _mpReadParams(loupeSourceCard) : [];
-            // 1) operand palette — Big parameter chip + its micro chips, per row.
+            // 1) operand palette — tap a chip to insert that parameter at the cursor.
             var pal = document.createElement('div');
             pal.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:5px;';
             params.forEach(function (p) {
                 var row = document.createElement('div');
                 row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:2px;';
-                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcLine.push({ op: { big: p.sym, sub: null } }); _xcRenderBuilder(); }));
-                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcLine.push({ op: { big: p.sym, sub: m } }); _xcRenderBuilder(); })); });
+                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcInsert(p.sym + ' '); }));
+                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcInsert(p.sym + '__' + m + ' '); })); });
                 pal.appendChild(row);
             });
             host.appendChild(pal);
-            // 2) tools row — Int(), parens, ÷ × + −, and a number entry.
+            // 2) insert helpers — Int, ÷, ×, and the comparators. Numbers and ( )
+            //    you just type from the keyboard.
             var tools = document.createElement('div');
-            tools.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;align-items:center;margin-bottom:4px;';
-            function toolBtn(label, raw, title) {
+            tools.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;align-items:center;margin-bottom:6px;';
+            function insBtn(label, text, title, isCmp) {
                 var b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (title) b.title = title;
-                b.style.cssText = 'border:1px solid rgba(255,255,255,0.22);background:transparent;color:#cfd3dd;border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer;';
-                b.onclick = function () { _xcAppendRaw(raw); };
+                b.style.cssText = 'border:1px solid ' + (isCmp ? 'rgba(245,197,24,0.5)' : 'rgba(255,255,255,0.22)') + ';background:transparent;color:' + (isCmp ? '#f5c518' : '#cfd3dd') + ';border-radius:6px;padding:2px 9px;font-weight:700;cursor:pointer;';
+                b.onclick = function () { _xcInsert(text); };
                 return b;
             }
-            tools.appendChild(toolBtn('Int(', 'Int(', 'integer part (floor)'));
-            tools.appendChild(toolBtn(')', ')'));
-            tools.appendChild(toolBtn('÷', '/'));
-            tools.appendChild(toolBtn('×', '*'));
-            tools.appendChild(toolBtn('+', '+'));
-            tools.appendChild(toolBtn('−', '-'));
-            var ni = document.createElement('input'); ni.type = 'number'; ni.placeholder = '#'; ni.value = _xcNumDraft || '';
-            ni.style.cssText = 'width:56px;border:1px solid rgba(255,255,255,0.22);background:#2c3866;color:#fff;border-radius:6px;padding:2px 6px;';
-            ni.oninput = function () { _xcNumDraft = this.value; };
-            ni.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); addNum(); } };
-            function addNum() { var v = (_xcNumDraft || '').trim(); if (/^-?\d+$/.test(v)) { _xcLine.push({ raw: v }); _xcNumDraft = ''; _xcRenderBuilder(); } }
-            var nb = document.createElement('button'); nb.type = 'button'; nb.textContent = '+#'; nb.title = 'add this number';
-            nb.style.cssText = 'border:1px solid rgba(255,255,255,0.22);background:transparent;color:#cfd3dd;border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer;';
-            nb.onclick = addNum;
-            tools.appendChild(ni); tools.appendChild(nb);
-            host.appendChild(tools);
-            // 3) comparators — their own row.
-            var ops = document.createElement('div');
-            ops.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;';
-            [['==', '='], ['!=', '≠'], ['<', '<'], ['>', '>'], ['<=', '≤'], ['>=', '≥']].forEach(function (o) {
-                var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; b.title = 'comparator ' + o[1];
-                b.style.cssText = 'border:1px solid rgba(245,197,24,0.5);background:transparent;color:#f5c518;border-radius:6px;padding:2px 9px;font-weight:700;cursor:pointer;';
-                b.onclick = function () { _xcAppendRaw(o[0]); };
-                ops.appendChild(b);
+            tools.appendChild(insBtn('Int', 'Int(', 'Int(…) — the whole-number part (floor). Example: Int(A/10) = the tens digit of A'));
+            tools.appendChild(insBtn('÷', ' / ', 'divide'));
+            tools.appendChild(insBtn('×', ' * ', 'multiply'));
+            var sep = document.createElement('span'); sep.textContent = '·'; sep.style.cssText = 'color:rgba(255,255,255,0.3);margin:0 3px;'; tools.appendChild(sep);
+            [['=', ' == '], ['≠', ' != '], ['<', ' < '], ['>', ' > '], ['≤', ' <= '], ['≥', ' >= ']].forEach(function (o) {
+                tools.appendChild(insBtn(o[0], o[1], 'comparator ' + o[0], true));
             });
-            host.appendChild(ops);
-            // 4) the constraint line box — grid paper, tokens snap onto one line.
-            var box = document.createElement('div');
-            box.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:36px;padding:5px 9px;border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;overflow-x:auto;white-space:nowrap;'
-                + 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:18px 18px;';
-            if (!_xcLine.length) {
-                var ph = document.createElement('span');
-                ph.textContent = 'tap chips / operators to build a constraint';
-                ph.style.cssText = 'color:#8a90a0;font-style:italic;font-size:12px;';
-                box.appendChild(ph);
-            } else {
-                _xcLine.forEach(function (tok, ti) {
-                    var el;
-                    if (tok.op) { el = _xcChip(tok.op, function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }); el.style.margin = '0'; }
-                    else { el = document.createElement('span'); el.textContent = _xcRawGlyph(tok.raw); el.title = 'remove'; el.style.cssText = 'font-weight:800;color:#fff;font-size:15px;cursor:pointer;'; el.onclick = function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }; }
-                    box.appendChild(el);
-                });
-            }
-            host.appendChild(box);
+            host.appendChild(tools);
+            // 3) the typeable constraint field — type numbers / parens here.
+            var inp = document.createElement('input');
+            inp.id = 'xc-input'; inp.type = 'text'; inp.value = _xcText; inp.spellcheck = false;
+            inp.placeholder = 'type or tap, e.g. Int(A/10) ≠ Int(B/10)';
+            inp.style.cssText = 'width:100%;box-sizing:border-box;border:1.5px solid rgba(255,255,255,0.25);background:#2c3866;color:#fff;border-radius:8px;padding:6px 9px;font-family:\'Roboto Mono\',monospace;';
+            inp.oninput = function () { _xcText = this.value; _xcUpdatePreview(); };
+            host.appendChild(inp);
+            // 4) live coloured preview — grid paper, the constraint as chips.
+            var prev = document.createElement('div');
+            prev.id = 'xc-preview';
+            prev.style.cssText = 'display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:30px;margin-top:5px;padding:5px 9px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;'
+                + 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:18px 18px;';
+            host.appendChild(prev);
             // 5) actions
             var act = document.createElement('div');
             act.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:5px;';
-            var ready = _xcLineValid();
-            var add = document.createElement('button'); add.type = 'button'; add.textContent = '+ Add';
-            add.style.cssText = 'border:0;border-radius:6px;background:' + (ready ? '#23c552' : 'rgba(46,204,113,0.4)') + ';color:#fff;font-weight:700;padding:3px 12px;cursor:' + (ready ? 'pointer' : 'default') + ';';
-            add.onclick = function () { if (!_xcLineValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push(_xcLineString()); _xcSave(loupeSourceCard, xc); _xcLine = []; _xcRenderBuilder(); };
+            var add = document.createElement('button'); add.id = 'xc-add'; add.type = 'button'; add.textContent = '+ Add';
+            add.style.cssText = 'border:0;border-radius:6px;background:rgba(46,204,113,0.4);color:#fff;font-weight:700;padding:3px 12px;cursor:default;';
+            add.onclick = function () { if (!_xcValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push(_xcText.trim()); _xcSave(loupeSourceCard, xc); _xcText = ''; _xcRenderBuilder(); };
             act.appendChild(add);
-            if (_xcLine.length) {
-                var bk = document.createElement('button'); bk.type = 'button'; bk.textContent = '⌫'; bk.title = 'remove last';
-                bk.style.cssText = 'border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:6px;padding:3px 9px;cursor:pointer;';
-                bk.onclick = function () { _xcLine.pop(); _xcRenderBuilder(); };
-                act.appendChild(bk);
-                var clr = document.createElement('button'); clr.type = 'button'; clr.textContent = 'Clear';
-                clr.style.cssText = 'border:0;background:transparent;color:#aaa;cursor:pointer;font-size:12px;';
-                clr.onclick = function () { _xcLine = []; _xcRenderBuilder(); };
-                act.appendChild(clr);
-            }
+            var clrAll = document.createElement('button'); clrAll.type = 'button'; clrAll.textContent = 'Clear';
+            clrAll.style.cssText = 'border:0;background:transparent;color:#aaa;cursor:pointer;font-size:12px;';
+            clrAll.onclick = function () { _xcText = ''; var i = document.getElementById('xc-input'); if (i) i.value = ''; _xcUpdatePreview(); };
+            act.appendChild(clrAll);
             host.appendChild(act);
             // 6) saved list (strings = expressions; objects = legacy {l,op,r}).
             var saved = _xcLoad(loupeSourceCard);
@@ -3914,6 +3903,7 @@
                 });
                 host.appendChild(list);
             }
+            _xcUpdatePreview();
         }
         // Carry a card's full parametric authoring data to a copy: parameter
         // definitions (ranges/constraints/constructions), the f-formula, and the
@@ -3995,7 +3985,7 @@
                 _relSave(loupeSourceCard, cfg0);
             }
             var out = document.getElementById('rel-out'); if (out) { out.textContent = ''; out.className = 'par-sample-out'; }
-            _xcLine = []; _xcNumDraft = '';
+            _xcText = '';
             if (typeof _xcRenderBuilder === 'function') _xcRenderBuilder();
             p.style.display = 'flex';
         }

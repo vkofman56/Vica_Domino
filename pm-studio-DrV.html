@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:32 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:10 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:32 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:10 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:32 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3786,26 +3786,28 @@
             return c;
         }
         function _xcValid() { if (!_xcText.trim()) return false; try { var pr = _relParse(_xcText); return !!(pr.list && pr.list.length === 1); } catch (e) { return false; } }
-        // Insert text at the constraint field's cursor (used by every chip/button),
-        // then refresh the live preview — without re-rendering (keeps focus/caret).
+        // Insert text at the constraint box's cursor (used by every chip/button),
+        // then refresh the save button — without re-rendering (keeps focus/caret).
         function _xcInsert(text) {
             var inp = document.getElementById('xc-input');
-            if (!inp) { _xcText += text; _xcUpdatePreview(); return; }
+            if (!inp) { _xcText += text; _xcUpdateSave(); return; }
             var s = inp.selectionStart != null ? inp.selectionStart : inp.value.length;
             var e = inp.selectionEnd != null ? inp.selectionEnd : inp.value.length;
             inp.value = inp.value.slice(0, s) + text + inp.value.slice(e);
             var pos = s + text.length; inp.selectionStart = inp.selectionEnd = pos;
-            _xcText = inp.value; inp.focus(); _xcUpdatePreview();
+            _xcText = inp.value; inp.focus(); _xcUpdateSave();
         }
-        function _xcUpdatePreview() {
-            var prev = document.getElementById('xc-preview');
-            if (prev) {
-                prev.innerHTML = '';
-                if (!_xcText.trim()) { var ph = document.createElement('span'); ph.textContent = 'preview appears here'; ph.style.cssText = 'color:#8a90a0;font-style:italic;font-size:12px;'; prev.appendChild(ph); }
-                else _xcRenderRelInto(prev, _xcText);
-            }
-            var add = document.getElementById('xc-add');
-            if (add) { var ok = _xcValid(); add.disabled = !ok; add.style.background = ok ? '#23c552' : 'rgba(46,204,113,0.4)'; add.style.cursor = ok ? 'pointer' : 'default'; }
+        // "Save relation N" appears once the box has content; green when it parses.
+        function _xcUpdateSave() {
+            var btn = document.getElementById('xc-save');
+            if (!btn) return;
+            var has = !!_xcText.trim();
+            btn.style.display = has ? '' : 'none';
+            var ok = _xcValid();
+            btn.disabled = !ok;
+            btn.style.background = ok ? '#23c552' : 'rgba(46,204,113,0.45)';
+            btn.style.cursor = ok ? 'pointer' : 'default';
+            btn.title = ok ? '' : 'Finish the relation (e.g. A > B) to save it.';
         }
         // Render a relation STRING into a row as coloured chips + symbols.
         function _xcRenderRelInto(container, str) {
@@ -3858,52 +3860,39 @@
                 tools.appendChild(insBtn(o[0], o[1], 'comparator ' + o[0], true));
             });
             host.appendChild(tools);
-            // 3) the typeable constraint field — type numbers / parens here.
+            var GRID = 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:18px 18px;';
+            // 3) saved relations — each its own grid-paper box, numbered, × to remove.
+            var saved = _xcLoad(loupeSourceCard);
+            saved.forEach(function (c, idx) {
+                var rbox = document.createElement('div');
+                rbox.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:34px;padding:5px 9px;margin-top:6px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;' + GRID;
+                var lbl = document.createElement('span'); lbl.textContent = (idx + 1) + '.'; lbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; rbox.appendChild(lbl);
+                if (typeof c === 'string') { _xcRenderRelInto(rbox, c); }
+                else {
+                    var lch = _xcChip(c.l); lch.style.cursor = 'default'; rbox.appendChild(lch);
+                    var op = document.createElement('span'); op.textContent = _xcOpGlyph(c.op); op.style.cssText = 'font-weight:700;color:#fff;'; rbox.appendChild(op);
+                    var rch = _xcChip(c.r); rch.style.cursor = 'default'; rbox.appendChild(rch);
+                }
+                var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Remove';
+                x.style.cssText = 'border:0;background:transparent;color:#e74c3c;font-size:15px;cursor:pointer;margin-left:auto;';
+                x.onclick = function () { var arr = _xcLoad(loupeSourceCard).slice(); arr.splice(idx, 1); _xcSave(loupeSourceCard, arr); _xcRenderBuilder(); };
+                rbox.appendChild(x);
+                host.appendChild(rbox);
+            });
+            // 4) the editable grid-paper box for the NEXT relation (placeholder A>B).
+            var n = saved.length + 1;
             var inp = document.createElement('input');
             inp.id = 'xc-input'; inp.type = 'text'; inp.value = _xcText; inp.spellcheck = false;
-            inp.placeholder = 'type or tap, e.g. Int(A/10) ≠ Int(B/10)';
-            inp.style.cssText = 'width:100%;box-sizing:border-box;border:1.5px solid rgba(255,255,255,0.25);background:#2c3866;color:#fff;border-radius:8px;padding:6px 9px;font-family:\'Roboto Mono\',monospace;';
-            inp.oninput = function () { _xcText = this.value; _xcUpdatePreview(); };
+            inp.placeholder = 'A>B'; inp.title = 'Type or tap';
+            inp.style.cssText = 'width:100%;box-sizing:border-box;min-height:34px;border:1.5px solid rgba(255,255,255,0.28);border-radius:8px;padding:6px 9px;color:#fff;font-family:\'Roboto Mono\',monospace;margin-top:6px;' + GRID;
+            inp.oninput = function () { _xcText = this.value; _xcUpdateSave(); };
             host.appendChild(inp);
-            // 4) live coloured preview — grid paper, the constraint as chips.
-            var prev = document.createElement('div');
-            prev.id = 'xc-preview';
-            prev.style.cssText = 'display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:30px;margin-top:5px;padding:5px 9px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;'
-                + 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:18px 18px;';
-            host.appendChild(prev);
-            // 5) actions
-            var act = document.createElement('div');
-            act.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:5px;';
-            var add = document.createElement('button'); add.id = 'xc-add'; add.type = 'button'; add.textContent = '+ Add';
-            add.style.cssText = 'border:0;border-radius:6px;background:rgba(46,204,113,0.4);color:#fff;font-weight:700;padding:3px 12px;cursor:default;';
-            add.onclick = function () { if (!_xcValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push(_xcText.trim()); _xcSave(loupeSourceCard, xc); _xcText = ''; _xcRenderBuilder(); };
-            act.appendChild(add);
-            var clrAll = document.createElement('button'); clrAll.type = 'button'; clrAll.textContent = 'Clear';
-            clrAll.style.cssText = 'border:0;background:transparent;color:#aaa;cursor:pointer;font-size:12px;';
-            clrAll.onclick = function () { _xcText = ''; var i = document.getElementById('xc-input'); if (i) i.value = ''; _xcUpdatePreview(); };
-            act.appendChild(clrAll);
-            host.appendChild(act);
-            // 6) saved list (strings = expressions; objects = legacy {l,op,r}).
-            var saved = _xcLoad(loupeSourceCard);
-            if (saved.length) {
-                var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-top:6px;';
-                saved.forEach(function (c, idx) {
-                    var row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
-                    if (typeof c === 'string') { _xcRenderRelInto(row, c); }
-                    else {
-                        var lch = _xcChip(c.l); lch.style.cursor = 'default'; row.appendChild(lch);
-                        var op = document.createElement('span'); op.textContent = _xcOpGlyph(c.op); op.style.cssText = 'font-weight:700;color:#fff;'; row.appendChild(op);
-                        var rch = _xcChip(c.r); rch.style.cursor = 'default'; row.appendChild(rch);
-                    }
-                    var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Remove';
-                    x.style.cssText = 'border:0;background:transparent;color:#e74c3c;font-size:15px;cursor:pointer;margin-left:auto;';
-                    x.onclick = function () { var arr = _xcLoad(loupeSourceCard).slice(); arr.splice(idx, 1); _xcSave(loupeSourceCard, arr); _xcRenderBuilder(); };
-                    row.appendChild(x);
-                    list.appendChild(row);
-                });
-                host.appendChild(list);
-            }
-            _xcUpdatePreview();
+            // 5) "Save relation N" — appears once the box has content.
+            var save = document.createElement('button'); save.id = 'xc-save'; save.type = 'button'; save.textContent = 'Save relation ' + n;
+            save.style.cssText = 'border:0;border-radius:6px;background:rgba(46,204,113,0.45);color:#fff;font-weight:700;padding:4px 14px;cursor:default;margin-top:6px;display:none;';
+            save.onclick = function () { if (!_xcValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push(_xcText.trim()); _xcSave(loupeSourceCard, xc); _xcText = ''; _xcRenderBuilder(); };
+            host.appendChild(save);
+            _xcUpdateSave();
         }
         // Carry a card's full parametric authoring data to a copy: parameter
         // definitions (ranges/constraints/constructions), the f-formula, and the

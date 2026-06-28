@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:14 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:14 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:54 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:14 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2669,8 +2669,29 @@
                     '<span class="par-list-sym"></span><span class="par-list-summary"></span>'
                     + '<button class="par-mini-btn" title="Edit">&#9998;</button>'
                     + '<button class="par-mini-btn" title="Delete">&#128465;</button>';
-                row.querySelector('.par-list-sym').textContent = p.sym || '?';
-                row.querySelector('.par-list-summary').textContent = _mpSummary(p);
+                var _col = (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#cc00cc';
+                var symEl = row.querySelector('.par-list-sym');
+                symEl.textContent = p.sym || '?';
+                // colour the parameter (a coloured box) so its group is visible.
+                symEl.style.color = _col;
+                symEl.style.border = '1.6px solid ' + _col;
+                symEl.style.borderRadius = '6px';
+                symEl.style.padding = '0 7px';
+                var sumEl = row.querySelector('.par-list-summary');
+                sumEl.textContent = _mpSummary(p);
+                // its micro-parameters, as chips in the same colour.
+                var _micros = (typeof _xcMicroNames === 'function') ? _xcMicroNames(p) : [];
+                if (_micros.length) {
+                    var mc = document.createElement('span');
+                    mc.style.cssText = 'display:inline-flex;gap:3px;margin-left:7px;vertical-align:middle;';
+                    _micros.forEach(function (m) {
+                        var chip = document.createElement('span');
+                        chip.textContent = m;
+                        chip.style.cssText = 'font-weight:700;border:1.2px solid ' + _col + ';color:' + _col + ';border-radius:6px;padding:0 6px;font-size:11px;';
+                        mc.appendChild(chip);
+                    });
+                    sumEl.appendChild(mc);
+                }
                 var btns = row.querySelectorAll('.par-mini-btn');
                 btns[0].onclick = function () { _mpOpenEditor(i); };
                 btns[1].onclick = function () {
@@ -3252,6 +3273,22 @@
                     }
                     throw new Error('cannot parse this line');
                 } catch (e) { errors.push('Line ' + (idx + 1) + ': ' + e.message); }
+            });
+            // Any variable USED in the formula / derived / relations but never given
+            // a range is treated as a single digit [0, 9] by default — so writing just
+            // "A = 10a + b" makes a and b real micro-parameters (the place-value case)
+            // without a separate range line. Declare a range to override.
+            var declared = {};
+            Object.keys(freeVars).forEach(function (n) { declared[n] = 1; });
+            derived.forEach(function (d) { declared[d.name] = 1; });
+            if (sym) declared[sym] = 1;
+            var referenced = {};
+            function _collect(toks) { try { _mpIdsIn(toks).forEach(function (id) { referenced[id] = 1; }); } catch (e) {} }
+            if (main) _collect(main.toks);
+            derived.forEach(function (d) { _collect(d.toks); });
+            relations.forEach(function (r) { _collect(r.a); _collect(r.b); });
+            Object.keys(referenced).forEach(function (id) {
+                if (!declared[id]) freeVars[id] = { lo: 0, hi: 9, auto: true };
             });
             if (!main && !errors.length) errors.push('No line defines the result (e.g. "' + (sym || 'A') + ' = 10a + b").');
             return { freeVars: freeVars, derived: derived, relations: relations, main: main, errors: errors };

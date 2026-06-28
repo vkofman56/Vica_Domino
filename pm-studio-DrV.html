@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:32 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:32 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:14 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:32 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3766,9 +3766,8 @@
             return names;
         }
         // ---- The colour-chip cross-constraint builder (Rel panel) ----
-        var _xcPending = { l: null, op: null, r: null };
+        var _xcLine = []; // the constraint being built: tokens {kind:'operand',operand}|{kind:'op',op}
         function _xcOpGlyph(op) { var m = { '==': '=', '!=': '≠', '<=': '≤', '>=': '≥', '<': '<', '>': '>' }; return m[op] || op; }
-        function _xcSameOp(a, b) { return a && b && a.big === b.big && (a.sub || null) === (b.sub || null); }
         function _xcChip(operand, onClick, extra) {
             var col = (typeof _pmParamColor === 'function') ? _pmParamColor(operand.big) : '#cc00cc';
             var c = document.createElement('button');
@@ -3779,60 +3778,79 @@
             if (onClick) c.onclick = onClick;
             return c;
         }
-        function _xcPick(operand) {
-            if (_xcSameOp(_xcPending.l, operand)) _xcPending.l = null;
-            else if (_xcSameOp(_xcPending.r, operand)) _xcPending.r = null;
-            else if (!_xcPending.l) _xcPending.l = operand;
-            else _xcPending.r = operand;
+        // Tapping a chip / operator appends it to the line (snap-to-line). Two
+        // operators in a row replace; the line reads left→right like a sentence.
+        function _xcAppend(tok) {
+            if (tok.kind === 'op' && _xcLine.length && _xcLine[_xcLine.length - 1].kind === 'op') _xcLine[_xcLine.length - 1] = tok;
+            else _xcLine.push(tok);
             _xcRenderBuilder();
         }
-        function _xcSlot(operand, side) {
-            if (operand) return _xcChip(operand, function () { _xcPending[side === 'left' ? 'l' : 'r'] = null; _xcRenderBuilder(); });
-            var s = document.createElement('span');
-            s.textContent = '?';
-            s.style.cssText = 'display:inline-block;min-width:20px;text-align:center;border:1.5px dashed rgba(255,255,255,0.3);border-radius:7px;padding:2px 9px;color:#888;margin:2px;';
-            return s;
+        function _xcLineValid() {
+            return _xcLine.length === 3 && _xcLine[0].kind === 'operand' && _xcLine[1].kind === 'op' && _xcLine[2].kind === 'operand';
         }
         function _xcRenderBuilder() {
             var host = document.getElementById('xc-builder');
             if (!host) return;
             host.innerHTML = '';
             var params = (typeof _mpReadParams === 'function') ? _mpReadParams(loupeSourceCard) : [];
-            // operand palette — Big parameter chip + its micro chips, per row
+            // 1) operand palette — Big parameter chip + its micro chips, per row.
             var pal = document.createElement('div');
-            pal.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:6px;';
+            pal.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:5px;';
             params.forEach(function (p) {
                 var row = document.createElement('div');
                 row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:2px;';
-                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcPick({ big: p.sym, sub: null }); }));
-                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcPick({ big: p.sym, sub: m }); })); });
+                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcAppend({ kind: 'operand', operand: { big: p.sym, sub: null } }); }));
+                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcAppend({ kind: 'operand', operand: { big: p.sym, sub: m } }); })); });
                 pal.appendChild(row);
             });
             host.appendChild(pal);
-            // pending row: [left] [ops] [right] [Add] [Clear]
-            var pend = document.createElement('div');
-            pend.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:4px 0;padding:4px;border:1px dashed rgba(255,255,255,0.2);border-radius:8px;';
-            pend.appendChild(_xcSlot(_xcPending.l, 'left'));
+            // 2) operators — their own row, so they never look like an operand slot.
+            var ops = document.createElement('div');
+            ops.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;';
             [['==', '='], ['!=', '≠'], ['<', '<'], ['>', '>'], ['<=', '≤'], ['>=', '≥']].forEach(function (o) {
-                var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
-                var on = _xcPending.op === o[0];
-                b.style.cssText = 'border:1px solid ' + (on ? '#f5c518' : 'rgba(255,255,255,0.25)') + ';background:' + (on ? '#f5c518' : 'transparent') + ';color:' + (on ? '#222' : '#fff') + ';border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer;margin:1px;';
-                b.onclick = function () { _xcPending.op = o[0]; _xcRenderBuilder(); };
-                pend.appendChild(b);
+                var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; b.title = 'operator ' + o[1];
+                b.style.cssText = 'border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:6px;padding:2px 9px;font-weight:700;cursor:pointer;';
+                b.onclick = function () { _xcAppend({ kind: 'op', op: o[0] }); };
+                ops.appendChild(b);
             });
-            pend.appendChild(_xcSlot(_xcPending.r, 'right'));
-            var ready = _xcPending.l && _xcPending.op && _xcPending.r;
+            host.appendChild(ops);
+            // 3) the constraint line box — grid paper, tokens snap onto one line.
+            var box = document.createElement('div');
+            box.style.cssText = 'display:flex;align-items:center;gap:7px;min-height:36px;padding:5px 9px;border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;overflow-x:auto;white-space:nowrap;'
+                + 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:18px 18px;';
+            if (!_xcLine.length) {
+                var ph = document.createElement('span');
+                ph.textContent = 'tap a chip, an operator, then a chip';
+                ph.style.cssText = 'color:#8a90a0;font-style:italic;font-size:12px;';
+                box.appendChild(ph);
+            } else {
+                _xcLine.forEach(function (tok, ti) {
+                    var el;
+                    if (tok.kind === 'operand') { el = _xcChip(tok.operand, function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }); el.style.margin = '0'; }
+                    else { el = document.createElement('span'); el.textContent = _xcOpGlyph(tok.op); el.title = 'remove'; el.style.cssText = 'font-weight:800;color:#fff;font-size:16px;cursor:pointer;'; el.onclick = function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }; }
+                    box.appendChild(el);
+                });
+            }
+            host.appendChild(box);
+            // 4) actions
+            var act = document.createElement('div');
+            act.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:5px;';
+            var ready = _xcLineValid();
             var add = document.createElement('button'); add.type = 'button'; add.textContent = '+ Add';
-            add.style.cssText = 'border:0;border-radius:6px;background:' + (ready ? '#23c552' : 'rgba(46,204,113,0.4)') + ';color:#fff;font-weight:700;padding:3px 10px;cursor:' + (ready ? 'pointer' : 'default') + ';margin-left:4px;';
-            add.onclick = function () { if (!ready) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push({ l: _xcPending.l, op: _xcPending.op, r: _xcPending.r }); _xcSave(loupeSourceCard, xc); _xcPending = { l: null, op: null, r: null }; _xcRenderBuilder(); };
-            pend.appendChild(add);
-            if (_xcPending.l || _xcPending.op || _xcPending.r) {
+            add.style.cssText = 'border:0;border-radius:6px;background:' + (ready ? '#23c552' : 'rgba(46,204,113,0.4)') + ';color:#fff;font-weight:700;padding:3px 12px;cursor:' + (ready ? 'pointer' : 'default') + ';';
+            add.onclick = function () { if (!_xcLineValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push({ l: _xcLine[0].operand, op: _xcLine[1].op, r: _xcLine[2].operand }); _xcSave(loupeSourceCard, xc); _xcLine = []; _xcRenderBuilder(); };
+            act.appendChild(add);
+            if (_xcLine.length) {
+                var bk = document.createElement('button'); bk.type = 'button'; bk.textContent = '⌫'; bk.title = 'remove last';
+                bk.style.cssText = 'border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:6px;padding:3px 9px;cursor:pointer;';
+                bk.onclick = function () { _xcLine.pop(); _xcRenderBuilder(); };
+                act.appendChild(bk);
                 var clr = document.createElement('button'); clr.type = 'button'; clr.textContent = 'Clear';
                 clr.style.cssText = 'border:0;background:transparent;color:#aaa;cursor:pointer;font-size:12px;';
-                clr.onclick = function () { _xcPending = { l: null, op: null, r: null }; _xcRenderBuilder(); };
-                pend.appendChild(clr);
+                clr.onclick = function () { _xcLine = []; _xcRenderBuilder(); };
+                act.appendChild(clr);
             }
-            host.appendChild(pend);
+            host.appendChild(act);
             // saved list
             var saved = _xcLoad(loupeSourceCard);
             if (saved.length) {
@@ -3923,7 +3941,7 @@
             _closeMathPanels('rel-panel');
             document.getElementById('rel-text').value = (_relLoad(loupeSourceCard) || {}).text || '';
             var out = document.getElementById('rel-out'); out.textContent = ''; out.className = 'par-sample-out';
-            _xcPending = { l: null, op: null, r: null };
+            _xcLine = [];
             if (typeof _xcRenderBuilder === 'function') _xcRenderBuilder();
             p.style.display = 'flex';
         }

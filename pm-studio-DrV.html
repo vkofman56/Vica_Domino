@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:53 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:32 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:53 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:32 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:53 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1551,10 +1551,8 @@
                     <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
                 </div>
                 <div class="par-title">Rel · Relations</div>
-                <div class="par-help">Constraints <b>between</b> your main parameters (capitals) — one per line, e.g. <b>A &gt; B</b>, <b>A != B</b>, <b>A == 2B</b>. Applied when generating problems (Preview).</div>
-                <textarea class="par-input" id="rel-text" rows="3" spellcheck="false" placeholder="A > B&#10;A != C" style="width:100%;box-sizing:border-box;resize:vertical;font-family:'Roboto Mono',monospace;line-height:1.5;margin-top:6px;"></textarea>
-                <div class="par-section-label" style="margin-top:10px;">Cross-constraints <span class="par-help" style="text-transform:none;letter-spacing:0;font-style:italic;">— click a chip, an operator, then another chip</span></div>
-                <div id="xc-builder"></div>
+                <div class="par-help">Constraints <b>between</b> parameters — including a micro-parameter of one Big parameter vs another (e.g. <b>a of A</b> ≠ <b>a of B</b>). Build them by tapping the colour chips and operators below; applied when generating problems.</div>
+                <div id="xc-builder" style="margin-top:6px;"></div>
                 <div class="par-section-label">Check</div>
                 <div><button class="par-btn-secondary" id="rel-check-btn">Check ▷</button></div>
                 <div class="par-sample-out" id="rel-out"></div>
@@ -3751,8 +3749,12 @@
         function _xcToRelObjs(xc) {
             var out = [];
             (xc || []).forEach(function (c) {
-                try { out.push({ a: _mpExprToks(_xcOperandName(c.l)), op: c.op, b: _mpExprToks(_xcOperandName(c.r)) }); }
-                catch (e) {}
+                try {
+                    // String = a relation expression over qualified names (supports
+                    // Int(), ÷, ×, +, -, parens, numbers). Object = legacy {l,op,r}.
+                    if (typeof c === 'string') { var pr = _relParse(c); if (pr.list) out = out.concat(pr.list); }
+                    else if (c) { out.push({ a: _mpExprToks(_xcOperandName(c.l)), op: c.op, b: _mpExprToks(_xcOperandName(c.r)) }); }
+                } catch (e) {}
             });
             return out;
         }
@@ -3766,8 +3768,13 @@
             return names;
         }
         // ---- The colour-chip cross-constraint builder (Rel panel) ----
-        var _xcLine = []; // the constraint being built: tokens {kind:'operand',operand}|{kind:'op',op}
+        // The line is a token sequence serialised to a relation expression over
+        // qualified names (e.g. "Int( A / 10 ) != Int( B / 10 )"). Tokens: an
+        // operand {op:{big,sub}} or a raw piece {raw:'Int('|'/'|'*'|'10'|'!='...}.
+        var _xcLine = [];
+        var _xcNumDraft = '';
         function _xcOpGlyph(op) { var m = { '==': '=', '!=': '≠', '<=': '≤', '>=': '≥', '<': '<', '>': '>' }; return m[op] || op; }
+        function _xcRawGlyph(r) { var m = { '/': '÷', '*': '×', '!=': '≠', '<=': '≤', '>=': '≥', '==': '=' }; return m[r] || r; }
         function _xcChip(operand, onClick, extra) {
             var col = (typeof _pmParamColor === 'function') ? _pmParamColor(operand.big) : '#cc00cc';
             var c = document.createElement('button');
@@ -3778,15 +3785,26 @@
             if (onClick) c.onclick = onClick;
             return c;
         }
-        // Tapping a chip / operator appends it to the line (snap-to-line). Two
-        // operators in a row replace; the line reads left→right like a sentence.
-        function _xcAppend(tok) {
-            if (tok.kind === 'op' && _xcLine.length && _xcLine[_xcLine.length - 1].kind === 'op') _xcLine[_xcLine.length - 1] = tok;
-            else _xcLine.push(tok);
-            _xcRenderBuilder();
-        }
-        function _xcLineValid() {
-            return _xcLine.length === 3 && _xcLine[0].kind === 'operand' && _xcLine[1].kind === 'op' && _xcLine[2].kind === 'operand';
+        function _xcTokenText(t) { return t.op ? _xcOperandName(t.op) : t.raw; }
+        function _xcLineString() { return _xcLine.map(_xcTokenText).join(' '); }
+        function _xcLineValid() { if (!_xcLine.length) return false; try { var pr = _relParse(_xcLineString()); return !!(pr.list && pr.list.length === 1); } catch (e) { return false; } }
+        function _xcAppendRaw(raw) { _xcLine.push({ raw: raw }); _xcRenderBuilder(); }
+        // Render a saved relation STRING into a row as coloured chips + symbols.
+        function _xcRenderRelInto(container, str) {
+            var params = (typeof _mpReadParams === 'function') ? _mpReadParams(loupeSourceCard) : [];
+            var bigset = {}; params.forEach(function (p) { bigset[p.sym] = 1; });
+            var re = /([A-Za-z_]\w*)|(<=|>=|==|!=|≠|[<>=])|(\d+)|([()+\-*\/])|(\S)/g, m;
+            while ((m = re.exec(str))) {
+                if (m[1]) {
+                    var id = m[1], qm = id.match(/^([A-Za-z]\w*?)__(\w+)$/);
+                    if (qm && bigset[qm[1]]) { var ch1 = _xcChip({ big: qm[1], sub: qm[2] }); ch1.style.cursor = 'default'; container.appendChild(ch1); }
+                    else if (bigset[id]) { var ch2 = _xcChip({ big: id, sub: null }); ch2.style.cursor = 'default'; container.appendChild(ch2); }
+                    else { var s = document.createElement('span'); s.textContent = id; s.style.cssText = 'color:#cfd3dd;font-weight:600;margin:0 1px;'; container.appendChild(s); }
+                } else {
+                    var raw = m[2] || m[3] || m[4] || m[5];
+                    var sp = document.createElement('span'); sp.textContent = _xcRawGlyph(raw); sp.style.cssText = 'color:#fff;font-weight:700;margin:0 2px;'; container.appendChild(sp);
+                }
+            }
         }
         function _xcRenderBuilder() {
             var host = document.getElementById('xc-builder');
@@ -3799,46 +3817,71 @@
             params.forEach(function (p) {
                 var row = document.createElement('div');
                 row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:2px;';
-                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcAppend({ kind: 'operand', operand: { big: p.sym, sub: null } }); }));
-                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcAppend({ kind: 'operand', operand: { big: p.sym, sub: m } }); })); });
+                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcLine.push({ op: { big: p.sym, sub: null } }); _xcRenderBuilder(); }));
+                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcLine.push({ op: { big: p.sym, sub: m } }); _xcRenderBuilder(); })); });
                 pal.appendChild(row);
             });
             host.appendChild(pal);
-            // 2) operators — their own row, so they never look like an operand slot.
+            // 2) tools row — Int(), parens, ÷ × + −, and a number entry.
+            var tools = document.createElement('div');
+            tools.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;align-items:center;margin-bottom:4px;';
+            function toolBtn(label, raw, title) {
+                var b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (title) b.title = title;
+                b.style.cssText = 'border:1px solid rgba(255,255,255,0.22);background:transparent;color:#cfd3dd;border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer;';
+                b.onclick = function () { _xcAppendRaw(raw); };
+                return b;
+            }
+            tools.appendChild(toolBtn('Int(', 'Int(', 'integer part (floor)'));
+            tools.appendChild(toolBtn(')', ')'));
+            tools.appendChild(toolBtn('÷', '/'));
+            tools.appendChild(toolBtn('×', '*'));
+            tools.appendChild(toolBtn('+', '+'));
+            tools.appendChild(toolBtn('−', '-'));
+            var ni = document.createElement('input'); ni.type = 'number'; ni.placeholder = '#'; ni.value = _xcNumDraft || '';
+            ni.style.cssText = 'width:56px;border:1px solid rgba(255,255,255,0.22);background:#2c3866;color:#fff;border-radius:6px;padding:2px 6px;';
+            ni.oninput = function () { _xcNumDraft = this.value; };
+            ni.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); addNum(); } };
+            function addNum() { var v = (_xcNumDraft || '').trim(); if (/^-?\d+$/.test(v)) { _xcLine.push({ raw: v }); _xcNumDraft = ''; _xcRenderBuilder(); } }
+            var nb = document.createElement('button'); nb.type = 'button'; nb.textContent = '+#'; nb.title = 'add this number';
+            nb.style.cssText = 'border:1px solid rgba(255,255,255,0.22);background:transparent;color:#cfd3dd;border-radius:6px;padding:2px 8px;font-weight:700;cursor:pointer;';
+            nb.onclick = addNum;
+            tools.appendChild(ni); tools.appendChild(nb);
+            host.appendChild(tools);
+            // 3) comparators — their own row.
             var ops = document.createElement('div');
             ops.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;';
             [['==', '='], ['!=', '≠'], ['<', '<'], ['>', '>'], ['<=', '≤'], ['>=', '≥']].forEach(function (o) {
-                var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; b.title = 'operator ' + o[1];
-                b.style.cssText = 'border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:6px;padding:2px 9px;font-weight:700;cursor:pointer;';
-                b.onclick = function () { _xcAppend({ kind: 'op', op: o[0] }); };
+                var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1]; b.title = 'comparator ' + o[1];
+                b.style.cssText = 'border:1px solid rgba(245,197,24,0.5);background:transparent;color:#f5c518;border-radius:6px;padding:2px 9px;font-weight:700;cursor:pointer;';
+                b.onclick = function () { _xcAppendRaw(o[0]); };
                 ops.appendChild(b);
             });
             host.appendChild(ops);
-            // 3) the constraint line box — grid paper, tokens snap onto one line.
+            // 4) the constraint line box — grid paper, tokens snap onto one line.
             var box = document.createElement('div');
-            box.style.cssText = 'display:flex;align-items:center;gap:7px;min-height:36px;padding:5px 9px;border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;overflow-x:auto;white-space:nowrap;'
+            box.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:36px;padding:5px 9px;border:1.5px solid rgba(255,255,255,0.25);border-radius:8px;overflow-x:auto;white-space:nowrap;'
                 + 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:18px 18px;';
             if (!_xcLine.length) {
                 var ph = document.createElement('span');
-                ph.textContent = 'tap a chip, an operator, then a chip';
+                ph.textContent = 'tap chips / operators to build a constraint';
                 ph.style.cssText = 'color:#8a90a0;font-style:italic;font-size:12px;';
                 box.appendChild(ph);
             } else {
                 _xcLine.forEach(function (tok, ti) {
                     var el;
-                    if (tok.kind === 'operand') { el = _xcChip(tok.operand, function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }); el.style.margin = '0'; }
-                    else { el = document.createElement('span'); el.textContent = _xcOpGlyph(tok.op); el.title = 'remove'; el.style.cssText = 'font-weight:800;color:#fff;font-size:16px;cursor:pointer;'; el.onclick = function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }; }
+                    if (tok.op) { el = _xcChip(tok.op, function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }); el.style.margin = '0'; }
+                    else { el = document.createElement('span'); el.textContent = _xcRawGlyph(tok.raw); el.title = 'remove'; el.style.cssText = 'font-weight:800;color:#fff;font-size:15px;cursor:pointer;'; el.onclick = function () { _xcLine.splice(ti, 1); _xcRenderBuilder(); }; }
                     box.appendChild(el);
                 });
             }
             host.appendChild(box);
-            // 4) actions
+            // 5) actions
             var act = document.createElement('div');
             act.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:5px;';
             var ready = _xcLineValid();
             var add = document.createElement('button'); add.type = 'button'; add.textContent = '+ Add';
             add.style.cssText = 'border:0;border-radius:6px;background:' + (ready ? '#23c552' : 'rgba(46,204,113,0.4)') + ';color:#fff;font-weight:700;padding:3px 12px;cursor:' + (ready ? 'pointer' : 'default') + ';';
-            add.onclick = function () { if (!_xcLineValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push({ l: _xcLine[0].operand, op: _xcLine[1].op, r: _xcLine[2].operand }); _xcSave(loupeSourceCard, xc); _xcLine = []; _xcRenderBuilder(); };
+            add.onclick = function () { if (!_xcLineValid()) return; var xc = _xcLoad(loupeSourceCard).slice(); xc.push(_xcLineString()); _xcSave(loupeSourceCard, xc); _xcLine = []; _xcRenderBuilder(); };
             act.appendChild(add);
             if (_xcLine.length) {
                 var bk = document.createElement('button'); bk.type = 'button'; bk.textContent = '⌫'; bk.title = 'remove last';
@@ -3851,15 +3894,18 @@
                 act.appendChild(clr);
             }
             host.appendChild(act);
-            // saved list
+            // 6) saved list (strings = expressions; objects = legacy {l,op,r}).
             var saved = _xcLoad(loupeSourceCard);
             if (saved.length) {
-                var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-top:4px;';
+                var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-top:6px;';
                 saved.forEach(function (c, idx) {
-                    var row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:5px;';
-                    row.appendChild(_xcChip(c.l));
-                    var op = document.createElement('span'); op.textContent = _xcOpGlyph(c.op); op.style.cssText = 'font-weight:700;color:#fff;'; row.appendChild(op);
-                    row.appendChild(_xcChip(c.r));
+                    var row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+                    if (typeof c === 'string') { _xcRenderRelInto(row, c); }
+                    else {
+                        var lch = _xcChip(c.l); lch.style.cursor = 'default'; row.appendChild(lch);
+                        var op = document.createElement('span'); op.textContent = _xcOpGlyph(c.op); op.style.cssText = 'font-weight:700;color:#fff;'; row.appendChild(op);
+                        var rch = _xcChip(c.r); rch.style.cursor = 'default'; row.appendChild(rch);
+                    }
                     var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Remove';
                     x.style.cssText = 'border:0;background:transparent;color:#e74c3c;font-size:15px;cursor:pointer;margin-left:auto;';
                     x.onclick = function () { var arr = _xcLoad(loupeSourceCard).slice(); arr.splice(idx, 1); _xcSave(loupeSourceCard, arr); _xcRenderBuilder(); };
@@ -3939,33 +3985,32 @@
             if (!p) return;
             if (p.style.display !== 'none') { p.style.display = 'none'; return; }
             _closeMathPanels('rel-panel');
-            document.getElementById('rel-text').value = (_relLoad(loupeSourceCard) || {}).text || '';
-            var out = document.getElementById('rel-out'); out.textContent = ''; out.className = 'par-sample-out';
-            _xcLine = [];
+            // Migrate any legacy free-text relations into the chip-builder list so
+            // they remain visible/editable now that the text box is gone.
+            var cfg0 = _relLoad(loupeSourceCard);
+            if (cfg0 && cfg0.text && cfg0.text.trim()) {
+                var lines = cfg0.text.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+                cfg0.xc = (Array.isArray(cfg0.xc) ? cfg0.xc.slice() : []).concat(lines);
+                cfg0.text = '';
+                _relSave(loupeSourceCard, cfg0);
+            }
+            var out = document.getElementById('rel-out'); if (out) { out.textContent = ''; out.className = 'par-sample-out'; }
+            _xcLine = []; _xcNumDraft = '';
             if (typeof _xcRenderBuilder === 'function') _xcRenderBuilder();
             p.style.display = 'flex';
         }
         function _relClosePanel() { var p = document.getElementById('rel-panel'); if (p) p.style.display = 'none'; }
         function _relCheck() {
             var out = document.getElementById('rel-out'); out.className = 'par-sample-out';
-            var text = (document.getElementById('rel-text').value || '').trim();
-            var parsed = _relParse(text);
-            if (parsed.error) { out.classList.add('warn'); out.textContent = '⚠ ' + parsed.error; return; }
-            var j = _mpGenerateJointEnv(800, text);
+            var j = _mpGenerateJointEnv(800);
             if (j.error) { out.classList.add('warn'); out.textContent = '⚠ ' + j.error; return; }
             out.classList.add('ok');
-            out.textContent = '✓ e.g. ' + Object.keys(j.env).map(function (k) { return k + '=' + j.env[k]; }).join(',  ');
+            out.textContent = '✓ e.g. ' + Object.keys(j.env).filter(function (k) { return k.indexOf('__') === -1; }).map(function (k) { return k + '=' + j.env[k]; }).join(',  ');
         }
         function _relSaveCfg() {
-            var text = (document.getElementById('rel-text').value || '').trim();
-            var parsed = _relParse(text);
-            if (parsed.error && !confirm('Relations have issues:\n' + parsed.error + '\n\nSave anyway?')) return;
-            // Preserve any cross-constraints (xc) already on the cfg — don't drop
-            // them when saving the text relations.
-            var cfg = _relLoad(loupeSourceCard) || {};
-            cfg.text = text;
-            _relSave(loupeSourceCard, cfg);
-            var out = document.getElementById('rel-out'); out.className = 'par-sample-out ok'; out.textContent = '✓ Saved.';
+            // Cross-constraints already persist on each + Add; Save just confirms.
+            var out = document.getElementById('rel-out'); if (out) { out.className = 'par-sample-out ok'; out.textContent = '✓ Saved.'; }
+            _relClosePanel();
         }
 
         // All valid values a single Par can take (for counting the problem space).

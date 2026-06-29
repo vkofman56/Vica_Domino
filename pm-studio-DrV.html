@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:46 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:35 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:46 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:35 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:46 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2801,8 +2801,9 @@
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-int" title="Insert Int( ) — integer part (floor)">Int()</button>'
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-frac" title="Insert a fraction ( )/( )">' + _MP_FRAC_SVG + '</button>'
                 +   '</div>'
-                +   '<textarea class="par-input" id="mp-def" rows="4" spellcheck="false" placeholder="' + _mpEsc(defPlaceholder) + '" style="width:100%;box-sizing:border-box;resize:vertical;font-family:\'Roboto Mono\',monospace;line-height:1.5;">' + _mpEsc(p.def || '') + '</textarea>'
-                +   '<div class="par-help">One rule per line: <b>result =</b> formula · <b>name =</b> derived · <b>name ∈ [lo, hi]</b> free var — <b>[ ]</b> include the edge, <b>( )</b> exclude (or <b>name: lo..hi</b>) · or a relation like <b>a &gt; b</b>. Implicit × so <b>10a</b>, <b>2k</b> work. <b>=</b> is for formulas; use <b>∈</b> for a range.</div>'
+                +   '<textarea id="mp-def" spellcheck="false" style="display:none;">' + _mpEsc(p.def || '') + '</textarea>'
+                +   '<div id="mp-rules" style="display:flex;flex-direction:column;gap:6px;"></div>'
+                +   '<div class="par-help">One box per rule: <b>result =</b> formula · <b>name =</b> derived · <b>name ∈ [lo, hi]</b> or <b>{set}</b> · or a relation <b>a &gt; b</b>. Implicit × (<b>10a</b>); use <b>∈</b> for a range.</div>'
                 +   '<div id="mp-micros" class="par-micros" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:20px;"></div>'
                 + '</div>'
                 + '<div class="par-section-label">Check</div>'
@@ -2820,19 +2821,20 @@
             document.getElementById('mp-def').addEventListener('input', function () {
                 var sym = (document.getElementById('mp-sym') || {}).value || 'D';
                 if (!_pvLoadFromDef(this.value, sym)) { _pvActive = false; _pvDigits = null; }
-                _mpRenderMicros(); _mpRenderPVHelper();
+                _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             });
             // The suggested decomposition follows the range — RECOMPUTE on range edits.
             ['mp-lo', 'mp-hi', 'mp-lo-op', 'mp-hi-op'].forEach(function (id) {
                 var el = document.getElementById(id); if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', _pvOnRangeChange);
             });
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
-            document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '×'); });
-            document.getElementById('mp-ins-div').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '÷'); });
-            document.getElementById('mp-ins-belongs').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '∈ '); });
-            document.getElementById('mp-ins-neq').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), ' ≠ '); });
-            document.getElementById('mp-ins-int').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), 'Int()', 4); });
-            document.getElementById('mp-ins-frac').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '()/()', 1); });
+            function _mpRuleInput() { return document.getElementById('mp-rule-input') || document.getElementById('mp-def'); }
+            document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '×'); });
+            document.getElementById('mp-ins-div').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '÷'); });
+            document.getElementById('mp-ins-belongs').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '∈ '); });
+            document.getElementById('mp-ins-neq').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), ' ≠ '); });
+            document.getElementById('mp-ins-int').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), 'Int()', 4); });
+            document.getElementById('mp-ins-frac').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '()/()', 1); });
             document.getElementById('mp-add-restr-btn').addEventListener('click', _mpShowRestrMenu);
             document.getElementById('mp-check-btn').addEventListener('click', _mpCheckCurrent);
             document.getElementById('mp-sample-btn').addEventListener('click', _mpSampleCurrent);
@@ -2856,11 +2858,11 @@
             })();
             _mpRenderRestrList();
             // Reset / restore the place-value helper for this parameter.
-            _pvActive = false; _pvDigits = null;
+            _pvActive = false; _pvDigits = null; _mpRuleDraft = '';
             if (p.def && p.def.trim()) _pvLoadFromDef(p.def, p.sym);
             // Open the construction editor if this parameter already has one.
             _mpShowConstruct(!!(p.def && p.def.trim()));
-            _mpRenderMicros();
+            _mpRenderMicros(); _mpRenderRules();
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
         // as chips coloured by THIS Big parameter — so each micro-param's connection
@@ -2889,6 +2891,50 @@
                 chip.style.cssText = 'font-weight:700;border:1.5px solid ' + col + ';color:' + col + ';border-radius:7px;padding:1px 8px;font-size:13px;';
                 host.appendChild(chip);
             });
+        }
+        // ===== Construction rules as numbered boxes (like Rel) =====
+        // The hidden mp-def textarea stays the source of truth (one rule per line);
+        // these boxes render/edit it: each saved rule a numbered grid box, plus an
+        // editable box with a "Save rule N" button (click a rule to edit it).
+        var _mpRuleDraft = '';
+        function _mpDefLines() { var d = document.getElementById('mp-def'); return ((d && d.value) || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
+        function _mpSetDefLines(lines) { var d = document.getElementById('mp-def'); if (d) { d.value = lines.join('\n'); d.dispatchEvent(new Event('input')); } }
+        function _mpUpdateRuleSave() { var b = document.getElementById('mp-rule-save'); if (b) b.style.display = (_mpRuleDraft || '').trim() ? '' : 'none'; }
+        function _mpSaveRule() { var v = (_mpRuleDraft || '').trim(); if (!v) return; var a = _mpDefLines(); a.push(v); _mpRuleDraft = ''; _mpSetDefLines(a); }
+        function _mpRenderRules() {
+            var host = document.getElementById('mp-rules'); if (!host) return;
+            host.innerHTML = '';
+            var GRID = 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:18px 18px;';
+            var lines = _mpDefLines();
+            lines.forEach(function (line, idx) {
+                var box = document.createElement('div');
+                box.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:30px;padding:4px 8px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;' + GRID;
+                var lbl = document.createElement('span'); lbl.textContent = (idx + 1) + '.'; lbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; box.appendChild(lbl);
+                var txt = document.createElement('span'); txt.textContent = line; txt.title = 'click to edit'; txt.style.cssText = 'font-family:\'Roboto Mono\',monospace;flex:1;cursor:pointer;font-size:13px;';
+                txt.onclick = function () { var a = _mpDefLines(); a.splice(idx, 1); _mpRuleDraft = line; _mpSetDefLines(a); var ip = document.getElementById('mp-rule-input'); if (ip) ip.focus(); _mpUpdateRuleSave(); };
+                box.appendChild(txt);
+                var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Remove';
+                x.style.cssText = 'border:0;background:transparent;color:#e74c3c;font-size:15px;cursor:pointer;';
+                x.onclick = function () { var a = _mpDefLines(); a.splice(idx, 1); _mpSetDefLines(a); };
+                box.appendChild(x);
+                host.appendChild(box);
+            });
+            var n = lines.length + 1;
+            var ebox = document.createElement('div');
+            ebox.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:30px;padding:4px 8px;border:1.5px solid rgba(255,255,255,0.28);border-radius:8px;' + GRID;
+            var elbl = document.createElement('span'); elbl.textContent = n + '.'; elbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; ebox.appendChild(elbl);
+            var inp = document.createElement('input'); inp.id = 'mp-rule-input'; inp.type = 'text'; inp.value = _mpRuleDraft; inp.spellcheck = false;
+            inp.placeholder = 'a ∈ [1,9]';
+            inp.style.cssText = 'flex:1;border:0;background:transparent;color:#fff;font-family:\'Roboto Mono\',monospace;outline:none;font-size:13px;';
+            inp.oninput = function () { _mpRuleDraft = this.value; _mpUpdateRuleSave(); };
+            inp.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); _mpSaveRule(); } };
+            ebox.appendChild(inp);
+            host.appendChild(ebox);
+            var save = document.createElement('button'); save.id = 'mp-rule-save'; save.type = 'button'; save.textContent = 'Save rule ' + n;
+            save.style.cssText = 'align-self:flex-start;border:0;border-radius:6px;background:#23c552;color:#fff;font-weight:700;padding:3px 12px;cursor:pointer;display:none;';
+            save.onclick = _mpSaveRule;
+            host.appendChild(save);
+            _mpUpdateRuleSave();
         }
         // ===== Place-value decomposition helper (Construct) =====
         // From the parameter's range, suggest D = 100a + 10b + c with a digit SET
@@ -2945,7 +2991,7 @@
             if (!digits.length) return false;
             _pvDigits = digits; _pvActive = true; return true;
         }
-        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); _mpRenderMicros(); } }
+        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); _mpRenderMicros(); _mpRenderRules(); } }
         function _mpRenderPVHelper() {
             var host = document.getElementById('mp-pv-helper'); if (!host) return;
             host.innerHTML = '';
@@ -3006,7 +3052,7 @@
             if (hint) hint.style.display = show ? 'block' : 'none';
             var btn = document.getElementById('mp-construct-btn');
             if (btn) btn.classList.toggle('active', !!show);
-            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); }
+            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
         }
         function _mpToggleConstruct() {
             var cs = document.getElementById('mp-constructed-section');

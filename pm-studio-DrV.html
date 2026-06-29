@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:30 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:30 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:30 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:53 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1550,8 +1550,7 @@
                 <div class="panel-drag-handle" id="rel-panel-drag-handle" title="Drag to move · double-click to reset position">
                     <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
                 </div>
-                <div class="par-title">Rel · Relations</div>
-                <div class="par-help">Constraints <b>between</b> parameters — including a micro-parameter of one Big parameter vs another (e.g. <b>a of A</b> ≠ <b>a of B</b>). Build them by tapping the colour chips and operators below; applied when generating problems.</div>
+                <div class="par-title">Rel · Relations <span class="par-help" style="text-transform:none;letter-spacing:0;font-weight:400;">between A, a, b, B, etc.</span></div>
                 <div id="xc-builder" style="margin-top:6px;"></div>
                 <div class="par-section-label">Check</div>
                 <div><button class="par-btn-secondary" id="rel-check-btn">Check ▷</button></div>
@@ -2555,6 +2554,7 @@
         var _MP_STORE_KEY = 'cardMathParams_v1';
         var _mpEditIdx = null;     // index being edited; null = adding new
         var _mpDraftRestr = [];    // constraints of the in-progress editor
+        var _mpDraftParts = [];    // Values parts (ranges + sets) of the in-progress editor
 
         function _mpEsc(s) {
             return String(s == null ? '' : s)
@@ -2711,20 +2711,28 @@
                 s = lines.length ? lines[0] : '(no formula)';
                 if (lines.length > 1) s += ' …';
             } else {
-                var loOp = (p.lo && p.lo.op === 'lt') ? '<' : '≤';
-                var hiOp = (p.hi && p.hi.op === 'lt') ? '<' : '≤';
-                if (p.lo && p.lo.val != null && p.hi && p.hi.val != null) {
-                    s = p.lo.val + ' ' + loOp + ' ' + (p.sym || 'x') + ' ' + hiOp + ' ' + p.hi.val;
-                } else { s = '(range unset)'; }
+                var sym = (p.sym || 'x'), chunks = [];
+                _mpPartsOf(p).forEach(function (part) {
+                    if (part.type === 'set') {
+                        if ((part.vals || []).length) chunks.push(sym + ' ∈ {' + part.vals.join(',') + '}');
+                    } else {
+                        var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
+                        if (!isNaN(lo) && !isNaN(hi)) {
+                            var loOp = (part.loOp === 'lt') ? '<' : '≤', hiOp = (part.hiOp === 'lt') ? '<' : '≤';
+                            chunks.push(lo + ' ' + loOp + ' ' + sym + ' ' + hiOp + ' ' + hi);
+                        }
+                    }
+                });
+                s = chunks.join('  +  ') || '(unset)';
             }
-            (p.restrictions || []).forEach(function (r) { s += ', ' + _mpRestrLabel(r); });
+            (p.restrictions || []).forEach(function (r) { if (r.kind === 'inset') return; s += ', ' + _mpRestrLabel(r); });
             return s;
         }
         function _mpRestrLabel(r) {
             switch (r.kind) {
-                case 'divisible': return '÷' + r.k + (r.rem ? (' r' + r.rem) : '');
+                case 'divisible': { var dks = (r.ks && r.ks.length) ? r.ks : (r.k != null ? [r.k] : []); return '÷{' + dks.join(',') + '}' + (r.rem ? (' r' + r.rem) : ''); }
                 case 'parity': return r.v;
-                case 'prime': return r.neg ? 'not prime' : 'prime';
+                case 'prime': return r.neg ? 'composite' : 'prime';
                 case 'inset': return '∈{' + (r.vals || []).join(',') + '}';
                 case 'exclude': return '≠{' + (r.vals || []).join(',') + '}';
             }
@@ -2741,6 +2749,7 @@
                 if (existing.indexOf(alpha[i]) < 0) { sym = alpha[i]; break; }
             }
             return { sym: sym, type: 'int', mode: 'direct', def: '',
+                     parts: [{ type: 'range', lo: '', hi: '', loOp: 'le', hiOp: 'le' }],
                      lo: { val: '', op: 'le' }, hi: { val: '', op: 'le' }, restrictions: [] };
         }
         function _mpOpSelect(id, val) {
@@ -2754,7 +2763,16 @@
             var p = (idx == null)
                 ? _mpNewParamObj()
                 : JSON.parse(JSON.stringify(_mpReadParams(loupeSourceCard)[idx]));
-            _mpDraftRestr = (p.restrictions || []).map(function (r) { return JSON.parse(JSON.stringify(r)); });
+            // Drop any legacy "In set" restriction — it migrates into a set PART below.
+            _mpDraftRestr = (p.restrictions || []).map(function (r) { return JSON.parse(JSON.stringify(r)); })
+                .filter(function (r) { return r.kind !== 'inset'; });
+            // Values parts: migrate the old model into a working list of ranges/sets.
+            _mpDraftParts = _mpPartsOf(p).map(function (part) {
+                return (part.type === 'set')
+                    ? { type: 'set', vals: (part.vals || []).slice() }
+                    : { type: 'range', lo: (part.lo == null ? '' : String(part.lo)), hi: (part.hi == null ? '' : String(part.hi)), loOp: part.loOp || 'le', hiOp: part.hiOp || 'le' };
+            });
+            if (!_mpDraftParts.length) _mpDraftParts = [{ type: 'range', lo: '', hi: '', loOp: 'le', hiOp: 'le' }];
             document.getElementById('par-list-view').style.display = 'none';
             var ev = document.getElementById('par-editor-view');
             ev.style.display = 'flex';
@@ -2763,27 +2781,25 @@
                 '<div class="par-field"><label>Symbol</label>'
                 +   '<input class="par-input sym" id="mp-sym" maxlength="6" value="' + _mpEsc(p.sym || '') + '">'
                 +   '<span style="font-size:11px;color:#888;">integer</span></div>'
-                + '<div class="par-section-label">Range</div>'
-                + '<div class="par-range-row" id="mp-range-row">'
-                +   '<input class="par-input par-num" id="mp-lo" type="number" placeholder="min" value="' + _mpEsc(p.lo && p.lo.val != null ? p.lo.val : '') + '">'
-                +   _mpOpSelect('mp-lo-op', (p.lo && p.lo.op) || 'le')
-                +   '<span class="par-list-sym" id="mp-sym-echo">' + _mpEsc(p.sym || 'x') + '</span>'
-                +   _mpOpSelect('mp-hi-op', (p.hi && p.hi.op) || 'le')
-                +   '<input class="par-input par-num" id="mp-hi" type="number" placeholder="max" value="' + _mpEsc(p.hi && p.hi.val != null ? p.hi.val : '') + '">'
+                // Values: a list of PARTS — one or more ranges and/or sets, each
+                // add/deletable. The parameter's domain is the UNION of them all.
+                + '<div id="mp-parts" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>'
+                + '<div class="par-help" id="mp-range-hint" style="display:none;">When a digit construct set, the range adds a filter.</div>'
+                + '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;">'
+                +   '<button type="button" class="par-add-btn" id="mp-add-range-btn">+ Add range</button>'
+                +   '<button type="button" class="par-add-btn" id="mp-add-set-btn">+ Add set</button>'
                 + '</div>'
-                + '<div class="par-help" id="mp-range-hint" style="display:none;">With a construction set, the range just filters the built value.</div>'
                 // Space-box: reserve a fixed digit width for EVERY instance of this
                 // parameter, so a short value (e.g. "5") keeps the rest of the slot
                 // empty and layouts don't shift. Proposed from the range's largest value.
-                + '<div class="par-section-label">Space-box</div>'
+                + '<div class="par-section-label" style="display:flex;align-items:baseline;">Space-box <span class="par-help" style="text-transform:none;letter-spacing:0;margin:0 0 0 10px;">Off = free width</span></div>'
                 + '<div class="par-range-row" id="mp-box-row">'
                 +   '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">'
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '> reserve'
                 +   '</label>'
                 +   '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
-                +   '<span style="font-size:12px;color:#cfeede;">-digit space for every instance</span>'
+                +   '<span style="font-size:12px;color:#cfeede;">digit space</span>'
                 + '</div>'
-                + '<div class="par-help" id="mp-box-hint" style="margin-top:0;">Off = free width. A 1-digit value then pads the slot with space (so it lines up).</div>'
                 + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
                 + '<div style="display:flex;gap:8px;align-items:center;">'
@@ -2792,7 +2808,7 @@
                 + '</div>'
                 // Construction: a kind of constraint — build the value from hidden
                 // helper sub-parameters via a free-text formula. Toggled by Construct.
-                + '<div id="mp-constructed-section" style="display:none;flex-direction:column;gap:5px;margin-top:2px;">'
+                + '<div id="mp-constructed-section" style="display:none;flex-direction:column;gap:5px;margin-top:2px;font-size:14px;">'
                 +   '<div id="mp-pv-helper" style="display:none;padding:7px 9px;border:1px dashed rgba(126,255,126,0.35);border-radius:8px;"></div>'
                 +   '<div class="par-sym-bar">'
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-mul" title="Insert × (multiply)">×</button>'
@@ -2802,8 +2818,8 @@
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-int" title="Insert Int( ) — integer part (floor)">Int()</button>'
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-frac" title="Insert a fraction ( )/( )">' + _MP_FRAC_SVG + '</button>'
                 +   '</div>'
-                +   '<textarea class="par-input" id="mp-def" rows="4" spellcheck="false" placeholder="' + _mpEsc(defPlaceholder) + '" style="width:100%;box-sizing:border-box;resize:vertical;font-family:\'Roboto Mono\',monospace;line-height:1.5;">' + _mpEsc(p.def || '') + '</textarea>'
-                +   '<div class="par-help">One rule per line: <b>result =</b> formula · <b>name =</b> derived · <b>name ∈ [lo, hi]</b> free var — <b>[ ]</b> include the edge, <b>( )</b> exclude (or <b>name: lo..hi</b>) · or a relation like <b>a &gt; b</b>. Implicit × so <b>10a</b>, <b>2k</b> work. <b>=</b> is for formulas; use <b>∈</b> for a range.</div>'
+                +   '<textarea id="mp-def" spellcheck="false" style="display:none;">' + _mpEsc(p.def || '') + '</textarea>'
+                +   '<div id="mp-rules" style="display:flex;flex-direction:column;gap:6px;"></div>'
                 +   '<div id="mp-micros" class="par-micros" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:20px;"></div>'
                 + '</div>'
                 + '<div class="par-section-label">Check</div>'
@@ -2814,54 +2830,51 @@
                 +   '<button class="par-btn-secondary" id="mp-cancel-btn">Cancel</button>'
                 + '</div>';
             document.getElementById('mp-sym').addEventListener('input', function () {
-                document.getElementById('mp-sym-echo').textContent = this.value || 'x';
                 if (_pvActive && _pvDigits) _pvApply(this.value || 'D');
-                _mpRenderMicros(); _mpRenderPVHelper();
+                _mpRenderParts();  // refresh the symbol shown in every range/set part
+                _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRestrList();
             });
+            // Values: add a range / add a set (each becomes a deletable part).
+            document.getElementById('mp-add-range-btn').addEventListener('click', function () {
+                _mpDraftParts.push({ type: 'range', lo: '', hi: '', loOp: 'le', hiOp: 'le' }); _mpRenderParts();
+            });
+            document.getElementById('mp-add-set-btn').addEventListener('click', function () {
+                _mpDraftParts.push({ type: 'set', vals: [] }); _mpRenderParts();
+            });
+            _mpRenderParts();
             document.getElementById('mp-def').addEventListener('input', function () {
                 var sym = (document.getElementById('mp-sym') || {}).value || 'D';
                 if (!_pvLoadFromDef(this.value, sym)) { _pvActive = false; _pvDigits = null; }
-                _mpRenderMicros(); _mpRenderPVHelper();
-            });
-            // The suggested decomposition follows the range — RECOMPUTE on range edits.
-            ['mp-lo', 'mp-hi', 'mp-lo-op', 'mp-hi-op'].forEach(function (id) {
-                var el = document.getElementById(id); if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', _pvOnRangeChange);
+                _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             });
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
-            document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '×'); });
-            document.getElementById('mp-ins-div').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '÷'); });
-            document.getElementById('mp-ins-belongs').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '∈ '); });
-            document.getElementById('mp-ins-neq').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), ' ≠ '); });
-            document.getElementById('mp-ins-int').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), 'Int()', 4); });
-            document.getElementById('mp-ins-frac').addEventListener('click', function () { _mpInsertAtCursor(document.getElementById('mp-def'), '()/()', 1); });
+            function _mpRuleInput() { return document.getElementById('mp-rule-input') || document.getElementById('mp-def'); }
+            document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '×'); });
+            document.getElementById('mp-ins-div').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '÷'); });
+            document.getElementById('mp-ins-belongs').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '∈ '); });
+            document.getElementById('mp-ins-neq').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), ' ≠ '); });
+            document.getElementById('mp-ins-int').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), 'Int()', 4); });
+            document.getElementById('mp-ins-frac').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '()/()', 1); });
             document.getElementById('mp-add-restr-btn').addEventListener('click', _mpShowRestrMenu);
             document.getElementById('mp-check-btn').addEventListener('click', _mpCheckCurrent);
             document.getElementById('mp-sample-btn').addEventListener('click', _mpSampleCurrent);
             document.getElementById('mp-save-btn').addEventListener('click', _mpSaveParam);
             document.getElementById('mp-cancel-btn').addEventListener('click', _mpShowList);
-            // Space-box: propose digit count from the range; auto-fill on enable.
+            // Space-box: auto-fill the proposed digit count when enabled. (The
+            // placeholder + place-value recompute on range edits are wired per-range
+            // in _mpBindRangeAux, since the range inputs are re-rendered.)
             (function () {
-                var on = document.getElementById('mp-box-on');
-                var nIn = document.getElementById('mp-box-n');
+                var on = document.getElementById('mp-box-on'), nIn = document.getElementById('mp-box-n');
                 if (!on || !nIn) return;
-                function propose() {
-                    var hi = parseInt(document.getElementById('mp-hi').value, 10);
-                    var lo = parseInt(document.getElementById('mp-lo').value, 10);
-                    var m = Math.max(isFinite(hi) ? Math.abs(hi) : 0, isFinite(lo) ? Math.abs(lo) : 0);
-                    return m ? String(m).length : 1;
-                }
-                nIn.placeholder = propose();
-                on.addEventListener('change', function () { if (on.checked && !nIn.value) nIn.value = propose(); });
-                document.getElementById('mp-hi').addEventListener('input', function () { nIn.placeholder = propose(); });
-                document.getElementById('mp-lo').addEventListener('input', function () { nIn.placeholder = propose(); });
+                on.addEventListener('change', function () { if (on.checked && !nIn.value) nIn.value = _mpProposeBoxDigits(); });
             })();
             _mpRenderRestrList();
             // Reset / restore the place-value helper for this parameter.
-            _pvActive = false; _pvDigits = null;
+            _pvActive = false; _pvDigits = null; _mpRuleDraft = '';
             if (p.def && p.def.trim()) _pvLoadFromDef(p.def, p.sym);
             // Open the construction editor if this parameter already has one.
             _mpShowConstruct(!!(p.def && p.def.trim()));
-            _mpRenderMicros();
+            _mpRenderMicros(); _mpRenderRules();
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
         // as chips coloured by THIS Big parameter — so each micro-param's connection
@@ -2890,6 +2903,57 @@
                 chip.style.cssText = 'font-weight:700;border:1.5px solid ' + col + ';color:' + col + ';border-radius:7px;padding:1px 8px;font-size:13px;';
                 host.appendChild(chip);
             });
+        }
+        // ===== Construction rules as numbered boxes (like Rel) =====
+        // The hidden mp-def textarea stays the source of truth (one rule per line);
+        // these boxes render/edit it: each saved rule a numbered grid box, plus an
+        // editable box with a "Save rule N" button (click a rule to edit it).
+        var _mpRuleDraft = '';
+        function _mpDefLines() { var d = document.getElementById('mp-def'); return ((d && d.value) || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean); }
+        function _mpSetDefLines(lines) { var d = document.getElementById('mp-def'); if (d) { d.value = lines.join('\n'); d.dispatchEvent(new Event('input')); } }
+        function _mpUpdateRuleSave() { var b = document.getElementById('mp-rule-save'); if (b) b.style.display = (_mpRuleDraft || '').trim() ? '' : 'none'; }
+        function _mpSaveRule() { var v = (_mpRuleDraft || '').trim(); if (!v) return; var a = _mpDefLines(); a.push(v); _mpRuleDraft = ''; _mpSetDefLines(a); }
+        function _mpRenderRules() {
+            var host = document.getElementById('mp-rules'); if (!host) return;
+            host.innerHTML = '';
+            var GRID = 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:18px 18px;';
+            var all = _mpDefLines();
+            // The place-value decomposition (when active) IS rule 1 — it's shown in
+            // its own helper box above. Exclude its lines here so they aren't
+            // duplicated; the remaining rules then start at rule 2.
+            var pvLines = [];
+            if (_pvActive && _pvDigits) { var psym = (document.getElementById('mp-sym') || {}).value || 'D'; pvLines = _pvToDef(psym, _pvDigits).split('\n').map(function (s) { return s.trim(); }); }
+            var start = pvLines.length ? 2 : 1;
+            var lines = all.filter(function (l) { return pvLines.indexOf(l) === -1; });
+            lines.forEach(function (line, idx) {
+                var box = document.createElement('div');
+                box.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:30px;padding:4px 8px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;' + GRID;
+                var lbl = document.createElement('span'); lbl.textContent = (start + idx) + '.'; lbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; box.appendChild(lbl);
+                var txt = document.createElement('span'); txt.textContent = line; txt.title = 'click to edit'; txt.style.cssText = 'font-family:\'Roboto Mono\',monospace;flex:1;cursor:pointer;font-size:13px;';
+                txt.onclick = function () { var a = _mpDefLines(); var i = a.indexOf(line); if (i >= 0) a.splice(i, 1); _mpRuleDraft = line; _mpSetDefLines(a); var ip = document.getElementById('mp-rule-input'); if (ip) ip.focus(); _mpUpdateRuleSave(); };
+                box.appendChild(txt);
+                var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Remove';
+                x.style.cssText = 'border:0;background:transparent;color:#e74c3c;font-size:15px;cursor:pointer;';
+                x.onclick = function () { var a = _mpDefLines(); var i = a.indexOf(line); if (i >= 0) a.splice(i, 1); _mpSetDefLines(a); };
+                box.appendChild(x);
+                host.appendChild(box);
+            });
+            var n = start + lines.length;
+            var ebox = document.createElement('div');
+            ebox.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:30px;padding:4px 8px;border:1.5px solid rgba(255,255,255,0.28);border-radius:8px;' + GRID;
+            var elbl = document.createElement('span'); elbl.textContent = n + '.'; elbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; ebox.appendChild(elbl);
+            var inp = document.createElement('input'); inp.id = 'mp-rule-input'; inp.type = 'text'; inp.value = _mpRuleDraft; inp.spellcheck = false;
+            inp.placeholder = 'one constraint per box';
+            inp.style.cssText = 'flex:1;border:0;background:transparent;color:#fff;font-family:\'Roboto Mono\',monospace;outline:none;font-size:13px;';
+            inp.oninput = function () { _mpRuleDraft = this.value; _mpUpdateRuleSave(); };
+            inp.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); _mpSaveRule(); } };
+            ebox.appendChild(inp);
+            host.appendChild(ebox);
+            var save = document.createElement('button'); save.id = 'mp-rule-save'; save.type = 'button'; save.textContent = 'Save rule ' + n;
+            save.style.cssText = 'align-self:flex-start;border:0;border-radius:6px;background:#23c552;color:#fff;font-weight:700;padding:3px 12px;cursor:pointer;display:none;';
+            save.onclick = _mpSaveRule;
+            host.appendChild(save);
+            _mpUpdateRuleSave();
         }
         // ===== Place-value decomposition helper (Construct) =====
         // From the parameter's range, suggest D = 100a + 10b + c with a digit SET
@@ -2946,7 +3010,7 @@
             if (!digits.length) return false;
             _pvDigits = digits; _pvActive = true; return true;
         }
-        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); _mpRenderMicros(); } }
+        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); _mpRenderMicros(); _mpRenderRules(); } }
         function _mpRenderPVHelper() {
             var host = document.getElementById('mp-pv-helper'); if (!host) return;
             host.innerHTML = '';
@@ -2956,7 +3020,7 @@
             if (!digits) { host.style.display = 'none'; return; }
             host.style.display = 'block';
             var op = _pvActive ? '1' : '0.5';
-            var title = document.createElement('div'); title.className = 'par-help'; title.style.cssText = 'margin:0 0 4px;opacity:0.8;'; title.textContent = 'Place-value decomposition (tick to use):'; host.appendChild(title);
+            var title = document.createElement('div'); title.className = 'par-help'; title.style.cssText = 'margin:0 0 4px;opacity:0.8;'; title.textContent = (_pvActive ? 'Rule 1 — place-value decomposition:' : 'Place-value decomposition (tick to use):'); host.appendChild(title);
             // master line
             var mline = document.createElement('label'); mline.style.cssText = 'display:flex;align-items:center;gap:7px;opacity:' + op + ';margin:2px 0;cursor:pointer;';
             var mcb = document.createElement('input'); mcb.type = 'checkbox'; mcb.checked = _pvActive;
@@ -2967,14 +3031,24 @@
                 _mpRenderPVHelper();
             };
             mline.appendChild(mcb);
-            var mtxt = document.createElement('span'); mtxt.style.cssText = 'font-family:\'Roboto Mono\',monospace;font-weight:700;'; mtxt.textContent = _pvFormula(sym, digits); mline.appendChild(mtxt);
+            // 1px breathing room between the parameter/operator tokens.
+            function _pvPart(t, gap) { var s = document.createElement('span'); s.textContent = t; if (gap) s.style.margin = '0 1px'; return s; }
+            var mtxt = document.createElement('span'); mtxt.style.cssText = 'font-family:\'Roboto Mono\',monospace;font-weight:700;';
+            mtxt.appendChild(_pvPart(sym));
+            mtxt.appendChild(_pvPart('=', true));
+            digits.forEach(function (d, i) { if (i > 0) mtxt.appendChild(_pvPart('+', true)); mtxt.appendChild(_pvPart(d.place === 1 ? d.name : (d.place + d.name))); });
+            mline.appendChild(mtxt);
             host.appendChild(mline);
-            // digit lines — a plain math sentence per place (edit them in the
-            // construction box below once accepted).
+            // digit lines — 1px between the name, ∈ and the opening brace; the
+            // digit list inside { } stays compact so the line doesn't wrap.
             digits.forEach(function (d) {
-                var dl = document.createElement('div'); dl.style.cssText = 'display:flex;align-items:center;gap:6px;opacity:' + op + ';margin:2px 0 2px 20px;';
+                var dl = document.createElement('div'); dl.style.cssText = 'display:flex;align-items:center;gap:6px;opacity:' + op + ';margin:2px 0 2px 20px;font-size:13px;';
                 var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = _pvActive; cb.disabled = true; dl.appendChild(cb);
-                var txt = document.createElement('span'); txt.textContent = _pvSetText(d); txt.style.cssText = 'font-family:\'Roboto Mono\',monospace;'; dl.appendChild(txt);
+                var txt = document.createElement('span'); txt.style.cssText = 'font-family:\'Roboto Mono\',monospace;';
+                txt.appendChild(_pvPart(d.name));
+                var inSym = _pvPart('∈', true); inSym.style.marginLeft = 'calc(1px + 1pt)'; inSym.style.marginRight = 'calc(1px + 1pt)'; txt.appendChild(inSym);
+                txt.appendChild(_pvPart('{' + d.set.join(',') + '}'));
+                dl.appendChild(txt);
                 host.appendChild(dl);
             });
         }
@@ -2997,7 +3071,7 @@
             if (hint) hint.style.display = show ? 'block' : 'none';
             var btn = document.getElementById('mp-construct-btn');
             if (btn) btn.classList.toggle('active', !!show);
-            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); }
+            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
         }
         function _mpToggleConstruct() {
             var cs = document.getElementById('mp-constructed-section');
@@ -3057,22 +3131,39 @@
                 return s;
             }
             switch (r.kind) {
-                case 'divisible':
-                    wrap.appendChild(lbl('÷'));
-                    wrap.appendChild(num(r.k, 'k', function (v) { r.k = parseInt(v, 10); }));
-                    wrap.appendChild(lbl('rem'));
-                    wrap.appendChild(num(r.rem, '0', function (v) { r.rem = (v === '' ? 0 : parseInt(v, 10)); }));
+                case 'divisible': {
+                    // Two-line box: "Div by k" then "k ∈ { set number(s) }". k may
+                    // be a SET — a value passes if it's divisible by any listed k.
+                    wrap.style.flexDirection = 'column';
+                    wrap.style.alignItems = 'flex-start';
+                    wrap.style.gap = '3px';
+                    var title = document.createElement('span');
+                    title.textContent = 'Div by k';
+                    title.style.cssText = 'color:#cfd3dd;font-weight:600;';
+                    wrap.appendChild(title);
+                    var line2 = document.createElement('span');
+                    line2.style.cssText = 'display:flex;align-items:center;gap:4px;align-self:stretch;';
+                    line2.appendChild(lbl('k ∈'));
+                    line2.appendChild(lbl('{'));
+                    if (!r.ks) r.ks = (r.k != null ? [r.k] : []); // migrate old single-k
+                    line2.appendChild(txt((r.ks || []).join(','), 'set number(s)', function (v) { r.ks = _mpParseList(v); }));
+                    line2.appendChild(lbl('}'));
+                    wrap.appendChild(line2);
                     break;
+                }
                 case 'parity':
                     wrap.appendChild(lbl('parity'));
                     wrap.appendChild(sel(r.v, [['even', 'even'], ['odd', 'odd']], function (v) { r.v = v; }));
                     break;
                 case 'prime':
-                    wrap.appendChild(sel(String(!!r.neg), [['false', 'prime'], ['true', 'not prime']], function (v) { r.neg = (v === 'true'); }));
+                    wrap.appendChild(sel(String(!!r.neg), [['false', 'prime'], ['true', 'composite']], function (v) { r.neg = (v === 'true'); }));
                     break;
                 case 'inset':
+                    wrap.appendChild(lbl(_mpCurSym()));   // the parameter this constraint applies to
                     wrap.appendChild(lbl('∈'));
+                    wrap.appendChild(lbl('{'));
                     wrap.appendChild(txt((r.vals || []).join(','), 'e.g. 2,3,5,7', function (v) { r.vals = _mpParseList(v); }));
+                    wrap.appendChild(lbl('}'));
                     break;
                 case 'exclude':
                     wrap.appendChild(lbl('≠'));
@@ -3080,6 +3171,68 @@
                     break;
             }
             return wrap;
+        }
+        // The symbol of the parameter currently being edited (for constraint
+        // labels like "D ∈ { … }"); falls back to 'x' like the live echo.
+        function _mpCurSym() { return ((document.getElementById('mp-sym') || {}).value || 'x').trim() || 'x'; }
+        // Proposed space-box digit count, from the FIRST range's largest |value|.
+        function _mpProposeBoxDigits() {
+            var hi = parseInt((document.getElementById('mp-hi') || {}).value, 10);
+            var lo = parseInt((document.getElementById('mp-lo') || {}).value, 10);
+            var m = Math.max(isFinite(hi) ? Math.abs(hi) : 0, isFinite(lo) ? Math.abs(lo) : 0);
+            return m ? String(m).length : 1;
+        }
+        // (Re)bind the auxiliary listeners that hang off the FIRST range inputs
+        // (canonical ids mp-lo/mp-hi/…): the place-value recompute and the space-box
+        // placeholder. Called after every _mpRenderParts, since the rows are rebuilt.
+        function _mpBindRangeAux() {
+            var nIn = document.getElementById('mp-box-n');
+            ['mp-lo', 'mp-hi'].forEach(function (id) {
+                var el = document.getElementById(id); if (!el) return;
+                el.addEventListener('input', function () { if (nIn && !nIn.value) nIn.placeholder = _mpProposeBoxDigits(); _pvOnRangeChange(); });
+            });
+            ['mp-lo-op', 'mp-hi-op'].forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener('change', _pvOnRangeChange); });
+            if (nIn && !nIn.value) nIn.placeholder = _mpProposeBoxDigits();
+        }
+        // Render the Values parts (ranges + sets). The FIRST range keeps the canonical
+        // ids mp-lo/mp-hi/mp-lo-op/mp-hi-op so the place-value helper and space-box
+        // (which read those) keep working; extra ranges get indexed ids.
+        function _mpRenderParts() {
+            var host = document.getElementById('mp-parts'); if (!host) return;
+            host.innerHTML = '';
+            var sym = _mpCurSym(), firstRangeDone = false;
+            _mpDraftParts.forEach(function (part, idx) {
+                var row = document.createElement('div');
+                row.className = 'par-range-row';
+                row.style.cssText = 'display:flex;align-items:center;gap:4px;';
+                if (part.type === 'range') {
+                    var sfx = firstRangeDone ? ('-' + idx) : ''; firstRangeDone = true;
+                    row.innerHTML =
+                        '<input class="par-input par-num" id="mp-lo' + sfx + '" type="number" placeholder="min" value="' + _mpEsc(part.lo) + '">'
+                        + _mpOpSelect('mp-lo-op' + sfx, part.loOp || 'le')
+                        + '<span class="par-list-sym">' + _mpEsc(sym) + '</span>'
+                        + _mpOpSelect('mp-hi-op' + sfx, part.hiOp || 'le')
+                        + '<input class="par-input par-num" id="mp-hi' + sfx + '" type="number" placeholder="max" value="' + _mpEsc(part.hi) + '">';
+                    row.querySelector('#mp-lo' + sfx).addEventListener('input', function () { part.lo = this.value; });
+                    row.querySelector('#mp-hi' + sfx).addEventListener('input', function () { part.hi = this.value; });
+                    row.querySelector('#mp-lo-op' + sfx).addEventListener('change', function () { part.loOp = this.value; });
+                    row.querySelector('#mp-hi-op' + sfx).addEventListener('change', function () { part.hiOp = this.value; });
+                } else {
+                    row.innerHTML =
+                        '<span class="par-list-sym">' + _mpEsc(sym) + '</span>'
+                        + '<span style="color:#bbb;">∈</span><span style="color:#bbb;">{</span>'
+                        + '<input class="par-input mp-set-inp" type="text" placeholder="e.g. 2,3,5,7" value="' + _mpEsc((part.vals || []).join(',')) + '" style="flex:1 1 auto;">'
+                        + '<span style="color:#bbb;">}</span>';
+                    row.querySelector('.mp-set-inp').addEventListener('input', function () { part.vals = _mpParseList(this.value); });
+                }
+                var x = document.createElement('button');
+                x.type = 'button'; x.className = 'par-mini-btn par-x'; x.innerHTML = '&#10005;'; x.title = 'Delete';
+                x.style.marginLeft = 'auto';
+                x.onclick = function () { _mpDraftParts.splice(idx, 1); _mpRenderParts(); _pvOnRangeChange(); };
+                row.appendChild(x);
+                host.appendChild(row);
+            });
+            _mpBindRangeAux();
         }
         function _mpParseList(s) {
             return (s || '').split(',').map(function (x) { return parseInt(x.trim(), 10); })
@@ -3093,7 +3246,7 @@
             var menu = document.createElement('div');
             menu.className = 'par-menu'; menu.id = 'mp-restr-menu';
             [['divisible', 'Divisible by k'], ['parity', 'Even / Odd'],
-             ['prime', 'Prime / Not prime'], ['inset', 'In set { }'],
+             ['prime', 'Prime / Composite'],
              ['exclude', 'Exclude { }']].forEach(function (it) {
                 var b = document.createElement('button');
                 b.textContent = it[1];
@@ -3120,7 +3273,7 @@
         }
         function _mpAddRestr(kind) {
             var def = {
-                divisible: { kind: 'divisible', k: 2, rem: 0 },
+                divisible: { kind: 'divisible', ks: [] },
                 parity: { kind: 'parity', v: 'even' },
                 prime: { kind: 'prime', neg: false },
                 inset: { kind: 'inset', vals: [] },
@@ -3131,10 +3284,17 @@
 
         // ---- read the editor form into a param object ----
         function _mpReadEditor() {
-            var loV = document.getElementById('mp-lo').value;
-            var hiV = document.getElementById('mp-hi').value;
             var defEl = document.getElementById('mp-def');
             var def = defEl ? defEl.value : '';
+            // Values parts (deep copy of the working list); also mirror the first
+            // range into lo/hi for the legacy consumers (constructed filter etc.).
+            var parts = _mpDraftParts.map(function (part) {
+                return (part.type === 'set')
+                    ? { type: 'set', vals: _mpUniqSortInt(part.vals || []) }
+                    : { type: 'range', lo: part.lo, hi: part.hi, loOp: part.loOp || 'le', hiOp: part.hiOp || 'le' };
+            });
+            var firstR = null; for (var i = 0; i < parts.length; i++) { if (parts[i].type === 'range') { firstR = parts[i]; break; } }
+            var loN = firstR ? parseInt(firstR.lo, 10) : NaN, hiN = firstR ? parseInt(firstR.hi, 10) : NaN;
             // Space-box: a fixed digit width reserved for every instance (0 = off).
             var boxOn = document.getElementById('mp-box-on');
             var boxN = document.getElementById('mp-box-n');
@@ -3149,19 +3309,99 @@
                 // A parameter is "constructed" whenever it has a (non-empty) formula.
                 mode: (def.trim() ? 'constructed' : 'direct'),
                 def: def,
-                lo: { val: (loV === '' ? null : parseInt(loV, 10)), op: document.getElementById('mp-lo-op').value },
-                hi: { val: (hiV === '' ? null : parseInt(hiV, 10)), op: document.getElementById('mp-hi-op').value },
+                parts: parts,
+                lo: { val: (isNaN(loN) ? null : loN), op: (firstR ? firstR.loOp : 'le') },
+                hi: { val: (isNaN(hiN) ? null : hiN), op: (firstR ? firstR.hiOp : 'le') },
                 restrictions: _mpDraftRestr.map(function (r) { return JSON.parse(JSON.stringify(r)); }),
                 width: width
             };
         }
 
         // ---- generation engine (rejection / enumeration) ----
-        function _mpEffectiveRange(p) {
-            if (!p.lo || p.lo.val == null || p.lo.val === '' || !p.hi || p.hi.val == null || p.hi.val === '') return null;
-            var a = (p.lo.op === 'lt') ? p.lo.val + 1 : p.lo.val;
-            var b = (p.hi.op === 'lt') ? p.hi.val - 1 : p.hi.val;
+        // Dedupe + sort a list of values as integers.
+        function _mpUniqSortInt(arr) {
+            var seen = {}, out = [];
+            (arr || []).forEach(function (x) { var n = parseInt(x, 10); if (isFinite(n) && !seen[n]) { seen[n] = 1; out.push(n); } });
+            out.sort(function (x, y) { return x - y; });
+            return out;
+        }
+        // The explicit value set of a LEGACY direct parameter (old setVals, or an
+        // even-older "In set" restriction) — used only when migrating to parts.
+        function _mpDomainSet(p) {
+            if (p.setVals && p.setVals.length) return p.setVals.slice();
+            var out = [];
+            (p.restrictions || []).forEach(function (r) { if (r.kind === 'inset') out = out.concat(r.vals || []); });
+            return out;
+        }
+        // A parameter's Values as a list of PARTS — each {type:'range',lo,hi,loOp,hiOp}
+        // or {type:'set',vals:[…]}. The domain is the UNION of all parts. Migrates the
+        // older single-range / Range-Set-Both / "In set" models into parts.
+        function _mpPartsOf(p) {
+            if (p.parts && p.parts.length) return p.parts;
+            var parts = [], dom = p.domain;
+            var hasRange = p.lo && p.lo.val != null && p.lo.val !== '' && p.hi && p.hi.val != null && p.hi.val !== '';
+            var set = _mpUniqSortInt(_mpDomainSet(p));
+            var addRange = function () { parts.push({ type: 'range', lo: String(p.lo.val), hi: String(p.hi.val), loOp: (p.lo.op || 'le'), hiOp: (p.hi.op || 'le') }); };
+            var addSet = function () { if (set.length) parts.push({ type: 'set', vals: set }); };
+            if (dom === 'set') { addSet(); }
+            else if (dom === 'both') { if (hasRange) addRange(); addSet(); }
+            else if (dom === 'range') { if (hasRange) addRange(); }
+            else { if (hasRange) addRange(); addSet(); } // no domain: oldest model (range + maybe inset)
+            return parts;
+        }
+        // Effective [a,b] of a single range part (honours </≤ ops). null = incomplete.
+        function _mpRangeBounds(part) {
+            var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
+            if (isNaN(lo) || isNaN(hi)) return null;
+            var a = (part.loOp === 'lt') ? lo + 1 : lo;
+            var b = (part.hiOp === 'lt') ? hi - 1 : hi;
             return [a, b];
+        }
+        // The FIRST valid range of a parameter (used for the constructed-value filter,
+        // the place-value helper, and the space-box proposal). null if none.
+        function _mpEffectiveRange(p) {
+            var parts = _mpPartsOf(p);
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === 'range') { var b = _mpRangeBounds(parts[i]); if (b) return b; }
+            }
+            return null;
+        }
+        // The candidate value pool for a DIRECT parameter, BEFORE the other constraints
+        // (divisible/parity/prime/exclude) filter it. The pool is the UNION of every
+        // range and set part. Returns {values:[…]} | {big,a,span,set} (a range too big
+        // to enumerate → sample) | {needRange:true} | {emptyRange:[a,b]}.
+        function _mpCandidatePool(p) {
+            var parts = _mpPartsOf(p), CAP = 2000000;
+            var values = [], emptyRanges = [], bigRanges = [];
+            parts.forEach(function (part) {
+                if (part.type === 'set') { (part.vals || []).forEach(function (v) { var n = parseInt(v, 10); if (isFinite(n)) values.push(n); }); return; }
+                var b = _mpRangeBounds(part); if (!b) return; // incomplete range → ignore
+                if (b[0] > b[1]) { emptyRanges.push(b); return; }
+                if ((b[1] - b[0] + 1) > CAP) { bigRanges.push(b); return; }
+                for (var v = b[0]; v <= b[1]; v++) values.push(v);
+            });
+            if (bigRanges.length) return { big: true, a: bigRanges[0][0], span: bigRanges[0][1] - bigRanges[0][0] + 1, set: _mpUniqSortInt(values) };
+            if (!values.length) return emptyRanges.length ? { emptyRange: emptyRanges[0] } : { needRange: true };
+            return { values: _mpUniqSortInt(values) };
+        }
+        // Validate a direct parameter's Values parts; null = OK, else a message.
+        function _mpValidateDirect(p) {
+            var parts = _mpPartsOf(p);
+            if (!parts.length) return 'Add a range or a set of values.';
+            var anyContent = false, emptyRange = null, incomplete = false;
+            parts.forEach(function (part) {
+                if (part.type === 'set') { if ((part.vals || []).length) anyContent = true; return; }
+                var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
+                if (isNaN(lo) && isNaN(hi)) return;             // untouched range → ignore
+                if (isNaN(lo) || isNaN(hi)) { incomplete = true; return; }
+                var b = _mpRangeBounds(part);
+                if (b[0] > b[1]) { emptyRange = b; return; }
+                anyContent = true;
+            });
+            if (anyContent) return null;
+            if (emptyRange) return 'Empty range (' + emptyRange[0] + ' … ' + emptyRange[1] + ').';
+            if (incomplete) return 'Finish the range — set both a min and a max.';
+            return 'Add a range or a set of values.';
         }
         function _mpIsPrime(n) {
             if (n < 2) return false;
@@ -3175,15 +3415,23 @@
             for (var i = 0; i < rs.length; i++) {
                 var r = rs[i];
                 if (r.kind === 'divisible') {
-                    if (!r.k) return false;
-                    var rem = (((r.rem || 0) % r.k) + r.k) % r.k;
-                    if ((((v % r.k) + r.k) % r.k) !== rem) return false;
+                    var ks = (r.ks && r.ks.length) ? r.ks : (r.k != null ? [r.k] : []);
+                    if (!ks.length) continue; // no divisor specified yet → not a restriction
+                    var okDiv = false;
+                    for (var di = 0; di < ks.length; di++) {
+                        var k = ks[di]; if (!k) continue;
+                        var rem = (((r.rem || 0) % k) + k) % k;
+                        if ((((v % k) + k) % k) === rem) { okDiv = true; break; }
+                    }
+                    if (!okDiv) return false;
                 } else if (r.kind === 'parity') {
                     if (r.v === 'even' && (v % 2 !== 0)) return false;
                     if (r.v === 'odd' && (v % 2 === 0)) return false;
                 } else if (r.kind === 'prime') {
                     var pr = _mpIsPrime(v);
-                    if (r.neg ? pr : !pr) return false;
+                    // composite = an integer > 1 that is NOT prime (so 0 and 1 are
+                    // excluded, since neither is composite).
+                    if (r.neg ? (pr || v < 2) : !pr) return false;
                 } else if (r.kind === 'inset') {
                     if ((r.vals || []).indexOf(v) < 0) return false;
                 } else if (r.kind === 'exclude') {
@@ -3193,15 +3441,13 @@
             return true;
         }
         function _mpGenerate(p, n) {
-            var rng = _mpEffectiveRange(p);
-            if (!rng) return { error: 'Set both a minimum and a maximum.' };
-            var a = rng[0], b = rng[1];
-            if (a > b) return { error: 'Empty range (' + a + ' … ' + b + ').' };
-            var span = b - a + 1;
-            var CAP = 2000000;
-            if (span > CAP) {
+            var pool = _mpCandidatePool(p);
+            if (pool.needRange) return { error: 'Set a range or a set of values.' };
+            if (pool.emptyRange) return { error: 'Empty range (' + pool.emptyRange[0] + ' … ' + pool.emptyRange[1] + ').' };
+            if (pool.big) {
                 // Range too big to enumerate — rejection-sample, count unknown.
-                var got = [], seen = {}, tries = 0;
+                var got = [], seen = {}, tries = 0, a = pool.a, span = pool.span;
+                (pool.set || []).forEach(function (sv) { if (!seen[sv] && _mpValueOK(sv, p)) { seen[sv] = 1; got.push(sv); } });
                 while (got.length < n && tries < n * 4000) {
                     tries++;
                     var rv = a + Math.floor(Math.random() * span);
@@ -3210,8 +3456,7 @@
                 got.sort(function (x, y) { return x - y; });
                 return { samples: got, count: null, empty: got.length === 0 };
             }
-            var valid = [];
-            for (var v = a; v <= b; v++) { if (_mpValueOK(v, p)) valid.push(v); }
+            var valid = pool.values.filter(function (v) { return _mpValueOK(v, p); });
             var picks;
             if (valid.length <= n) {
                 picks = valid.slice();
@@ -3584,10 +3829,9 @@
                 if (parsed.errors.length) { _mpMsg('warn', '⚠ ' + parsed.errors.join('\n')); return; }
                 _mpMsg('ok', '✓ Definition looks good.');
             } else {
-                var rng = _mpEffectiveRange(p);
-                if (!rng) { _mpMsg('warn', '⚠ Set both a min and a max.'); return; }
-                if (rng[0] > rng[1]) { _mpMsg('warn', '⚠ Empty range (' + rng[0] + ' … ' + rng[1] + ').'); return; }
-                _mpMsg('ok', '✓ Range looks good.');
+                var err = _mpValidateDirect(p);
+                if (err) { _mpMsg('warn', '⚠ ' + err); return; }
+                _mpMsg('ok', '✓ Values look good.');
             }
         }
 
@@ -3602,8 +3846,9 @@
             if (p.mode === 'constructed') {
                 var parsed = _mpParseDef(p.def || '', p.sym);
                 if (parsed.errors.length) { _mpMsg('warn', '⚠ ' + parsed.errors.join('\n')); return; }
-            } else if (!_mpEffectiveRange(p)) {
-                _mpMsg('warn', '⚠ Set both a min and a max.'); return;
+            } else {
+                var derr = _mpValidateDirect(p);
+                if (derr) { _mpMsg('warn', '⚠ ' + derr); return; }
             }
             if (_mpEditIdx == null) arr.push(p); else arr[_mpEditIdx] = p;
             _mpWriteParams(loupeSourceCard, arr);
@@ -3922,16 +4167,87 @@
             return c;
         }
         function _xcValid() { if (!_xcText.trim()) return false; try { var pr = _relParse(_xcText); return !!(pr.list && pr.list.length === 1); } catch (e) { return false; } }
-        // Insert text at the constraint box's cursor (used by every chip/button),
-        // then refresh the save button — without re-rendering (keeps focus/caret).
+        // An atomic, coloured chip for INSIDE the editable box — same colour as the
+        // palette chip. contenteditable=false so it deletes as one unit; the real
+        // (qualified) token is on data-token, read back by _xcReadEditable.
+        function _xcMakeInlineChip(big, sub) {
+            var col = (typeof _pmParamColor === 'function') ? _pmParamColor(big) : '#cc00cc';
+            var s = document.createElement('span');
+            s.setAttribute('data-token', sub ? (big + '__' + sub) : big);
+            s.setAttribute('contenteditable', 'false');
+            s.textContent = sub ? sub : big;
+            s.style.cssText = 'display:inline-block;font-weight:700;border:1.5px solid ' + col + ';color:' + col + ';border-radius:6px;padding:0 6px;font-size:13px;margin:0 2px;line-height:1.5;';
+            return s;
+        }
+        // An atomic operator/comparator for INSIDE the editable box: shows the nice
+        // glyph (≥ ≤ ≠ ÷ ×) like the toolbar button, but stores the raw token
+        // (>= <= != / *) on data-token so the relation still parses. Same 2px side
+        // margins as the param chips → even spacing between every token.
+        function _xcMakeOpChip(raw) {
+            var s = document.createElement('span');
+            s.setAttribute('data-token', raw);
+            s.setAttribute('contenteditable', 'false');
+            s.textContent = _xcRawGlyph(raw);
+            s.style.cssText = 'display:inline-block;color:#fff;font-weight:700;font-size:13px;margin:0 2px;line-height:1.5;';
+            return s;
+        }
+        // Reconstruct the relation string from the editable box: param chips give
+        // their data-token (qualified name), everything else its text (nbsp→space).
+        function _xcReadEditable(el) {
+            var out = '';
+            (function walk(node) {
+                Array.prototype.forEach.call(node.childNodes, function (ch) {
+                    if (ch.nodeType === 3) { out += ch.nodeValue; return; }
+                    if (ch.nodeType !== 1) return;
+                    var t = ch.getAttribute && ch.getAttribute('data-token');
+                    if (t != null) { out += t; return; }
+                    if (ch.nodeName !== 'BR') walk(ch);
+                });
+            })(el);
+            return out.replace(/\u00a0/g, ' ');
+        }
+        // Fill the editable box from a relation string: params → coloured chips,
+        // numbers/operators/parens → plain white text (kept raw, exactly as typed).
+        function _xcFillEditable(el, str) {
+            el.innerHTML = '';
+            if (!str) return;
+            var params = (typeof _mpReadParams === 'function') ? _mpReadParams(loupeSourceCard) : [];
+            var bigset = {}; params.forEach(function (p) { bigset[p.sym] = 1; });
+            var re = /([A-Za-z_]\w*)|(<=|>=|==|!=)|([≠÷×\/*<>])|(\s+)|(\S)/g, m, buf = '';
+            function flush() { if (buf) { el.appendChild(document.createTextNode(buf)); buf = ''; } }
+            var GLYPH2RAW = { '≠': '!=', '÷': '/', '×': '*' };
+            while ((m = re.exec(str))) {
+                if (m[1]) {
+                    var id = m[1], qm = id.match(/^([A-Za-z]\w*?)__(\w+)$/);
+                    if (qm && bigset[qm[1]]) { flush(); el.appendChild(_xcMakeInlineChip(qm[1], qm[2])); }
+                    else if (bigset[id]) { flush(); el.appendChild(_xcMakeInlineChip(id, null)); }
+                    else { buf += id; }
+                } else if (m[2]) { flush(); el.appendChild(_xcMakeOpChip(m[2])); }
+                else if (m[3]) { flush(); el.appendChild(_xcMakeOpChip(GLYPH2RAW[m[3]] || m[3])); }
+                else { buf += (m[4] || m[5]); }
+            }
+            flush();
+        }
+        // Insert a node (chip or text) at the editable box's caret, keep focus,
+        // refresh _xcText + the save button — without re-rendering the builder.
+        // No literal spaces are inserted; even gaps come from the chips' margins.
+        function _xcInsertNode(node) {
+            var el = document.getElementById('xc-input'); if (!el) return;
+            var sel = window.getSelection(), range = null;
+            if (sel && sel.rangeCount && el.contains(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange();
+            if (!range) { range = document.createRange(); range.selectNodeContents(el); range.collapse(false); }
+            range.deleteContents();
+            range.insertNode(node);
+            range.setStartAfter(node); range.collapse(true);
+            sel.removeAllRanges(); sel.addRange(range);
+            el.focus();
+            _xcText = _xcReadEditable(el); _xcUpdateSave();
+        }
+        // Insert plain text (operators / Int() — never coloured) at the cursor.
         function _xcInsert(text) {
             var inp = document.getElementById('xc-input');
             if (!inp) { _xcText += text; _xcUpdateSave(); return; }
-            var s = inp.selectionStart != null ? inp.selectionStart : inp.value.length;
-            var e = inp.selectionEnd != null ? inp.selectionEnd : inp.value.length;
-            inp.value = inp.value.slice(0, s) + text + inp.value.slice(e);
-            var pos = s + text.length; inp.selectionStart = inp.selectionEnd = pos;
-            _xcText = inp.value; inp.focus(); _xcUpdateSave();
+            _xcInsertNode(document.createTextNode(text));
         }
         // "Save relation N" appears once the box has content; green when it parses.
         function _xcUpdateSave() {
@@ -3973,8 +4289,8 @@
             params.forEach(function (p) {
                 var row = document.createElement('div');
                 row.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:2px;';
-                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcInsert(p.sym + ' '); }));
-                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcInsert(p.sym + '__' + m + ' '); })); });
+                row.appendChild(_xcChip({ big: p.sym, sub: null }, function () { _xcInsertNode(_xcMakeInlineChip(p.sym, null)); }));
+                _xcMicroNames(p).forEach(function (m) { row.appendChild(_xcChip({ big: p.sym, sub: m }, function () { _xcInsertNode(_xcMakeInlineChip(p.sym, m)); })); });
                 pal.appendChild(row);
             });
             host.appendChild(pal);
@@ -3982,18 +4298,22 @@
             //    the whole row fits one line). Numbers and ( ) you type yourself.
             var tools = document.createElement('div');
             tools.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;align-items:center;margin-bottom:6px;';
-            function insBtn(label, text, title) {
+            function _mkToolBtn(label, title, onClick) {
                 var b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (title) b.title = title;
                 b.style.cssText = 'border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;cursor:pointer;font-size:13px;';
-                b.onclick = function () { _xcInsert(text); };
+                b.onclick = onClick;
                 return b;
             }
-            [['=', ' == '], ['≠', ' != '], ['<', ' < '], ['>', ' > '], ['≤', ' <= '], ['≥', ' >= ']].forEach(function (o) {
-                tools.appendChild(insBtn(o[0], o[1], 'comparator ' + o[0]));
+            // Comparators & ÷ × insert atomic GLYPH chips (≥ ≤ ≠ ÷ ×) that store the
+            // raw token (>= <= != / *) — so the box shows the same nice sign as the
+            // button and every token keeps the same even spacing.
+            function opBtn(label, raw, title) { return _mkToolBtn(label, title, function () { _xcInsertNode(_xcMakeOpChip(raw)); }); }
+            [['=', '=='], ['≠', '!='], ['<', '<'], ['>', '>'], ['≤', '<='], ['≥', '>=']].forEach(function (o) {
+                tools.appendChild(opBtn(o[0], o[1], 'comparator ' + o[0]));
             });
-            tools.appendChild(insBtn('÷', ' / ', 'divide'));
-            tools.appendChild(insBtn('×', ' * ', 'multiply'));
-            tools.appendChild(insBtn('Int', 'Int(', 'Int(…) — the whole-number part (floor). Example: Int(A/10) = the tens digit of A'));
+            tools.appendChild(opBtn('÷', '/', 'divide'));
+            tools.appendChild(opBtn('×', '*', 'multiply'));
+            tools.appendChild(_mkToolBtn('Int', 'Int(…) — the whole-number part (floor). Example: Int(A/10) = the tens digit of A', function () { _xcInsert('Int('); }));
             host.appendChild(tools);
             var GRID = 'background-color:rgba(0,0,0,0.18);background-image:linear-gradient(rgba(255,255,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.08) 1px,transparent 1px);background-size:18px 18px;';
             // 3) saved relations — each its own grid-paper box, numbered, × to remove.
@@ -4021,11 +4341,22 @@
             ebox.title = 'Type or tap';
             ebox.style.cssText = 'display:flex;align-items:center;gap:6px;min-height:34px;padding:5px 9px;margin-top:6px;border:1.5px solid rgba(255,255,255,0.28);border-radius:8px;' + GRID;
             var elbl = document.createElement('span'); elbl.textContent = n + '.'; elbl.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;'; ebox.appendChild(elbl);
-            var inp = document.createElement('input');
-            inp.id = 'xc-input'; inp.type = 'text'; inp.value = _xcText; inp.spellcheck = false;
-            inp.placeholder = 'A>B'; inp.title = 'Type or tap';
-            inp.style.cssText = 'flex:1;min-width:60px;border:0;background:transparent;color:#fff;font-family:\'Roboto Mono\',monospace;outline:none;';
-            inp.oninput = function () { _xcText = this.value; _xcUpdateSave(); };
+            // Editable box is a contenteditable so a tapped parameter keeps its
+            // chip colour inside the line (a plain <input> can only be one colour).
+            if (!document.getElementById('xc-ph-style')) {
+                var st = document.createElement('style'); st.id = 'xc-ph-style';
+                st.textContent = '#xc-input:empty:before{content:attr(data-ph);color:#6b7180;}';
+                document.head.appendChild(st);
+            }
+            var inp = document.createElement('div');
+            inp.id = 'xc-input'; inp.setAttribute('contenteditable', 'true'); inp.spellcheck = false;
+            inp.setAttribute('data-ph', 'A>B'); inp.title = 'Type or tap';
+            inp.style.cssText = 'flex:1;min-width:60px;border:0;background:transparent;color:#fff;font-family:\'Roboto Mono\',monospace;outline:none;white-space:nowrap;overflow-x:auto;';
+            _xcFillEditable(inp, _xcText);
+            inp.oninput = function () {
+                if (this.childNodes.length === 1 && this.firstChild.nodeName === 'BR') this.innerHTML = '';
+                _xcText = _xcReadEditable(this); _xcUpdateSave();
+            };
             ebox.appendChild(inp);
             host.appendChild(ebox);
             // 5) "Save relation N" — appears once the box has content.
@@ -4143,14 +4474,11 @@
                 if (r.count == null || r.samples.length !== r.count) return { capped: true };
                 return { vals: r.samples.map(function (s) { return s.value; }) };
             }
-            var rng = _mpEffectiveRange(p);
-            if (!rng) return { error: '"' + p.sym + '": set both a min and a max.' };
-            var a = rng[0], b = rng[1];
-            if (a > b) return { vals: [] };
-            if ((b - a + 1) > 2000000) return { capped: true };
-            var vals = [];
-            for (var v = a; v <= b; v++) if (_mpValueOK(v, p)) vals.push(v);
-            return { vals: vals };
+            var pool = _mpCandidatePool(p);
+            if (pool.needRange) return { error: '"' + p.sym + '": set a range or a set of values.' };
+            if (pool.emptyRange) return { vals: [] };
+            if (pool.big) return { capped: true };
+            return { vals: pool.values.filter(function (v) { return _mpValueOK(v, p); }) };
         }
         // Enumerate the whole joint problem space (all Pars × relations).
         // Returns {envs:[...], count} | {capped:true} | {error}.

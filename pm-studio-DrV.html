@@ -4516,6 +4516,90 @@
             })(0, {});
             return { envs: envs, count: envs.length };
         }
+        // The number of valid values a single Par can take — WITHOUT enumerating the
+        // whole joint space. Exact for plain ranges/sets; an estimate (approx:true)
+        // for a huge constrained range or a capped construction.
+        function _mpValueCount(p) {
+            if (p.mode === 'constructed') {
+                var r = _mpGenerateConstructed(p, 200000);
+                if (r.error) return { error: r.error };
+                if (r.empty) return { count: 0 };
+                if (r.count != null && r.samples.length === r.count) return { count: r.count };
+                var rng = _mpEffectiveRange(p);
+                return { count: rng ? (rng[1] - rng[0] + 1) : r.samples.length, approx: true };
+            }
+            var pool = _mpCandidatePool(p);
+            if (pool.needRange) return { error: '"' + p.sym + '": set a range or a set of values.' };
+            if (pool.emptyRange) return { count: 0 };
+            if (pool.big) {
+                var hasFilter = (p.restrictions || []).some(function (r) { return r.kind === 'divisible' || r.kind === 'parity' || r.kind === 'prime'; });
+                var setExtra = (pool.set || []).filter(function (v) { return _mpValueOK(v, p); }).length;
+                if (!hasFilter) return { count: pool.span + setExtra };
+                var K = 3000, hit = 0;
+                for (var i = 0; i < K; i++) { var v = pool.a + Math.floor(Math.random() * pool.span); if (_mpValueOK(v, p)) hit++; }
+                return { count: Math.round(pool.span * (hit / K)) + setExtra, approx: true };
+            }
+            return { count: pool.values.filter(function (v) { return _mpValueOK(v, p); }).length };
+        }
+        // The TOTAL number of valid joint combinations — always returns a number.
+        // Exact when the space is small enough to enumerate; otherwise the product of
+        // the per-Par counts, times the relations' sampled pass-rate (approx:true).
+        // Returns {count, approx?} | {count:0} | {error}.
+        function _mpJointCount() {
+            var sp = _mpJointSpace();
+            if (sp.error) return { error: sp.error };
+            if (!sp.capped) return { count: sp.count };
+            var params = _mpReadParams(loupeSourceCard);
+            var product = 1, approx = false;
+            for (var i = 0; i < params.length; i++) {
+                var c = _mpValueCount(params[i]);
+                if (c.error) return { error: c.error };
+                if (c.approx) approx = true;
+                product *= c.count;
+                if (product === 0) return { count: 0 };
+            }
+            var rels = _relParse((_relLoad(loupeSourceCard) || {}).text || '');
+            if (rels.error) return { error: rels.error };
+            var allRels = rels.list.concat(_xcToRelObjs(_xcLoad(loupeSourceCard)));
+            if (!allRels.length) return { count: product, approx: approx };
+            // Relations/cross-constraints filter the product — estimate the pass-rate
+            // by independently sampling joint instances (with micro-param witnesses).
+            var S = 1500, good = 0, drawn = 0;
+            for (var t = 0; t < S; t++) {
+                var env = {}, bad = false;
+                for (var k = 0; k < params.length; k++) {
+                    var g = _mpGenerateOneWithEnv(params[k]);
+                    if (g.error || g.empty) { bad = true; break; }
+                    env[params[k].sym] = g.value;
+                    if (g.env) { for (var kk in g.env) { if (g.env.hasOwnProperty(kk) && kk !== params[k].sym) env[params[k].sym + '__' + kk] = g.env[kk]; } }
+                }
+                if (bad) continue;
+                drawn++;
+                var ok = true;
+                for (var r2 = 0; r2 < allRels.length; r2++) {
+                    var rel = allRels[r2];
+                    try { if (!_mpCmp(_mpEvalToks(rel.a, env), rel.op, _mpEvalToks(rel.b, env))) { ok = false; break; } }
+                    catch (e) { return { error: 'relation: ' + e.message }; }
+                }
+                if (ok) good++;
+            }
+            if (!drawn) return { error: 'Could not sample the parameters.' };
+            return { count: Math.round(product * (good / drawn)), approx: true };
+        }
+        // Compact display of a combination count: a plain integer below 1000, else a
+        // 3-digit number × 10^power (e.g. 810 × 10³). "≈" marks a rounded/estimated value.
+        function _mpSupExp(e) {
+            var map = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+            return String(e).split('').map(function (ch) { return map[ch] || ch; }).join('');
+        }
+        function _mpFmtCount(n, approx) {
+            n = Math.round(n);
+            if (n < 1000) return (approx ? '≈ ' : '') + n;
+            var exp = Math.floor(Math.log10(n)) - 2;
+            var m = Math.round(n / Math.pow(10, exp));
+            if (m >= 1000) { m = Math.round(m / 10); exp++; }
+            return '≈ ' + m + ' × 10' + _mpSupExp(exp);
+        }
         function _pvPickDistinct(total, k) {
             if (k >= total) { var all = []; for (var i = 0; i < total; i++) all.push(i); return all; }
             var picked = {}, res = [];
@@ -4528,10 +4612,9 @@
             var el = document.getElementById('pv-space');
             if (!el) return;
             if (!_mpReadParams(loupeSourceCard).length) { el.textContent = 'of … '; return; }
-            var sp = _mpJointSpace();
-            if (sp.error) { el.textContent = ''; return; }
-            if (sp.capped) { el.textContent = 'of many possible'; return; }
-            el.textContent = 'of ' + sp.count + ' possible';
+            var c = _mpJointCount();
+            if (c.error) { el.textContent = ''; return; }
+            el.textContent = 'of ' + _mpFmtCount(c.count, c.approx) + ' possible';
         }
 
         // ---- Preview panel ----
@@ -4578,7 +4661,9 @@
                     if (!seen[key]) { seen[key] = 1; envs.push(j.env); }
                 }
                 chosen = envs;
-                header = 'Showing ' + chosen.length + ' (of many — space too large to count)';
+                var jc = _mpJointCount();
+                var totalStr = (jc && !jc.error) ? _mpFmtCount(jc.count, jc.approx) : 'many';
+                header = 'Showing ' + chosen.length + ' of ' + totalStr + ' possible';
             } else {
                 var M = space.count;
                 if (M === 0) { out.classList.add('warn'); out.textContent = '⚠ No valid combinations — the parameters / relations may contradict.'; return; }
@@ -5306,10 +5391,9 @@
         }
         function _pmCardHoverInfo(card) {
             return _pmWithCard(card, function () {
-                var sp = _mpJointSpace();
-                if (sp.error) return 'Parametric card';
-                if (sp.capped) return 'Parametric card — many possible instances';
-                return 'Parametric card — ' + sp.count + ' possible instance' + (sp.count === 1 ? '' : 's');
+                var c = _mpJointCount();
+                if (c.error) return 'Parametric card';
+                return 'Parametric card — ' + _mpFmtCount(c.count, c.approx) + ' possible instance' + (c.count === 1 ? '' : 's');
             });
         }
         function _pmCardInstance(card) {
@@ -7437,8 +7521,21 @@
         // has meaning inside a group of ≥2 identical cards, so it self-prunes
         // when its group shrinks below 2, and compacts (t1..tN, no gaps).
         var _cardLabel = function(c) { return (c.querySelector('.library-label') || {}).textContent || '?'; };
+        // A read-only signature of a card's PARAMETRIC config (Par params + formula
+        // + relations, keyed by the card's uid). '' when the card has no parametric
+        // data. Used so two cards with identical art but DIFFERENT parameters /
+        // constraints are NOT treated as the same card. Never mints a uid.
+        function _cardParamSig(cardEl) {
+            var uid = (cardEl && cardEl.dataset) ? cardEl.dataset.uid : null;
+            if (!uid) return '';
+            function entry(key) { try { var s = JSON.parse(localStorage.getItem(key) || '{}'); return (s && s[uid] != null) ? s[uid] : null; } catch (e) { return null; } }
+            var p = entry(_MP_STORE_KEY), f = entry(_FX_STORE_KEY), r = entry(_REL_STORE_KEY);
+            if (p == null && f == null && r == null) return '';
+            try { return JSON.stringify({ p: p, f: f, r: r }); } catch (e) { return ''; }
+        }
         // All identical-art groups (≥2) in the active container, keyed by
-        // rowLetter+art; EMPTY (no-art) and variation cards are excluded.
+        // rowLetter+art+parametric-signature; EMPTY (no-art) and variation cards are
+        // excluded. Cards differing in any parameter/constraint fall in separate keys.
         function _dupTagGroups(container) {
             var map = {};
             container.querySelectorAll('.library-card').forEach(function(c) {
@@ -7448,7 +7545,7 @@
                 if (!svg || !row) return;
                 var art = svg.innerHTML.trim();
                 if (!art) return;
-                var key = (row.dataset.rowLetter || '') + '|@|' + art;
+                var key = (row.dataset.rowLetter || '') + '|@|' + art + '|#|' + _cardParamSig(c);
                 (map[key] = map[key] || []).push(c);
             });
             return Object.keys(map).filter(function(k) { return map[k].length >= 2; })
@@ -18650,7 +18747,8 @@
                     if (b.error) return { error: b.error };
                     probs.push({ shown: b.shown, answers: b.answer.map(function (a) { return a.split('=').pop().trim(); }) });
                 }
-                return { problems: probs, total: space.capped ? null : space.count };
+                var _jc = space.capped ? _mpJointCount() : null;
+                return { problems: probs, total: space.capped ? ((_jc && !_jc.error) ? _jc.count : null) : space.count, totalApprox: space.capped };
             });
         }
 
@@ -26715,7 +26813,8 @@
                     { btn: 'W', desc: 'Import from Word — upload a .docx file with a table to auto-create cards. First column = row letter, other columns = card text.' },
                     { btn: 'Shift+click', desc: 'Multi-select cards — hold Shift and click cards to select more than one at a time. The Group Edit toolbar acts on the whole selection: match size/font/color/baseline/shape, or erase all selected at once. Shift+click an already-selected card to deselect it.' },
                     { btn: 'Gr', desc: 'Group Edit — select cards (click), pick a reference card (right-click), then match properties: center text, match size, align baseline, match font, match color, match card shape, or erase the group. Cards used in games cannot be erased.' },
-                    { btn: 'Double-click', desc: 'Double-click any card to open it in the full-size Card Editor.' }
+                    { btn: 'Double-click', desc: 'Double-click any card to open it in the full-size Card Editor.' },
+                    { btn: 'Cards with parameters', desc: 'Instead of fixed text, a card can be built from parameters (A, B, C…) — give each a range or set of values, add constraints, and a formula such as A + B = C. A <b>line</b> is one shared draw of those values: every card on the line uses the same A, B, C, shown different ways — the problem face (A + B), an answer face (just C), or a face with one value hidden (the eye-off parameter is the answer the player provides). Because the whole line shares one answer, the same cards work in both matching and multiple-choice games. Each new line can use totally new formulas, parameter ranges, and constraints.' }
                 ]
             },
             cardeditor: {

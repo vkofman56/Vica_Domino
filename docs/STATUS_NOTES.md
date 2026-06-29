@@ -1,6 +1,32 @@
 # Vica Domino - Project Status Notes
-**Date**: June 26, 2026 — big **loupe parametric-authoring** session in `pm-studio-DrV.html`. The "Par" system is **placed-letters-only**; this session added the loupe **Parameters bar** + **drag-drop** of params onto the card, **card frame-resize** (corner handle), the **🔍 magnifier** (×1 = 100px real size), the on-card **"123" instance tag**, the per-parameter **space-box** (fixed digit width), **f-Formula "Print on card"** (whole formula as one unit), and **per-element left/center/right alignment** (template stays put, instance moves, toggle pinned to the box). Full detail: **`docs/HANDOVER_2026-06-26_LOUPE-PARAMS.md`** (read this first). **STILL TODO:** a real interactive loupe pass on :8000 (all verification is headless-DOM + screenshot).
-**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`1177d0b`** (+ this docs commit), pushed to `vkofman56/Vica_Domino`. **DEPLOYED to mathgrain.com** by merging `work/cardmaker-rowcopy` → **`claude/review-project-docs-JOOeh`** (the only branch the Firebase Action deploys from; **merge, don't force-push** — it has CI-only Node-pin commits). `index.html` (device-preview) + `biggame.html` (Big Game Scan/warnings) are a SEPARATE parallel session's work; I only commit `pm-studio-DrV.html`. Banner bumps on commit only.
+**Date**: June 27–28, 2026 — big **parametric math-problems** session in `pm-studio-DrV.html`: a **"Math Problems" worksheet game type** (GM → New Game), **copy carries parameters/formula/relations**, **visible/invisible** parameters (GP0 eye → half-transparent on card), **"Print on card" as separate movable parts** (space-box sizes the box + layout, digit-width measured, whole line auto-fits), **multi-select loupe editing** (marquee + group move), **≠ / Int() / value-sets `{0,2,4}`** in the constraint language, **colour-coded parameters** (A magenta · B orange · C blue · D green · E red), a **colour-chip cross-parameter constraint builder** in Rel (numbered "Save relation N" boxes; `Int(A/10)≠Int(B/10)` enforced), a **range-aware place-value decomposition helper** in Construct (`D=100a+10b+c`, editable digit sets, tick-to-accept = Rule 1), and the **construction edited as numbered rule boxes**. Full detail: **`docs/HANDOVER_2026-06-28_PARAMETRIC-CONSTRAINTS.md`** (read this first). The real-loupe TODO is **DONE** (verified live on :8012), except the param editor panel didn't render in headless screenshots — worth an eyeball pass on :8000.
+**Branch**: `work/cardmaker-rowcopy` (MAIN tree). Tip **`60c7ac6`** (+ this docs commit), pushed to `vkofman56/Vica_Domino`. **DEPLOYED to mathgrain.com** by merging `work/cardmaker-rowcopy` → **`claude/review-project-docs-JOOeh`** (the only branch the Firebase Action deploys from; **merge, don't force-push** — it has CI-only Node-pin commits). Deploy-branch tip ~`bc61523`. `index.html` (device-preview) + `biggame.html` (Big Game Scan/warnings) are a SEPARATE parallel session's work; I only commit `pm-studio-DrV.html`. Banner bumps on commit only.
+
+---
+
+### ▶▶ June 27–28 — MATH PROBLEMS + PARAMETRIC CONSTRAINTS + PLACE-VALUE CONSTRUCT — resume here
+Full detail: **`docs/HANDOVER_2026-06-28_PARAMETRIC-CONSTRAINTS.md`**. All in `pm-studio-DrV.html`,
+verified live on :8012. Highlights (and their key functions):
+- **Math Problems game type** → worksheet generator overlay (`wsOpenGenerator`/`_wsGenerate`):
+  count-only feedback during attempts, reveal-which after, never shows the answer. Game maker is
+  read-only re: cards. (`worksheet-demo.html` = standalone prototype.)
+- **Copy carries params/formula/relations** (`_pmCopyCardMathData` in `copyCardInRow`).
+- **Visible/invisible eye** (GP0 icon) → placed letter half-transparent (`_pmApplyParamVisibility`,
+  opacity 0.4); stored on the param (`param.invisible`) + mirrored to the formula `hidden` set;
+  union via `_pmParamHiddenSet`.
+- **Print-on-card = separate parts** (`_fxPrintOnCard`): space-box sizes the magenta box + the layout
+  gap (digit width MEASURED via `_pmDigitRatio`≈0.5, not estimated), whole line auto-fits the card.
+- **Multi-select**: marquee (`_loupeStartMarquee`) + Shift+click + group drag (`_dragGroup`).
+- **Constraint language**: `≠` (glyph→`!=`), `Int()`+floor/ceil/round/abs (`_MP_FUNCS`), value SETS
+  `a∈{0,2,4}`/`{0,…,9}` (`_mpExpandSet`), undeclared vars default to digit `[0,9]`.
+- **Colour-coding** (`_pmParamColor`: A magenta…E red, cycling) across box/chips/Par-list/micros.
+- **Cross-constraints (Rel)**: numbered "Save relation N" boxes building a typed expression over
+  **qualified names** (`A__a`), stored as `cfg.xc` strings; enforced via `_mpGenerateOneWithEnv` +
+  `_mpGenerateJointEnv` (xc cards SAMPLE, not enumerate). The free-text relations box was removed.
+- **Place-value Construct helper** (`_pvCompute`/`_pvApply`): range-aware `D=100a+10b+c`, recomputes
+  on range change, ghost→tick-to-accept = **Rule 1**, editable compact digit sentences.
+- **Construction = numbered rule boxes** (`_mpRenderRules`); hidden `#mp-def` textarea stays the
+  source; the decomposition is Rule 1 and excluded from the boxes (extras start at rule 2).
 **Servers**: durable nohup http.server on **:8000** (the user's HOME port — their localStorage data lives there) and **:8011**. localStorage is per-port; hard-reload (Cmd-Shift-R) after a push.
 **Total Commits**: 1500+
 **Codebase Size**: ~18,500 lines across 4 main files

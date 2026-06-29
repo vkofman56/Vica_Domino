@@ -1,5 +1,45 @@
 # Vica Domino Project Memory
-**Last Updated**: June 22, 2026 — Studio: tap-multi-select, role-colour overhaul, **add set-icons to a game**, sync-error→Offline (see below + STATUS_NOTES.md). Open: Catch authoring UI; Find-icon-size when added to a game.
+**Last Updated**: June 28, 2026 — Studio parametric **Math Problems**: worksheet game type, copy-carries-params, visible/invisible eye, separate-parts printing, multi-select editing, ≠/Int()/value-sets, colour-coded params, cross-parameter constraint builder (Rel), place-value Construct helper, numbered rule boxes (see below + `HANDOVER_2026-06-28_PARAMETRIC-CONSTRAINTS.md`). Prior: June 22 icons-in-games / role-colours / sync.
+
+---
+
+## 🎯 June 27–28, 2026 — Parametric math-problems durable lessons (`pm-studio-DrV.html`)
+
+- **The Math-Problems generator reuses the SAME engine as the loupe.** `_wsGenerate` runs inside
+  `_pmWithCard(cardEl, …)` so `_mpJointSpace`/`_mpGenerateJointEnv`/`_fxBuildFromEnv` operate on any
+  card by temporarily pointing the global `loupeSourceCard` at it — don't duplicate generation logic.
+- **A constructed param's small-param witness is already captured per sample.** `_mpGenerateConstructed`
+  returns `{value, env}` (env = the free/derived assignment) + `witnessNames`. `_mpGenerateOneWithEnv`
+  surfaces it so the joint generator can expose **qualified names `Big__sub`** (e.g. `A__a`) and enforce
+  cross-parameter constraints — no engine rewrite was needed. Cross-constraint cards must **sample**
+  (`_mpGenerateJointEnv`), NOT enumerate, because value-enumeration (`_mpJointSpace`) only tracks the
+  Big value and loses the digit witness — so `_mpJointSpace` returns `{capped:true}` whenever `xc` exists.
+- **Invisibility is stored on the PARAMETER, not only the formula.** The eye writes `param.invisible`
+  (persists with/without a formula, carried by copy) AND mirrors the formula `hidden` set when one
+  exists; `_pmParamHiddenSet` reads the union. The earlier formula-only approach silently failed on
+  formula-less cards because `_fxSave` drops a cfg with empty `text`.
+- **Digit width must be MEASURED, not estimated from glyph height.** `getBBox().height` of a glyph is
+  ≈1.1em here (not cap-height), so a `0.78×height` reservation over-shot ~55% and left a big gap after a
+  value that filled its slot. `_pmDigitRatio` measures `digit-width ÷ glyph-height` once (≈0.5) and caches
+  it; both the space-box magenta box and the Print-on-card layout use it.
+- **"Print on card" places SEPARATE parts** (each param its own `data-param` `<text>`, operators plain)
+  so each param dims/moves individually; the whole line **auto-fits** the card width (font+draw-size
+  scale together). The old single-`data-formula` whole-unit couldn't be dimmed per-symbol.
+- **Construction free vars now support value SETS** `{0,2,4}` / `{0,…,9}` (`_mpExpandSet` expands the
+  ellipsis) alongside ranges, and **undeclared referenced vars default to a digit `[0,9]`** — so
+  `A=10a+b` alone makes `a,b` real micro-parameters. The place-value helper's leading-digit set is
+  range-aware (`500<D<1000 → a∈{5..9}`) but includes 0 when the range allows two-digit values.
+- **`_mpParseDef` accepts space-less rules** (`A=100a+10b+c`, `a∈{0,1,…,9}`) — the construction UI writes
+  the compact form so each rule fits one line.
+- **Rel cross-constraints store as relation STRINGS in `cfg.xc`** (over qualified names), not the legacy
+  `{l,op,r}` objects (still read for back-compat). The Rel free-text box was removed; the chip/typed
+  builder is the single editor and legacy `cfg.text` migrates into `xc` on open.
+- **Construction + Rel + the place-value helper all use the same numbered-box UI pattern**: a hidden
+  textarea/array is the source of truth; numbered grid boxes render it; an editable box + "Save N"
+  button appends; the place-value decomposition is **Rule 1** and is excluded from the rule boxes.
+- **Param-colour convention:** `_pmParamColor(sym)` by capital letter — **A magenta · B orange · C blue ·
+  D green · E red**, cycling. Used for the on-card box, Parameters-bar chips, Par list, micro chips,
+  and cross-constraint chips.
 
 ---
 

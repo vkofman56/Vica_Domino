@@ -1576,6 +1576,7 @@
                 </div>
                 <div class="par-sample-out" id="pv-out"></div>
                 <div class="par-editor-btns">
+                    <button class="par-btn-secondary" id="pv-info-btn" title="Add a static reference card to this line showing a couple of these problems in number form">＋ Examples card</button>
                     <button class="par-btn-secondary" id="pv-close2-btn">Close</button>
                 </div>
             </div>
@@ -1589,19 +1590,13 @@
                     <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
                 </div>
                 <div class="par-title"><span style="font-style:italic;font-family:Georgia,serif;">i</span> · Parameters</div>
-                <div class="par-help">Everything about this card's parameters. <b>Hover</b> a button to see its range &amp; constraints.</div>
                 <div class="par-section-label">Parameters</div>
-                <div id="i-params" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                <div id="i-params" style="display:flex;flex-direction:column;gap:5px;"></div>
                 <div class="par-section-label">Relations</div>
                 <div id="i-rels" class="par-help" style="white-space:pre-wrap;"></div>
-                <div class="par-section-label">Place on the card</div>
-                <div class="par-help">Click a parameter (here or in the top bar), then click the card to drop it as a letter — move / scale / style it with the normal draw tools. Use <b>Instance</b> to fill the placed letters with one concrete example; <b>Parametric</b> to show the symbols again.</div>
-                <div style="display:flex;gap:8px;margin-top:4px;">
-                    <button class="par-btn-secondary" id="i-instance-btn">Instance ▷</button>
-                    <button class="par-btn-secondary" id="i-parametric-btn">Parametric</button>
-                </div>
-                <div class="par-sample-out" id="i-msg"></div>
+                <div class="par-sample-out" id="i-msg" style="display:none;"></div>
                 <div class="par-editor-btns">
+                    <button class="par-btn-secondary" id="i-info-btn" title="Add a reference card to this line summarizing the parameters, ranges, constructions and relations">＋ Info card</button>
                     <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
             </div>
@@ -2508,6 +2503,9 @@
             // (see _dupTag* below). Pruned automatically when its group drops <2.
             if (cardEl.dataset.dupTag) cardData.dupTag = cardEl.dataset.dupTag;
             else delete cardData.dupTag;
+            // Info/example card flag (a static reference card, not a parametric problem).
+            if (cardEl.dataset.info === 'true') cardData.info = true;
+            else delete cardData.info;
         }
 
         // Storage stays comma-separated ("one, sum"); UI is one-per-line.
@@ -3047,7 +3045,29 @@
                 var txt = document.createElement('span'); txt.style.cssText = 'font-family:\'Roboto Mono\',monospace;';
                 txt.appendChild(_pvPart(d.name));
                 var inSym = _pvPart('∈', true); inSym.style.marginLeft = 'calc(1px + 1pt)'; inSym.style.marginRight = 'calc(1px + 1pt)'; txt.appendChild(inSym);
-                txt.appendChild(_pvPart('{' + d.set.join(',') + '}'));
+                txt.appendChild(_pvPart('{'));
+                if (_pvActive) {
+                    // Each digit 0–9 is a toggle: solid = in the set, struck-through =
+                    // removed. Click to delete a digit or restore one. Keep ≥1 digit.
+                    for (var dv = 0; dv <= 9; dv++) (function (dv) {
+                        var inSet = d.set.indexOf(dv) >= 0;
+                        var chip = document.createElement('span');
+                        chip.textContent = String(dv);
+                        chip.style.cssText = 'cursor:pointer;padding:0 1.5px;border-radius:3px;' + (inSet ? 'font-weight:700;' : 'color:#777;text-decoration:line-through;opacity:0.65;');
+                        chip.title = inSet ? 'Remove ' + dv : 'Add ' + dv;
+                        chip.onclick = function (e) {
+                            e.preventDefault(); e.stopPropagation();
+                            var idx = d.set.indexOf(dv);
+                            if (idx >= 0) { if (d.set.length > 1) d.set.splice(idx, 1); }
+                            else { d.set.push(dv); d.set.sort(function (a, b) { return a - b; }); }
+                            _pvApply(sym); _mpRenderPVHelper();
+                        };
+                        txt.appendChild(chip);
+                    })(dv);
+                } else {
+                    txt.appendChild(_pvPart(d.set.join(',')));
+                }
+                txt.appendChild(_pvPart('}'));
                 dl.appendChild(txt);
                 host.appendChild(dl);
             });
@@ -4480,39 +4500,79 @@
             if (pool.big) return { capped: true };
             return { vals: pool.values.filter(function (v) { return _mpValueOK(v, p); }) };
         }
-        // Enumerate the whole joint problem space (all Pars × relations).
+        // Symbols whose value is DETERMINED by the f-formula — the bare-symbol
+        // result side, e.g. C in "A + B = C". A dependent parameter has no freedom:
+        // it must NOT multiply the count, nor be drawn as a free dimension (every
+        // draw of it would just repeat the same problem). Empty when there's no
+        // formula, or the result side isn't a single defined parameter.
+        function _mpAnswerSyms() {
+            var cfg = (typeof _fxLoad === 'function') ? _fxLoad(loupeSourceCard) : null;
+            if (!cfg || !cfg.text) return [];
+            var eq = cfg.text.indexOf('='); if (eq < 0) return [];
+            var rhs = cfg.text.slice(eq + 1).trim();
+            if (!/^[A-Za-z_]\w*$/.test(rhs)) return [];
+            var syms = {}; _mpReadParams(loupeSourceCard).forEach(function (p) { syms[p.sym] = 1; });
+            return syms[rhs] ? [rhs] : [];
+        }
+        // The free (independent) parameters — every Par minus the formula's answers.
+        function _mpFreeParams() {
+            var answer = _mpAnswerSyms();
+            return _mpReadParams(loupeSourceCard).filter(function (p) { return answer.indexOf(p.sym) < 0; });
+        }
+        // Enumerate the whole joint problem space (free Pars × relations × cross-
+        // constraints). The formula-determined answer (e.g. C) is excluded — it's
+        // computed, not drawn. Constructed Pars are expanded WITH their micro-digit
+        // witnesses (A__a, A__b…), so cross-parameter constraints are checked EXACTLY
+        // (not sampled) whenever the space is small enough to enumerate.
         // Returns {envs:[...], count} | {capped:true} | {error}.
         function _mpJointSpace() {
-            var params = _mpReadParams(loupeSourceCard);
+            var params = _mpFreeParams();
             if (!params.length) return { error: 'No parameters yet. Define some in Par.' };
-            // Cross-parameter constraints act on small-param witnesses, which the
-            // value-enumeration below can't see — fall back to sampling instead.
-            if (_xcLoad(loupeSourceCard).length) return { capped: true };
             var rels = _relParse((_relLoad(loupeSourceCard) || {}).text || '');
             if (rels.error) return { error: rels.error };
-            var sets = [], product = 1, ENUM_CAP = 500000;
+            var allRels = rels.list.concat(_xcToRelObjs(_xcLoad(loupeSourceCard)));
+            var opts = [], product = 1, ENUM_CAP = 500000;
             for (var i = 0; i < params.length; i++) {
-                var vs = _mpValueSet(params[i]);
-                if (vs.error) return { error: vs.error };
-                if (vs.capped) return { capped: true };
-                sets.push({ sym: params[i].sym, vals: vs.vals });
-                product *= vs.vals.length;
+                var p = params[i], list;
+                if (p.mode === 'constructed') {
+                    var rc = _mpGenerateConstructed(p, 2000000);
+                    if (rc.error) return { error: rc.error };
+                    if (rc.count == null) return { capped: true }; // too big to enumerate exhaustively
+                    list = rc.samples.map(function (s) {
+                        var micros = {};
+                        for (var kk in s.env) { if (s.env.hasOwnProperty(kk) && kk !== p.sym) micros[p.sym + '__' + kk] = s.env[kk]; }
+                        return { value: s.value, micros: micros };
+                    });
+                } else {
+                    var vs = _mpValueSet(p);
+                    if (vs.error) return { error: vs.error };
+                    if (vs.capped) return { capped: true };
+                    list = vs.vals.map(function (v) { return { value: v, micros: null }; });
+                }
+                opts.push({ sym: p.sym, list: list });
+                product *= list.length;
                 if (product > ENUM_CAP) return { capped: true };
             }
             if (product === 0) return { envs: [], count: 0 };
             var envs = [];
             (function rec(k, env) {
-                if (k === sets.length) {
-                    for (var r = 0; r < rels.list.length; r++) {
-                        var rel = rels.list[r];
+                if (k === opts.length) {
+                    for (var r = 0; r < allRels.length; r++) {
+                        var rel = allRels[r];
                         try { if (!_mpCmp(_mpEvalToks(rel.a, env), rel.op, _mpEvalToks(rel.b, env))) return; }
                         catch (e) { return; }
                     }
-                    envs.push(Object.assign({}, env));
+                    var keep = {}; opts.forEach(function (o) { keep[o.sym] = env[o.sym]; }); // drop micros from stored env
+                    envs.push(keep);
                     return;
                 }
-                var st = sets[k];
-                for (var j = 0; j < st.vals.length; j++) { env[st.sym] = st.vals[j]; rec(k + 1, env); }
+                var o = opts[k];
+                for (var j = 0; j < o.list.length; j++) {
+                    var item = o.list[j];
+                    env[o.sym] = item.value;
+                    if (item.micros) for (var mk in item.micros) env[mk] = item.micros[mk];
+                    rec(k + 1, env);
+                }
             })(0, {});
             return { envs: envs, count: envs.length };
         }
@@ -4549,7 +4609,7 @@
             var sp = _mpJointSpace();
             if (sp.error) return { error: sp.error };
             if (!sp.capped) return { count: sp.count };
-            var params = _mpReadParams(loupeSourceCard);
+            var params = _mpFreeParams();
             var product = 1, approx = false;
             for (var i = 0; i < params.length; i++) {
                 var c = _mpValueCount(params[i]);
@@ -4598,7 +4658,8 @@
             var exp = Math.floor(Math.log10(n)) - 2;
             var m = Math.round(n / Math.pow(10, exp));
             if (m >= 1000) { m = Math.round(m / 10); exp++; }
-            return '≈ ' + m + ' × 10' + _mpSupExp(exp);
+            var exact = !approx && (m * Math.pow(10, exp) === n);
+            return (exact ? '' : '≈ ') + m + ' × 10' + _mpSupExp(exp);
         }
         function _pvPickDistinct(total, k) {
             if (k >= total) { var all = []; for (var i = 0; i < total; i++) all.push(i); return all; }
@@ -4682,6 +4743,189 @@
             _pvUpdateSpaceLabel();
         }
 
+        // ===== Info card: a static reference card showing a few concrete examples =====
+        // The parametric card stays parametric (it regenerates in games); the info
+        // card is a frozen illustration — the rule, the count, and a couple of worked
+        // examples in NUMBER form — so the cards list shows both forms.
+        function _pmShuffle(arr) {
+            for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+            return arr;
+        }
+        // n distinct concrete instances of the current parametric card, in RANDOM
+        // order (so the example lines aren't a sorted run of nearby values).
+        function _pmDistinctEnvs(n) {
+            var sp = _mpJointSpace();
+            if (sp.error) return { error: sp.error };
+            if (!sp.capped) {
+                if (!sp.count) return { error: 'No valid combinations — the parameters / relations may contradict.' };
+                return { envs: _pmShuffle(_pvPickDistinct(sp.envs.length, Math.min(n, sp.count)).map(function (i) { return sp.envs[i]; })) };
+            }
+            var seen = {}, envs = [], tries = 0;
+            while (envs.length < n && tries < n * 400) {
+                tries++;
+                var j = _mpGenerateJointEnv(800);
+                if (j.error) return { error: j.error };
+                var key = JSON.stringify(j.env);
+                if (!seen[key]) { seen[key] = 1; envs.push(j.env); }
+            }
+            return envs.length ? { envs: _pmShuffle(envs) } : { error: 'Could not generate examples.' };
+        }
+        // The rule, the count, and n worked-example strings (answer shown). Examples
+        // are built EXACTLY like a real on-card instance: the answer is computed into
+        // the env and every value is right-padded to its space-box width (figure-
+        // spaces), so the info card matches the real instances' visual spacing.
+        function _pmInfoCardLines(n) {
+            var cfg = _fxLoad(loupeSourceCard), params = _mpReadParams(loupeSourceCard);
+            var d = _pmDistinctEnvs(n);
+            if (d.error) return { error: d.error };
+            var widths = {}; params.forEach(function (p) { if (p.sym && p.width > 0) widths[p.sym] = p.width; });
+            var text = (cfg && cfg.text) ? cfg.text : '';
+            var eq = text.indexOf('='), lhs = eq >= 0 ? text.slice(0, eq).trim() : '', rhs = eq >= 0 ? text.slice(eq + 1).trim() : '';
+            var answerSym = /^[A-Za-z_]\w*$/.test(rhs) ? rhs : '';
+            var examples = d.envs.map(function (env0) {
+                if (text) {
+                    var env = Object.assign({}, env0);
+                    if (answerSym) { try { env[answerSym] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) {} }
+                    return _pmSubstIdentifiers(text, env, widths);
+                }
+                return params.map(function (p) { return p.sym + ' = ' + env0[p.sym]; }).join(',  ');
+            }).filter(Boolean);
+            var jc = _mpJointCount();
+            return {
+                rule: (cfg && cfg.text) ? cfg.text.trim() : '',
+                count: (jc && !jc.error) ? _mpFmtCount(jc.count, jc.approx) : '',
+                examples: examples
+            };
+        }
+        // Build the info card's SVG innards (text lines that fit a 60×60 viewBox).
+        function _pmBuildInfoCardSvg(n) {
+            var info = _pmInfoCardLines(n);
+            if (info.error) return { error: info.error };
+            if (!info.examples.length) return { error: 'No examples to show.' };
+            var esc = _mpEsc, parts = [], y = 8;
+            // Header: the rule with the ANSWER symbol (the formula's result, e.g. C)
+            // rendered semi-transparent, then the count in (parentheses) on the same row.
+            if (info.rule) {
+                var rule = info.rule, eq = rule.lastIndexOf('=');
+                var rhs = eq >= 0 ? rule.slice(eq + 1).trim() : '';
+                var h = '<text x="30" y="' + y + '" text-anchor="middle" font-size="6.5" font-weight="bold" fill="#2e7d46">';
+                if (eq >= 0 && /^[A-Za-z_]\w*$/.test(rhs)) {
+                    h += '<tspan>' + esc(rule.slice(0, eq + 1)) + '</tspan>'
+                       + '<tspan fill-opacity="0.4">' + esc(rule.slice(eq + 1)) + '</tspan>';
+                } else { h += '<tspan>' + esc(rule) + '</tspan>'; }
+                if (info.count) h += '<tspan font-size="4.2" fill="#8a90a0"> (' + esc(info.count) + ')</tspan>';
+                h += '</text>';
+                parts.push(h); y += 9;
+            } else if (info.count) {
+                parts.push('<text x="30" y="' + y + '" text-anchor="middle" font-size="4.5" fill="#8a90a0">' + esc(info.count) + ' possible</text>'); y += 7;
+            }
+            // auto-fit the example font so the longest one fits the width
+            var maxLen = info.examples.reduce(function (m, e) { return Math.max(m, e.length); }, 1);
+            var fs = Math.max(4, Math.min(8, 56 / (maxLen * 0.55)));
+            // Spread the examples between a high first line and a low last line; the
+            // middle ones distribute evenly between them (more air than a tight run).
+            var top = 19, bottom = 57, nEx = info.examples.length;
+            info.examples.forEach(function (ex, i) {
+                var ey = (nEx === 1) ? (top + bottom) / 2 : top + (bottom - top) * i / (nEx - 1);
+                // Dim the ANSWER (everything after the last "=") so it reads as the
+                // value the player is meant to find — matching the header's faded C.
+                var eq = ex.lastIndexOf('='), body;
+                if (eq >= 0) {
+                    body = '<tspan>' + esc(ex.slice(0, eq + 1)) + '</tspan>'
+                         + '<tspan fill-opacity="0.4">' + esc(ex.slice(eq + 1)) + '</tspan>';
+                } else { body = esc(ex); }
+                parts.push('<text x="30" y="' + ey.toFixed(1) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" fill="#1a1a1a">' + body + '</text>');
+            });
+            return { svg: parts.join(''), info: info };
+        }
+        // Shared: build a static reference card from SVG innards + a description,
+        // drop it right after the source card in the same line, persist. Returns
+        // {label} or {error}. Both the "examples" and "Info" cards use this.
+        function _pmDropRefCard(svgInner, descText) {
+            if (!loupeSourceCard) return { error: 'Open a card first.' };
+            var row = loupeSourceCard.closest('.library-row');
+            if (!row) return { error: 'This card is not in a line.' };
+            var letter = row.dataset.rowLetter || _rowKeyParse((loupeSourceCard.querySelector('.library-label') || {}).textContent || '') || 'A';
+            var label = letter + getNextNumber(letter);
+            var card = document.createElement('div');
+            card.className = 'library-card';
+            card.dataset.custom = 'true';
+            card.dataset.uid = generateCardUID();
+            card.dataset.stableId = generateStableId(label, getCurrentCardSetName());
+            card.dataset.origin = 'info';
+            card.dataset.info = 'true'; // reference card (skipped by the twin-scan; not a parametric problem)
+            var lbl = document.createElement('div'); lbl.className = 'library-label'; lbl.textContent = label; card.appendChild(lbl);
+            var preview = document.createElement('div'); preview.className = 'domino-half-preview';
+            var wrap = document.createElement('div');
+            wrap.innerHTML = '<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">' + svgInner + '</svg>';
+            var svg = wrap.querySelector('svg');
+            preview.appendChild(svg); card.appendChild(preview);
+            var desc = document.createElement('div'); desc.className = 'library-desc'; desc.textContent = descText; card.appendChild(desc);
+            row.insertBefore(card, loupeSourceCard.nextSibling);
+            if (typeof libZoom !== 'undefined' && libZoom !== 1) {
+                var cs = Math.round(70 * libZoom), ss = Math.round(60 * libZoom);
+                preview.style.width = cs + 'px'; preview.style.height = cs + 'px';
+                svg.style.width = ss + 'px'; svg.style.height = ss + 'px';
+            }
+            if (typeof addCardDeleteButton === 'function') addCardDeleteButton(card);
+            if (typeof addCopyButton === 'function') addCopyButton(card);
+            if (typeof saveCustomCards === 'function') saveCustomCards();
+            return { label: label };
+        }
+        // The "examples" card — worked problems in number form (from the Preview panel).
+        function _pmMakeInfoCard() {
+            var out = document.getElementById('pv-out');
+            function warn(m) { if (out) { out.className = 'par-sample-out warn'; out.textContent = '⚠ ' + m; } }
+            var nWanted = parseInt((document.getElementById('pv-count') || {}).value, 10);
+            if (!nWanted || nWanted < 1) nWanted = 3;
+            nWanted = Math.min(4, nWanted); // a couple of examples fit a card
+            var built = _pmBuildInfoCardSvg(nWanted);
+            if (built.error) { warn(built.error); return; }
+            var res = _pmDropRefCard(built.svg, 'examples');
+            if (res.error) { warn(res.error); return; }
+            if (out) { out.className = 'par-sample-out ok'; out.textContent = '✓ Examples card "' + res.label + '" added — ' + built.info.examples.length + ' problem' + (built.info.examples.length === 1 ? '' : 's') + ' in number form.'; }
+        }
+        // Build the "Info" card's SVG innards — a compact summary of each parameter
+        // (range / construction / constraints) plus the relations, colour-coded.
+        function _pmBuildParamInfoCardSvg() {
+            var params = _mpReadParams(loupeSourceCard);
+            if (!params.length) return { error: 'No parameters yet — make some in Par.' };
+            var cfg = _fxLoad(loupeSourceCard), esc = _mpEsc;
+            var items = params.map(function (p) {
+                return { text: _mpSummary(p), col: (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#222' };
+            });
+            var rels = [];
+            if (cfg && cfg.text && cfg.text.trim()) rels.push(cfg.text.trim());
+            var relText = (_relLoad(loupeSourceCard) || {}).text || '';
+            relText.split('\n').forEach(function (r) { if (r.trim()) rels.push(r.trim()); });
+            (_xcLoad(loupeSourceCard) || []).forEach(function (r) { if (typeof r === 'string' && r.trim()) rels.push(r.trim()); });
+            var all = items.map(function (it) { return it.text; }).concat(rels);
+            var maxLen = all.reduce(function (m, s) { return Math.max(m, s.length); }, 1);
+            var count = items.length + rels.length;
+            var fs = Math.max(3.2, Math.min(6, 54 / (maxLen * 0.52)));
+            var y = fs + 2, step = Math.max(fs + 1.2, Math.min(9, (57 - y) / Math.max(1, count)));
+            var parts = [];
+            items.forEach(function (it) {
+                parts.push('<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="' + it.col + '">' + esc(it.text) + '</text>');
+                y += step;
+            });
+            rels.forEach(function (r) {
+                parts.push('<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="#555">' + esc(r) + '</text>');
+                y += step;
+            });
+            return { svg: parts.join('') };
+        }
+        // The "Info" card — parameter definitions + relations (from the i panel).
+        function _pmMakeParamInfoCard() {
+            var out = document.getElementById('i-msg');
+            function show(cls, m) { if (out) { out.style.display = ''; out.className = 'par-sample-out ' + cls; out.textContent = m; } }
+            var built = _pmBuildParamInfoCardSvg();
+            if (built.error) { show('warn', '⚠ ' + built.error); return; }
+            var res = _pmDropRefCard(built.svg, 'Info');
+            if (res.error) { show('warn', '⚠ ' + res.error); return; }
+            show('ok', '✓ Info card "' + res.label + '" added.');
+        }
+
         // ---- Info (i) panel: parameters palette (hover = range + constraints) ----
         function iOpenPanel() {
             var p = document.getElementById('i-panel');
@@ -4730,6 +4974,22 @@
             b.addEventListener('dragend', function () { _iDragSym = ''; });
             return b;
         }
+        // One info row in the i-panel: a coloured symbol chip + its full details
+        // (range / construction / constraints) shown INLINE — no hover or click needed.
+        function _iInfoRow(sym, detail, isDerived) {
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;';
+            var col = (typeof _pmParamColor === 'function') ? _pmParamColor(sym) : '#7eff7e';
+            var chip = document.createElement('span');
+            chip.textContent = sym;
+            chip.style.cssText = 'flex:0 0 auto;font-weight:700;border:1.5px ' + (isDerived ? 'dashed ' : 'solid ') + col + ';color:' + col + ';border-radius:7px;padding:1px 9px;font-size:13px;';
+            var info = document.createElement('div');
+            info.className = 'par-help';
+            info.style.cssText = 'white-space:pre-wrap;margin:0;flex:1 1 auto;align-self:center;';
+            info.textContent = detail;
+            row.appendChild(chip); row.appendChild(info);
+            return row;
+        }
         function _iRender() {
             var host = document.getElementById('i-params');
             host.innerHTML = '';
@@ -4737,7 +4997,7 @@
             var seen = {};
             params.forEach(function (p) {
                 seen[p.sym] = 1;
-                host.appendChild(_iMakeParamBtn(p.sym || '?', _iParamDetail(p), p));
+                host.appendChild(_iInfoRow(p.sym || '?', _iParamDetail(p), false));
             });
             // A parameter can also be DERIVED by the f-formula's answer side
             // (e.g. "A + B = C" defines C). Include it so the full set shows.
@@ -4750,7 +5010,7 @@
                     var rhsName = fLine.slice(eqIdx + 1).trim();
                     if (/^[A-Za-z_]\w*$/.test(rhsName) && !seen[rhsName]) {
                         seen[rhsName] = 1;
-                        host.appendChild(_iMakeParamBtn(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, null));
+                        host.appendChild(_iInfoRow(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, true));
                     }
                 }
             }
@@ -5496,6 +5756,8 @@
                 // pv-panel
                 var pvGen = document.getElementById('pv-gen-btn');
                 if (pvGen) pvGen.addEventListener('click', _pvGenerate);
+                var pvInfo = document.getElementById('pv-info-btn');
+                if (pvInfo) pvInfo.addEventListener('click', _pmMakeInfoCard);
                 // Guaranteed wheel-scroll for the results list: in this fixed,
                 // nested-scroll panel the native wheel lands on the wrong element
                 // (only the scrollbar worked). Convert the wheel to scrollTop here.
@@ -5520,6 +5782,8 @@
                 if (iClose) iClose.addEventListener('click', _iClosePanel);
                 var iClose2 = document.getElementById('i-close2-btn');
                 if (iClose2) iClose2.addEventListener('click', _iClosePanel);
+                var iInfo = document.getElementById('i-info-btn');
+                if (iInfo) iInfo.addEventListener('click', _pmMakeParamInfoCard);
                 var iInst = document.getElementById('i-instance-btn');
                 if (iInst) iInst.addEventListener('click', _iInstance);
                 var iParam = document.getElementById('i-parametric-btn');
@@ -7540,6 +7804,7 @@
             var map = {};
             container.querySelectorAll('.library-card').forEach(function(c) {
                 if (c.classList.contains('variation')) return;
+                if (c.dataset.info === 'true') return; // info/example cards are references, not duplicates
                 var svg = c.querySelector('svg');
                 var row = c.closest('.library-row');
                 if (!svg || !row) return;
@@ -18195,6 +18460,7 @@
                     card.dataset.uid = item.uid || generateCardUID();
                     if (item.role) card.dataset.role = item.role; // restore role from storage
                     if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
+                    if (item.info) card.dataset.info = 'true'; // restore info/example-card flag
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {
@@ -26814,7 +27080,7 @@
                     { btn: 'Shift+click', desc: 'Multi-select cards — hold Shift and click cards to select more than one at a time. The Group Edit toolbar acts on the whole selection: match size/font/color/baseline/shape, or erase all selected at once. Shift+click an already-selected card to deselect it.' },
                     { btn: 'Gr', desc: 'Group Edit — select cards (click), pick a reference card (right-click), then match properties: center text, match size, align baseline, match font, match color, match card shape, or erase the group. Cards used in games cannot be erased.' },
                     { btn: 'Double-click', desc: 'Double-click any card to open it in the full-size Card Editor.' },
-                    { btn: 'Cards with parameters', desc: 'Instead of fixed text, a card can be built from parameters (A, B, C…) — give each a range or set of values, add constraints, and a formula such as A + B = C. A <b>line</b> is one shared draw of those values: every card on the line uses the same A, B, C, shown different ways — the problem face (A + B), an answer face (just C), or a face with one value hidden (the eye-off parameter is the answer the player provides). Because the whole line shares one answer, the same cards work in both matching and multiple-choice games. Each new line can use totally new formulas, parameter ranges, and constraints.' }
+                    { btn: 'Cards with parameters', desc: 'Cards are built with parameters (A, B, C…) — parameters have constraints, and connecting formulas. A <b>line</b> is one shared draw of those values: every card on the line uses the same A, B, C, and same unknown, which is "invisible" for number problems and "visible" for matching games. Other lines can use totally new formulas, parameter ranges, and constraints.' }
                 ]
             },
             cardeditor: {
@@ -29444,6 +29710,7 @@
                             card.dataset.uid = item.uid || generateCardUID();
                             if (item.role) card.dataset.role = item.role; // restore role from storage
                             if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
+                            if (item.info) card.dataset.info = 'true'; // restore info/example-card flag
                             if (item.stableId) card.dataset.stableId = item.stableId;
                             if (item.origin) card.dataset.origin = item.origin;
                             if (item.movedFrom) card.dataset.movedFrom = item.movedFrom;
@@ -29658,6 +29925,7 @@
                     card.dataset.uid = item.uid || generateCardUID();
                     if (item.role) card.dataset.role = item.role; // restore role from storage
                     if (item.dupTag) card.dataset.dupTag = item.dupTag; // restore intentional-duplicate tag
+                    if (item.info) card.dataset.info = 'true'; // restore info/example-card flag
                     if (item.stableId) card.dataset.stableId = item.stableId;
                     if (item.origin) card.dataset.origin = item.origin;
                     if (item.voiceNames && typeof item.voiceNames === 'object') {

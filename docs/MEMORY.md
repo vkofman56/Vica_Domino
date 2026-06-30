@@ -5,6 +5,19 @@
 
 ## 🎯 June 29, 2026 — Counting, Info/Examples cards & symbol-editing durable lessons (`pm-studio-DrV.html`)
 
+- **Do NOT re-attempt a "tall / split" card (formula top third, white info bottom two-thirds) without
+  reworking the card-sizing core.** We tried this and discarded ALL of it. The blocker: every card's
+  HEIGHT is hard-fixed at 60 units (`_loupeRealCardPx` returns `60 * F * s`; `_frameViewBox` uses
+  `vbh = 60 * F`; only WIDTH varies via the rect shape), and the LOUPE sizes the card as
+  `_loupeRealCardPx × magnifier` — which runs AFTER `openLoupe`'s container sizing, so setting
+  `container.style.width/height` is overridden. Net: a card can't be made tall, and a sibling "panel
+  below the card" lands beside/off it in the flex-row overlay. The Info/Examples are **separate
+  reference cards** added to the line (`_pmMakeParamInfoCard` / `_pmMakeInfoCard` → `_pmDropRefCard`),
+  NOT an on-card panel. A real tall card would need `currentCardHeight` threaded through the loupe/tile/
+  mag sizing + a play-time crop — a core change, only if the user explicitly wants it.
+- **The row-label repair (`_maybeOfferRowRepair`) must skip parametric cards.** A `data-param` card's
+  first `<text>` is a PARAMETER glyph (e.g. `A` in `A+B=C`), not a row letter — without the skip it
+  false-flags a parametric set ("NumberProblem") as "rows out of sync" and would mis-file the cards.
 - **The formula's ANSWER is computed, never drawn — keep two notions separate.** `_mpAnswerSyms` (the
   RHS of `expr = C`, when C is a defined param) drives the COUNT logic: `_mpFreeParams` excludes it, so
   the count is `|A|×|B|`, not `|A|×|B|×|C|`, and `_mpGenerateJointEnv` draws the free params then

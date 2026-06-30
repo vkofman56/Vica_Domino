@@ -1,5 +1,35 @@
 # Vica Domino Project Memory
-**Last Updated**: June 28, 2026 — Studio parametric **Math Problems**: worksheet game type, copy-carries-params, visible/invisible eye, separate-parts printing, multi-select editing, ≠/Int()/value-sets, colour-coded params, cross-parameter constraint builder (Rel), place-value Construct helper, numbered rule boxes (see below + `HANDOVER_2026-06-28_PARAMETRIC-CONSTRAINTS.md`). Prior: June 22 icons-in-games / role-colours / sync.
+**Last Updated**: June 29, 2026 — Studio **counting overhaul + Info/Examples cards + Values-as-parts + math-symbol editing** (see below + `HANDOVER_2026-06-29_COUNTING-INFOCARDS-SYMBOLS.md`). Prior: June 27–28 parametric Math Problems; June 22 icons-in-games / role-colours / sync.
+
+---
+
+## 🎯 June 29, 2026 — Counting, Info/Examples cards & symbol-editing durable lessons (`pm-studio-DrV.html`)
+
+- **The formula's ANSWER is computed, never drawn — keep two notions separate.** `_mpAnswerSyms` (the
+  RHS of `expr = C`, when C is a defined param) drives the COUNT logic: `_mpFreeParams` excludes it, so
+  the count is `|A|×|B|`, not `|A|×|B|×|C|`, and `_mpGenerateJointEnv` draws the free params then
+  COMPUTES the answers into the env. **Visibility/transparency is a DIFFERENT concept** — driven by
+  `_pmParamHiddenSet` (eye-off `param.invisible` OR the formula `hidden` set), never by the answer. We
+  conflated them once (faded `C` even when it was visible) and had to split them back apart.
+- **The answer's range is optional but, when set, NARROWS.** `_mpValidateDirect` skips the
+  range requirement for an answer; a range that IS set filters combos whose computed answer falls
+  outside it (`_mpAnswerChecks` + `_mpInParamDomain`, in both `_mpJointSpace` and `_mpGenerateJointEnv`).
+- **Cross-constraint counts can be EXACT, not sampled.** The June-28 note said xc cards must SAMPLE;
+  that's only true when you enumerate VALUE-level. `_mpJointSpace` now expands each constructed param
+  into its micro-witnesses (`A__a`, `A__b`) and checks `xc` in the cartesian product, so `B ≤ b` returns
+  a flat stable `150` (not a wobbling estimate). Sampling (`≈`) only for spaces over the ~500k cap.
+- **Values = a list of parts (`p.parts`), domain = their UNION.** Replaced the Range/Set/Both toggle.
+  `_mpPartsOf` migrates every older model; the FIRST range keeps the canonical `mp-lo/mp-hi` ids so the
+  place-value helper + space-box keep working (aux listeners re-bound via `_mpBindRangeAux`).
+- **Info/Examples cards are static `data-info` reference cards** built by `_pmDropRefCard`. Examples are
+  built like a real instance (answer computed in, values space-box-padded via `_pmExampleSvgBody`,
+  random order); Info shows colour-coded summaries with multi-line constructions (only NON-full digit
+  sets) + glyph relations. The twin-scan keys on a **parametric signature** (`_cardParamSig`) so cards
+  differing only in parameters aren't flagged identical; info cards are skipped.
+- **A click on a `<tspan>` must resolve to its parent `<text>`** (`isSelectableElement` /
+  `getSelectableElement`) or coloured multi-tspan lines are un-grabbable in the loupe.
+- **`_pmMathGlyphs()` is the single source for the Math symbol set** — shared by the T-tool Math group
+  AND the Edit-text dialog (`openInlineTextEditor`). When adding/removing a math glyph, change it ONCE.
 
 ---
 

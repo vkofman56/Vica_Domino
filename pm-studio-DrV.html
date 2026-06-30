@@ -948,7 +948,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:32 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:57 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -966,7 +966,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:32 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:57 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1208,7 +1208,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:32 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:57 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4879,14 +4879,28 @@
                 hidden: hidden
             };
         }
+        // The instance-count badge: the number inside an ELLIPSE (not parentheses),
+        // grouped as one <g> so the editor moves/deletes it as a single block —
+        // and so deleting the formula leaves the count, and vice versa. cx/cy
+        // default to the top-right of the header; the user can drag it anywhere.
+        function _pmCountBadgeSvg(count, cx, cy) {
+            var esc = _mpEsc, cstr = String(count);
+            var rx = Math.max(4, cstr.length * 1.25 + 1.6), ry = 3.6;
+            if (cx == null) cx = Math.min(51, 59 - rx);
+            if (cy == null) cy = 6.2;
+            return '<g class="pm-count-badge">'
+                + '<ellipse cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" rx="' + rx.toFixed(1) + '" ry="' + ry.toFixed(1) + '" fill="none" stroke="#8a90a0" stroke-width="0.5"/>'
+                + '<text x="' + cx.toFixed(1) + '" y="' + (cy + 1.5).toFixed(1) + '" text-anchor="middle" font-size="4.2" fill="#8a90a0">' + esc(cstr) + '</text>'
+                + '</g>';
+        }
         // Build the info card's SVG innards (text lines that fit a 60×60 viewBox).
         function _pmBuildInfoCardSvg(n) {
             var info = _pmInfoCardLines(n);
             if (info.error) return { error: info.error };
             if (!info.examples.length) return { error: 'No examples to show.' };
             var esc = _mpEsc, parts = [], y = 8, hidden = info.hidden || {};
-            // Header: the rule, with any INVISIBLE parameter symbol (the eye-off ones)
-            // rendered semi-transparent; then the count in (parentheses).
+            // Header: the rule (its OWN block) + the count in an ellipse (a SEPARATE
+            // block). Any INVISIBLE parameter symbol (eye-off) renders semi-transparent.
             if (info.rule) {
                 var h = '<text x="30" y="' + y + '" text-anchor="middle" font-size="6.5" font-weight="bold" fill="#2e7d46">';
                 var rre = /([A-Za-z_]\w*)|([^A-Za-z_]+)/g, rm;
@@ -4894,11 +4908,12 @@
                     if (rm[1]) { h += hidden[rm[1]] ? ('<tspan fill-opacity="0.4">' + esc(rm[1]) + '</tspan>') : ('<tspan>' + esc(rm[1]) + '</tspan>'); }
                     else { h += '<tspan>' + esc(rm[2]) + '</tspan>'; }
                 }
-                if (info.count) h += '<tspan dx="3" dy="-2" font-size="4.2" fill="#8a90a0">(' + esc(info.count) + ')</tspan>';
                 h += '</text>';
-                parts.push(h); y += 9;
+                parts.push(h);
+                if (info.count) parts.push(_pmCountBadgeSvg(info.count));
+                y += 9;
             } else if (info.count) {
-                parts.push('<text x="30" y="' + y + '" text-anchor="middle" font-size="4.5" fill="#8a90a0">' + esc(info.count) + ' possible</text>'); y += 7;
+                parts.push(_pmCountBadgeSvg(info.count, 30, y - 1)); y += 7;
             }
             // auto-fit the example font so the longest one fits the width
             var maxLen = info.examples.reduce(function (m, e) { return Math.max(m, e.text.length); }, 1);
@@ -10617,13 +10632,19 @@
                     sb.textContent = s.ch;
                     sb.title = s.title || s.ch;
                     sb.style.cssText = 'width:26px;height:26px;font-size:14px;padding:0;border-radius:4px;border:1px solid rgba(255,215,0,0.3);background:rgba(255,255,255,0.1);color:white;cursor:pointer;' + (s.style || '');
+                    // Keep the input focused so its caret/selection survives the click;
+                    // otherwise clicking a symbol blurs the input, the caret is lost, and
+                    // the symbol always lands at the end instead of where you were.
+                    sb.onmousedown = function(e) { e.preventDefault(); };
                     sb.onclick = function(e) {
                         e.preventDefault();
-                        var pos = input.selectionStart || input.value.length;
+                        var start = input.selectionStart, end = input.selectionEnd;
+                        if (start == null) { start = end = input.value.length; } // 0 is a valid caret — don't fall through
                         var val = input.value;
-                        input.value = val.slice(0, pos) + s.ch + val.slice(pos);
+                        input.value = val.slice(0, start) + s.ch + val.slice(end);
                         input.focus();
-                        input.selectionStart = input.selectionEnd = pos + s.ch.length;
+                        var caret = start + s.ch.length;
+                        input.setSelectionRange(caret, caret);
                     };
                     symRow.appendChild(sb);
                 });
@@ -10643,7 +10664,10 @@
                 parentContainer.style.position = 'relative';
                 parentContainer.appendChild(overlay);
                 input.focus();
-                input.select();
+                // Caret at the end (not select-all) so the first keystroke or symbol
+                // inserts mid-string instead of replacing the whole block. The user can
+                // still click/arrow anywhere to insert; Ctrl/Cmd-A selects all to replace.
+                input.setSelectionRange(input.value.length, input.value.length);
                 function confirm() {
                     var newText = autoSpaceMinus(input.value);
                     if (newText !== textEl.textContent) {

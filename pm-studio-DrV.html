@@ -944,7 +944,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:38 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -962,7 +962,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:38 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1204,7 +1204,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:53 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:38 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2721,7 +2721,10 @@
                         }
                     }
                 });
-                s = chunks.join('  +  ') || '(unset)';
+                // The formula answer (e.g. C = A+B) with no own range shows the formula
+                // rather than "(unset)" — its range is optional (set one only to narrow).
+                var ansExpr = (typeof _mpAnswerExpr === 'function') ? _mpAnswerExpr(p.sym) : null;
+                s = chunks.join('  +  ') || (ansExpr ? (sym + ' = ' + ansExpr) : '(unset)');
             }
             (p.restrictions || []).forEach(function (r) { if (r.kind === 'inset') return; s += ', ' + _mpRestrLabel(r); });
             return s;
@@ -3406,8 +3409,11 @@
         }
         // Validate a direct parameter's Values parts; null = OK, else a message.
         function _mpValidateDirect(p) {
+            // The formula's ANSWER parameter (e.g. C in "A + B = C") is computed, so a
+            // range is OPTIONAL — set one only to narrow problems by the answer.
+            var isAnswer = (typeof _mpAnswerExpr === 'function') && !!_mpAnswerExpr(p.sym);
             var parts = _mpPartsOf(p);
-            if (!parts.length) return 'Add a range or a set of values.';
+            if (!parts.length) return isAnswer ? null : 'Add a range or a set of values.';
             var anyContent = false, emptyRange = null, incomplete = false;
             parts.forEach(function (part) {
                 if (part.type === 'set') { if ((part.vals || []).length) anyContent = true; return; }
@@ -3420,8 +3426,53 @@
             });
             if (anyContent) return null;
             if (emptyRange) return 'Empty range (' + emptyRange[0] + ' … ' + emptyRange[1] + ').';
+            if (isAnswer) return null;                          // answer: no range is fine
             if (incomplete) return 'Finish the range — set both a min and a max.';
             return 'Add a range or a set of values.';
+        }
+        // Does p have any usable range or set part (a real domain)?
+        function _mpHasDomain(p) {
+            return _mpPartsOf(p).some(function (part) {
+                if (part.type === 'set') return (part.vals || []).length > 0;
+                return _mpRangeBounds(part) != null;
+            });
+        }
+        // The LHS expression a parameter is the f-formula answer of (e.g. "A + B" for
+        // C when the formula is "A + B = C"); null if p isn't the formula's answer.
+        function _mpAnswerExpr(sym) {
+            var cfg = (typeof _fxLoad === 'function') ? _fxLoad(loupeSourceCard) : null;
+            if (!cfg || !cfg.text) return null;
+            var eq = cfg.text.indexOf('='); if (eq < 0) return null;
+            var rhs = cfg.text.slice(eq + 1).trim();
+            return (rhs === sym) ? cfg.text.slice(0, eq).trim() : null;
+        }
+        // Is val inside p's domain (union of range/set parts) AND ok by its constraints?
+        // No domain parts → no domain restriction (any value passes).
+        function _mpInParamDomain(val, p) {
+            if (!_mpValueOK(val, p)) return false;
+            var hasDomain = false, inDomain = false;
+            _mpPartsOf(p).forEach(function (part) {
+                if (part.type === 'set') { var vs = _mpUniqSortInt(part.vals || []); if (vs.length) { hasDomain = true; if (vs.indexOf(val) >= 0) inDomain = true; } }
+                else { var b = _mpRangeBounds(part); if (b) { hasDomain = true; if (val >= b[0] && val <= b[1]) inDomain = true; } }
+            });
+            return hasDomain ? inDomain : true;
+        }
+        // The answer parameters that NARROW the problem space — each with its formula
+        // LHS tokens and param object, so generation can compute the answer and check
+        // it falls inside the answer's range/set/constraints.
+        function _mpAnswerChecks() {
+            var syms = (typeof _mpAnswerSyms === 'function') ? _mpAnswerSyms() : [];
+            if (!syms.length) return [];
+            var cfg = _fxLoad(loupeSourceCard); if (!cfg || !cfg.text) return [];
+            var eq = cfg.text.indexOf('='); if (eq < 0) return [];
+            var toks; try { toks = _mpExprToks(cfg.text.slice(0, eq).trim()); } catch (e) { return []; }
+            var allParams = _mpReadParams(loupeSourceCard), out = [];
+            syms.forEach(function (sym) {
+                var ap = allParams.filter(function (p) { return p.sym === sym; })[0];
+                if (!ap) return;
+                out.push({ sym: sym, toks: toks, param: ap, narrow: _mpHasDomain(ap) || (ap.restrictions || []).length > 0 });
+            });
+            return out;
         }
         function _mpIsPrime(n) {
             if (n < 2) return false;
@@ -4418,7 +4469,9 @@
         // Sample one value for every Par, retrying until all relations hold.
         // relTextOverride lets the Rel panel test unsaved text.
         function _mpGenerateJointEnv(maxTries, relTextOverride) {
-            var params = _mpReadParams(loupeSourceCard);
+            // Draw only the FREE params; the formula answers (e.g. C) are COMPUTED, not
+            // drawn — so an answer needs no range, and an answer's range NARROWS instead.
+            var params = _mpFreeParams();
             if (!params.length) return { error: 'No parameters yet. Define some in Par.' };
             var relText = (relTextOverride != null) ? relTextOverride : ((_relLoad(loupeSourceCard) || {}).text || '');
             var rels = _relParse(relText);
@@ -4426,6 +4479,7 @@
             // Cross-parameter constraints (the colour-chip builder) reference
             // qualified small-param names (A__a) that we expose below.
             var allRels = rels.list.concat(_xcToRelObjs(_xcLoad(loupeSourceCard)));
+            var answerChecks = _mpAnswerChecks();
             maxTries = maxTries || 600;
             for (var t = 0; t < maxTries; t++) {
                 var env = {}, gerr = null;
@@ -4438,8 +4492,15 @@
                     if (g.env) { for (var kk in g.env) { if (g.env.hasOwnProperty(kk) && kk !== params[i].sym) env[params[i].sym + '__' + kk] = g.env[kk]; } }
                 }
                 if (gerr) return { error: gerr };
+                // Compute the answers into the env; reject if any answer's range/set
+                // says no (the narrowing).
                 var good = true;
-                for (var r = 0; r < allRels.length; r++) {
+                for (var a = 0; a < answerChecks.length; a++) {
+                    var av; try { av = _mpEvalToks(answerChecks[a].toks, env); } catch (e) { good = false; break; }
+                    env[answerChecks[a].sym] = av;
+                    if (answerChecks[a].narrow && !_mpInParamDomain(av, answerChecks[a].param)) { good = false; break; }
+                }
+                if (good) for (var r = 0; r < allRels.length; r++) {
                     var rel = allRels[r];
                     try {
                         if (!_mpCmp(_mpEvalToks(rel.a, env), rel.op, _mpEvalToks(rel.b, env))) { good = false; break; }
@@ -4531,6 +4592,9 @@
             var rels = _relParse((_relLoad(loupeSourceCard) || {}).text || '');
             if (rels.error) return { error: rels.error };
             var allRels = rels.list.concat(_xcToRelObjs(_xcLoad(loupeSourceCard)));
+            // Answer params with a range/set narrow the space (keep only combos whose
+            // computed answer fits). Answers without a domain don't restrict anything.
+            var answerChecks = _mpAnswerChecks().filter(function (ac) { return ac.narrow; });
             var opts = [], product = 1, ENUM_CAP = 500000;
             for (var i = 0; i < params.length; i++) {
                 var p = params[i], list;
@@ -4561,6 +4625,10 @@
                         var rel = allRels[r];
                         try { if (!_mpCmp(_mpEvalToks(rel.a, env), rel.op, _mpEvalToks(rel.b, env))) return; }
                         catch (e) { return; }
+                    }
+                    for (var ac = 0; ac < answerChecks.length; ac++) {
+                        var av; try { av = _mpEvalToks(answerChecks[ac].toks, env); } catch (e) { return; }
+                        if (!_mpInParamDomain(av, answerChecks[ac].param)) return;
                     }
                     var keep = {}; opts.forEach(function (o) { keep[o.sym] = env[o.sym]; }); // drop micros from stored env
                     envs.push(keep);
@@ -4685,12 +4753,14 @@
             if (p.style.display !== 'none') { p.style.display = 'none'; return; }
             _closeMathPanels('pv-panel');
             var out = document.getElementById('pv-out'); out.textContent = ''; out.className = 'par-sample-out';
+            _pmSetMadeBtn('pv-info-btn', '＋ Examples card', false);
             p.style.display = 'flex';
             _pvUpdateSpaceLabel();
         }
         function _pvClosePanel() { var p = document.getElementById('pv-panel'); if (p) p.style.display = 'none'; }
         function _pvGenerate() {
             var out = document.getElementById('pv-out'); out.className = 'par-sample-out'; out.innerHTML = '';
+            _pmSetMadeBtn('pv-info-btn', '＋ Examples card', false); // fresh batch → allow another card
             var params = _mpReadParams(loupeSourceCard);
             if (!params.length) { out.classList.add('warn'); out.textContent = 'No parameters yet. Define some in Par.'; return; }
             var n = parseInt(document.getElementById('pv-count').value, 10);
@@ -4770,15 +4840,32 @@
             }
             return envs.length ? { envs: _pmShuffle(envs) } : { error: 'Could not generate examples.' };
         }
-        // The rule, the count, and n worked-example strings (answer shown). Examples
-        // are built EXACTLY like a real on-card instance: the answer is computed into
-        // the env and every value is right-padded to its space-box width (figure-
-        // spaces), so the info card matches the real instances' visual spacing.
+        // A worked example as SVG tspans: each value space-box padded; values of
+        // INVISIBLE parameters (the eye-off ones) are rendered half-transparent —
+        // exactly matching a real on-card instance. Visible values stay solid.
+        function _pmExampleSvgBody(text, env, widths, hidden) {
+            var FIG = String.fromCharCode(0x2007), esc = _mpEsc;
+            var re = /([A-Za-z_]\w*)|([^A-Za-z_]+)/g, m, out = '';
+            while ((m = re.exec(text))) {
+                if (m[1]) {
+                    var id = m[1];
+                    if (env[id] != null) {
+                        var v = String(env[id]), wd = widths[id]; if (wd > v.length) v = v + FIG.repeat(wd - v.length);
+                        out += hidden[id] ? ('<tspan fill-opacity="0.4">' + esc(v) + '</tspan>') : ('<tspan>' + esc(v) + '</tspan>');
+                    } else { out += '<tspan>' + esc(id) + '</tspan>'; }
+                } else { out += '<tspan>' + esc(m[2]) + '</tspan>'; }
+            }
+            return out;
+        }
+        // The rule, the count, and n worked examples. Examples are built EXACTLY like
+        // a real on-card instance: the answer is computed into the env, values are
+        // padded to their space-box width, and INVISIBLE parameters render faded.
         function _pmInfoCardLines(n) {
             var cfg = _fxLoad(loupeSourceCard), params = _mpReadParams(loupeSourceCard);
             var d = _pmDistinctEnvs(n);
             if (d.error) return { error: d.error };
             var widths = {}; params.forEach(function (p) { if (p.sym && p.width > 0) widths[p.sym] = p.width; });
+            var hidden = (typeof _pmParamHiddenSet === 'function') ? _pmParamHiddenSet(loupeSourceCard) : {};
             var text = (cfg && cfg.text) ? cfg.text : '';
             var eq = text.indexOf('='), lhs = eq >= 0 ? text.slice(0, eq).trim() : '', rhs = eq >= 0 ? text.slice(eq + 1).trim() : '';
             var answerSym = /^[A-Za-z_]\w*$/.test(rhs) ? rhs : '';
@@ -4786,15 +4873,17 @@
                 if (text) {
                     var env = Object.assign({}, env0);
                     if (answerSym) { try { env[answerSym] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) {} }
-                    return _pmSubstIdentifiers(text, env, widths);
+                    return { text: _pmSubstIdentifiers(text, env, widths), body: _pmExampleSvgBody(text, env, widths, hidden) };
                 }
-                return params.map(function (p) { return p.sym + ' = ' + env0[p.sym]; }).join(',  ');
+                var plain = params.map(function (p) { return p.sym + ' = ' + env0[p.sym]; }).join(',  ');
+                return { text: plain, body: _mpEsc(plain) };
             }).filter(Boolean);
             var jc = _mpJointCount();
             return {
-                rule: (cfg && cfg.text) ? cfg.text.trim() : '',
+                rule: text ? text.trim() : '',
                 count: (jc && !jc.error) ? _mpFmtCount(jc.count, jc.approx) : '',
-                examples: examples
+                examples: examples,
+                hidden: hidden
             };
         }
         // Build the info card's SVG innards (text lines that fit a 60×60 viewBox).
@@ -4802,39 +4891,32 @@
             var info = _pmInfoCardLines(n);
             if (info.error) return { error: info.error };
             if (!info.examples.length) return { error: 'No examples to show.' };
-            var esc = _mpEsc, parts = [], y = 8;
-            // Header: the rule with the ANSWER symbol (the formula's result, e.g. C)
-            // rendered semi-transparent, then the count in (parentheses) on the same row.
+            var esc = _mpEsc, parts = [], y = 8, hidden = info.hidden || {};
+            // Header: the rule, with any INVISIBLE parameter symbol (the eye-off ones)
+            // rendered semi-transparent; then the count in (parentheses).
             if (info.rule) {
-                var rule = info.rule, eq = rule.lastIndexOf('=');
-                var rhs = eq >= 0 ? rule.slice(eq + 1).trim() : '';
                 var h = '<text x="30" y="' + y + '" text-anchor="middle" font-size="6.5" font-weight="bold" fill="#2e7d46">';
-                if (eq >= 0 && /^[A-Za-z_]\w*$/.test(rhs)) {
-                    h += '<tspan>' + esc(rule.slice(0, eq + 1)) + '</tspan>'
-                       + '<tspan fill-opacity="0.4">' + esc(rule.slice(eq + 1)) + '</tspan>';
-                } else { h += '<tspan>' + esc(rule) + '</tspan>'; }
-                if (info.count) h += '<tspan font-size="4.2" fill="#8a90a0"> (' + esc(info.count) + ')</tspan>';
+                var rre = /([A-Za-z_]\w*)|([^A-Za-z_]+)/g, rm;
+                while ((rm = rre.exec(info.rule))) {
+                    if (rm[1]) { h += hidden[rm[1]] ? ('<tspan fill-opacity="0.4">' + esc(rm[1]) + '</tspan>') : ('<tspan>' + esc(rm[1]) + '</tspan>'); }
+                    else { h += '<tspan>' + esc(rm[2]) + '</tspan>'; }
+                }
+                if (info.count) h += '<tspan dx="3" dy="-2" font-size="4.2" fill="#8a90a0">(' + esc(info.count) + ')</tspan>';
                 h += '</text>';
                 parts.push(h); y += 9;
             } else if (info.count) {
                 parts.push('<text x="30" y="' + y + '" text-anchor="middle" font-size="4.5" fill="#8a90a0">' + esc(info.count) + ' possible</text>'); y += 7;
             }
             // auto-fit the example font so the longest one fits the width
-            var maxLen = info.examples.reduce(function (m, e) { return Math.max(m, e.length); }, 1);
+            var maxLen = info.examples.reduce(function (m, e) { return Math.max(m, e.text.length); }, 1);
             var fs = Math.max(4, Math.min(8, 56 / (maxLen * 0.55)));
             // Spread the examples between a high first line and a low last line; the
             // middle ones distribute evenly between them (more air than a tight run).
-            var top = 19, bottom = 57, nEx = info.examples.length;
+            var top = 19, bottom = 51, nEx = info.examples.length;
             info.examples.forEach(function (ex, i) {
                 var ey = (nEx === 1) ? (top + bottom) / 2 : top + (bottom - top) * i / (nEx - 1);
-                // Dim the ANSWER (everything after the last "=") so it reads as the
-                // value the player is meant to find — matching the header's faded C.
-                var eq = ex.lastIndexOf('='), body;
-                if (eq >= 0) {
-                    body = '<tspan>' + esc(ex.slice(0, eq + 1)) + '</tspan>'
-                         + '<tspan fill-opacity="0.4">' + esc(ex.slice(eq + 1)) + '</tspan>';
-                } else { body = esc(ex); }
-                parts.push('<text x="30" y="' + ey.toFixed(1) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" fill="#1a1a1a">' + body + '</text>');
+                // ex.body already fades the values of any INVISIBLE parameters.
+                parts.push('<text x="30" y="' + ey.toFixed(1) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" fill="#1a1a1a">' + ex.body + '</text>');
             });
             return { svg: parts.join(''), info: info };
         }
@@ -4872,6 +4954,15 @@
             if (typeof saveCustomCards === 'function') saveCustomCards();
             return { label: label };
         }
+        // Toggle a "+ … card" button's made-state: a ✓ + dimmed/disabled after it has
+        // added a card; reset (enabled) when the panel reopens or a new batch is made.
+        function _pmSetMadeBtn(id, baseLabel, made) {
+            var b = document.getElementById(id); if (!b) return;
+            b.textContent = baseLabel + (made ? '  ✓' : '');
+            b.disabled = !!made;
+            b.style.opacity = made ? '0.5' : '';
+            b.style.cursor = made ? 'default' : '';
+        }
         // The "examples" card — worked problems in number form (from the Preview panel).
         function _pmMakeInfoCard() {
             var out = document.getElementById('pv-out');
@@ -4884,6 +4975,49 @@
             var res = _pmDropRefCard(built.svg, 'examples');
             if (res.error) { warn(res.error); return; }
             if (out) { out.className = 'par-sample-out ok'; out.textContent = '✓ Examples card "' + res.label + '" added — ' + built.info.examples.length + ' problem' + (built.info.examples.length === 1 ? '' : 's') + ' in number form.'; }
+            _pmSetMadeBtn('pv-info-btn', '＋ Examples card', true);
+        }
+        // A constructed parameter's summary as an ARRAY of lines: the formula, then
+        // each restricted digit set on its OWN line (a full {0–9} place is implied,
+        // so it's omitted; a restricted one like a∈{1,2,3} gets its own line).
+        function _pmConstructInfo(p) {
+            var lines = (p.def || '').split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && s.charAt(0) !== '#'; });
+            var out = [lines.length ? lines[0] : (p.sym + ' = ?')], parsed;
+            try { parsed = _mpParseDef(p.def || '', p.sym); } catch (e) { parsed = null; }
+            if (parsed && parsed.freeVars) {
+                Object.keys(parsed.freeVars).forEach(function (name) {
+                    if (name === p.sym) return;
+                    var fv = parsed.freeVars[name], set = null;
+                    if (fv.set) set = fv.set;
+                    else if (fv.lo != null && fv.hi != null) { set = []; for (var v = fv.lo; v <= fv.hi; v++) set.push(v); }
+                    if (!set) return;
+                    var isFullDigit = set.length === 10 && set.every(function (v, i) { return v === i; });
+                    if (!isFullDigit) out.push(name + '∈{' + set.join(',') + '}');
+                });
+            }
+            if ((p.restrictions || []).length) out.push(p.restrictions.map(_mpRestrLabel).join(', '));
+            return out;
+        }
+        // Render a relation string as one SVG <text> with COLOURED parameter symbols
+        // (and micro-params coloured by their Big parameter, e.g. A's b in A's colour),
+        // converting <= >= != into ≤ ≥ ≠.
+        function _pmRelLineSvg(relStr, y, fs, hidden) {
+            hidden = hidden || {};
+            var bigset = {}; _mpReadParams(loupeSourceCard).forEach(function (p) { bigset[p.sym] = 1; });
+            var esc = _mpEsc, gmap = { '<=': '≤', '>=': '≥', '==': '=', '!=': '≠' };
+            var re = /([A-Za-z_]\w*)|(<=|>=|==|!=)|(\s+)|(\S)/g, m, tspans = '';
+            while ((m = re.exec(relStr))) {
+                if (m[1]) {
+                    var id = m[1], qm = id.match(/^([A-Za-z]\w*?)__(\w+)$/), col = null, shown = id, big = null;
+                    if (qm && bigset[qm[1]]) { big = qm[1]; col = _pmParamColor(big); shown = qm[2]; } // micro: show 'b', colour by A
+                    else if (bigset[id]) { big = id; col = _pmParamColor(id); }
+                    var op = (big && hidden[big]) ? ' fill-opacity="0.4"' : ''; // invisible (eye-off) parameter is faded
+                    tspans += col ? ('<tspan fill="' + col + '" font-weight="bold"' + op + '>' + esc(shown) + '</tspan>') : ('<tspan>' + esc(id) + '</tspan>');
+                } else if (m[2]) { tspans += '<tspan>' + esc(gmap[m[2]]) + '</tspan>'; }
+                else if (m[3]) { tspans += esc(m[3]); }
+                else { tspans += '<tspan>' + esc(m[4]) + '</tspan>'; }
+            }
+            return '<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="#555">' + tspans + '</text>';
         }
         // Build the "Info" card's SVG innards — a compact summary of each parameter
         // (range / construction / constraints) plus the relations, colour-coded.
@@ -4891,26 +5025,33 @@
             var params = _mpReadParams(loupeSourceCard);
             if (!params.length) return { error: 'No parameters yet — make some in Par.' };
             var cfg = _fxLoad(loupeSourceCard), esc = _mpEsc;
-            var items = params.map(function (p) {
-                return { text: _mpSummary(p), col: (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#222' };
+            var hidden = (typeof _pmParamHiddenSet === 'function') ? _pmParamHiddenSet(loupeSourceCard) : {};
+            // Flat list of lines: each param (constructed → one line per restricted
+            // digit set), then the relations. INVISIBLE (eye-off) parameters are faded.
+            var lines = [];
+            params.forEach(function (p) {
+                var col = (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#222';
+                var faded = !!hidden[p.sym];
+                if (p.mode === 'constructed') { _pmConstructInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
+                else { lines.push({ text: _mpSummary(p), col: col, faded: faded }); }
             });
             var rels = [];
             if (cfg && cfg.text && cfg.text.trim()) rels.push(cfg.text.trim());
             var relText = (_relLoad(loupeSourceCard) || {}).text || '';
             relText.split('\n').forEach(function (r) { if (r.trim()) rels.push(r.trim()); });
             (_xcLoad(loupeSourceCard) || []).forEach(function (r) { if (typeof r === 'string' && r.trim()) rels.push(r.trim()); });
-            var all = items.map(function (it) { return it.text; }).concat(rels);
-            var maxLen = all.reduce(function (m, s) { return Math.max(m, s.length); }, 1);
-            var count = items.length + rels.length;
+            rels.forEach(function (r) { lines.push({ rel: r }); });
+            var maxLen = lines.reduce(function (m, l) { return Math.max(m, (l.rel || l.text).length); }, 1);
+            var count = lines.length;
             var fs = Math.max(3.2, Math.min(6, 54 / (maxLen * 0.52)));
             var y = fs + 2, step = Math.max(fs + 1.2, Math.min(9, (57 - y) / Math.max(1, count)));
             var parts = [];
-            items.forEach(function (it) {
-                parts.push('<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="' + it.col + '">' + esc(it.text) + '</text>');
-                y += step;
-            });
-            rels.forEach(function (r) {
-                parts.push('<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="#555">' + esc(r) + '</text>');
+            lines.forEach(function (l) {
+                if (l.rel) { parts.push(_pmRelLineSvg(l.rel, y, fs, hidden)); }
+                else {
+                    var op = l.faded ? ' fill-opacity="0.4"' : '';
+                    parts.push('<text x="4" y="' + y.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" fill="' + l.col + '"' + op + '>' + esc(l.text) + '</text>');
+                }
                 y += step;
             });
             return { svg: parts.join('') };
@@ -4924,6 +5065,7 @@
             var res = _pmDropRefCard(built.svg, 'Info');
             if (res.error) { show('warn', '⚠ ' + res.error); return; }
             show('ok', '✓ Info card "' + res.label + '" added.');
+            _pmSetMadeBtn('i-info-btn', '＋ Info card', true);
         }
 
         // ---- Info (i) panel: parameters palette (hover = range + constraints) ----
@@ -4932,6 +5074,7 @@
             if (!p) return;
             if (p.style.display !== 'none') { p.style.display = 'none'; return; }
             _closeMathPanels('i-panel');
+            _pmSetMadeBtn('i-info-btn', '＋ Info card', false);
             _iRender();
             p.style.display = 'flex';
         }
@@ -4942,10 +5085,12 @@
                 lines.push('Constructed:');
                 (p.def || '').split('\n').forEach(function (l) { if (l.trim()) lines.push('  ' + l.trim()); });
             } else {
+                var ansExpr = (typeof _mpAnswerExpr === 'function') ? _mpAnswerExpr(p.sym) : null;
                 var loOp = (p.lo && p.lo.op === 'lt') ? '<' : '≤';
                 var hiOp = (p.hi && p.hi.op === 'lt') ? '<' : '≤';
                 if (p.lo && p.lo.val != null && p.lo.val !== '' && p.hi && p.hi.val != null && p.hi.val !== '')
                     lines.push('Range:  ' + p.lo.val + ' ' + loOp + ' ' + p.sym + ' ' + hiOp + ' ' + p.hi.val);
+                else if (ansExpr) lines.push('Defined by formula:  ' + p.sym + ' = ' + ansExpr);
                 else lines.push('Range:  (unset)');
             }
             if ((p.restrictions || []).length) lines.push('Constraints:  ' + p.restrictions.map(_mpRestrLabel).join(', '));
@@ -4976,9 +5121,9 @@
         }
         // One info row in the i-panel: a coloured symbol chip + its full details
         // (range / construction / constraints) shown INLINE — no hover or click needed.
-        function _iInfoRow(sym, detail, isDerived) {
+        function _iInfoRow(sym, detail, isDerived, faded) {
             var row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;';
+            row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;' + (faded ? 'opacity:0.45;' : '');
             var col = (typeof _pmParamColor === 'function') ? _pmParamColor(sym) : '#7eff7e';
             var chip = document.createElement('span');
             chip.textContent = sym;
@@ -4994,10 +5139,11 @@
             var host = document.getElementById('i-params');
             host.innerHTML = '';
             var params = _mpReadParams(loupeSourceCard);
+            var hidden = (typeof _pmParamHiddenSet === 'function') ? _pmParamHiddenSet(loupeSourceCard) : {};
             var seen = {};
             params.forEach(function (p) {
                 seen[p.sym] = 1;
-                host.appendChild(_iInfoRow(p.sym || '?', _iParamDetail(p), false));
+                host.appendChild(_iInfoRow(p.sym || '?', _iParamDetail(p), false, !!hidden[p.sym]));
             });
             // A parameter can also be DERIVED by the f-formula's answer side
             // (e.g. "A + B = C" defines C). Include it so the full set shows.
@@ -5010,7 +5156,7 @@
                     var rhsName = fLine.slice(eqIdx + 1).trim();
                     if (/^[A-Za-z_]\w*$/.test(rhsName) && !seen[rhsName]) {
                         seen[rhsName] = 1;
-                        host.appendChild(_iInfoRow(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, true));
+                        host.appendChild(_iInfoRow(rhsName, 'Defined by formula:  ' + rhsName + ' = ' + lhs, true, !!hidden[rhsName]));
                     }
                 }
             }
@@ -8979,6 +9125,9 @@
         }
         var selectableTags = { circle:1, text:1, line:1, ellipse:1, path:1, rect:1, polygon:1, polyline:1, image:1, use:1 };
         function isSelectableElement(el) {
+            // A click on a <tspan> (e.g. a coloured part of a relation line) counts as
+            // a click on its parent <text>, so the whole line is selectable/movable.
+            if (el.tagName && el.tagName.toLowerCase() === 'tspan') { var _t = el.closest('text'); if (_t) el = _t; }
             var tag = el.tagName.toLowerCase();
             var cardSvg = el.closest('svg:not(.loupe-grid)');
             if (!cardSvg) return false;
@@ -8996,6 +9145,9 @@
         }
         // Get the actual selectable element (for children of a <g>, return the <g>)
         function getSelectableElement(el) {
+            // A click on a <tspan> resolves to its parent <text> (so a coloured
+            // multi-part line like "A+B=C" or "B≤b" moves as one whole element).
+            if (el.tagName && el.tagName.toLowerCase() === 'tspan') { var _t = el.closest('text'); if (_t) el = _t; }
             var tag = el.tagName.toLowerCase();
             // If the element is inside a <g> that is a direct child of the card SVG, select the <g>
             var parentG = el.closest('g');

@@ -1,5 +1,48 @@
 # Vica Domino Project Memory
-**Last Updated**: June 28, 2026 — Studio parametric **Math Problems**: worksheet game type, copy-carries-params, visible/invisible eye, separate-parts printing, multi-select editing, ≠/Int()/value-sets, colour-coded params, cross-parameter constraint builder (Rel), place-value Construct helper, numbered rule boxes (see below + `HANDOVER_2026-06-28_PARAMETRIC-CONSTRAINTS.md`). Prior: June 22 icons-in-games / role-colours / sync.
+**Last Updated**: June 29, 2026 — Studio **counting overhaul + Info/Examples cards + Values-as-parts + math-symbol editing** (see below + `HANDOVER_2026-06-29_COUNTING-INFOCARDS-SYMBOLS.md`). Prior: June 27–28 parametric Math Problems; June 22 icons-in-games / role-colours / sync.
+
+---
+
+## 🎯 June 29, 2026 — Counting, Info/Examples cards & symbol-editing durable lessons (`pm-studio-DrV.html`)
+
+- **Do NOT re-attempt a "tall / split" card (formula top third, white info bottom two-thirds) without
+  reworking the card-sizing core.** We tried this and discarded ALL of it. The blocker: every card's
+  HEIGHT is hard-fixed at 60 units (`_loupeRealCardPx` returns `60 * F * s`; `_frameViewBox` uses
+  `vbh = 60 * F`; only WIDTH varies via the rect shape), and the LOUPE sizes the card as
+  `_loupeRealCardPx × magnifier` — which runs AFTER `openLoupe`'s container sizing, so setting
+  `container.style.width/height` is overridden. Net: a card can't be made tall, and a sibling "panel
+  below the card" lands beside/off it in the flex-row overlay. The Info/Examples are **separate
+  reference cards** added to the line (`_pmMakeParamInfoCard` / `_pmMakeInfoCard` → `_pmDropRefCard`),
+  NOT an on-card panel. A real tall card would need `currentCardHeight` threaded through the loupe/tile/
+  mag sizing + a play-time crop — a core change, only if the user explicitly wants it.
+- **The row-label repair (`_maybeOfferRowRepair`) must skip parametric cards.** A `data-param` card's
+  first `<text>` is a PARAMETER glyph (e.g. `A` in `A+B=C`), not a row letter — without the skip it
+  false-flags a parametric set ("NumberProblem") as "rows out of sync" and would mis-file the cards.
+- **The formula's ANSWER is computed, never drawn — keep two notions separate.** `_mpAnswerSyms` (the
+  RHS of `expr = C`, when C is a defined param) drives the COUNT logic: `_mpFreeParams` excludes it, so
+  the count is `|A|×|B|`, not `|A|×|B|×|C|`, and `_mpGenerateJointEnv` draws the free params then
+  COMPUTES the answers into the env. **Visibility/transparency is a DIFFERENT concept** — driven by
+  `_pmParamHiddenSet` (eye-off `param.invisible` OR the formula `hidden` set), never by the answer. We
+  conflated them once (faded `C` even when it was visible) and had to split them back apart.
+- **The answer's range is optional but, when set, NARROWS.** `_mpValidateDirect` skips the
+  range requirement for an answer; a range that IS set filters combos whose computed answer falls
+  outside it (`_mpAnswerChecks` + `_mpInParamDomain`, in both `_mpJointSpace` and `_mpGenerateJointEnv`).
+- **Cross-constraint counts can be EXACT, not sampled.** The June-28 note said xc cards must SAMPLE;
+  that's only true when you enumerate VALUE-level. `_mpJointSpace` now expands each constructed param
+  into its micro-witnesses (`A__a`, `A__b`) and checks `xc` in the cartesian product, so `B ≤ b` returns
+  a flat stable `150` (not a wobbling estimate). Sampling (`≈`) only for spaces over the ~500k cap.
+- **Values = a list of parts (`p.parts`), domain = their UNION.** Replaced the Range/Set/Both toggle.
+  `_mpPartsOf` migrates every older model; the FIRST range keeps the canonical `mp-lo/mp-hi` ids so the
+  place-value helper + space-box keep working (aux listeners re-bound via `_mpBindRangeAux`).
+- **Info/Examples cards are static `data-info` reference cards** built by `_pmDropRefCard`. Examples are
+  built like a real instance (answer computed in, values space-box-padded via `_pmExampleSvgBody`,
+  random order); Info shows colour-coded summaries with multi-line constructions (only NON-full digit
+  sets) + glyph relations. The twin-scan keys on a **parametric signature** (`_cardParamSig`) so cards
+  differing only in parameters aren't flagged identical; info cards are skipped.
+- **A click on a `<tspan>` must resolve to its parent `<text>`** (`isSelectableElement` /
+  `getSelectableElement`) or coloured multi-tspan lines are un-grabbable in the loupe.
+- **`_pmMathGlyphs()` is the single source for the Math symbol set** — shared by the T-tool Math group
+  AND the Edit-text dialog (`openInlineTextEditor`). When adding/removing a math glyph, change it ONCE.
 
 ---
 

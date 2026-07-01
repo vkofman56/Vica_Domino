@@ -948,7 +948,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">1:20 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -966,7 +966,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">1:20 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1208,7 +1208,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:20 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">1:20 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6468,6 +6468,17 @@
             container.classList.remove('show-border');
             // Refresh the grid thumbnail: show the saved parametric formula + "123" tag.
             if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
+            // Re-check for identical cards now that this edit is committed — so editing
+            // two cards to match (or un-matching them) is reflected as soon as you return
+            // to the grid, not only on a full set re-entry. Card Maker only; deferred so
+            // the grid thumbnails settle first. (A plain copy doesn't open the loupe, so
+            // this never fires just from copying — matching the "no reaction on copy" rule.)
+            (function () {
+                var lib = document.getElementById('domino-library-screen');
+                if (lib && lib.style.display !== 'none' && typeof _twinScanCardMaker === 'function') {
+                    setTimeout(_twinScanCardMaker, 0);
+                }
+            })();
         }
 
         // Loupe close button
@@ -7987,13 +7998,32 @@
         // + relations, keyed by the card's uid). '' when the card has no parametric
         // data. Used so two cards with identical art but DIFFERENT parameters /
         // constraints are NOT treated as the same card. Never mints a uid.
+        // Order-INDEPENDENT JSON: sort object keys recursively so two semantically
+        // equal param configs serialise identically even if their key order drifted
+        // (e.g. after editing one card's range). Plain JSON.stringify is order-sensitive.
+        function _canonJSON(v) {
+            if (v === null || typeof v !== 'object') return JSON.stringify(v);
+            if (Array.isArray(v)) return '[' + v.map(_canonJSON).join(',') + ']';
+            return '{' + Object.keys(v).sort().map(function (k) { return JSON.stringify(k) + ':' + _canonJSON(v[k]); }).join(',') + '}';
+        }
         function _cardParamSig(cardEl) {
             var uid = (cardEl && cardEl.dataset) ? cardEl.dataset.uid : null;
             if (!uid) return '';
             function entry(key) { try { var s = JSON.parse(localStorage.getItem(key) || '{}'); return (s && s[uid] != null) ? s[uid] : null; } catch (e) { return null; } }
             var p = entry(_MP_STORE_KEY), f = entry(_FX_STORE_KEY), r = entry(_REL_STORE_KEY);
             if (p == null && f == null && r == null) return '';
-            try { return JSON.stringify({ p: p, f: f, r: r }); } catch (e) { return ''; }
+            try { return _canonJSON({ p: p, f: f, r: r }); } catch (e) { return ''; }
+        }
+        // A card's ART fingerprint for the duplicate check. Strips the DERIVED layers
+        // that re-bake per edit (the magenta param boxes, baked instance groups, editor
+        // grid/selection rings) and collapses whitespace, so two cards with the same
+        // template + params aren't seen as different just because one was re-baked.
+        function _cardArtSig(cardEl) {
+            var svg = cardEl && cardEl.querySelector('svg');
+            if (!svg) return '';
+            var clone = svg.cloneNode(true);
+            clone.querySelectorAll('.pm-param-boxes, .pm-baked, .loupe-grid, .draw-sel-ring, .draw-marquee, .card-shape-boundary').forEach(function (n) { n.remove(); });
+            return clone.innerHTML.replace(/\s+/g, ' ').trim();
         }
         // All identical-art groups (≥2) in the active container, keyed by
         // rowLetter+art+parametric-signature; EMPTY (no-art) and variation cards are
@@ -8006,22 +8036,47 @@
                 var svg = c.querySelector('svg');
                 var row = c.closest('.library-row');
                 if (!svg || !row) return;
-                var art = svg.innerHTML.trim();
+                var art = _cardArtSig(c);
                 if (!art) return;
-                var sig = _cardParamSig(c);
-                // Parametric problem templates are flagged as duplicates ACROSS rows —
-                // an identical copied template (e.g. A1 copied to B1, unchanged) is
-                // almost always a mistake. Plain art stays same-row-only, because the
-                // same drawing in two rows is normal (e.g. a "5" in A and B for a
-                // matching game). The user can still mark a flagged group intentional.
-                var isParam = sig !== '' || /data-param/.test(art);
-                var rowKey = isParam ? '' : (row.dataset.rowLetter || '');
-                var key = rowKey + '|@|' + art + '|#|' + sig;
+                // Group identical cards by (normalised) art + parametric signature,
+                // IGNORING the row, so duplicates are caught ACROSS rows too
+                // (A1 = B1 = C1), for both parametric and plain cards. Intentional
+                // repeats (e.g. a matching game) are silenced per-group via the dup tag.
+                var key = '|@|' + art + '|#|' + _cardParamSig(c);
                 (map[key] = map[key] || []).push(c);
             });
             return Object.keys(map).filter(function(k) { return map[k].length >= 2; })
                 .map(function(k) { return { key: k, cards: map[k] }; });
         }
+        // Console diagnostic: why aren't two cards seen as identical? Run in the browser
+        // console — e.g. _twinDiff('A1','B1'). Reports whether the ART or the PARAM
+        // signature differs, and the first differing spot in each.
+        function _twinDiff(labelA, labelB) {
+            var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : document;
+            function find(lbl) {
+                var cards = container.querySelectorAll('.library-card');
+                for (var i = 0; i < cards.length; i++) {
+                    var l = (cards[i].querySelector('.library-label') || {}).textContent || '';
+                    if (l === lbl || _twinShortLabel(cards[i]) === lbl) return cards[i];
+                }
+                return null;
+            }
+            var a = find(labelA), b = find(labelB);
+            if (!a || !b) return { error: 'card not found: ' + (!a ? labelA : labelB) };
+            var artA = _cardArtSig(a), artB = _cardArtSig(b), sigA = _cardParamSig(a), sigB = _cardParamSig(b);
+            function firstDiff(x, y) {
+                if (x === y) return null;
+                var n = Math.min(x.length, y.length), i = 0;
+                while (i < n && x[i] === y[i]) i++;
+                return { at: i, a: x.slice(Math.max(0, i - 20), i + 50), b: y.slice(Math.max(0, i - 20), i + 50) };
+            }
+            return {
+                identical: artA === artB && sigA === sigB,
+                artSame: artA === artB, artDiff: firstDiff(artA, artB),
+                sigSame: sigA === sigB, sigDiff: firstDiff(sigA, sigB)
+            };
+        }
+        if (typeof window !== 'undefined') window._twinDiff = _twinDiff;
         function _dupTagIsGroupIntentional(cards) {
             var tags = cards.map(function(c) { return c.dataset.dupTag || ''; });
             return tags.every(Boolean) && new Set(tags).size === tags.length;
@@ -8040,14 +8095,20 @@
         }
         // Prune orphaned tags (group dropped <2) and compact fully-tagged groups
         // to t1..tN, then refresh badges. Saves only if something changed.
+        // Guards saveCustomCards → _dupTagRefresh → saveCustomCards from recursing.
+        var _inDupRefresh = false;
         function _dupTagRefresh() {
             var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
             if (!container) return false;
+            // Fast path: nothing is tagged intentional → nothing to prune/compact. Keeps
+            // this cheap to call from saveCustomCards on every card change.
+            if (!container.querySelector('.library-card[data-dup-tag]')) return false;
             var groups = _dupTagGroups(container);
             var inGroup = new Set();
             groups.forEach(function(g) { g.cards.forEach(function(c) { inGroup.add(c); }); });
             var changed = false;
-            // Prune: a tag on a card that's no longer in a ≥2 identical group.
+            // Prune: a tag on a card that's no longer in a ≥2 identical group — e.g. the
+            // user edited one of two "intentional" twins so they're no longer identical.
             container.querySelectorAll('.library-card').forEach(function(c) {
                 if (c.dataset.dupTag && !inGroup.has(c)) { delete c.dataset.dupTag; changed = true; }
             });
@@ -8060,7 +8121,10 @@
                     if (c.dataset.dupTag !== want) { c.dataset.dupTag = want; changed = true; }
                 });
             });
-            if (changed && typeof saveCustomCards === 'function') saveCustomCards();
+            if (changed && typeof saveCustomCards === 'function') {
+                _inDupRefresh = true;
+                try { saveCustomCards(); } finally { _inDupRefresh = false; }
+            }
             _dupTagRenderBadges(container);
             return changed;
         }
@@ -8074,38 +8138,161 @@
             var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
             if (container) _dupTagRenderBadges(container);
         }
+        // Set true around a batch delete so each deletion doesn't re-open the dialog;
+        // the caller rescans once at the end.
+        var _twinSuppressScan = false;
+        // Session-only "Ignore" (keyed by group key) — dismisses for the current Card
+        // Maker visit but reappears on re-entry; cleared by selectCardSet on set open.
+        // "Ignore Always" is the persistent one (the dup tag).
+        var _twinSessionIgnore = {};
+        function _twinCloseDupDialog() { var d = document.getElementById('twin-dup-dialog'); if (d) d.remove(); }
+        // Short label — just the row+number prefix (e.g. "A1" from "A1_A+B=C").
+        function _twinShortLabel(c) { var l = _cardLabel(c); var m = String(l).match(/^([a-z]?[A-Z]\d+)/); return m ? m[1] : l; }
+        // "A1" | "A1 and B1" | "A1, B1 and C1"
+        function _twinJoinAnd(a) { return a.length <= 1 ? (a[0] || '') : a.length === 2 ? (a[0] + ' and ' + a[1]) : (a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]); }
+        // Delete every card in a group except the first (the kept original).
+        function _twinDeleteCopies(cards) {
+            _twinSuppressScan = true;
+            try { cards.slice(1).forEach(function (c) { if (c && c.parentNode) deleteCard(c); }); }
+            finally { _twinSuppressScan = false; }
+        }
+        // The identical-cards dialog: one line per group of exact copies — "A1 and B1
+        // are identical" with [Ignore] (this visit), [Ignore Always] (mark intentional),
+        // [Delete B1] (drop the extra copies). Footer has [Close]; with >1 group it also
+        // gets [Delete all copies] / [Don't remind me for all].
+        // Scroll a card into view and flash a highlight so the user can see which
+        // physical card a dialog label (e.g. "D3") refers to.
+        function _twinLocateCard(card) {
+            if (!card || !card.scrollIntoView) return;
+            try { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { card.scrollIntoView(); }
+            var prev = card.style.boxShadow, prevZ = card.style.zIndex;
+            card.style.transition = 'box-shadow 0.15s';
+            card.style.zIndex = '5';
+            card.style.boxShadow = '0 0 0 3px #FFD700, 0 0 16px #FFD700';
+            setTimeout(function () { card.style.boxShadow = prev; card.style.zIndex = prevZ; }, 1300);
+        }
+        // Drag the panel by its handle so it can be moved off the cards it covers.
+        function _twinMakeDraggable(box, handle) {
+            handle.style.cursor = 'move'; handle.title = 'Drag to move';
+            handle.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                var r = box.getBoundingClientRect();
+                var offX = e.clientX - r.left, offY = e.clientY - r.top;
+                box.style.left = r.left + 'px'; box.style.top = r.top + 'px'; box.style.transform = 'none';
+                function move(ev) {
+                    box.style.left = Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - offX)) + 'px';
+                    box.style.top = Math.max(0, Math.min(window.innerHeight - 30, ev.clientY - offY)) + 'px';
+                }
+                function up() { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
+                document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+            });
+        }
+        function _twinDupDialog(groups) {
+            _twinCloseDupDialog();
+            // A floating, MOVABLE panel — not a full-screen modal — so the cards behind
+            // it stay visible and clickable while it's open (drag it by the title).
+            var box = document.createElement('div');
+            box.id = 'twin-dup-dialog';
+            box.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:30001;background:#222;border:1.5px solid #FFD700;border-radius:12px;padding:16px 20px;min-width:300px;max-width:92vw;max-height:84vh;overflow-y:auto;box-shadow:0 12px 44px rgba(0,0,0,0.6);font-family:Segoe UI,sans-serif;color:#fff;';
+            var title = document.createElement('div');
+            title.style.cssText = 'font-size:15px;font-weight:bold;color:#FFD700;margin-bottom:10px;cursor:move;user-select:none;';
+            title.textContent = '⚠ Identical cards in this set  ⠿';
+            box.appendChild(title);
+            var btnCss = 'font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;';
+            groups.forEach(function (g) {
+                var labels = g.cards.map(_twinShortLabel);
+                var copies = labels.slice(1);
+                var line = document.createElement('div');
+                line.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);';
+                var txt = document.createElement('div');
+                txt.style.cssText = 'flex:1 1 auto;font-size:13px;';
+                // Each label is clickable → scrolls to + highlights that card in the grid,
+                // so you can see which physical card it is and where it sits in its row.
+                labels.forEach(function (lab, i) {
+                    if (i > 0) txt.appendChild(document.createTextNode(i === labels.length - 1 ? ' and ' : ', '));
+                    var s = document.createElement('span');
+                    s.textContent = lab;
+                    s.title = 'Click to find this card';
+                    s.style.cssText = 'font-weight:bold;color:#8fd3ff;cursor:pointer;text-decoration:underline;';
+                    s.onclick = function () { _twinLocateCard(g.cards[i]); };
+                    txt.appendChild(s);
+                });
+                txt.appendChild(document.createTextNode(' are identical'));
+                line.appendChild(txt);
+                // All three actions on one row, kept together (never wrap the group).
+                var grp = document.createElement('div');
+                grp.style.cssText = 'display:flex;gap:8px;flex:0 0 auto;';
+                var ignore = document.createElement('button');
+                ignore.textContent = 'Ignore';
+                ignore.title = 'Dismiss for now — reappears next time you open this set';
+                ignore.style.cssText = btnCss + 'background:transparent;border:1px solid #888;color:#ccc;';
+                ignore.onclick = function () { _twinSessionIgnore[g.key] = 1; _twinScanCardMaker(); };
+                grp.appendChild(ignore);
+                var always = document.createElement('button');
+                always.textContent = 'Ignore Always';
+                always.title = 'These are intentional — never warn about them again';
+                always.style.cssText = btnCss + 'background:transparent;border:1px solid #ffe082;color:#ffe082;';
+                always.onclick = function () { _dupTagApply([g]); _twinScanCardMaker(); };
+                grp.appendChild(always);
+                var del = document.createElement('button');
+                del.textContent = 'Delete ' + copies.join(', ');
+                del.style.cssText = btnCss + 'background:#e74c3c;border:1px solid #e74c3c;color:#fff;';
+                del.onclick = function () { _twinDeleteCopies(g.cards); _twinScanCardMaker(); };
+                grp.appendChild(del);
+                line.appendChild(grp);
+                box.appendChild(line);
+            });
+            var footer = document.createElement('div');
+            footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,215,0,0.3);';
+            var close = document.createElement('button');
+            close.textContent = 'Close';
+            close.style.cssText = btnCss + 'background:transparent;border:1px solid #888;color:#ccc;';
+            close.onclick = _twinCloseDupDialog;
+            footer.appendChild(close);
+            // Global actions only make sense with more than one group.
+            if (groups.length > 1) {
+                var delAll = document.createElement('button');
+                delAll.textContent = 'Delete all copies';
+                delAll.style.cssText = btnCss + 'background:#c0392b;border:1px solid #c0392b;color:#fff;';
+                delAll.onclick = function () {
+                    _twinSuppressScan = true;
+                    try { groups.forEach(function (g) { g.cards.slice(1).forEach(function (c) { if (c && c.parentNode) deleteCard(c); }); }); }
+                    finally { _twinSuppressScan = false; }
+                    _twinScanCardMaker();
+                };
+                var ignoreAll = document.createElement('button');
+                ignoreAll.textContent = 'Don’t remind me for all';
+                ignoreAll.style.cssText = btnCss + 'background:#FFD700;border:1px solid #FFD700;color:#3a2d00;';
+                ignoreAll.onclick = function () { _dupTagApply(groups); _twinScanCardMaker(); };
+                footer.appendChild(delAll);
+                footer.appendChild(ignoreAll);
+            }
+            box.appendChild(footer);
+            document.body.appendChild(box);
+            _twinMakeDraggable(box, title);
+        }
         function _twinScanCardMaker() {
             var container = (typeof _ctxGetActiveContainer === 'function') ? _ctxGetActiveContainer() : null;
             if (!container) return;
             _dupTagRefresh(); // prune/compact/badge before deciding what to warn about
-            // ID twins (cards sharing one stableId) — a genuine data anomaly,
-            // NOT an intentional duplicate, so it's reported but not taggable.
+            // Identical-art groups (≥2 copies), excluding ones marked intentional
+            // (Ignore Always) or dismissed for this visit (Ignore).
+            var groups = _dupTagGroups(container).filter(function (g) {
+                return !_twinSessionIgnore[g.key] && !_dupTagIsGroupIntentional(g.cards);
+            });
+            if (groups.length) { _twinClearToasts(); _twinDupDialog(groups); return; }
+            // No copies left — close the dialog, then check the rarer stableId anomaly
+            // (two cards literally sharing one id) with the lightweight toast.
+            _twinCloseDupDialog();
             var byId = {};
-            container.querySelectorAll('.library-card').forEach(function(c) {
+            container.querySelectorAll('.library-card').forEach(function (c) {
                 if (c.classList.contains('variation')) return;
                 if (c.dataset.stableId) (byId[c.dataset.stableId] = byId[c.dataset.stableId] || []).push(_cardLabel(c));
             });
-            // ART twins (same row, identical drawing) — the taggable case. A group
-            // whose members all carry distinct tags is intentional → not flagged.
-            var taggable = [], seen = {};
-            _dupTagGroups(container).forEach(function(g) {
-                if (_dupTagIsGroupIntentional(g.cards)) return;
-                var labels = g.cards.map(_cardLabel);
-                seen[labels.slice().sort().join('|')] = 1;
-                taggable.push({ cards: g.cards, labels: labels });
-            });
             var idDups = [];
-            Object.keys(byId).forEach(function(k) {
-                if (byId[k].length < 2) return;
-                if (seen[byId[k].slice().sort().join('|')]) return; // already shown as an art group
-                idDups.push(byId[k].join(' = '));
-            });
-            if (!taggable.length && !idDups.length) return;
-            var parts = taggable.map(function(g) { return g.labels.join(' = '); }).concat(idDups);
-            _twinToast('⚠ Identical cards in this set: ' + parts.join(', ') +
-                (taggable.length ? ' — delete the extra copy, or mark them intentional.' : ' — consider deleting the extra copy.'),
-                'set:' + activeCardSet,
-                taggable.length ? { taggableGroups: taggable } : null);
+            Object.keys(byId).forEach(function (k) { if (byId[k].length >= 2) idDups.push(byId[k].join(' = ')); });
+            if (!idDups.length) return;
+            _twinToast('⚠ Cards sharing an id in this set: ' + idDups.join(', ') + ' — consider deleting the extra copy.', 'set:' + activeCardSet, null);
         }
         // Per-line checklist: pick which flagged groups are deliberate; the
         // checked ones get tagged t1..tN, the rest stay flagged for next open.
@@ -15625,12 +15812,9 @@
 
             if (typeof saveVariations === 'function') saveVariations();
             saveCustomCards();
-            // A fresh copy may be an identical twin (especially a parametric template
-            // copied across rows) — re-scan so the duplicate warning appears right away
-            // instead of only on the next set open. (Card Maker only; not Game View.)
-            if (!_inGameViewContainer && typeof _twinScanCardMaker === 'function') {
-                setTimeout(_twinScanCardMaker, 0);
-            }
+            // No duplicate warning on copy itself — the user explicitly wants no reaction
+            // when a copy first appears. The identical-cards check runs on set re-entry
+            // (selectCardSet) and after a delete.
         }
 
 
@@ -16833,7 +17017,9 @@
             // (group now <2) — prune/compact it, then re-evaluate the warning so
             // a resolved set goes quiet and a still-broken group re-flags.
             if (typeof _twinClearToasts === 'function') _twinClearToasts();
-            if (typeof _twinScanCardMaker === 'function') _twinScanCardMaker();
+            // _twinSuppressScan lets a batch "delete all copies" run its deletions
+            // without each one re-opening the dialog; the caller rescans once at the end.
+            if (!_twinSuppressScan && typeof _twinScanCardMaker === 'function') _twinScanCardMaker();
         }
 
         // Renumber all cards in a row sequentially: A1, A2, A3...
@@ -18812,6 +18998,10 @@
                     safeSaveCards('customDrawnCards_' + activeCardSet, customData);
                 }
             }
+            // A card change (art or params) may have made a previously-tagged
+            // "intentional duplicate" pair no longer identical — prune the stale tags
+            // now so the badge disappears immediately, not only on set re-entry.
+            if (!_inDupRefresh && typeof _dupTagRefresh === 'function') _dupTagRefresh();
         }
 
         function buildNumbersCardSet() {
@@ -30382,6 +30572,9 @@
             document.querySelectorAll('.screen').forEach(function(s) { s.style.display = 'none'; });
             document.getElementById('domino-library-screen').style.display = 'block';
             // Twin-clone check — after the build above (stale toasts cleared first).
+            // Re-entering the set clears the session "Ignore" dismissals so any
+            // still-unresolved duplicates warn again (Ignore Always stays silenced).
+            if (typeof _twinSessionIgnore !== 'undefined') _twinSessionIgnore = {};
             setTimeout(function() {
                 if (typeof _twinClearToasts === 'function') _twinClearToasts();
                 if (typeof _twinScanCardMaker === 'function') _twinScanCardMaker();

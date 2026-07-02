@@ -29546,6 +29546,42 @@
             a.unshift(gameName);
             r[typeId][mode] = a.slice(0, mode === 'creator' ? 2 : 1);
             try { localStorage.setItem('gameTypeRecents_v1', JSON.stringify(r)); } catch (e) {}
+            _recordLibraryRecentGame(typeId, gameName);
+        }
+        // Flat, time-ordered log of games opened from the Library (across all types),
+        // used by the Games column's "Recent" section. Most-recent first.
+        function _recordLibraryRecentGame(typeId, gameName) {
+            if (!typeId || !gameName) return;
+            var list;
+            try { list = JSON.parse(localStorage.getItem('libraryRecentGames_v1') || '[]') || []; } catch (e) { list = []; }
+            list = list.filter(function (e) { return !(e && e.typeId === typeId && e.name === gameName); });
+            list.unshift({ typeId: typeId, name: gameName, t: Date.now() });
+            try { localStorage.setItem('libraryRecentGames_v1', JSON.stringify(list.slice(0, 8))); } catch (e) {}
+        }
+        // Up to `limit` recently-opened games that still exist. Prefers the flat
+        // timestamped log; tops up from the per-type recents so existing activity
+        // shows immediately (before the flat log has been populated).
+        function _gamesRecent(limit) {
+            var out = [], seen = {};
+            function push(typeId, name) {
+                if (!typeId || !name) return;
+                var k = typeId + ' ' + name;
+                if (seen[k] || out.length >= limit) return;
+                var games = _gtLoadGames(typeId);
+                if (!games.some(function (g) { return g && g.name === name; })) return;
+                seen[k] = 1; out.push({ typeId: typeId, name: name });
+            }
+            var g;
+            try { g = JSON.parse(localStorage.getItem('libraryRecentGames_v1') || '[]') || []; } catch (e) { g = []; }
+            g.forEach(function (e) { if (e) push(e.typeId, e.name); });
+            if (out.length < limit) {
+                var r = _gtRecents();
+                GAME_TYPES.forEach(function (t) {
+                    var rr = r[t.id]; if (!rr) return;
+                    (rr.creator || []).concat(rr.preview || []).forEach(function (name) { push(t.id, name); });
+                });
+            }
+            return out.slice(0, limit);
         }
         function _gtRecentChips(typeId) {
             var r = _gtRecents()[typeId] || { creator: [], preview: [] };
@@ -29703,6 +29739,31 @@
             return row;
         }
 
+        // ---- Library Games column: "Recent" section (mirrors the Card Sets one) ----
+        // Renders a gold "RECENT" heading + up to 2 recently-opened games as cards,
+        // styled like the game-type cards. Aligned with the left "Recent" by
+        // _gtAlignGamesColumn. Returns true if it rendered anything.
+        function _gtRenderGamesRecent(list) {
+            var recents = _gamesRecent(2);
+            if (!recents.length) return false;
+            var sec = document.createElement('div');
+            sec.className = 'library-folder-section'; sec.id = 'library-games-recent-section';
+            var head = document.createElement('div'); head.className = 'library-folder-heading'; head.textContent = 'Recent';
+            sec.appendChild(head);
+            recents.forEach(function (e) {
+                var card = document.createElement('div'); card.className = 'gt-type-card';
+                card.title = 'Open “' + e.name + '” (' + _gtTitle(e.typeId) + ')';
+                card.onclick = (function (rec) { return function () { _gtOpenRecent(rec.typeId, rec.name, 'creator'); }; })(e);
+                var wrap = document.createElement('div'); wrap.className = 'gt-type-titlewrap';
+                var title = document.createElement('span'); title.className = 'gt-type-title'; title.textContent = e.name;
+                var kind = document.createElement('span'); kind.className = 'gt-type-count'; kind.textContent = _gtTitle(e.typeId);
+                wrap.appendChild(title); wrap.appendChild(kind);
+                card.appendChild(wrap);
+                sec.appendChild(card);
+            });
+            list.appendChild(sec);
+            return true;
+        }
         // ---- Library Games column: one card per game type ----
         function _gtRenderLibraryTypeCards(list) {
             GAME_TYPES.forEach(function (t) {
@@ -29739,12 +29800,21 @@
             if (!lib || lib.style.display === 'none') return;
             var gamesList = document.getElementById('library-set-1-games');
             if (!gamesList) return;
+            // Use padding-top (not margin-top) for the offset: a margin here collapses
+            // with the games-head's margin-bottom, under-shooting the alignment.
             gamesList.style.marginTop = '0px';
-            var leftFirst = document.querySelector('.library-col-sets .library-set-btn');
+            gamesList.style.paddingTop = '0px';
+            // Align the right column's first block with the left column's "Recent"
+            // section (so the two RECENT titles line up); fall back to the first
+            // card-set button when the left has no recent section.
+            var leftRecent = document.getElementById('library-recent-section');
+            var leftFirst = (leftRecent && leftRecent.offsetParent !== null)
+                ? leftRecent
+                : document.querySelector('.library-col-sets .library-set-btn');
             var rightFirst = gamesList.firstElementChild;
             if (!leftFirst || !rightFirst) return;
             var delta = leftFirst.getBoundingClientRect().top - rightFirst.getBoundingClientRect().top;
-            if (delta > 0) gamesList.style.marginTop = Math.round(delta) + 'px';
+            if (delta > 0) gamesList.style.paddingTop = Math.round(delta) + 'px';
         }
         window.addEventListener('resize', function () { try { _gtAlignGamesColumn(); } catch (e) {} });
 
@@ -29838,6 +29908,7 @@
             // Drilled into a game type → show its games inline; else the type cards.
             if (_gtCurrentType) { renderGameTypeDirectory(); if (window.requestAnimationFrame) requestAnimationFrame(_gtAlignGamesColumn); return; }
             list.innerHTML = '';
+            _gtRenderGamesRecent(list);
             _gtRenderLibraryTypeCards(list);
             if (window.requestAnimationFrame) requestAnimationFrame(_gtAlignGamesColumn);
             return; // legacy inline listing below is superseded by the type cards

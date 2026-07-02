@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">1:20 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:42 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">1:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:42 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1180,6 +1180,15 @@
         }
         function _gpInvalidateCardCache() { _gpStableIdCache = null; }
 
+        // Author-only label boxes (g.card-label) appear in Card Maker / Game Maker but
+        // never in the game — strip them from card markup before rendering in play.
+        function _stripCardLabelsMarkup(markup) {
+            if (!markup || markup.indexOf('card-label') < 0) return markup;
+            var t = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            t.innerHTML = markup;
+            t.querySelectorAll('.card-label, [data-card-label]').forEach(function (n) { n.remove(); });
+            return t.innerHTML;
+        }
         function getGameCardSVG(cardInfo) {
             // Distinguish an INTENTIONALLY EMPTY card (a deliberate blank — e.g. a
             // "zero / nothing" card — whose source exists but svgContent === '')
@@ -1198,6 +1207,7 @@
             }
             if (!sourceFound && typeof cardInfo.svgMarkup === 'string') { markup = cardInfo.svgMarkup; sourceFound = true; }
             if (!sourceFound) return null; // truly missing → caller drops / shows label
+            markup = _stripCardLabelsMarkup(markup); // hide author-only label boxes in play
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
             if (markup && markup.trim().length > 0) svg.innerHTML = markup; // '' / whitespace → blank (empty card)
@@ -1224,6 +1234,7 @@
                 }
             }
             if (!markup) return null;
+            markup = _stripCardLabelsMarkup(markup); // hide author-only label boxes in play
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 60 60');
             svg.innerHTML = markup;

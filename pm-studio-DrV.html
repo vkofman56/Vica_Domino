@@ -6614,7 +6614,8 @@
             // clear straddle marks on close.
             _labelSetupActive = null;
             if (typeof _pmHideLabelHint === 'function') _pmHideLabelHint();
-            if (typeof _pmSetLabelBtnIcon === 'function') { try { _pmSetLabelBtnIcon(false); } catch (e) {} }
+            var _lblBtn = document.getElementById('draw-label-btn');
+            if (_lblBtn && typeof _pmLabelIconRect === 'string') { _lblBtn.innerHTML = _pmLabelIconRect; _lblBtn.classList.remove('active'); }
             if (typeof _pmClearStraddleMarks === 'function') { try { _pmClearStraddleMarks(); } catch (e) {} }
             // Refresh the grid thumbnail: show the saved parametric formula + "123" tag.
             if (typeof _pmApplyParamCards === 'function') _pmApplyParamCards();
@@ -7020,60 +7021,71 @@
             overlay.appendChild(hint);
         }
         function _pmHideLabelHint() { var h = document.getElementById('label-setup-hint'); if (h) h.remove(); }
-        // Button icons: the dashed rectangle (idle) vs an anchor (during setup — click to
-        // "anchor" = fix the label in place at its current size/position).
-        var _pmLabelIconRect = '<svg viewBox="0 0 20 20" width="18" height="18"><rect x="2.5" y="5" width="15" height="10" rx="2" fill="none" stroke="white" stroke-width="1.4" stroke-dasharray="2.6 1.8"/></svg>';
-        var _pmLabelIconAnchor = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="#FFD700" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="3.2" r="1.7"/><line x1="10" y1="4.9" x2="10" y2="16.6"/><line x1="6.4" y1="7.2" x2="13.6" y2="7.2"/><path d="M3.4 11 C3.4 15.4 6.9 17 10 17 C13.1 17 16.6 15.4 16.6 11"/><path d="M3.4 11 L1.9 12.4 M3.4 11 L5 12.2"/><path d="M16.6 11 L18.1 12.4 M16.6 11 L15 12.2"/></svg>';
-        function _pmSetLabelBtnIcon(anchor) {
-            var btn = document.getElementById('draw-label-btn');
-            if (!btn) return;
-            btn.classList.toggle('active', !!anchor);
-            btn.innerHTML = anchor ? _pmLabelIconAnchor : _pmLabelIconRect;
-            btn.title = anchor
-                ? 'Anchor the label — click to fix it in place at its current size & position.'
-                : 'Label box: drops one note box at the bottom of the card. Click again to anchor it. (One label per card.)';
-        }
-        // Label button: a TOGGLE, with only ONE label per card.
-        //  • No label yet  → drops a default box (full width, bottom, 15% tall), selected
-        //    for resize, switches the button to an ANCHOR icon + shows the hint.
-        //  • Setting up now → ANCHORS it (fix in place); button back to the rectangle icon.
-        //  • Label already exists (e.g. reopened) → re-enters setup on THAT label (never a
-        //    second one), so it can be adjusted and re-anchored.
-        function _pmToggleLabelSetup() {
-            if (_labelSetupActive) {                     // → anchor / finish
-                _labelSetupActive = null;
-                _pmHideLabelHint();
-                _pmSetLabelBtnIcon(false);
-                if (typeof deselectElement === 'function') deselectElement();
-                return;
-            }
+        // Button icons: white-fill / yellow-dashed rectangle (no label) → anchor (label
+        // editable — click to LOCK) → crossed anchor (label locked — click to UNLOCK).
+        var _pmLabelIconRect = '<svg viewBox="0 0 20 20" width="18" height="18"><rect x="2.5" y="5" width="15" height="10" rx="2" fill="#ffffff" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="2.6 1.8"/></svg>';
+        var _pmAnchorPaths = '<circle cx="10" cy="3.2" r="1.7"/><line x1="10" y1="4.9" x2="10" y2="16.6"/><line x1="6.4" y1="7.2" x2="13.6" y2="7.2"/><path d="M3.4 11 C3.4 15.4 6.9 17 10 17 C13.1 17 16.6 15.4 16.6 11"/><path d="M3.4 11 L1.9 12.4 M3.4 11 L5 12.2"/><path d="M16.6 11 L18.1 12.4 M16.6 11 L15 12.2"/>';
+        var _pmLabelIconAnchor = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="#FFD700" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + _pmAnchorPaths + '</svg>';
+        var _pmLabelIconAnchorX = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="#FFD700" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + _pmAnchorPaths + '<line x1="2.5" y1="17.5" x2="17.5" y2="2.5" stroke="#ff5252" stroke-width="1.8"/></svg>';
+        // Current label state: 'none' | 'editable' | 'frozen' (anchored/locked).
+        function _pmLabelState() {
             var container = document.getElementById('loupe-card-container');
             var cardSvg = container && container.querySelector('svg:not(.loupe-grid)');
-            if (!cardSvg) return;
-            var existing = cardSvg.querySelector('g.card-label');
-            if (existing) {                              // one per card → re-edit the existing
-                selectDrawTool('select');
-                if (typeof selectElement === 'function') selectElement(existing, false);
-                _labelSetupActive = existing;
-                _pmSetLabelBtnIcon(true);
+            var g = cardSvg && cardSvg.querySelector('g.card-label');
+            return { cardSvg: cardSvg, g: g || null, state: !g ? 'none' : (g.hasAttribute('data-frozen') ? 'frozen' : 'editable') };
+        }
+        // Sync the Label button (icon + tooltip + hint) to the current state.
+        function _pmUpdateLabelBtnState() {
+            var btn = document.getElementById('draw-label-btn'); if (!btn) return;
+            var s = _pmLabelState();
+            if (s.state === 'editable') {
+                btn.innerHTML = _pmLabelIconAnchor; btn.classList.add('active');
+                btn.title = 'Anchor the label — click to lock it in place (no move / resize).';
                 _pmShowLabelHint();
-                return;
+            } else if (s.state === 'frozen') {
+                btn.innerHTML = _pmLabelIconAnchorX; btn.classList.add('active');
+                btn.title = 'Label is anchored — click to unlock it (move / resize again).';
+                _pmHideLabelHint();
+            } else {
+                btn.innerHTML = _pmLabelIconRect; btn.classList.remove('active');
+                btn.title = 'Label box: drops one note box at the bottom of the card. Click again to anchor it. (One label per card.)';
+                _pmHideLabelHint();
             }
-            // No label yet → create the default box.
-            var vb = (typeof _loupeCardVB === 'function') ? _loupeCardVB() : { x: 0, y: 0, w: 60, h: 60 };
-            var bh = vb.h * 0.15;
-            var bx = vb.x, by = vb.y + vb.h - bh, bw = vb.w;
-            var g = _pmMakeLabelBox(bx + bw / 2, by + bh / 2, bw, bh);
-            g.classList.add('draw-placed');
-            var appendTarget = cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
-            appendTarget.appendChild(g);
-            drawRedoStack.length = 0; drawHistory.push(g);
-            hasEditedExisting = true;
-            selectDrawTool('select');                    // so its resize handles show
-            if (typeof selectElement === 'function') selectElement(g, false);
-            _labelSetupActive = g;
-            _pmSetLabelBtnIcon(true);
-            _pmShowLabelHint();
+        }
+        if (typeof window !== 'undefined') window._pmUpdateLabelBtnState = _pmUpdateLabelBtnState;
+        // Label button: ONE label per card, cycling create → anchor(lock) → unlock.
+        function _pmToggleLabelSetup() {
+            var s = _pmLabelState();
+            if (!s.cardSvg) return;
+            if (s.state === 'none') {
+                // Create the default box (full width, bottom, 15% tall), editable + selected.
+                var vb = (typeof _loupeCardVB === 'function') ? _loupeCardVB() : { x: 0, y: 0, w: 60, h: 60 };
+                var bh = vb.h * 0.15, bx = vb.x, by = vb.y + vb.h - bh, bw = vb.w;
+                var g = _pmMakeLabelBox(bx + bw / 2, by + bh / 2, bw, bh);
+                g.classList.add('draw-placed');
+                var appendTarget = s.cardSvg.querySelector('g[data-variation-transform]') || s.cardSvg;
+                appendTarget.appendChild(g);
+                drawRedoStack.length = 0; drawHistory.push(g);
+                hasEditedExisting = true;
+                selectDrawTool('select');
+                if (typeof selectElement === 'function') selectElement(g, false);
+            } else if (s.state === 'editable') {
+                // Anchor → LOCK: hide the dashed border, freeze (not selectable/movable/resizable).
+                var box = s.g.querySelector('rect.card-label-box');
+                if (box) { if (box.getAttribute('stroke') !== 'none') box.setAttribute('data-o-stroke', box.getAttribute('stroke') || '#9fb4cf'); box.setAttribute('stroke', 'none'); }
+                s.g.setAttribute('data-frozen', 'true');
+                if (typeof deselectElement === 'function') deselectElement();
+                hasEditedExisting = true;
+            } else {
+                // Frozen → UNLOCK: restore the dashed border, make it editable + selected again.
+                var box2 = s.g.querySelector('rect.card-label-box');
+                if (box2) box2.setAttribute('stroke', box2.getAttribute('data-o-stroke') || '#9fb4cf');
+                s.g.removeAttribute('data-frozen');
+                selectDrawTool('select');
+                if (typeof selectElement === 'function') selectElement(s.g, false);
+                hasEditedExisting = true;
+            }
+            _pmUpdateLabelBtnState();
         }
         if (typeof window !== 'undefined') window._pmToggleLabelSetup = _pmToggleLabelSetup;
         // ===== Label-zone validation =====
@@ -9149,6 +9161,8 @@
                 _loupeColorTarget = 'figure'; _updateColorTargetUI(); // start each loupe in figure-color mode
                 // L3.5: draw panel just opened with no selection — deactivate sliders
                 if (typeof _updateDrawSizeActivation === 'function') _updateDrawSizeActivation();
+                // Reflect the opened card's label state on the Label button icon.
+                if (typeof _pmUpdateLabelBtnState === 'function') { try { _pmUpdateLabelBtnState(); } catch (e) {} }
             } else {
                 panel.style.display = 'none';
                 detachDrawClickHandler();
@@ -9723,6 +9737,9 @@
             if (el.closest('.loupe-grid')) return false;
             // The card background rect is not a selectable/editable element
             if (el.classList && el.classList.contains('card-bg')) return false;
+            // An ANCHORED (frozen) label + its content is locked — not selectable, so it
+            // can't be moved/resized. Unlock it (crossed-anchor button) to edit again.
+            if (el.closest && el.closest('g.card-label[data-frozen]')) return false;
             // The variation transform <g> wrapper is NOT selectable itself
             if (tag === 'g' && el.hasAttribute('data-variation-transform')) return false;
             // Any shape element inside the card SVG
@@ -10829,6 +10846,8 @@
             var delBtn = document.getElementById('draw-delete-btn');
             if (delBtn) delBtn.style.display = 'none';
             _updateDrawSizeActivation();
+            // If the label was just erased, the button goes back to the dashed-rectangle.
+            if (typeof _pmUpdateLabelBtnState === 'function') { try { _pmUpdateLabelBtnState(); } catch (e) {} }
         }
 
         // ===== Element-level copy/paste inside the loupe (card editor) =====

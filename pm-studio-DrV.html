@@ -151,11 +151,24 @@
             display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px;
             background: #2c2c44; border: 1px solid #3a3a55; border-radius: 8px; margin-bottom: 7px;
         }
+        .tbx-rule-left { flex: 0 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
         .tbx-rule-code {
             flex: 0 0 auto; min-width: 26px; text-align: center; font-size: 12px;
             font-weight: bold; padding: 2px 5px; border: 1px solid currentColor;
             border-radius: 5px; background: rgba(0,0,0,0.25); line-height: 1.25;
         }
+        /* Status oval (traffic light) under each code — click cycles the color. */
+        .tbx-status { height: 9px; border: none; border-radius: 6px; padding: 0; cursor: pointer; display: block; width: 100%; }
+        .tbx-status[data-status="yellow"] { background: #ffd54f; }
+        .tbx-status[data-status="red"]    { background: #e53935; }
+        .tbx-status[data-status="green"]  { background: #66bb6a; }
+        /* IN WORK section spans both columns; its zone accepts dragged tickets. */
+        .tbx-inwork { -webkit-column-break-inside: avoid; break-inside: avoid; column-span: all; -webkit-column-span: all; }
+        .tbx-inwork-zone { border: 1.5px dashed rgba(255,215,0,0.45); border-radius: 8px; padding: 6px; min-height: 40px; }
+        .tbx-inwork-zone.tbx-drop-hover { border-color: #FFD700; background: rgba(255,215,0,0.08); }
+        .tbx-inwork-hint { color: #9a9ab0; font-size: 12px; font-style: italic; padding: 8px 6px; }
+        .tbx-rule { cursor: grab; }
+        .tbx-rule.tbx-dragging { opacity: 0.45; }
         .tbx-rule-icon { font-size: 18px; line-height: 1.3; flex: 0 0 auto; }
 
         /* === Game-type cards (Library) + directory screen === */
@@ -1060,7 +1073,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:37 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1078,7 +1091,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:37 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1320,7 +1333,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:37 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:14 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -10932,6 +10945,7 @@
         }
 
         var drawMouseDownHandler = null;
+        var drawOverlayMouseDownHandler = null; // marquee-from-backdrop starter
         var drawClickHandler = null;
         var justDragged = false; // flag to prevent click after drag
         var _dragGroup = null;            // [{el,x,y}] — move a multi-selection together
@@ -11061,6 +11075,18 @@
                 e.preventDefault();
             };
             container.addEventListener('mousedown', drawMouseDownHandler);
+
+            // A marquee can also START on the overlay backdrop AROUND the card: a
+            // full-width line (e.g. A + B = C) can only be circled from outside the
+            // card's edge, and _loupePointerToSvg extrapolates cleanly out there.
+            var _mqOverlay = document.getElementById('loupe-overlay');
+            drawOverlayMouseDownHandler = function (e) {
+                if (!drawModeActive) return;
+                if (drawTool !== 'select' && drawTool) return; // marquee is a Select-tool gesture
+                if (e.target !== _mqOverlay) return;           // backdrop only — not panels/buttons
+                _loupeStartMarquee(e, container);
+            };
+            _mqOverlay.addEventListener('mousedown', drawOverlayMouseDownHandler);
 
             // --- click: used for drawing new elements, selecting, deselecting ---
             drawClickHandler = function(e) {
@@ -11766,18 +11792,31 @@
                         _pushLoupeAttrHistory(getAllSelectedElements(), ['cx', 'cy', 'x', 'y', 'transform', 'data-pos-x', 'data-pos-y', 'data-base-transform']);
                     }
                 }
+                // Nudge the primary element to (nx,ny), then shift the REST of a
+                // multi-selection by the same actual (post-clamp) delta — arrows move
+                // a marquee/Shift group together, like a mouse group-drag.
+                var _nudge = function (nx, ny) {
+                    var _adx = nx - pos.x, _ady = ny - pos.y;
+                    setElementPos(selectedElement, nx, ny);
+                    var _sel = getAllSelectedElements();
+                    if (_sel.length > 1) {
+                        for (var _i = 0; _i < _sel.length; _i++) {
+                            var _el = _sel[_i];
+                            if (_el === selectedElement) continue;
+                            var _p = getElementPos(_el);
+                            setElementPos(_el, _p.x + _adx, _p.y + _ady);
+                        }
+                    }
+                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                };
                 if (e.key === 'ArrowLeft') {
-                    setElementPos(selectedElement, Math.max(kMin, pos.x + dxL), Math.max(kMin, Math.min(kMax, pos.y + dyL)));
-                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                    _nudge(Math.max(kMin, pos.x + dxL), Math.max(kMin, Math.min(kMax, pos.y + dyL)));
                 } else if (e.key === 'ArrowRight') {
-                    setElementPos(selectedElement, Math.min(kMax, pos.x + dxR), Math.max(kMin, Math.min(kMax, pos.y + dyR)));
-                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                    _nudge(Math.min(kMax, pos.x + dxR), Math.max(kMin, Math.min(kMax, pos.y + dyR)));
                 } else if (e.key === 'ArrowUp') {
-                    setElementPos(selectedElement, Math.max(kMin, Math.min(kMax, pos.x + dxU)), Math.max(kMin, pos.y + dyU));
-                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                    _nudge(Math.max(kMin, Math.min(kMax, pos.x + dxU)), Math.max(kMin, pos.y + dyU));
                 } else if (e.key === 'ArrowDown') {
-                    setElementPos(selectedElement, Math.max(kMin, Math.min(kMax, pos.x + dxD)), Math.min(kMax, pos.y + dyD));
-                    updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                    _nudge(Math.max(kMin, Math.min(kMax, pos.x + dxD)), Math.min(kMax, pos.y + dyD));
                 } else if (e.key === 'Delete' || e.key === 'Backspace') {
                     drawDeleteSelected();
                     e.preventDefault();
@@ -11793,6 +11832,11 @@
             if (drawMouseDownHandler) {
                 container.removeEventListener('mousedown', drawMouseDownHandler);
                 drawMouseDownHandler = null;
+            }
+            if (drawOverlayMouseDownHandler) {
+                var _mqOv = document.getElementById('loupe-overlay');
+                if (_mqOv) _mqOv.removeEventListener('mousedown', drawOverlayMouseDownHandler);
+                drawOverlayMouseDownHandler = null;
             }
             if (drawClickHandler) {
                 container.removeEventListener('click', drawClickHandler);
@@ -19896,46 +19940,109 @@
             ]}
         ];
 
+        // ---- Tickets Box status + IN WORK state ----
+        // status: per-code traffic-light (yellow → red → green → yellow).
+        // inWork: codes the user dragged into the IN WORK section (ordered).
+        function _tbxState() {
+            var s; try { s = JSON.parse(localStorage.getItem('ticketsBoxState_v1') || '{}') || {}; } catch (e) { s = {}; }
+            if (!s.status) s.status = {};
+            if (!Array.isArray(s.inWork)) s.inWork = [];
+            return s;
+        }
+        function _tbxSaveState(s) { try { localStorage.setItem('ticketsBoxState_v1', JSON.stringify(s)); } catch (e) {} }
+        var _tbxDrag = null; // code being dragged
+        var _TBX_STATUS_CYCLE = ['yellow', 'red', 'green'];
+        function _tbxCycleStatus(code) {
+            var s = _tbxState();
+            var cur = s.status[code] || 'yellow';
+            s.status[code] = _TBX_STATUS_CYCLE[(_TBX_STATUS_CYCLE.indexOf(cur) + 1) % 3];
+            _tbxSaveState(s); renderTicketsBox();
+        }
+        // Drop `dragged` before `targetCode`. If the target is in IN WORK, the
+        // dragged ticket joins/relocates within IN WORK; if the target is a
+        // catalog ticket, the dragged ticket leaves IN WORK (back to its section).
+        function _tbxDropOnRow(targetCode) {
+            var dragged = _tbxDrag; if (!dragged || dragged === targetCode) return;
+            var s = _tbxState(); var iw = s.inWork;
+            var targetInWork = iw.indexOf(targetCode) >= 0;
+            var di = iw.indexOf(dragged); if (di >= 0) iw.splice(di, 1);
+            if (targetInWork) { var ti = iw.indexOf(targetCode); iw.splice(ti, 0, dragged); }
+            _tbxSaveState(s); renderTicketsBox();
+        }
+        function _tbxDropOnInWork() {
+            var dragged = _tbxDrag; if (!dragged) return;
+            var s = _tbxState(); var iw = s.inWork;
+            var di = iw.indexOf(dragged); if (di >= 0) iw.splice(di, 1);
+            iw.push(dragged);
+            _tbxSaveState(s); renderTicketsBox();
+        }
+        // Build one draggable ticket row (code badge + status oval + icon + text).
+        function _tbxBuildRow(code, rule, color) {
+            var s = _tbxState();
+            var row = document.createElement('div');
+            row.className = 'tbx-rule'; row.draggable = true; row.dataset.code = code;
+            var left = document.createElement('div'); left.className = 'tbx-rule-left';
+            var codeEl = document.createElement('div');
+            codeEl.className = 'tbx-rule-code'; codeEl.style.color = color; codeEl.style.borderColor = color; codeEl.textContent = code;
+            var status = document.createElement('button');
+            status.className = 'tbx-status';
+            status.dataset.status = s.status[code] || 'yellow';
+            status.title = 'Status (click to cycle yellow → red → green)';
+            status.onclick = function (e) { e.stopPropagation(); _tbxCycleStatus(code); };
+            left.appendChild(codeEl); left.appendChild(status);
+            row.appendChild(left);
+            var ic = document.createElement('div'); ic.className = 'tbx-rule-icon'; ic.textContent = rule.icon;
+            var txt = document.createElement('div'); txt.className = 'tbx-rule-text';
+            var nm = document.createElement('div'); nm.className = 'tbx-rule-name'; nm.textContent = rule.name;
+            var ds = document.createElement('div'); ds.className = 'tbx-rule-desc'; ds.textContent = rule.desc;
+            txt.appendChild(nm); txt.appendChild(ds);
+            row.appendChild(ic); row.appendChild(txt);
+            row.addEventListener('dragstart', function (e) { _tbxDrag = code; row.classList.add('tbx-dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', code); } catch (_) {} });
+            row.addEventListener('dragend', function () { row.classList.remove('tbx-dragging'); });
+            row.addEventListener('dragover', function (e) { e.preventDefault(); });
+            row.addEventListener('drop', function (e) { e.preventDefault(); e.stopPropagation(); _tbxDropOnRow(code); });
+            return row;
+        }
         function renderTicketsBox() {
             var body = document.getElementById('tickets-box-body');
             if (!body) return;
             body.innerHTML = '';
-            TICKET_RULE_CATALOG.forEach(function(grp, gi) {
-                // Section letter A, B, C … (rules within reset to 1, 2, 3 …),
-                // so every ticket has a short code like "A1" / "C4" to refer
-                // to when talking about transitions.
+            var s = _tbxState();
+            // Map every code → its rule/color/letter.
+            var byCode = {};
+            TICKET_RULE_CATALOG.forEach(function (grp, gi) {
                 var letter = String.fromCharCode(65 + gi);
-                var gWrap = document.createElement('div');
-                gWrap.className = 'tbx-group';
-                var gTitle = document.createElement('div');
-                gTitle.className = 'tbx-group-title';
-                gTitle.style.color = grp.color;
-                gTitle.textContent = letter + ' · ' + grp.group;
+                grp.rules.forEach(function (rule, ri) { byCode[letter + (ri + 1)] = { rule: rule, color: grp.color }; });
+            });
+            var inWork = s.inWork.filter(function (c) { return byCode[c]; });
+
+            // IN WORK section (spans both columns, at the top) — a drop zone.
+            var iwWrap = document.createElement('div'); iwWrap.className = 'tbx-group tbx-inwork';
+            var iwTitle = document.createElement('div'); iwTitle.className = 'tbx-group-title'; iwTitle.style.color = '#FFD700'; iwTitle.textContent = 'IN WORK';
+            iwWrap.appendChild(iwTitle);
+            var iwZone = document.createElement('div'); iwZone.className = 'tbx-inwork-zone';
+            if (!inWork.length) {
+                var hint = document.createElement('div'); hint.className = 'tbx-inwork-hint';
+                hint.textContent = 'Drag tickets here to track what you’re working on.';
+                iwZone.appendChild(hint);
+            }
+            inWork.forEach(function (code) { iwZone.appendChild(_tbxBuildRow(code, byCode[code].rule, byCode[code].color)); });
+            iwZone.addEventListener('dragover', function (e) { e.preventDefault(); iwZone.classList.add('tbx-drop-hover'); });
+            iwZone.addEventListener('dragleave', function () { iwZone.classList.remove('tbx-drop-hover'); });
+            iwZone.addEventListener('drop', function (e) { e.preventDefault(); iwZone.classList.remove('tbx-drop-hover'); _tbxDropOnInWork(); });
+            iwWrap.appendChild(iwZone);
+            body.appendChild(iwWrap);
+
+            // Catalog sections A–H (excluding tickets currently IN WORK).
+            TICKET_RULE_CATALOG.forEach(function (grp, gi) {
+                var letter = String.fromCharCode(65 + gi);
+                var gWrap = document.createElement('div'); gWrap.className = 'tbx-group';
+                var gTitle = document.createElement('div'); gTitle.className = 'tbx-group-title'; gTitle.style.color = grp.color; gTitle.textContent = letter + ' · ' + grp.group;
                 gWrap.appendChild(gTitle);
-                grp.rules.forEach(function(rule, ri) {
+                grp.rules.forEach(function (rule, ri) {
                     var code = letter + (ri + 1);
-                    var row = document.createElement('div');
-                    row.className = 'tbx-rule';
-                    var codeEl = document.createElement('div');
-                    codeEl.className = 'tbx-rule-code';
-                    codeEl.style.color = grp.color;
-                    codeEl.style.borderColor = grp.color;
-                    codeEl.textContent = code;
-                    row.appendChild(codeEl);
-                    var ic = document.createElement('div');
-                    ic.className = 'tbx-rule-icon';
-                    ic.textContent = rule.icon;
-                    var txt = document.createElement('div');
-                    txt.className = 'tbx-rule-text';
-                    var nm = document.createElement('div');
-                    nm.className = 'tbx-rule-name';
-                    nm.textContent = rule.name;
-                    var ds = document.createElement('div');
-                    ds.className = 'tbx-rule-desc';
-                    ds.textContent = rule.desc;
-                    txt.appendChild(nm); txt.appendChild(ds);
-                    row.appendChild(ic); row.appendChild(txt);
-                    gWrap.appendChild(row);
+                    if (inWork.indexOf(code) >= 0) return;
+                    gWrap.appendChild(_tbxBuildRow(code, rule, grp.color));
                 });
                 body.appendChild(gWrap);
             });

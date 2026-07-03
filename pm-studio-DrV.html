@@ -6650,6 +6650,10 @@
         // Close loupe with Escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.getElementById('loupe-overlay').style.display !== 'none') {
+                // During T-tool live typing, the FIRST Escape only ends the typing
+                // session (this handler runs before the draw key handler); the next
+                // Escape closes the loupe as usual.
+                if (typeof _liveTypeEl !== 'undefined' && _liveTypeEl) { _endLiveType(); return; }
                 closeLoupe();
             }
         });
@@ -9246,6 +9250,7 @@
 
         function selectDrawTool(tool) {
             drawTool = tool;
+            _endLiveType(); // a tool change ends any live-typing session
             document.querySelectorAll('#draw-tools-panel .draw-tool-btn').forEach(function(b) {
                 b.classList.remove('active');
             });
@@ -9767,6 +9772,18 @@
             // multi-part line like "A+B=C" or "B≤b" moves as one whole element).
             if (el.tagName && el.tagName.toLowerCase() === 'tspan') { var _t = el.closest('text'); if (_t) el = _t; }
             var tag = el.tagName.toLowerCase();
+            // Label CONTENT stays individually selectable/movable: clicking a text or
+            // figure drawn inside a label selects THAT element (its direct-child unit
+            // under the label group), not the whole label. The label's own box/grid
+            // still select the label group (so the box can be moved/resized).
+            var labelG = el.closest && el.closest('g.card-label');
+            if (labelG) {
+                if (el === labelG) return labelG;
+                if (el.classList && (el.classList.contains('card-label-box') || el.classList.contains('card-label-grid'))) return labelG;
+                var labelChild = el;
+                while (labelChild.parentNode !== labelG) labelChild = labelChild.parentNode;
+                return labelChild;
+            }
             // If the element is inside a <g> that is a direct child of the card SVG, select the <g>
             var parentG = el.closest('g');
             if (parentG) {
@@ -10946,6 +10963,17 @@
 
         var drawMouseDownHandler = null;
         var drawOverlayMouseDownHandler = null; // marquee-from-backdrop starter
+        var _liveTypeEl = null; // text just stamped by the T tool — keystrokes append to it
+        // End a live-typing session; a text that stayed EMPTY (clicked, typed nothing)
+        // is removed so it doesn't linger as an invisible, unclickable element.
+        function _endLiveType() {
+            if (_liveTypeEl && !_liveTypeEl.textContent && _liveTypeEl.parentNode) {
+                var _hi = drawHistory.indexOf(_liveTypeEl);
+                if (_hi >= 0) drawHistory.splice(_hi, 1);
+                _liveTypeEl.parentNode.removeChild(_liveTypeEl);
+            }
+            _liveTypeEl = null;
+        }
         var drawClickHandler = null;
         var justDragged = false; // flag to prevent click after drag
         var _dragGroup = null;            // [{el,x,y}] — move a multi-selection together
@@ -11013,6 +11041,7 @@
             var lastMouseDownTarget = null;
             drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
+                _endLiveType(); // any new press ends a live-typing session
 
                 var target = e.target;
                 // A drawing tool + click inside a label box → let the click DRAW content
@@ -11170,8 +11199,9 @@
                     el.setAttribute('data-draw-size', sz);
                     el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
                 } else if (drawTool === 'text') {
-                    var ch = selectedTextChar;
-                    if (!ch) return;
+                    // No character picked from the T submenu → start an EMPTY text at
+                    // the click point; live typing fills it (type directly on the card).
+                    var ch = selectedTextChar || '';
                     el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     el.setAttribute('x', x);
                     el.setAttribute('y', y);
@@ -11182,7 +11212,7 @@
                     el.setAttribute('fill', '#333');
                     el.setAttribute('data-draw-size', sz);
                     el.setAttribute('data-over-scale', drawOverScale); el.setAttribute('data-over-scale-max', drawOverScaleMax);
-                    el.textContent = autoSpaceMinus(ch);
+                    el.textContent = ch ? autoSpaceMinus(ch) : '';
                 } else if (drawTool === 'fraction') {
                     // Create fraction group: numerator, bar, denominator
                     var ns = 'http://www.w3.org/2000/svg';
@@ -11274,6 +11304,9 @@
                     var appendTarget = _labelHost || cardSvg.querySelector('g[data-variation-transform]') || cardSvg;
                     appendTarget.appendChild(el);
                     drawRedoStack.length = 0; drawHistory.push(el);
+                    // T tool: arm live typing — keystrokes now extend this text in place
+                    // (a parameter letter is a fixed symbol, so it doesn't live-type).
+                    _liveTypeEl = (drawTool === 'text' && el.tagName.toLowerCase() === 'text' && !el.hasAttribute('data-param')) ? el : null;
                     // Auto-select imported stamps after placement so overscale slider stays visible
                     if (isImportedStamp) {
                         selectedElement = el;
@@ -11748,13 +11781,33 @@
 
             // --- Keyboard handler for arrow keys and Delete ---
             drawKeyHandler = function(e) {
-                if (!selectedElement || !drawModeActive) return;
+                if (!drawModeActive) return;
                 // K6: Don't fire when a text input, textarea, or contenteditable has focus,
                 // or when the inline text editor is open (prevents arrow keys from
                 // nudging the element while the user is typing).
                 var activeTag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
                 if (activeTag === 'input' || activeTag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable)) return;
                 if (document.getElementById('inline-text-editor')) return;
+                // LIVE TYPING: right after the T tool stamps a text, plain keystrokes
+                // keep appending to it ("S" then typing "ample" builds "Sample" on the
+                // card/label). Backspace deletes; Enter/Escape ends the session.
+                if (_liveTypeEl && (!_liveTypeEl.isConnected || !container.contains(_liveTypeEl))) _liveTypeEl = null;
+                if (_liveTypeEl) {
+                    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                        _liveTypeEl.textContent += e.key;
+                        hasEditedExisting = true;
+                        e.preventDefault(); return;
+                    }
+                    if (e.key === 'Backspace') {
+                        var _lt = _liveTypeEl.textContent;
+                        _liveTypeEl.textContent = _lt.slice(0, -1);
+                        hasEditedExisting = true;
+                        e.preventDefault(); return;
+                    }
+                    if (e.key === 'Enter' || e.key === 'Escape') { _endLiveType(); e.preventDefault(); return; }
+                    // any other key (arrows etc.) falls through to normal handling
+                }
+                if (!selectedElement) return;
                 var step = GRID_UNIT; // 1 grid unit per arrow press
                 if (e.shiftKey) step = GRID_UNIT * 10; // 10 grid units with shift (K6 spec)
                 var pos = getElementPos(selectedElement);
@@ -11854,6 +11907,7 @@
                 document.removeEventListener('keydown', drawKeyHandler);
                 drawKeyHandler = null;
             }
+            _endLiveType();
             deselectElement();
             isDragging = false;
             justDragged = false;

@@ -1073,7 +1073,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:38 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1091,7 +1091,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:53 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:38 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1333,7 +1333,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:53 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:38 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4898,6 +4898,30 @@
             var exact = !approx && (m * Math.pow(10, exp) === n);
             return (exact ? '' : '≈ ') + m + ' × 10' + _mpSupExp(exp);
         }
+        // ---- No-repeat-vs-previous-batch rule ----
+        // Consecutive batches (preview "Generate", worksheet "Build page") avoid the
+        // problems shown in the previous batch of the SAME card. Exemptions: the game
+        // author explicitly allows repeats, or the space is too small to avoid them —
+        // in the "insufficient" case the caller shows a warning.
+        var _pmPrevBatch = {}; // cardKey -> { envKey: 1, ... }
+        function _pmBatchCardKey(cardEl) {
+            return (cardEl && cardEl.dataset && (cardEl.dataset.stableId || cardEl.dataset.uid)) || '_';
+        }
+        // Returns { envs, repeats } — envs excludes the previous batch when enough
+        // fresh problems remain for a full batch of n; repeats:true = insufficient,
+        // the full pool is returned and repeats may appear (warn the author).
+        function _pmFilterPrevBatch(envs, n, cardEl) {
+            var prev = _pmPrevBatch[_pmBatchCardKey(cardEl)];
+            if (!prev) return { envs: envs, repeats: false };
+            var fresh = envs.filter(function (e) { return !prev[JSON.stringify(e)]; });
+            if (fresh.length >= n) return { envs: fresh, repeats: false };
+            return { envs: envs, repeats: true };
+        }
+        function _pmRememberBatch(chosen, cardEl) {
+            var m = {};
+            (chosen || []).forEach(function (e) { m[JSON.stringify(e)] = 1; });
+            _pmPrevBatch[_pmBatchCardKey(cardEl)] = m;
+        }
         function _pvPickDistinct(total, k) {
             if (k >= total) { var all = []; for (var i = 0; i < total; i++) all.push(i); return all; }
             var picked = {}, res = [];
@@ -4950,27 +4974,30 @@
             var space = _mpJointSpace();
             if (space.error) { out.classList.add('warn'); out.textContent = '⚠ ' + space.error; return; }
             var rows = [], header, chosen;
+            // Pick DIVERSE examples (farthest-point over the free-param space, same
+            // sampler as the Examples card) — plain uniform picks clump (e.g. three
+            // problems in the same decade); diverse picks span the whole range.
+            var _pvSyms = _mpFreeParams().map(function (p) { return p.sym; });
             if (space.capped) {
-                // Space too big to enumerate — rejection-sample distinct instances.
-                var seen = {}, envs = [], tries = 0;
-                while (envs.length < n && tries < n * 400) {
-                    tries++;
-                    var j = _mpGenerateJointEnv(800);
-                    if (j.error) { out.classList.add('warn'); out.textContent = '⚠ ' + j.error; return; }
-                    var key = JSON.stringify(j.env);
-                    if (!seen[key]) { seen[key] = 1; envs.push(j.env); }
-                }
-                chosen = envs;
+                // Space too big to enumerate — sample a distinct pool, then spread.
+                var d = _pmDistinctEnvs(n);
+                if (d.error) { out.classList.add('warn'); out.textContent = '⚠ ' + d.error; return; }
+                chosen = d.envs;
                 var jc = _mpJointCount();
                 var totalStr = (jc && !jc.error) ? _mpFmtCount(jc.count, jc.approx) : 'many';
                 header = 'Showing ' + chosen.length + ' of ' + totalStr + ' possible';
             } else {
                 var M = space.count;
                 if (M === 0) { out.classList.add('warn'); out.textContent = '⚠ No valid combinations — the parameters / relations may contradict.'; return; }
-                var idxs = _pvPickDistinct(space.envs.length, n);
-                chosen = idxs.map(function (i) { return space.envs[i]; });
+                // Avoid repeating the previous batch (when the space allows it).
+                var fb = _pmFilterPrevBatch(space.envs, Math.min(n, M), loupeSourceCard);
+                chosen = _pmPickDiverse(fb.envs, Math.min(n, M), _pvSyms);
+                _pmRememberBatch(chosen, loupeSourceCard);
                 header = 'Showing ' + chosen.length + ' of ' + M + ' possible' + (chosen.length === M ? ' (all)' : '');
+                if (fb.repeats) header += ' — ⚠ too few to avoid repeating the previous batch';
             }
+            // Random (diversity-shuffled) order, same as the Examples card —
+            // problems must NOT be sorted unless the user asks for it.
             for (var c = 0; c < chosen.length; c++) {
                 var r = renderEnv(chosen[c]);
                 if (r.error) { out.classList.add('warn'); out.textContent = '⚠ ' + r.error; return; }
@@ -4990,23 +5017,44 @@
             for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
             return arr;
         }
-        // Choose n DIVERSE envs from a candidate set via farthest-point sampling over
-        // the free-param value space (normalised per param), so the examples spread out
-        // instead of clustering on shared values (e.g. B always 5). Picks randomly among
-        // the farthest ~30% each step so successive batches differ. Returns shuffled.
+        // Choose n DIVERSE envs from a candidate set via farthest-point sampling,
+        // DIGIT-AWARE: each value is decomposed into digit positions (… hundreds,
+        // tens, ones), and every digit is its own 0-9 coordinate. Two picks are
+        // "far apart" when their digits differ — so a batch spreads over decades
+        // AND over ones digits (13/43/73, all ending in 3, now count as close).
+        // Picks randomly among the farthest ~30% each step so successive batches
+        // differ. Returns shuffled.
         function _pmPickDiverse(envs, n, syms) {
             envs = envs.slice();
             if (envs.length <= n) return _pmShuffle(envs);
             if (!syms || !syms.length) return _pmShuffle(_pvPickDistinct(envs.length, n).map(function (i) { return envs[i]; }));
             // Cap the candidate pool so the O(n·pool) spread stays fast on huge spaces.
             if (envs.length > 400) envs = _pvPickDistinct(envs.length, 400).map(function (i) { return envs[i]; });
-            var span = {};
+            // Digit layout per param: how many positions (from the largest |value|),
+            // plus a sign coordinate when the range includes negatives.
+            var ndig = {}, hasNeg = {};
             syms.forEach(function (s) {
-                var lo = Infinity, hi = -Infinity;
-                envs.forEach(function (e) { var v = +e[s]; if (v < lo) lo = v; if (v > hi) hi = v; });
-                span[s] = (hi - lo) || 1;
+                var hi = 0, neg = false;
+                envs.forEach(function (e) { var v = +e[s] || 0; if (Math.abs(v) > hi) hi = Math.abs(v); if (v < 0) neg = true; });
+                ndig[s] = Math.max(1, String(Math.floor(hi)).length);
+                hasNeg[s] = neg;
             });
-            function d2(a, b) { var t = 0; for (var i = 0; i < syms.length; i++) { var s = syms[i], u = (+a[s] - +b[s]) / span[s]; t += u * u; } return t; }
+            function coordsOf(env) {
+                var c = [];
+                syms.forEach(function (s) {
+                    var v = +env[s] || 0, a = Math.floor(Math.abs(v));
+                    for (var i = 0; i < ndig[s]; i++) { c.push((a % 10) / 9); a = Math.floor(a / 10); }
+                    if (hasNeg[s]) c.push(v < 0 ? 1 : 0);
+                });
+                return c;
+            }
+            var cmap = new Map();
+            envs.forEach(function (e) { cmap.set(e, coordsOf(e)); });
+            function d2(a, b) {
+                var ca = cmap.get(a), cb = cmap.get(b), t = 0;
+                for (var i = 0; i < ca.length; i++) { var u = ca[i] - cb[i]; t += u * u; }
+                return t;
+            }
             var pool = envs.slice();
             var chosen = [pool.splice(Math.floor(Math.random() * pool.length), 1)[0]];
             var nd = pool.map(function (e) { return d2(e, chosen[0]); }); // nearest-chosen distance
@@ -20210,7 +20258,8 @@
                 { icon: '❌',       name: 'Missed answers',      desc: 'Every wrong answer: which card/problem and what P answered.' },
                 { icon: '✅',       name: 'Correct answers',     desc: 'Every correct answer: which card/problem was solved.' },
                 { icon: '🥇', name: 'First-try answers',   desc: 'Correct on the first attempt (no retries).' },
-                { icon: '🔁', name: 'Repeated mistake',    desc: 'The same card/problem missed more than once — a stable gap.' }
+                { icon: '🔁', name: 'Repeated mistake',    desc: 'The same card/problem missed more than once — a stable gap.' },
+                { icon: '🎭', name: 'Missed answers per role', desc: 'Number of missed answers counted for each role.' }
             ]},
             { group: 'Timing', color: '#00BCD4', rules: [
                 { icon: '⏱️', name: 'Time on each answer', desc: 'How long P takes on every answer.' },
@@ -20219,9 +20268,10 @@
                 { icon: '🏅', name: 'Best timing streak',   desc: 'The best timing across C correct answers in a row.' }
             ]},
             { group: 'Patterns / streaks', color: '#ffb74d', rules: [
-                { icon: '🎲', name: '“Whatever” answers',   desc: 'N incorrect answers in a row after K successful ones — P stopped trying or got tired.' },
+                { icon: '🎲', name: 'Clear Guess',          desc: 'N incorrect answers in a row after K successful ones — P stopped trying or got tired.' },
                 { icon: '📈', name: 'Improvement trend',    desc: 'Success rate rising or falling across the session.' },
-                { icon: '🔥', name: 'Correct streak length', desc: 'The longest run of correct answers in the session.' }
+                { icon: '🔥', name: 'Correct streak length', desc: 'The longest run of correct answers in the session.' },
+                { icon: '🎯', name: 'Guessing in Multi-Choice', desc: 'P has 1 correct out of R answers. The game: 1 correct out of N choices. R ≈ N means guessing.' }
             ]},
             { group: 'Summaries / charts', color: '#c792ea', rules: [
                 { icon: '📊', name: 'Roles success chart',  desc: 'Chart showing which roles have a success level of a certain value.' },
@@ -20481,7 +20531,10 @@
         }
 
         // Generate N distinct problems from one card's params + f-formula.
-        function _wsGenerate(cardEl, n, hiddenSet) {
+        // allowRepeats: the author's override — when false (default) a page avoids
+        // the problems of the PREVIOUS page (repeatWarn:true reports the
+        // "insufficient space" exemption so the game maker can warn).
+        function _wsGenerate(cardEl, n, hiddenSet, allowRepeats) {
             return _pmWithCard(cardEl, function () {
                 var params = _mpReadParams(cardEl);
                 if (!params.length) return { error: 'This card has no parameters. Open it → Par → add some.' };
@@ -20496,21 +20549,22 @@
                 if (!Object.keys(hidden).length) return { error: 'No blank chosen — make a parameter invisible (that becomes the answer).' };
                 var space = _mpJointSpace();
                 if (space.error) return { error: space.error };
-                var chosen;
+                var chosen, repeatWarn = false;
                 if (space.capped) {
-                    var s = {}, envs = [], t = 0;
-                    while (envs.length < n && t < n * 400) {
-                        t++;
-                        var j = _mpGenerateJointEnv(800);
-                        if (j.error) return { error: j.error };
-                        var k = JSON.stringify(j.env);
-                        if (!s[k]) { s[k] = 1; envs.push(j.env); }
-                    }
-                    chosen = envs;
+                    // Huge space: diverse sample from a rejection-sampled pool.
+                    // (Cross-batch repeats are astronomically unlikely here.)
+                    var d = _pmDistinctEnvs(n);
+                    if (d.error) return { error: d.error };
+                    chosen = d.envs;
                 } else {
                     if (space.count === 0) return { error: 'No valid combinations — the parameters/relations may contradict.' };
-                    var idxs = _pvPickDistinct(space.envs.length, Math.min(n, space.count));
-                    chosen = idxs.map(function (i) { return space.envs[i]; });
+                    var syms = _mpFreeParams().map(function (p) { return p.sym; });
+                    var want = Math.min(n, space.count);
+                    var fb = allowRepeats ? { envs: space.envs, repeats: false }
+                                          : _pmFilterPrevBatch(space.envs, want, cardEl);
+                    repeatWarn = fb.repeats;
+                    chosen = _pmPickDiverse(fb.envs, want, syms);
+                    if (!allowRepeats) _pmRememberBatch(chosen, cardEl);
                 }
                 var probs = [];
                 for (var c = 0; c < chosen.length; c++) {
@@ -20519,7 +20573,7 @@
                     probs.push({ shown: b.shown, answers: b.answer.map(function (a) { return a.split('=').pop().trim(); }) });
                 }
                 var _jc = space.capped ? _mpJointCount() : null;
-                return { problems: probs, total: space.capped ? ((_jc && !_jc.error) ? _jc.count : null) : space.count, totalApprox: space.capped };
+                return { problems: probs, total: space.capped ? ((_jc && !_jc.error) ? _jc.count : null) : space.count, totalApprox: space.capped, repeatWarn: repeatWarn };
             });
         }
 
@@ -20572,6 +20626,7 @@
                   '<div class="ws-fld"><label>Source card</label><select id="ws-source"></select></div>' +
                   '<div class="ws-fld"><label>Problems / page</label><input type="number" id="ws-count" min="1" max="40" value="10"></div>' +
                   '<div class="ws-fld"><label>Attempts</label><input type="number" id="ws-attempts" min="1" max="9" value="3"></div>' +
+                  '<div class="ws-fld"><label>Repeats</label><select id="ws-repeats" title="Whether a new page may repeat problems from the previous page"><option value="no">Avoid previous page</option><option value="yes">Allow repeats</option></select></div>' +
                   '<div class="ws-go">' +
                     '<button class="ws-build" id="ws-build">↻ Build page</button>' +
                     '<button class="ws-close" id="ws-closebtn">✕ Close</button>' +
@@ -20641,9 +20696,10 @@
         function _wsBuildPage() {
             if (!_wsCard) return;
             var n = Math.max(1, Math.min(40, parseInt(document.getElementById('ws-count').value, 10) || 10));
+            var allowRep = ((document.getElementById('ws-repeats') || {}).value === 'yes');
             // The game maker does NOT edit the card — it uses each card's own
             // stored invisible/hidden config (set in the Card Editor).
-            var r = _wsGenerate(_wsCard, n);
+            var r = _wsGenerate(_wsCard, n, null, allowRep);
             var host = document.getElementById('ws-gridhost');
             document.getElementById('ws-h1').textContent = document.getElementById('ws-title').value || 'Worksheet';
             _wsAttemptsUsed = 0; _wsLocked = false;
@@ -20670,7 +20726,13 @@
                 row.innerHTML = '<span class="ws-n">' + (i + 1) + '.</span><span class="ws-q">' + qhtml + '</span><span class="ws-mark"></span>';
                 host.appendChild(row);
             });
-            _wsSetStatus('', 'Fill in the answers, then press Check.');
+            // Insufficient-space exemption: warn the author that this page may repeat
+            // problems from the previous one (too few distinct problems to avoid it).
+            if (r.repeatWarn) {
+                _wsSetStatus('done', '⚠ Only ' + (r.total != null ? r.total : 'a few') + ' distinct problems exist — this page may repeat the previous one. (Set Repeats to "Allow repeats" to silence this.) Fill in the answers, then press Check.');
+            } else {
+                _wsSetStatus('', 'Fill in the answers, then press Check.');
+            }
         }
 
         function _wsSetStatus(cls, html) {

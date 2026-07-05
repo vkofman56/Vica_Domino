@@ -4738,7 +4738,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window._gnRecord) return; // the Studio page provides its own module
     let S = null;
     function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
-    function flush() { if (S) { try { localStorage.setItem('gameNoteSession_current', JSON.stringify(S)); } catch (e) {} } }
+    function flush() { if (S) { try { S.lastFlushAt = Date.now(); localStorage.setItem('gameNoteSession_current', JSON.stringify(S)); } catch (e) {} } }
     function end() {
         if (!S) return;
         S.endedAt = Date.now();

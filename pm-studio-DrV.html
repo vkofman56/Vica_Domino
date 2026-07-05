@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:18 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:46 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:18 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:46 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:18 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:46 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20654,7 +20654,8 @@
             var _sig = session.noteSet || _gnSetSignature(session.notes); // previewer sessions store notes only
             title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (_sig ? ' with ' + _sig : '');
             var sub = document.createElement('span'); sub.className = 'tickets-box-sub';
-            sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers';
+            sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers'
+                + (session.endedAt ? '' : ' · ▶ in progress — reopen for fresh numbers');
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
             close.onclick = function () { ov.remove(); };
             head.appendChild(title); head.appendChild(sub); head.appendChild(close);
@@ -20692,8 +20693,21 @@
             dlg.appendChild(head);
             var body = document.createElement('div'); body.className = 'tickets-box-body';
             body.style.columnCount = '1';
-            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
-                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview.'
+            // A session RUNNING right now (preview tab still open) shows live at the
+            // top — before this, Reports looked frozen until the tab was closed.
+            var cur = null;
+            try { cur = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null'); } catch (e3) {}
+            if (cur && filterName && cur.game !== filterName) cur = null;
+            if (cur) {
+                var live = document.createElement('div'); live.className = 'tbx-rule'; live.style.cursor = 'pointer';
+                live.style.borderColor = '#66bb6a';
+                live.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">▶ ' + _mpEsc((cur.game || _gnTypeLabel(cur.type)) + ' — playing now') + '</div>'
+                    + '<div class="tbx-rule-desc">' + (cur.events || []).length + ' answer' + ((cur.events || []).length === 1 ? '' : 's') + ' so far · started ' + new Date(cur.startedAt).toLocaleTimeString() + ' · the session files here when the preview tab closes</div></div>';
+                live.onclick = function () { _gnShowReport(cur); };
+                body.appendChild(live);
+            }
+            if (!hist.length && !cur) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
+                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview tab and come back here.'
                               : 'No recorded sessions yet. Turn some notes ON, then preview a game.') + '</div>';
             hist.forEach(function (s) {
                 var d = document.createElement('div'); d.className = 'tbx-rule'; d.style.cursor = 'pointer';
@@ -20713,17 +20727,25 @@
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
             document.body.appendChild(ov);
         }
-        // Orphan recovery: a session left behind by a killed play iframe is folded
-        // into the history the next time any copy of this page loads.
-        try {
-            var _gnOrphan = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null');
-            if (_gnOrphan && _gnOrphan.startedAt && (Date.now() - _gnOrphan.startedAt) > 5000) {
-                var _gnHist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
-                _gnHist.unshift(_gnOrphan);
-                localStorage.setItem('gameNoteSessions_v1', JSON.stringify(_gnHist.slice(0, 10)));
+        // Orphan recovery: a session left behind by a KILLED play tab is folded
+        // into the history. Only STALE sessions qualify — the preview now runs in
+        // a separate tab that can be alive (and flushing) while this page loads,
+        // so a merely-old startedAt is NOT abandonment; no flush for 10+ minutes is.
+        function _gnFoldStaleSession() {
+            try {
+                var cur = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null');
+                if (!cur || !cur.startedAt) return;
+                var lastAlive = cur.lastFlushAt || cur.startedAt;
+                if ((Date.now() - lastAlive) < 10 * 60000) return; // could still be playing
+                cur.endedAt = lastAlive;
+                cur.interrupted = true;
+                var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
+                hist.unshift(cur);
+                localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist.slice(0, 10)));
                 localStorage.removeItem('gameNoteSession_current');
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
+        try { _gnFoldStaleSession(); } catch (e) {}
         function _gnTypeLabel(id) {
             for (var i = 0; i < GAME_NOTE_TYPES.length; i++) if (GAME_NOTE_TYPES[i].id === id) return GAME_NOTE_TYPES[i].label;
             return id;
@@ -36103,6 +36125,7 @@
         // (user merely switched tabs mid-game) shows nothing.
         function _gnCheckFreshSession() {
             try {
+                _gnFoldStaleSession(); // a killed play tab's session surfaces on the next focus
                 var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                 var s = hist[0];
                 if (s && s.endedAt && (Date.now() - s.endedAt) < 15000 && !s.shown) {

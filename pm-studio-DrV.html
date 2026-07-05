@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:18 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:18 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:02 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:18 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20632,6 +20632,18 @@
             });
             return out;
         }
+        // Small self-dismissing toast (bottom-center) — used to explain why a
+        // preview produced no notes document instead of failing silently.
+        function _gnToast(msg) {
+            var old = document.getElementById('gn-toast'); if (old) old.remove();
+            var t = document.createElement('div');
+            t.id = 'gn-toast';
+            t.textContent = msg;
+            t.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:22000;background:rgba(25,28,48,0.96);border:1px solid rgba(255,215,0,0.6);color:#f2e9c8;font:600 13px "Segoe UI",sans-serif;padding:10px 18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.5);max-width:80%;text-align:center;transition:opacity 0.4s;';
+            document.body.appendChild(t);
+            setTimeout(function () { t.style.opacity = '0'; }, 6000);
+            setTimeout(function () { t.remove(); }, 6500);
+        }
         // ---- The notes document (report) + session history ----
         function _gnShowReport(session) {
             var old = document.getElementById('gn-report-overlay'); if (old) old.remove();
@@ -20639,7 +20651,8 @@
             var dlg = document.createElement('div'); dlg.className = 'tickets-box-dialog';
             var head = document.createElement('div'); head.className = 'tickets-box-header';
             var title = document.createElement('span'); title.className = 'tickets-box-title';
-            title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (session.noteSet ? ' with ' + session.noteSet : '');
+            var _sig = session.noteSet || _gnSetSignature(session.notes); // previewer sessions store notes only
+            title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (_sig ? ' with ' + _sig : '');
             var sub = document.createElement('span'); sub.className = 'tickets-box-sub';
             sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers';
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
@@ -20660,27 +20673,41 @@
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
             document.body.appendChild(ov);
         }
-        function _gnShowReportsList() {
+        // showAll=true forces the unfiltered list; otherwise, when the Notes box is
+        // open SCOPED to a game, only that game's sessions are shown.
+        function _gnShowReportsList(showAll) {
             var hist; try { hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || []; } catch (e) { hist = []; }
+            var scopedGame = (!showAll && _gnGameScope) ? _gnScopedGame() : null;
+            var filterName = scopedGame ? scopedGame.name : null;
+            if (filterName) hist = hist.filter(function (s) { return s.game === filterName; });
             var old = document.getElementById('gn-report-overlay'); if (old) old.remove();
             var ov = document.createElement('div'); ov.className = 'tickets-box-overlay'; ov.id = 'gn-report-overlay';
             var dlg = document.createElement('div'); dlg.className = 'tickets-box-dialog';
             var head = document.createElement('div'); head.className = 'tickets-box-header';
-            head.innerHTML = '<span class="tickets-box-title">📄 Notes documents</span><span class="tickets-box-sub">Recorded preview sessions — click one to open</span>';
+            head.innerHTML = '<span class="tickets-box-title">📄 Notes documents</span><span class="tickets-box-sub">'
+                + (filterName ? _mpEsc(filterName) + ' — its recorded sessions' : 'Recorded preview sessions — click one to open') + '</span>';
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
             close.onclick = function () { ov.remove(); };
             head.appendChild(close);
             dlg.appendChild(head);
             var body = document.createElement('div'); body.className = 'tickets-box-body';
             body.style.columnCount = '1';
-            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">No recorded sessions yet. Turn some notes ON, then preview a game.</div>';
+            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
+                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview.'
+                              : 'No recorded sessions yet. Turn some notes ON, then preview a game.') + '</div>';
             hist.forEach(function (s) {
                 var d = document.createElement('div'); d.className = 'tbx-rule'; d.style.cursor = 'pointer';
-                d.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">' + _mpEsc((s.game || _gnTypeLabel(s.type)) + (s.noteSet ? ' with ' + s.noteSet : '')) + '</div>'
+                d.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">' + _mpEsc((s.game || _gnTypeLabel(s.type)) + ' with ' + (s.noteSet || _gnSetSignature(s.notes))) + '</div>'
                     + '<div class="tbx-rule-desc">' + new Date(s.startedAt).toLocaleString() + ' · ' + (s.events || []).length + ' answers · ' + Object.keys(s.notes || {}).length + ' notes</div></div>';
                 d.onclick = function () { _gnShowReport(s); };
                 body.appendChild(d);
             });
+            if (filterName) {
+                var allRow = document.createElement('div'); allRow.className = 'tbx-rule'; allRow.style.cursor = 'pointer'; allRow.style.opacity = '0.75';
+                allRow.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">📂 Show ALL games\' sessions</div></div>';
+                allRow.onclick = function () { _gnShowReportsList(true); };
+                body.appendChild(allRow);
+            }
             dlg.appendChild(body);
             ov.appendChild(dlg);
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
@@ -36051,29 +36078,13 @@
 
         function openPlayModal(gameIndex) {
             try { var _pgn = (loadCustomGames()[gameIndex] || {}).name; if (_pgn) recordGameActivation('find', _pgn, 'preview'); } catch (e) {}
-            var overlay = document.createElement('div');
-            overlay.className = 'play-modal-overlay';
-            overlay.id = 'play-modal-overlay';
-
-            var closeBtn = document.createElement('button');
-            closeBtn.className = 'play-modal-close';
-            closeBtn.innerHTML = '&times;';
-            closeBtn.title = 'Close';
-            closeBtn.onclick = function() { closePlayModal(); };
-            overlay.appendChild(closeBtn);
-
-            var iframe = document.createElement('iframe');
-            iframe.className = 'play-modal-iframe';
-            iframe.src = 'pm-studio-DrV.html?play=' + gameIndex;
-            overlay.appendChild(iframe);
-
-            document.body.appendChild(overlay);
-
-            // Close on Escape key
-            overlay._escHandler = function(e) {
-                if (e.key === 'Escape') closePlayModal();
-            };
-            document.addEventListener('keydown', overlay._escHandler);
+            // Open the GAME PREVIEW in a NEW TAB (deep-linked to this game's
+            // GPt F Setup) instead of the old in-Studio iframe modal. One shared
+            // page: whatever ships in index.html (name box, layout, Notes
+            // recording via game.js) is exactly what the Library opens. Closing
+            // the tab returns to the Library — no back-button plumbing needed.
+            // Relative URL → works on localhost:8000 and on the deploy alike.
+            window.open('index.html?playGame=custom-' + gameIndex, '_blank');
         }
 
         function closePlayModal() {
@@ -36082,20 +36093,38 @@
                 if (overlay._escHandler) document.removeEventListener('keydown', overlay._escHandler);
                 overlay.remove();
             }
-            // If the preview just recorded a Game Notes session (the iframe's pagehide
-            // finalizes it into history), open its notes document.
-            setTimeout(function () {
-                try {
-                    var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
-                    var s = hist[0];
-                    if (s && s.endedAt && (Date.now() - s.endedAt) < 5000 && !s.shown) {
-                        s.shown = true;
-                        localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
-                        _gnShowReport(s);
-                    }
-                } catch (e) {}
-            }, 200);
+            // Catch previews still use this modal — check for a finished session.
+            setTimeout(_gnCheckFreshSession, 250);
         }
+        // Find previews play in a NEW TAB now: closing it finalizes the session
+        // (pagehide in the preview tab), and the report/toast shows when THIS tab
+        // regains focus. A fresh session → its notes document; a preview ping with
+        // no session (nothing armed) → explain once. A still-running session
+        // (user merely switched tabs mid-game) shows nothing.
+        function _gnCheckFreshSession() {
+            try {
+                var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
+                var s = hist[0];
+                if (s && s.endedAt && (Date.now() - s.endedAt) < 15000 && !s.shown) {
+                    s.shown = true;
+                    localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
+                    localStorage.removeItem('gameNotePreviewPing');
+                    _gnShowReport(s);
+                    return;
+                }
+                if (localStorage.getItem('gameNoteSession_current')) return; // preview still running
+                var ping = null;
+                try { ping = JSON.parse(localStorage.getItem('gameNotePreviewPing') || 'null'); } catch (e2) {}
+                if (ping && ping.t && (Date.now() - ping.t) < 30 * 60000) {
+                    localStorage.removeItem('gameNotePreviewPing');
+                    _gnToast('📝 No game notes were recorded for “' + (ping.game || 'the game') + '” — click the 📝 button on the game\'s row and toggle some notes ON, then play again.');
+                } else if (ping) {
+                    localStorage.removeItem('gameNotePreviewPing'); // stale — consume silently
+                }
+            } catch (e) {}
+        }
+        window.addEventListener('focus', _gnCheckFreshSession);
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') _gnCheckFreshSession(); });
 
         // Initialize game lists on page load
         populateLibraryGames();
@@ -36159,7 +36188,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-1"></script>
+    <script src="js/game.js?v=game-notes-2"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

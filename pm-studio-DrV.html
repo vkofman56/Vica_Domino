@@ -20632,6 +20632,18 @@
             });
             return out;
         }
+        // Small self-dismissing toast (bottom-center) — used to explain why a
+        // preview produced no notes document instead of failing silently.
+        function _gnToast(msg) {
+            var old = document.getElementById('gn-toast'); if (old) old.remove();
+            var t = document.createElement('div');
+            t.id = 'gn-toast';
+            t.textContent = msg;
+            t.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:22000;background:rgba(25,28,48,0.96);border:1px solid rgba(255,215,0,0.6);color:#f2e9c8;font:600 13px "Segoe UI",sans-serif;padding:10px 18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.5);max-width:80%;text-align:center;transition:opacity 0.4s;';
+            document.body.appendChild(t);
+            setTimeout(function () { t.style.opacity = '0'; }, 6000);
+            setTimeout(function () { t.remove(); }, 6500);
+        }
         // ---- The notes document (report) + session history ----
         function _gnShowReport(session) {
             var old = document.getElementById('gn-report-overlay'); if (old) old.remove();
@@ -20660,20 +20672,28 @@
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
             document.body.appendChild(ov);
         }
-        function _gnShowReportsList() {
+        // showAll=true forces the unfiltered list; otherwise, when the Notes box is
+        // open SCOPED to a game, only that game's sessions are shown.
+        function _gnShowReportsList(showAll) {
             var hist; try { hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || []; } catch (e) { hist = []; }
+            var scopedGame = (!showAll && _gnGameScope) ? _gnScopedGame() : null;
+            var filterName = scopedGame ? scopedGame.name : null;
+            if (filterName) hist = hist.filter(function (s) { return s.game === filterName; });
             var old = document.getElementById('gn-report-overlay'); if (old) old.remove();
             var ov = document.createElement('div'); ov.className = 'tickets-box-overlay'; ov.id = 'gn-report-overlay';
             var dlg = document.createElement('div'); dlg.className = 'tickets-box-dialog';
             var head = document.createElement('div'); head.className = 'tickets-box-header';
-            head.innerHTML = '<span class="tickets-box-title">📄 Notes documents</span><span class="tickets-box-sub">Recorded preview sessions — click one to open</span>';
+            head.innerHTML = '<span class="tickets-box-title">📄 Notes documents</span><span class="tickets-box-sub">'
+                + (filterName ? _mpEsc(filterName) + ' — its recorded sessions' : 'Recorded preview sessions — click one to open') + '</span>';
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
             close.onclick = function () { ov.remove(); };
             head.appendChild(close);
             dlg.appendChild(head);
             var body = document.createElement('div'); body.className = 'tickets-box-body';
             body.style.columnCount = '1';
-            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">No recorded sessions yet. Turn some notes ON, then preview a game.</div>';
+            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
+                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview.'
+                              : 'No recorded sessions yet. Turn some notes ON, then preview a game.') + '</div>';
             hist.forEach(function (s) {
                 var d = document.createElement('div'); d.className = 'tbx-rule'; d.style.cursor = 'pointer';
                 d.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">' + _mpEsc((s.game || _gnTypeLabel(s.type)) + (s.noteSet ? ' with ' + s.noteSet : '')) + '</div>'
@@ -20681,6 +20701,12 @@
                 d.onclick = function () { _gnShowReport(s); };
                 body.appendChild(d);
             });
+            if (filterName) {
+                var allRow = document.createElement('div'); allRow.className = 'tbx-rule'; allRow.style.cursor = 'pointer'; allRow.style.opacity = '0.75';
+                allRow.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">📂 Show ALL games\' sessions</div></div>';
+                allRow.onclick = function () { _gnShowReportsList(true); };
+                body.appendChild(allRow);
+            }
             dlg.appendChild(body);
             ov.appendChild(dlg);
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
@@ -36083,7 +36109,8 @@
                 overlay.remove();
             }
             // If the preview just recorded a Game Notes session (the iframe's pagehide
-            // finalizes it into history), open its notes document.
+            // finalizes it into history), open its notes document. If NOTHING was
+            // recorded, say so — a silent close reads as "where are my results?".
             setTimeout(function () {
                 try {
                     var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
@@ -36092,9 +36119,11 @@
                         s.shown = true;
                         localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
                         _gnShowReport(s);
+                    } else {
+                        _gnToast('📝 No game notes were recorded for this preview — click the 📝 button on the game\'s row and toggle some notes ON, then play again.');
                     }
                 } catch (e) {}
-            }, 200);
+            }, 250);
         }
 
         // Initialize game lists on page load

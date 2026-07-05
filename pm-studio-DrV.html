@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">03:28 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">03:28 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">03:28 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:08 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20504,8 +20504,33 @@
         }
         window.addEventListener('pagehide', function () { try { _gnSessionEnd(); } catch (e) {} });
         // ---- Note evaluators: derive every armed note from the raw event log ----
-        // Events: {t(ms since start), correct, card, role, player, choices}.
+        // Events: {t(ms since start), correct, card, made("A1+B3"), role, player, choices}.
         function _gnFmtT(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+        // A small inline domino: two halves with classic pips for values 0–6,
+        // the value TEXT for anything else (custom game values need not be pips).
+        function _gnDominoSVG(l, r) {
+            var PIPS = {
+                0: [], 1: [[8, 9]],
+                2: [[4, 4.5], [12, 13.5]],
+                3: [[4, 4.5], [8, 9], [12, 13.5]],
+                4: [[4, 4.5], [12, 4.5], [4, 13.5], [12, 13.5]],
+                5: [[4, 4.5], [12, 4.5], [8, 9], [4, 13.5], [12, 13.5]],
+                6: [[4, 4.5], [4, 9], [4, 13.5], [12, 4.5], [12, 9], [12, 13.5]]
+            };
+            function half(v, x) {
+                var n = parseInt(v, 10);
+                if (!isNaN(n) && n >= 0 && n <= 6 && String(n) === String(v).trim()) {
+                    return PIPS[n].map(function (p) {
+                        return '<circle cx="' + (x + p[0]) + '" cy="' + p[1] + '" r="1.7" fill="#2a2140"/>';
+                    }).join('');
+                }
+                return '<text x="' + (x + 8) + '" y="12.5" text-anchor="middle" font-size="9" font-weight="700" fill="#2a2140">' + _mpEsc(String(v)) + '</text>';
+            }
+            return '<svg width="38" height="20" viewBox="0 0 36 18" style="flex:0 0 auto;vertical-align:middle;">'
+                + '<rect x="0.5" y="0.5" width="35" height="17" rx="3" fill="#fdf6e3" stroke="#8b7d5a"/>'
+                + '<line x1="18" y1="2" x2="18" y2="16" stroke="#8b7d5a" stroke-width="0.8"/>'
+                + half(l, 1) + half(r, 19) + '</svg>';
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
@@ -20513,24 +20538,38 @@
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
             var E = {};
             // Card tallies for A1/A2 — time is insignificant here (user, July 5):
-            // each card once, "×N" when it happened several times, biggest first.
-            function tallyCards(list) {
-                var m = {};
-                list.forEach(function (e) { var k = e.card || '?'; m[k] = (m[k] || 0) + 1; });
+            // one ROW per distinct domino, biggest count first. Each row: the drawn
+            // domino, the CARD NAMES it was made from ("A1 + B3"), and ×N when it
+            // happened several times.
+            function tallyRows(list, badgeColor) {
+                var m = {}, made = {};
+                list.forEach(function (e) {
+                    var k = e.card || '?';
+                    m[k] = (m[k] || 0) + 1;
+                    if (!made[k] && e.made) made[k] = e.made;
+                });
                 return Object.keys(m)
                     .sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); })
-                    .map(function (k) { return k + (m[k] > 1 ? ' ×' + m[k] : ''); })
-                    .join(' · ');
+                    .map(function (k) {
+                        var vals = k.split('|');
+                        var glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
+                        var names = made[k] ? made[k].split('+').join(' + ') : k;
+                        return '<div style="display:flex;align-items:center;gap:9px;margin:4px 0;">'
+                            + glyph
+                            + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
+                            + (m[k] > 1 ? '<span style="font-weight:800;color:' + badgeColor + ';">×' + m[k] + '</span>' : '')
+                            + '</div>';
+                    }).join('');
             }
             E['missed-answers'] = function () {
                 var w = ev.filter(function (e) { return !e.correct; });
-                if (!w.length) return 'No missed answers. 🎉';
-                return w.length + ' missed: ' + tallyCards(w);
+                if (!w.length) return _mpEsc('No missed answers. 🎉');
+                return _mpEsc(w.length + ' missed:') + tallyRows(w, '#e57373');
             };
             E['correct-answers'] = function () {
                 var c = ev.filter(function (e) { return e.correct; });
-                if (!c.length) return 'No correct answers recorded.';
-                return c.length + ' correct (pushed as doubles): ' + tallyCards(c);
+                if (!c.length) return _mpEsc('No correct answers recorded.');
+                return _mpEsc(c.length + ' correct (pushed as doubles):') + tallyRows(c, '#81c784');
             };
             E['first-try-answers'] = function () {
                 var n = 0, names = [], wrongsSince = 0;
@@ -20636,7 +20675,7 @@
                     if (!armed) return;
                     var fn = E[rule.id], text;
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
-                    var isHtml = rule.id === 'roles-success-chart';
+                    var isHtml = (rule.id === 'roles-success-chart' || rule.id === 'missed-answers' || rule.id === 'correct-answers');
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });
@@ -36221,7 +36260,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-2"></script>
+    <script src="js/game.js?v=game-notes-3"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

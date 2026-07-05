@@ -1119,6 +1119,10 @@ class VicaDominoGame {
             return;
         }
 
+        // Game Notes: arm a recording session for a custom Find game (previewer
+        // context only — inert elsewhere / when no notes are armed).
+        if (window._gnSessionStartFind) { try { window._gnSessionStartFind(window.selectedIntroGame); } catch (e) {} }
+
         // Create players (skip disabled Xeno input)
         this.players = [];
         this.winners = []; // Reset winners list
@@ -4723,3 +4727,60 @@ class VicaDominoGame {
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new VicaDominoGame();
 });
+
+// === Game Notes session module (previewer / player context) ===
+// pm-studio-DrV.html defines window._gnRecord for its own legacy play mode and
+// loads BEFORE this file, so this fallback installs only where that module is
+// absent (index.html — the Game Preview). Same storage contract: raw events
+// flushed per-record into gameNoteSession_current, finalized into
+// gameNoteSessions_v1 on pagehide; the Studio shows the report on return.
+(function () {
+    if (window._gnRecord) return; // the Studio page provides its own module
+    let S = null;
+    function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+    function flush() { if (S) { try { localStorage.setItem('gameNoteSession_current', JSON.stringify(S)); } catch (e) {} } }
+    function end() {
+        if (!S) return;
+        S.endedAt = Date.now();
+        try {
+            const hist = loadJSON('gameNoteSessions_v1', []);
+            hist.unshift(S);
+            localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist.slice(0, 10)));
+            localStorage.removeItem('gameNoteSession_current');
+        } catch (e) {}
+        S = null;
+        const tag = document.getElementById('gn-rec-tag'); if (tag) tag.remove();
+    }
+    // Called from startGame() with window.selectedIntroGame; records only for
+    // custom FIND games ('custom-N') whose legend / find template arms notes.
+    window._gnSessionStartFind = function (gameId) {
+        end(); // a re-start (Play again) finalizes the previous round's session
+        if (typeof gameId !== 'string' || gameId.indexOf('custom-') !== 0) return;
+        const idx = parseInt(gameId.slice(7), 10);
+        const g = loadJSON('savedCustomGames', [])[idx];
+        if (!g) return;
+        let notes = null;
+        if (g.gameNoteSets && g.gameNoteSets.length) notes = (g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {};
+        if (!notes) notes = loadJSON('activeGameNotes_v2', {}).find || {};
+        if (!Object.keys(notes).length) { S = null; return; }
+        S = { type: 'find', game: g.name || '', startedAt: Date.now(), notes: notes, noteSet: null, events: [] };
+        flush();
+        try {
+            const old = document.getElementById('gn-rec-tag'); if (old) old.remove();
+            const tag = document.createElement('div');
+            tag.id = 'gn-rec-tag';
+            const n = Object.keys(notes).length;
+            tag.textContent = '📝 recording ' + n + ' note' + (n === 1 ? '' : 's');
+            tag.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:4000;background:rgba(20,30,20,0.85);border:1px solid rgba(102,187,106,0.7);color:#bdf5bd;font:600 12px "Segoe UI",sans-serif;padding:4px 10px;border-radius:12px;pointer-events:none;';
+            document.body.appendChild(tag);
+        } catch (e) {}
+    };
+    window._gnRecord = function (ev) {
+        if (!S) return;
+        ev = ev || {};
+        ev.t = Date.now() - S.startedAt;
+        S.events.push(ev);
+        flush();
+    };
+    window.addEventListener('pagehide', function () { try { end(); } catch (e) {} });
+})();

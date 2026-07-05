@@ -20651,7 +20651,8 @@
             var dlg = document.createElement('div'); dlg.className = 'tickets-box-dialog';
             var head = document.createElement('div'); head.className = 'tickets-box-header';
             var title = document.createElement('span'); title.className = 'tickets-box-title';
-            title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (session.noteSet ? ' with ' + session.noteSet : '');
+            var _sig = session.noteSet || _gnSetSignature(session.notes); // previewer sessions store notes only
+            title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (_sig ? ' with ' + _sig : '');
             var sub = document.createElement('span'); sub.className = 'tickets-box-sub';
             sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers';
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
@@ -20696,7 +20697,7 @@
                               : 'No recorded sessions yet. Turn some notes ON, then preview a game.') + '</div>';
             hist.forEach(function (s) {
                 var d = document.createElement('div'); d.className = 'tbx-rule'; d.style.cursor = 'pointer';
-                d.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">' + _mpEsc((s.game || _gnTypeLabel(s.type)) + (s.noteSet ? ' with ' + s.noteSet : '')) + '</div>'
+                d.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">' + _mpEsc((s.game || _gnTypeLabel(s.type)) + ' with ' + (s.noteSet || _gnSetSignature(s.notes))) + '</div>'
                     + '<div class="tbx-rule-desc">' + new Date(s.startedAt).toLocaleString() + ' · ' + (s.events || []).length + ' answers · ' + Object.keys(s.notes || {}).length + ' notes</div></div>';
                 d.onclick = function () { _gnShowReport(s); };
                 body.appendChild(d);
@@ -36090,7 +36091,10 @@
 
             var iframe = document.createElement('iframe');
             iframe.className = 'play-modal-iframe';
-            iframe.src = 'pm-studio-DrV.html?play=' + gameIndex;
+            // Open the PREVIEWER's modern setup for this game (GPt F Setup —
+            // timer/probability/level/type), not the legacy start screen. Game
+            // Notes recording runs via game.js's session module in that context.
+            iframe.src = 'index.html?playGame=custom-' + gameIndex;
             overlay.appendChild(iframe);
 
             document.body.appendChild(overlay);
@@ -36115,7 +36119,7 @@
                 try {
                     var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                     var s = hist[0];
-                    if (s && s.endedAt && (Date.now() - s.endedAt) < 5000 && !s.shown) {
+                    if (s && s.endedAt && (Date.now() - s.endedAt) < 15000 && !s.shown) {
                         s.shown = true;
                         localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
                         _gnShowReport(s);
@@ -36188,7 +36192,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-1"></script>
+    <script src="js/game.js?v=game-notes-2"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

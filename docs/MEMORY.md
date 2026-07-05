@@ -1,5 +1,29 @@
 # Vica Domino Project Memory
-**Last Updated**: June 29, 2026 — Studio **counting overhaul + Info/Examples cards + Values-as-parts + math-symbol editing** (see below + `HANDOVER_2026-06-29_COUNTING-INFOCARDS-SYMBOLS.md`). Prior: June 27–28 parametric Math Problems; June 22 icons-in-games / role-colours / sync.
+**Last Updated**: July 4, 2026 — **Game Notes system** (activation → recording → reports → per-game versioned legends) + digit-aware sampling + loupe UX (see below + `HANDOVER_2026-07-04_GAME-NOTES.md`). Prior: June 29 counting overhaul; June 27–28 parametric Math Problems.
+
+---
+
+## 🎯 July 4, 2026 — Game Notes durable lessons (`pm-studio-DrV.html` + `js/game.js`)
+
+- **Preview gameplay runs in an IFRAME** (`pm-studio-DrV.html?play=N`) and the Find-game logic lives
+  in **`js/game.js`** (`_processSunLevelClick` → `sunLevelWin`/`sunLevelWrongCard` is the judge pair).
+  Any gameplay instrumentation goes THERE, as guarded one-liners (`if (window._gnRecord) …`) so the
+  player app (index.html) is unaffected. localStorage is shared with the parent page, so sessions
+  flush per-event and finalize on iframe `pagehide` — crash-safe, with orphan recovery on next load.
+- **Record raw events, derive everything.** Sessions store only `{t, correct, card, role, player,
+  choices}`; all 16 notes are computed by evaluators at report time. Adding note types never touches
+  recording. `role` is empty until gameplay data carries roles; `choices` (hand size) feeds C4.
+- **Per-game data rides the saved game object** (`gameNoteSets`/`gameNoteSetSel` on
+  `savedCustomGames` entries — a LOCAL-WINS sync key, so no cloud rollback risk). Versions are named
+  by code signature ("Notes=A1+A2+C3"); codes derive from catalog position, ids are stable.
+- **The Game Notes overlay is z 21000** — any dialog that must sit above it needs more (param prompt
+  = 21500). Modal dialogs over big boxes should be MOVABLE (drag on non-interactive areas).
+- **Two Claude sessions share this branch/file.** Banner time = last COMMIT (either session), so an
+  unchanged banner does NOT mean stale code for uncommitted work — `bump-trial.sh <file>` can stamp
+  the working tree without committing when the user needs a freshness check.
+- **Digit-wise RND per problem ≠ spread batches** (identical distribution to whole-number RND on full
+  ranges). Spread comes from making picks depend on each other: `_pmPickDiverse` farthest-point over
+  DIGIT coordinates; the no-repeat rule (`_pmFilterPrevBatch`) excludes the previous batch per card.
 
 ---
 

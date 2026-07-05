@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:42 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:42 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2046,7 +2046,7 @@
         }
         function _mgClearAddMode() {
             _mgAddMode = null;
-            var b = document.getElementById('mg-save-btn');
+            var b = document.getElementById('mg-name-box');
             if (b && b.parentNode) b.parentNode.removeChild(b);
             var ban = document.getElementById('mg-edit-banner');
             if (ban && ban.parentNode) ban.parentNode.removeChild(ban);
@@ -2062,51 +2062,113 @@
             if (g.indexOf('custom-') === 0) return { type: 'find', index: parseInt(g.replace('custom-', ''), 10), editIdx: undefined };
             return null;
         }
+        // Two legends describe the SAME configuration (timer/prob/level/type)?
+        function _mgLegendsEqual(a, b) {
+            if (!a || !b) return false;
+            return !!a.timerOn === !!b.timerOn
+                && (a.probOptionId || null) === (b.probOptionId || null)
+                && (a.level || null) === (b.level || null)
+                && (a.typeId || null) === (b.typeId || null);
+        }
+        // Index of the saved mini-game whose legend equals `legend`, else -1.
+        function _mgFindMatchIdx(type, index, legend) {
+            var list = _mgListFor(type, index);
+            for (var i = 0; i < list.length; i++) { if (_mgLegendsEqual(list[i].legend, legend)) return i; }
+            return -1;
+        }
+        // Rename (and refresh the legend of) a saved mini-game in place.
+        function _mgRenameLegend(type, index, savedIdx, name, legend) {
+            var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
+            var games = (type === 'catch') ? loadCatchGames() : loadCustomGames();
+            var mg = games[index] && games[index].miniGames && games[index].miniGames[savedIdx];
+            if (mg) { mg.name = name; if (legend) mg.legend = legend; localStorage.setItem(key, JSON.stringify(games)); }
+        }
+        // The Setup-page NAME BOX replaces the old 💾 button: it shows the current
+        // configuration's saved name (if it matches a saved mini-game), lets you
+        // pick from / adjust existing names, blocks duplicates, and saves — renaming
+        // the matched mini-game in place, or filing a new one when nothing matches.
         function _mgInjectSaveBtn() {
-            // Hide ONLY on the published player (testers, _pubPlayMode). The
-            // device-preview frame also sets _bgInPreviewFrame, but that's the
-            // superuser configuring a game on a device — Save must show there too.
-            if (window._pubPlayMode) return;
-            if (document.getElementById('mg-save-btn')) return;
+            if (window._pubPlayMode) return; // published-player surface — no authoring
             var tgt = _mgSetupTarget();
             if (!tgt || tgt.index == null || isNaN(tgt.index)) return;   // need a real game
             var startBtn = document.getElementById('start-game-btn');
             if (!startBtn || !startBtn.offsetParent) { setTimeout(_mgInjectSaveBtn, 120); return; }
-            var editing = (tgt.editIdx !== undefined);
-            var b = document.createElement('button');
-            b.id = 'mg-save-btn';
-            b.className = 'btn';
-            b.textContent = editing ? '💾 changes' : '💾 minigame';
-            b.title = editing ? 'Save changes to this mini-game' : 'Save as a mini-game';
-            // Match the Play button's look (same purple gradient, white border,
-            // glow, rounded corners) so the pair reads as a set. Height is matched
-            // to Play exactly via measurement below.
-            // padding-left/right trim the Save button by 1cm total off the .btn
-            // 30px sides (so the icon/text aren't swimming in slack), then the
-            // content is nudged 1.5mm to the right INSIDE the button by trading
-            // 1.5mm from right padding to left (13/9 keeps the same total width).
-            // Vertical padding stays 12px from .btn.
-            b.style.cssText = 'margin-left:14px;align-self:center;box-sizing:border-box;padding-left:13px;padding-right:9px;color:#fff;font-weight:bold;white-space:nowrap;' +
-                'border:2px solid rgba(255,255,255,0.92);border-radius:14px;' +
-                'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);' +
-                'box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
-            b.addEventListener('click', _mgSaveCurrentAsMiniGame);
-            // Place Save to the RIGHT of the Play button WITHOUT growing Play's own
-            // box. In the single-player layout the Play button lives in #player-names
-            // inside #legend-start-row → append Save AFTER #player-names there.
+            // Already there → just refresh the match against the current config.
+            if (document.getElementById('mg-name-box')) { _mgUpdateNameBox(); return; }
+
+            var box = document.createElement('div');
+            box.id = 'mg-name-box';
+            box.style.cssText = 'margin-left:14px;align-self:center;display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;';
+            var input = document.createElement('input');
+            input.id = 'mg-name-input'; input.type = 'text'; input.setAttribute('list', 'mg-name-list');
+            input.setAttribute('autocomplete', 'off'); input.placeholder = 'name this mini-game…';
+            // Light box + dark text so both the placeholder and typed name are
+            // clearly readable on the purple page (dark-on-dark washed out).
+            input.style.cssText = 'width:170px;box-sizing:border-box;padding:9px 12px;border-radius:12px;border:2px solid rgba(255,255,255,0.85);background:#f3f0ff;color:#2a2140;font-size:14px;font-weight:bold;outline:none;';
+            var dl = document.createElement('datalist'); dl.id = 'mg-name-list';
+            var save = document.createElement('button');
+            save.id = 'mg-name-save'; save.type = 'button'; save.textContent = '💾';
+            save.title = 'Save / rename this mini-game';
+            save.style.cssText = 'padding:8px 13px;border-radius:12px;border:2px solid rgba(255,255,255,0.92);cursor:pointer;color:#fff;font-size:16px;line-height:1;' +
+                'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
+            var msg = document.createElement('div'); msg.id = 'mg-name-msg';
+            msg.style.cssText = 'flex:0 0 100%;font-size:11.5px;color:#ffd54f;min-height:14px;';
+            box.appendChild(input); box.appendChild(dl); box.appendChild(save); box.appendChild(msg);
+            save.addEventListener('click', _mgNameBoxSave);
+            input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); _mgNameBoxSave(); } });
+            input.addEventListener('input', function () { var m = document.getElementById('mg-name-msg'); if (m) m.textContent = ''; });
+
             var pn = document.getElementById('player-names');
             var lsr = document.getElementById('legend-start-row');
-            if (pn && lsr && pn.parentElement === lsr) {
-                lsr.appendChild(b);
-            } else {
-                startBtn.parentNode.insertBefore(b, startBtn.nextSibling);
+            if (pn && lsr && pn.parentElement === lsr) lsr.appendChild(box);
+            else startBtn.parentNode.insertBefore(box, startBtn.nextSibling);
+            _mgUpdateNameBox();
+        }
+        // Refresh the name box against the CURRENT Setup config: rebuild the
+        // existing-names datalist and, when the config matches a saved mini-game
+        // (or we're editing one), show its name — without clobbering typing.
+        function _mgUpdateNameBox() {
+            var box = document.getElementById('mg-name-box'); if (!box) return;
+            var tgt = _mgSetupTarget(); if (!tgt) return;
+            var input = document.getElementById('mg-name-input');
+            var dl = document.getElementById('mg-name-list');
+            var list = _mgListFor(tgt.type, tgt.index);
+            dl.innerHTML = '';
+            list.forEach(function (mg) { var o = document.createElement('option'); o.value = mg.name || 'Mini-game'; dl.appendChild(o); });
+            var legend = _mgCaptureSetupLegend(tgt.type, tgt.index);
+            var matchIdx = (typeof tgt.editIdx === 'number') ? tgt.editIdx : _mgFindMatchIdx(tgt.type, tgt.index, legend);
+            box._matchIdx = matchIdx;
+            if (document.activeElement !== input) {
+                input.value = (matchIdx >= 0 && list[matchIdx]) ? (list[matchIdx].name || '') : '';
             }
-            // Lay out the Play + Save pair (equal height/width, tightened gap,
-            // right-aligned to the Type boxes). Kept in _mgLayoutButtons so it can
-            // be RE-applied on every Setup re-render — _renderStartSummary wipes
-            // #player-names margins each pass, which would otherwise undo the
-            // right-align.
-            requestAnimationFrame(_mgLayoutButtons);
+        }
+        // Save from the name box: rename the matched/edited mini-game in place, or
+        // file a new one. Blocks an exact (case-insensitive) duplicate name.
+        function _mgNameBoxSave() {
+            var box = document.getElementById('mg-name-box'); if (!box) return;
+            var tgt = _mgSetupTarget(); if (!tgt) return;
+            var input = document.getElementById('mg-name-input');
+            var msg = document.getElementById('mg-name-msg');
+            var name = (input.value || '').trim();
+            if (!name) { msg.textContent = 'Type a name first.'; input.focus(); return; }
+            var list = _mgListFor(tgt.type, tgt.index);
+            var matchIdx = (typeof box._matchIdx === 'number') ? box._matchIdx : -1;
+            for (var i = 0; i < list.length; i++) {
+                if (i === matchIdx) continue;
+                if ((list[i].name || '').trim().toLowerCase() === name.toLowerCase()) {
+                    msg.textContent = '“' + name + '” already exists — pick a different name.'; input.focus(); return;
+                }
+            }
+            var legend = _mgCaptureSetupLegend(tgt.type, tgt.index);
+            if (matchIdx >= 0) {
+                _mgRenameLegend(tgt.type, tgt.index, matchIdx, name, legend);
+            } else {
+                _mgAddTo(tgt.type, tgt.index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                                name: name, createdAt: Date.now(), legend: legend });
+            }
+            msg.textContent = '✓ Saved “' + name + '”.';
+            _mgUpdateNameBox();
+            if (typeof populateIntroGames === 'function') { try { populateIntroGames(); } catch (e) {} }
         }
         // Idempotent geometry for the Play (#start-game-btn) + Save (#mg-save-btn)
         // pair on the Setup page. Safe to call repeatedly: it resets the props it
@@ -2116,47 +2178,45 @@
         //   • gap Play↔Save = 5mm tighter than the 14px baseline (min 8px)
         //   • the Play+Save group slides right so Save's RIGHT edge lines up with
         //     the Type boxes' (.setup-type-line) right edge
+        // Setup-page layout for the Play button (#start-game-btn) + the name box
+        // (#mg-name-box). Idempotent — safe to re-run on every Setup re-render.
+        //   • Play's RIGHT edge lines up with the Type column's LEFT edge.
+        //   • The name box grows so its RIGHT edge lines up with the Type column's
+        //     RIGHT edge (it spans under the Type buttons).
+        // (The Legend box is narrowed 1cm in _renderStartSummary to make room.)
+        // We drive the Play button's OWN margin (not #player-names) — a
+        // MutationObserver watches #player-names' style and would loop; that
+        // observer is not subtree, so a descendant's margin is safe.
         function _mgLayoutButtons() {
             var startBtn = document.getElementById('start-game-btn');
-            var b = document.getElementById('mg-save-btn');
-            if (!startBtn || !b || !startBtn.offsetParent || !b.offsetParent) return;
-            var MM = 96 / 25.4; // CSS px per mm
-            // Shift the group via the PLAY button's own margin — NOT #player-names.
-            // A MutationObserver watches #player-names' style attribute and re-runs
-            // _renderStartSummary on any change; writing player-names' margin here
-            // would fire it → re-render → re-apply → infinite loop (page freeze).
-            // The observer is not subtree, so moving #start-game-btn (a descendant)
-            // shifts Play — and Save follows in the flex flow — without tripping it.
-            var anchor = startBtn;
-            // .btn has `transition: all .2s` — suspend it so width/margin changes
-            // apply instantly and our measurements aren't read mid-animation.
-            startBtn.style.transition = 'none';
-            b.style.transition = 'none';
-            // Reset what we drive so each pass recomputes from the same baseline.
-            anchor.style.marginLeft = '0px';
-            startBtn.style.removeProperty('width');
-            b.style.marginLeft = '14px';
-            void b.offsetWidth;
-            var h = startBtn.offsetHeight; if (h) b.style.height = h + 'px';
-            var w = b.offsetWidth; if (w) { startBtn.style.width = w + 'px'; void startBtn.offsetWidth; }
-            // Gap at the 14px baseline, then pull 5mm tighter (clamped ≥ 8px).
-            var baseGap = b.getBoundingClientRect().left - startBtn.getBoundingClientRect().right;
-            var target = Math.max(8, baseGap - 5 * MM);
-            b.style.marginLeft = (14 - (baseGap - target)) + 'px';
-            void b.offsetWidth;
-            // Right-align the group: Save's right edge → Type boxes' right edge.
-            var typeRight = 0;
+            var box = document.getElementById('mg-name-box');
+            var input = document.getElementById('mg-name-input');
+            var save = document.getElementById('mg-name-save');
+            if (!startBtn || !box || !input || !startBtn.offsetParent || !box.offsetParent) return;
+            // Type column edges.
+            var typeLeft = Infinity, typeRight = 0;
             document.querySelectorAll('#start-screen .setup-type-line').forEach(function (t) {
                 var r = t.getBoundingClientRect();
-                if (r.width && r.right > typeRight) typeRight = r.right;
+                if (r.width) { if (r.left < typeLeft) typeLeft = r.left; if (r.right > typeRight) typeRight = r.right; }
             });
-            if (typeRight) {
-                var shift = typeRight - b.getBoundingClientRect().right;
-                if (shift > 0 && shift < 800) anchor.style.marginLeft = shift + 'px';
-            }
-            requestAnimationFrame(function () {
-                try { startBtn.style.transition = ''; b.style.transition = ''; } catch (e) {}
-            });
+            if (!isFinite(typeLeft) || !typeRight) return;
+            // Suspend Play's .btn transition so width/margin apply instantly.
+            startBtn.style.transition = 'none';
+            // Baseline the props we drive, then measure fresh.
+            startBtn.style.marginLeft = '0px';
+            input.style.width = '170px';
+            void startBtn.offsetWidth;
+            // 1) Play: shift so its RIGHT edge meets the Type column's LEFT edge.
+            var shift = typeLeft - startBtn.getBoundingClientRect().right;
+            if (shift > -500 && shift < 500) { startBtn.style.marginLeft = shift + 'px'; void startBtn.offsetWidth; }
+            // 2) Name box: grow the input so the whole widget (input + gap + save)
+            //    right edge reaches the Type column's RIGHT edge.
+            var boxLeft = box.getBoundingClientRect().left;
+            var saveW = save ? save.getBoundingClientRect().width : 42;
+            var gap = 7;
+            var inputW = typeRight - boxLeft - gap - saveW;
+            if (inputW > 120 && inputW < 700) input.style.width = Math.round(inputW) + 'px';
+            requestAnimationFrame(function () { try { startBtn.style.transition = ''; } catch (e) {} });
         }
         if (typeof window !== 'undefined') {
             window._mgLayoutButtons = _mgLayoutButtons;
@@ -5664,7 +5724,9 @@
                     var lvlRight = 0;
                     btns.forEach(function(b) { var r = b.getBoundingClientRect(); if (r.right > lvlRight) lvlRight = r.right; });
                     var innerLeft = inner.getBoundingClientRect().left;
-                    var w = Math.round(lvlRight - innerLeft) - 44; // a bit narrower (frees room for the buttons)
+                    // -44 baseline, then -38 more (~1cm) so Play can shift left and
+                    // line its right edge up with the Type column's left edge.
+                    var w = Math.round(lvlRight - innerLeft) - 44 - 38;
                     if (lvlRight && w > 120) inner.style.width = w + 'px';
                     else inner.style.width = '';
                 } else {
@@ -8156,7 +8218,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=biggame-flow-9"></script>
+    <script src="js/game.js?v=game-notes-2"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

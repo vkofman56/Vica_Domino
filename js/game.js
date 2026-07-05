@@ -2323,6 +2323,9 @@ class VicaDominoGame {
             return;
         }
 
+        // Game Notes hook: report the judged answer (no-op unless the host page armed notes).
+        if (window._gnRecord) window._gnRecord({ correct: true, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
+
         // Add player to winners
         const winnerNumber = this.sunLevelWinners.length + 1;
         this.sunLevelWinners.push(player.id);
@@ -2443,6 +2446,9 @@ class VicaDominoGame {
     }
 
     sunLevelWrongCard(card, player, cardIndex) {
+        // Game Notes hook: report the judged answer (no-op unless the host page armed notes).
+        if (window._gnRecord) window._gnRecord({ correct: false, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
+
         // Play disapproval sound
         this.playWrongSound();
 

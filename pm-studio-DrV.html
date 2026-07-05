@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:18 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:18 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:08 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:18 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20531,16 +20531,48 @@
                 + '<line x1="18" y1="2" x2="18" y2="16" stroke="#8b7d5a" stroke-width="0.8"/>'
                 + half(l, 1) + half(r, 19) + '</svg>';
         }
+        // label → the card's real face (svgMarkup snapshot on the session's game),
+        // so reports can DRAW the domino from its two actual cards.
+        function _gnCardFaces(session) {
+            var map = {};
+            try {
+                var games = loadCustomGames();
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i] && games[i].name === session.game) {
+                        (games[i].cards || []).forEach(function (c) {
+                            if (c && !c.isVariation && c.label && c.svgMarkup && c.svgMarkup.trim()) map[c.label] = c.svgMarkup;
+                        });
+                        break;
+                    }
+                }
+            } catch (e) {}
+            return map;
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
             var total = ev.length, correct = ev.filter(function (e) { return e.correct; }).length, wrong = total - correct;
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
+            var faces = _gnCardFaces(session);
             var E = {};
             // Card tallies for A1/A2 — time is insignificant here (user, July 5):
-            // one ROW per distinct domino, biggest count first. Each row: the drawn
-            // domino, the CARD NAMES it was made from ("A1 + B3"), and ×N when it
-            // happened several times.
+            // one ROW per distinct domino, biggest count first. Each row: the domino
+            // drawn from its two REAL card faces (the game's svgMarkup snapshots —
+            // the teacher must SEE the student's mistakes), the precise card names
+            // ("E1 + B3"), and ×N when it happened several times. Falls back to the
+            // pip/value glyph when the faces aren't resolvable (older sessions).
+            function dominoFaces(madeStr) {
+                if (!madeStr) return '';
+                var parts = madeStr.split('+');
+                if (parts.length !== 2 || !faces[parts[0]] || !faces[parts[1]]) return '';
+                function faceSvg(label, extra) {
+                    return '<svg width="30" height="30" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" style="display:block;' + (extra || '') + '">' + faces[label] + '</svg>';
+                }
+                return '<span style="display:inline-flex;flex:0 0 auto;background:#fdf6e3;border:1.5px solid #8b7d5a;border-radius:5px;overflow:hidden;">'
+                    + faceSvg(parts[0])
+                    + faceSvg(parts[1], 'border-left:1.5px solid #8b7d5a;')
+                    + '</span>';
+            }
             function tallyRows(list, badgeColor) {
                 var m = {}, made = {};
                 list.forEach(function (e) {
@@ -20551,10 +20583,13 @@
                 return Object.keys(m)
                     .sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); })
                     .map(function (k) {
-                        var vals = k.split('|');
-                        var glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
-                        var names = made[k] ? made[k].split('+').join(' + ') : k;
-                        return '<div style="display:flex;align-items:center;gap:9px;margin:4px 0;">'
+                        var glyph = dominoFaces(made[k]);
+                        if (!glyph) {
+                            var vals = k.split('|');
+                            glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
+                        }
+                        var names = made[k] ? made[k].split('+').join(' + ') : k.split('|').join(' / ');
+                        return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">'
                             + glyph
                             + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
                             + (m[k] > 1 ? '<span style="font-weight:800;color:' + badgeColor + ';">×' + m[k] + '</span>' : '')

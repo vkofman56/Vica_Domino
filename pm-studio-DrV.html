@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:39 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:39 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:39 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:12 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20660,15 +20660,20 @@
                 return _mpEsc(c.length + ' correct (pushed as doubles):') + tallyRows(c, '#81c784');
             };
             E['first-try-answers'] = function () {
-                var n = 0, names = [], wrongsSince = 0;
-                ev.forEach(function (e) { if (e.correct) { if (!wrongsSince) { n++; names.push(e.card); } wrongsSince = 0; } else wrongsSince++; });
-                return n + ' first-try correct' + (names.length ? ': ' + names.join(', ') : '.');
+                // Same domino rows as A1/A2 (user, July 5).
+                var firsts = [], wrongsSince = 0;
+                ev.forEach(function (e) { if (e.correct) { if (!wrongsSince) firsts.push(e); wrongsSince = 0; } else wrongsSince++; });
+                if (!firsts.length) return _mpEsc('No first-try correct answers.');
+                return _mpEsc(firsts.length + ' first-try correct:') + tallyRows(firsts, '#81c784');
             };
             E['repeated-mistake'] = function () {
-                var m = {}; ev.forEach(function (e) { if (!e.correct) m[e.card] = (m[e.card] || 0) + 1; });
-                var rep = Object.keys(m).filter(function (k) { return m[k] >= 2; });
-                if (!rep.length) return 'No repeated mistakes.';
-                return rep.map(function (k) { return k + ' — missed ' + m[k] + '×'; }).join(', ');
+                // Domino rows, but ONLY for cards missed 2+ times — with no repeats
+                // there is nothing to draw, just say so (user, July 5).
+                var m = {}; ev.forEach(function (e) { if (!e.correct) { var k = e.card || '?'; m[k] = (m[k] || 0) + 1; } });
+                var repEvents = ev.filter(function (e) { return !e.correct && m[e.card || '?'] >= 2; });
+                if (!repEvents.length) return _mpEsc('No repeated mistakes.');
+                var nCards = Object.keys(m).filter(function (k) { return m[k] >= 2; }).length;
+                return _mpEsc(nCards + ' card' + (nCards === 1 ? '' : 's') + ' missed more than once:') + tallyRows(repEvents, '#e57373');
             };
             E['missed-per-role'] = function () {
                 var m = {}, any = false;
@@ -20677,9 +20682,19 @@
                 return ks.map(function (k) { return k + ': ' + m[k]; }).join(' · ') + (any ? '' : ' — cards in this game carry no roles yet');
             };
             E['time-per-answer'] = function () {
-                if (!total) return 'No answers recorded.';
+                // Chronological chips: the domino + its answer time, green for
+                // correct / red for wrong, wrapped in reading order.
+                if (!total) return _mpEsc('No answers recorded.');
                 var avg = deltas.reduce(function (a, b) { return a + b; }, 0) / total;
-                return ev.map(function (e, i) { return e.card + ': ' + (deltas[i] / 1000).toFixed(1) + 's'; }).join(', ') + ' — avg ' + (avg / 1000).toFixed(1) + 's';
+                var chips = ev.map(function (e, i) {
+                    var glyph = dominoFaces(e.made, e.card);
+                    if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                    var col = e.correct ? '#81c784' : '#e57373';
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
+                        + '<span style="font-weight:700;color:' + col + ';">' + (deltas[i] / 1000).toFixed(1) + 's</span></span>';
+                }).join('');
+                return '<div style="display:flex;flex-wrap:wrap;align-items:center;">' + chips + '</div>'
+                    + '<div style="margin-top:3px;opacity:0.8;">avg ' + (avg / 1000).toFixed(1) + 's</div>';
             };
             E['fast-correct'] = function (p) {
                 var lim = (p.t || 5) * 1000;
@@ -20763,7 +20778,8 @@
                     if (!armed) return;
                     var fn = E[rule.id], text;
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
-                    var isHtml = (rule.id === 'roles-success-chart' || rule.id === 'missed-answers' || rule.id === 'correct-answers');
+                    var isHtml = { 'roles-success-chart': 1, 'missed-answers': 1, 'correct-answers': 1,
+                                   'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1 }[rule.id];
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });

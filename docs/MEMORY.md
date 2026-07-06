@@ -1,5 +1,34 @@
 # Vica Domino Project Memory
-**Last Updated**: July 4, 2026 — **Game Notes system** (activation → recording → reports → per-game versioned legends) + digit-aware sampling + loupe UX (see below + `HANDOVER_2026-07-04_GAME-NOTES.md`). Prior: June 29 counting overhaul; June 27–28 parametric Math Problems.
+**Last Updated**: July 5, 2026 — **visual notes reports + new-tab play + mini-game chips** (see below + STATUS_NOTES July 5). Prior: July 4 Game Notes system; June 29 counting overhaul; June 27–28 parametric Math Problems.
+
+---
+
+## 🎯 July 5, 2026 — Visual reports / new-tab play durable lessons
+
+- **Card-face resolution is a CHAIN, not a field.** A game card's art: inline `svgMarkup` exists
+  ONLY on cards with no stableId; the normal case resolves from the set stores
+  (`customDrawnCards_*`, entries `{label, svgContent, stableId, sharedArtId, role}`) by
+  stableId → sharedArtId (copies) → label — and when `cardSet` is stale, scan ALL stores.
+  **Variations** (`{isVariation, originalLabel, transform}`) = the ORIGINAL's face wrapped in
+  `<g transform="...">`. One unresolvable half must not hide the pair (render text half inside
+  the frame). See `_gnCardFaces` / `dominoFaces` in pm-studio.
+- **A domino's identity**: deck half-keys embed the source card labels (`"E1_d5L"` → `E1`);
+  game.js records `made:"E1+B3"` per judged answer. Card **roles** (`card.role`, e.g. Main/Gr2)
+  resolve from those labels at VIEW time — so richer reports work retroactively on stored
+  sessions; prefer view-time resolution over fatter recording.
+- **New-tab play changed the notes lifecycle**: the report shows on Studio tab FOCUS
+  (`_gnCheckFreshSession`), a `gameNotePreviewPing` distinguishes "unarmed preview" from a tab
+  switch, 📄 Reports shows the RUNNING session live, and orphan folding must be stale-only
+  (10-min `lastFlushAt` heartbeat) — a load-time "older than 5s" fold STEALS live sessions
+  when two tabs coexist.
+- **Skip-instead-of-clamp guards break wide windows** (`_mgLayoutButtons`: input <700 / shift
+  ±500 silently dropped the layout at 1377px). Clamp, and when two adjustments interact through
+  row wrapping, run 2 measure-fresh passes.
+- **The user reads reports as a teacher**: dominoes must be the REAL card faces ("the teacher
+  would not see students' mistakes" otherwise); time is insignificant for A1/A2 tallies; A4
+  draws only when repeats exist. C1–C4/D2/D3 remain text (C notes are narrative).
+- Current user testing focus: legend **Notes=A5+B2+B3**. Next steps agreed: Catch (`_catchCardClicked`)
+  + Math (`_wsCheck`) recording hooks, then tickets consuming notes (transitions).
 
 ---
 

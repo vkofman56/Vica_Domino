@@ -2328,7 +2328,9 @@ class VicaDominoGame {
         }
 
         // Game Notes hook: report the judged answer (no-op unless the host page armed notes).
-        if (window._gnRecord) window._gnRecord({ correct: true, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
+        // `made` = the source CARD names the domino was built from (custom decks embed
+        // them in the half keys: "A1_d5L" → "A1").
+        if (window._gnRecord) window._gnRecord({ correct: true, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', made: (card && card.left && card.right) ? (String(card.left).split('_d')[0] + '+' + String(card.right).split('_d')[0]) : '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
 
         // Add player to winners
         const winnerNumber = this.sunLevelWinners.length + 1;
@@ -2451,7 +2453,7 @@ class VicaDominoGame {
 
     sunLevelWrongCard(card, player, cardIndex) {
         // Game Notes hook: report the judged answer (no-op unless the host page armed notes).
-        if (window._gnRecord) window._gnRecord({ correct: false, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
+        if (window._gnRecord) window._gnRecord({ correct: false, card: (card && (card.label || (card.leftValue + '|' + card.rightValue))) || '', made: (card && card.left && card.right) ? (String(card.left).split('_d')[0] + '+' + String(card.right).split('_d')[0]) : '', role: (card && card.role) || '', player: player && player.id, choices: (player && player.hand) ? player.hand.length : null });
 
         // Play disapproval sound
         this.playWrongSound();
@@ -4738,7 +4740,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window._gnRecord) return; // the Studio page provides its own module
     let S = null;
     function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
-    function flush() { if (S) { try { localStorage.setItem('gameNoteSession_current', JSON.stringify(S)); } catch (e) {} } }
+    function flush() { if (S) { try { S.lastFlushAt = Date.now(); localStorage.setItem('gameNoteSession_current', JSON.stringify(S)); } catch (e) {} } }
     function end() {
         if (!S) return;
         S.endedAt = Date.now();
@@ -4759,6 +4761,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = parseInt(gameId.slice(7), 10);
         const g = loadJSON('savedCustomGames', [])[idx];
         if (!g) return;
+        // Preview ping: written for EVERY custom-find start (armed or not) so the
+        // Studio tab, on regaining focus, can tell "came back from a preview with
+        // no notes armed" (→ explain) apart from an ordinary tab switch.
+        try { localStorage.setItem('gameNotePreviewPing', JSON.stringify({ game: g.name || '', t: Date.now() })); } catch (e) {}
         let notes = null;
         if (g.gameNoteSets && g.gameNoteSets.length) notes = (g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {};
         if (!notes) notes = loadJSON('activeGameNotes_v2', {}).find || {};

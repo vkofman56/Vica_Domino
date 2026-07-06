@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:02 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:02 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:12 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20504,55 +20504,258 @@
         }
         window.addEventListener('pagehide', function () { try { _gnSessionEnd(); } catch (e) {} });
         // ---- Note evaluators: derive every armed note from the raw event log ----
-        // Events: {t(ms since start), correct, card, role, player, choices}.
+        // Events: {t(ms since start), correct, card, made("A1+B3"), role, player, choices}.
         function _gnFmtT(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+        // A small inline domino: two halves with classic pips for values 0–6,
+        // the value TEXT for anything else (custom game values need not be pips).
+        function _gnDominoSVG(l, r) {
+            var PIPS = {
+                0: [], 1: [[8, 9]],
+                2: [[4, 4.5], [12, 13.5]],
+                3: [[4, 4.5], [8, 9], [12, 13.5]],
+                4: [[4, 4.5], [12, 4.5], [4, 13.5], [12, 13.5]],
+                5: [[4, 4.5], [12, 4.5], [8, 9], [4, 13.5], [12, 13.5]],
+                6: [[4, 4.5], [4, 9], [4, 13.5], [12, 4.5], [12, 9], [12, 13.5]]
+            };
+            function half(v, x) {
+                var n = parseInt(v, 10);
+                if (!isNaN(n) && n >= 0 && n <= 6 && String(n) === String(v).trim()) {
+                    return PIPS[n].map(function (p) {
+                        return '<circle cx="' + (x + p[0]) + '" cy="' + p[1] + '" r="1.7" fill="#2a2140"/>';
+                    }).join('');
+                }
+                return '<text x="' + (x + 8) + '" y="12.5" text-anchor="middle" font-size="9" font-weight="700" fill="#2a2140">' + _mpEsc(String(v)) + '</text>';
+            }
+            return '<svg width="38" height="20" viewBox="0 0 36 18" style="flex:0 0 auto;vertical-align:middle;">'
+                + '<rect x="0.5" y="0.5" width="35" height="17" rx="3" fill="#fdf6e3" stroke="#8b7d5a"/>'
+                + '<line x1="18" y1="2" x2="18" y2="16" stroke="#8b7d5a" stroke-width="0.8"/>'
+                + half(l, 1) + half(r, 19) + '</svg>';
+        }
+        // label → the card's real face, so reports can DRAW the domino from its two
+        // actual cards. Resolution chain per game card: inline svgMarkup → its set's
+        // store (stableId, then label) → EVERY customDrawnCards_* store (stableId,
+        // sharedArtId, label — covers moved cards / stale cardSet). VARIATIONS
+        // ({isVariation, originalLabel, transform}) resolve to the ORIGINAL card's
+        // face wrapped in their SVG transform.
+        function _gnCardFaces(session) {
+            var map = {};
+            try {
+                var games = loadCustomGames(), game = null;
+                for (var i = 0; i < games.length; i++) { if (games[i] && games[i].name === session.game) { game = games[i]; break; } }
+                if (!game) return map;
+                var setCache = {};
+                function setCards(cardSet) {
+                    var key = (cardSet === 'Numbers and Dots') ? 'numbers' : (cardSet === 'ABC') ? 'abc' : cardSet;
+                    if (!key) return [];
+                    if (!setCache[key]) { try { setCache[key] = getCardsFromStorage(key) || []; } catch (e2) { setCache[key] = []; } }
+                    return setCache[key];
+                }
+                function scanAll(pred) {
+                    try {
+                        for (var ki = 0; ki < localStorage.length; ki++) {
+                            var kk = localStorage.key(ki);
+                            if (!kk || (kk !== 'customDrawnCards' && kk.indexOf('customDrawnCards_') !== 0)) continue;
+                            var arr; try { arr = JSON.parse(localStorage.getItem(kk)) || []; } catch (e4) { continue; }
+                            for (var j = 0; j < arr.length; j++) { if (arr[j] && pred(arr[j])) return arr[j]; }
+                        }
+                    } catch (e5) {}
+                    return null;
+                }
+                function innerOf(c) {
+                    if (c.svgMarkup && String(c.svgMarkup).trim()) return c.svgMarkup;
+                    var pool = setCards(c.cardSet), hit = null;
+                    for (var j = 0; j < pool.length; j++) {
+                        var p = pool[j]; if (!p) continue;
+                        if (c.stableId && p.stableId === c.stableId) { hit = p; break; }
+                        if (!hit && p.label === c.label) hit = p;
+                    }
+                    if (!hit && c.stableId) hit = scanAll(function (p) { return p.stableId === c.stableId; });
+                    if (!hit && c.sharedArtId) hit = scanAll(function (p) { return p.sharedArtId === c.sharedArtId; });
+                    if (!hit) hit = scanAll(function (p) { return p.label === c.label; });
+                    return (hit && hit.svgContent && String(hit.svgContent).trim()) ? hit.svgContent : '';
+                }
+                // pass 1: regular cards
+                (game.cards || []).forEach(function (c) {
+                    if (!c || !c.label || c.isVariation || map[c.label]) return;
+                    var inner = innerOf(c);
+                    if (inner) map[c.label] = inner;
+                });
+                // pass 2: variations — original's face + the variation transform
+                (game.cards || []).forEach(function (c) {
+                    if (!c || !c.label || !c.isVariation || map[c.label]) return;
+                    var base = c.originalLabel ? (map[c.originalLabel] || '') : '';
+                    if (!base && c.originalLabel) {
+                        var hit = scanAll(function (p) { return p.label === c.originalLabel; });
+                        base = (hit && hit.svgContent) || '';
+                    }
+                    if (!base) base = innerOf(c); // some variations carry their own markup
+                    if (base) map[c.label] = c.transform ? ('<g transform="' + c.transform + '">' + base + '</g>') : base;
+                });
+            } catch (e) {}
+            return map;
+        }
+        // label → the card's ROLE in the session's game (card.role on game.cards) —
+        // lets role notes resolve from the `made` labels at view time.
+        function _gnCardRoles(session) {
+            var map = {};
+            try {
+                var games = loadCustomGames();
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i] && games[i].name === session.game) {
+                        (games[i].cards || []).forEach(function (c) {
+                            if (c && c.label && c.role && !map[c.label]) map[c.label] = c.role;
+                        });
+                        break;
+                    }
+                }
+            } catch (e) {}
+            return map;
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
             var total = ev.length, correct = ev.filter(function (e) { return e.correct; }).length, wrong = total - correct;
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
+            var faces = _gnCardFaces(session);
+            var roles = _gnCardRoles(session);
+            // Both halves' roles of one answer ("A1+B3" → [role(A1), role(B3)]);
+            // event.role (from gameplay) wins when present.
+            function rolesOf(e) {
+                if (e.role) return [e.role];
+                if (!e.made) return [];
+                return e.made.split('+').map(function (lbl) { return roles[lbl] || ''; }).filter(Boolean);
+            }
             var E = {};
+            // Card tallies for A1/A2 — time is insignificant here (user, July 5):
+            // one ROW per distinct domino, biggest count first. Each row: the domino
+            // drawn from its two REAL card faces (the game's svgMarkup snapshots —
+            // the teacher must SEE the student's mistakes), the precise card names
+            // ("E1 + B3"), and ×N when it happened several times. Falls back to the
+            // pip/value glyph when the faces aren't resolvable (older sessions).
+            function dominoFaces(madeStr, valsKey) {
+                if (!madeStr) return '';
+                var parts = madeStr.split('+');
+                if (parts.length !== 2) return '';
+                // At least ONE half must resolve to a real face; the other half (a
+                // card missing from the library) shows its value/label as text in
+                // the same domino frame — one bad half must not hide the good one.
+                if (!faces[parts[0]] && !faces[parts[1]]) return '';
+                var vals = (valsKey || '').split('|');
+                function halfHtml(label, val, extra) {
+                    if (faces[label]) return '<svg width="30" height="30" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid meet" style="display:block;' + (extra || '') + '">' + faces[label] + '</svg>';
+                    var txt = (val != null && val !== '') ? val : label;
+                    return '<span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;font-weight:700;font-size:13px;color:#2a2140;' + (extra || '') + '">' + _mpEsc(String(txt)) + '</span>';
+                }
+                return '<span style="display:inline-flex;flex:0 0 auto;background:#fdf6e3;border:1.5px solid #8b7d5a;border-radius:5px;overflow:hidden;">'
+                    + halfHtml(parts[0], vals[0])
+                    + halfHtml(parts[1], vals[1], 'border-left:1.5px solid #8b7d5a;')
+                    + '</span>';
+            }
+            function tallyRows(list, badgeColor) {
+                var m = {}, made = {};
+                list.forEach(function (e) {
+                    var k = e.card || '?';
+                    m[k] = (m[k] || 0) + 1;
+                    if (!made[k] && e.made) made[k] = e.made;
+                });
+                return Object.keys(m)
+                    .sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); })
+                    .map(function (k) {
+                        var glyph = dominoFaces(made[k], k);
+                        if (!glyph) {
+                            var vals = k.split('|');
+                            glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
+                        }
+                        var names = made[k] ? made[k].split('+').join(' + ') : k.split('|').join(' / ');
+                        return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">'
+                            + glyph
+                            + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
+                            + (m[k] > 1 ? '<span style="font-weight:800;color:' + badgeColor + ';">×' + m[k] + '</span>' : '')
+                            + '</div>';
+                    }).join('');
+            }
             E['missed-answers'] = function () {
                 var w = ev.filter(function (e) { return !e.correct; });
-                if (!w.length) return 'No missed answers. 🎉';
-                return w.length + ' missed: ' + w.map(function (e) { return e.card + ' (at ' + _gnFmtT(e.t) + ')'; }).join(', ');
+                if (!w.length) return _mpEsc('No missed answers. 🎉');
+                return _mpEsc(w.length + ' missed:') + tallyRows(w, '#e57373');
             };
             E['correct-answers'] = function () {
                 var c = ev.filter(function (e) { return e.correct; });
-                if (!c.length) return 'No correct answers recorded.';
-                return c.length + ' correct: ' + c.map(function (e) { return e.card + ' (at ' + _gnFmtT(e.t) + ')'; }).join(', ');
+                if (!c.length) return _mpEsc('No correct answers recorded.');
+                return _mpEsc(c.length + ' correct (pushed as doubles):') + tallyRows(c, '#81c784');
             };
             E['first-try-answers'] = function () {
-                var n = 0, names = [], wrongsSince = 0;
-                ev.forEach(function (e) { if (e.correct) { if (!wrongsSince) { n++; names.push(e.card); } wrongsSince = 0; } else wrongsSince++; });
-                return n + ' first-try correct' + (names.length ? ': ' + names.join(', ') : '.');
+                // Same domino rows as A1/A2 (user, July 5).
+                var firsts = [], wrongsSince = 0;
+                ev.forEach(function (e) { if (e.correct) { if (!wrongsSince) firsts.push(e); wrongsSince = 0; } else wrongsSince++; });
+                if (!firsts.length) return _mpEsc('No first-try correct answers.');
+                return _mpEsc(firsts.length + ' first-try correct:') + tallyRows(firsts, '#81c784');
             };
             E['repeated-mistake'] = function () {
-                var m = {}; ev.forEach(function (e) { if (!e.correct) m[e.card] = (m[e.card] || 0) + 1; });
-                var rep = Object.keys(m).filter(function (k) { return m[k] >= 2; });
-                if (!rep.length) return 'No repeated mistakes.';
-                return rep.map(function (k) { return k + ' — missed ' + m[k] + '×'; }).join(', ');
+                // Domino rows, but ONLY for cards missed 2+ times — with no repeats
+                // there is nothing to draw, just say so (user, July 5).
+                var m = {}; ev.forEach(function (e) { if (!e.correct) { var k = e.card || '?'; m[k] = (m[k] || 0) + 1; } });
+                var repEvents = ev.filter(function (e) { return !e.correct && m[e.card || '?'] >= 2; });
+                if (!repEvents.length) return _mpEsc('No repeated mistakes.');
+                var nCards = Object.keys(m).filter(function (k) { return m[k] >= 2; }).length;
+                return _mpEsc(nCards + ' card' + (nCards === 1 ? '' : 's') + ' missed more than once:') + tallyRows(repEvents, '#e57373');
             };
             E['missed-per-role'] = function () {
+                // Each miss counts under the roles of BOTH its cards (resolved from
+                // the made-from labels via the game's card.role assignments).
                 var m = {}, any = false;
-                ev.forEach(function (e) { if (!e.correct) { var r = e.role || '(no role)'; m[r] = (m[r] || 0) + 1; if (e.role) any = true; } });
-                var ks = Object.keys(m); if (!ks.length) return 'No missed answers.';
-                return ks.map(function (k) { return k + ': ' + m[k]; }).join(' · ') + (any ? '' : ' — cards in this game carry no roles yet');
+                ev.forEach(function (e) {
+                    if (e.correct) return;
+                    var rs = rolesOf(e);
+                    if (rs.length) { any = true; rs.forEach(function (r) { m[r] = (m[r] || 0) + 1; }); }
+                    else m['(no role)'] = (m['(no role)'] || 0) + 1;
+                });
+                var ks = Object.keys(m); if (!ks.length) return _mpEsc('No missed answers.');
+                ks.sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); });
+                var rows = ks.map(function (k) {
+                    return '<div style="display:flex;align-items:center;gap:8px;margin:3px 0;">'
+                        + '<span style="min-width:70px;font-weight:700;">' + _mpEsc(k) + '</span>'
+                        + '<span style="display:inline-block;height:9px;width:' + Math.min(160, m[k] * 22) + 'px;background:#e57373;border-radius:5px;"></span>'
+                        + '<span>' + m[k] + '</span></div>';
+                }).join('');
+                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>');
             };
             E['time-per-answer'] = function () {
-                if (!total) return 'No answers recorded.';
+                // Chronological chips: the domino + its answer time, green for
+                // correct / red for wrong, wrapped in reading order.
+                if (!total) return _mpEsc('No answers recorded.');
                 var avg = deltas.reduce(function (a, b) { return a + b; }, 0) / total;
-                return ev.map(function (e, i) { return e.card + ': ' + (deltas[i] / 1000).toFixed(1) + 's'; }).join(', ') + ' — avg ' + (avg / 1000).toFixed(1) + 's';
+                var chips = ev.map(function (e, i) {
+                    var glyph = dominoFaces(e.made, e.card);
+                    if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                    var col = e.correct ? '#81c784' : '#e57373';
+                    return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
+                        + '<span style="font-weight:700;color:' + col + ';">' + (deltas[i] / 1000).toFixed(1) + 's</span></span>';
+                }).join('');
+                return '<div style="display:flex;flex-wrap:wrap;align-items:center;">' + chips + '</div>'
+                    + '<div style="margin-top:3px;opacity:0.8;">avg ' + (avg / 1000).toFixed(1) + 's</div>';
             };
+            // Domino + colored time chip, shared by B2/B3 (same look as B1).
+            function timeChip(e, ms, color) {
+                var glyph = dominoFaces(e.made, e.card);
+                if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
+                    + '<span style="font-weight:700;color:' + color + ';">' + (ms / 1000).toFixed(1) + 's</span></span>';
+            }
             E['fast-correct'] = function (p) {
                 var lim = (p.t || 5) * 1000;
-                var f = ev.filter(function (e, i) { return e.correct && deltas[i] < lim; });
-                return f.length + ' correct answer' + (f.length === 1 ? '' : 's') + ' faster than ' + (p.t || 5) + 's' + (f.length ? ': ' + listCards(f) : '.');
+                var f = [];
+                ev.forEach(function (e, i) { if (e.correct && deltas[i] < lim) f.push(timeChip(e, deltas[i], '#81c784')); });
+                if (!f.length) return _mpEsc('No correct answers faster than ' + (p.t || 5) + 's.');
+                return _mpEsc(f.length + ' correct answer' + (f.length === 1 ? '' : 's') + ' faster than ' + (p.t || 5) + 's:')
+                    + '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-top:3px;">' + f.join('') + '</div>';
             };
             E['long-gap'] = function (p) {
                 var lim = (p.t || 20) * 1000, out = [];
-                ev.forEach(function (e, i) { if (deltas[i] > lim) out.push('before ' + (e.card || 'answer ' + (i + 1)) + ' (' + (deltas[i] / 1000).toFixed(0) + 's)'); });
-                return out.length ? out.length + ' long gap' + (out.length === 1 ? '' : 's') + ': ' + out.join(', ') : 'No gaps longer than ' + (p.t || 20) + 's.';
+                ev.forEach(function (e, i) { if (deltas[i] > lim) out.push(timeChip(e, deltas[i], '#ffb74d')); });
+                if (!out.length) return _mpEsc('No gaps longer than ' + (p.t || 20) + 's.');
+                return _mpEsc(out.length + ' long gap' + (out.length === 1 ? '' : 's') + ' (the answer that followed the wait):')
+                    + '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-top:3px;">' + out.join('') + '</div>';
             };
             E['best-timing-streak'] = function (p) {
                 var C = Math.max(1, p.C || 5), best = null;
@@ -20626,7 +20829,9 @@
                     if (!armed) return;
                     var fn = E[rule.id], text;
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
-                    var isHtml = rule.id === 'roles-success-chart';
+                    var isHtml = { 'roles-success-chart': 1, 'missed-answers': 1, 'correct-answers': 1,
+                                   'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1,
+                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1 }[rule.id];
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });
@@ -20654,7 +20859,8 @@
             var _sig = session.noteSet || _gnSetSignature(session.notes); // previewer sessions store notes only
             title.textContent = '📝 ' + (session.game || _gnTypeLabel(session.type)) + (_sig ? ' with ' + _sig : '');
             var sub = document.createElement('span'); sub.className = 'tickets-box-sub';
-            sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers';
+            sub.textContent = new Date(session.startedAt).toLocaleString() + ' · ' + (session.events || []).length + ' answers'
+                + (session.endedAt ? '' : ' · ▶ in progress — reopen for fresh numbers');
             var close = document.createElement('button'); close.className = 'tickets-box-close'; close.innerHTML = '&#10005;'; close.title = 'Close';
             close.onclick = function () { ov.remove(); };
             head.appendChild(title); head.appendChild(sub); head.appendChild(close);
@@ -20692,8 +20898,21 @@
             dlg.appendChild(head);
             var body = document.createElement('div'); body.className = 'tickets-box-body';
             body.style.columnCount = '1';
-            if (!hist.length) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
-                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview.'
+            // A session RUNNING right now (preview tab still open) shows live at the
+            // top — before this, Reports looked frozen until the tab was closed.
+            var cur = null;
+            try { cur = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null'); } catch (e3) {}
+            if (cur && filterName && cur.game !== filterName) cur = null;
+            if (cur) {
+                var live = document.createElement('div'); live.className = 'tbx-rule'; live.style.cursor = 'pointer';
+                live.style.borderColor = '#66bb6a';
+                live.innerHTML = '<div class="tbx-rule-text"><div class="tbx-rule-name">▶ ' + _mpEsc((cur.game || _gnTypeLabel(cur.type)) + ' — playing now') + '</div>'
+                    + '<div class="tbx-rule-desc">' + (cur.events || []).length + ' answer' + ((cur.events || []).length === 1 ? '' : 's') + ' so far · started ' + new Date(cur.startedAt).toLocaleTimeString() + ' · the session files here when the preview tab closes</div></div>';
+                live.onclick = function () { _gnShowReport(cur); };
+                body.appendChild(live);
+            }
+            if (!hist.length && !cur) body.innerHTML = '<div style="opacity:0.7;padding:10px;">'
+                + (filterName ? 'No recorded sessions for “' + _mpEsc(filterName) + '” yet. Toggle some notes ON in its legend, then ▶ preview it — the document opens when you close the preview tab and come back here.'
                               : 'No recorded sessions yet. Turn some notes ON, then preview a game.') + '</div>';
             hist.forEach(function (s) {
                 var d = document.createElement('div'); d.className = 'tbx-rule'; d.style.cursor = 'pointer';
@@ -20713,17 +20932,25 @@
             ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
             document.body.appendChild(ov);
         }
-        // Orphan recovery: a session left behind by a killed play iframe is folded
-        // into the history the next time any copy of this page loads.
-        try {
-            var _gnOrphan = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null');
-            if (_gnOrphan && _gnOrphan.startedAt && (Date.now() - _gnOrphan.startedAt) > 5000) {
-                var _gnHist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
-                _gnHist.unshift(_gnOrphan);
-                localStorage.setItem('gameNoteSessions_v1', JSON.stringify(_gnHist.slice(0, 10)));
+        // Orphan recovery: a session left behind by a KILLED play tab is folded
+        // into the history. Only STALE sessions qualify — the preview now runs in
+        // a separate tab that can be alive (and flushing) while this page loads,
+        // so a merely-old startedAt is NOT abandonment; no flush for 10+ minutes is.
+        function _gnFoldStaleSession() {
+            try {
+                var cur = JSON.parse(localStorage.getItem('gameNoteSession_current') || 'null');
+                if (!cur || !cur.startedAt) return;
+                var lastAlive = cur.lastFlushAt || cur.startedAt;
+                if ((Date.now() - lastAlive) < 10 * 60000) return; // could still be playing
+                cur.endedAt = lastAlive;
+                cur.interrupted = true;
+                var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
+                hist.unshift(cur);
+                localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist.slice(0, 10)));
                 localStorage.removeItem('gameNoteSession_current');
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
+        try { _gnFoldStaleSession(); } catch (e) {}
         function _gnTypeLabel(id) {
             for (var i = 0; i < GAME_NOTE_TYPES.length; i++) if (GAME_NOTE_TYPES[i].id === id) return GAME_NOTE_TYPES[i].label;
             return id;
@@ -36078,32 +36305,13 @@
 
         function openPlayModal(gameIndex) {
             try { var _pgn = (loadCustomGames()[gameIndex] || {}).name; if (_pgn) recordGameActivation('find', _pgn, 'preview'); } catch (e) {}
-            var overlay = document.createElement('div');
-            overlay.className = 'play-modal-overlay';
-            overlay.id = 'play-modal-overlay';
-
-            var closeBtn = document.createElement('button');
-            closeBtn.className = 'play-modal-close';
-            closeBtn.innerHTML = '&times;';
-            closeBtn.title = 'Close';
-            closeBtn.onclick = function() { closePlayModal(); };
-            overlay.appendChild(closeBtn);
-
-            var iframe = document.createElement('iframe');
-            iframe.className = 'play-modal-iframe';
-            // Open the PREVIEWER's modern setup for this game (GPt F Setup —
-            // timer/probability/level/type), not the legacy start screen. Game
-            // Notes recording runs via game.js's session module in that context.
-            iframe.src = 'index.html?playGame=custom-' + gameIndex;
-            overlay.appendChild(iframe);
-
-            document.body.appendChild(overlay);
-
-            // Close on Escape key
-            overlay._escHandler = function(e) {
-                if (e.key === 'Escape') closePlayModal();
-            };
-            document.addEventListener('keydown', overlay._escHandler);
+            // Open the GAME PREVIEW in a NEW TAB (deep-linked to this game's
+            // GPt F Setup) instead of the old in-Studio iframe modal. One shared
+            // page: whatever ships in index.html (name box, layout, Notes
+            // recording via game.js) is exactly what the Library opens. Closing
+            // the tab returns to the Library — no back-button plumbing needed.
+            // Relative URL → works on localhost:8000 and on the deploy alike.
+            window.open('index.html?playGame=custom-' + gameIndex, '_blank');
         }
 
         function closePlayModal() {
@@ -36112,23 +36320,39 @@
                 if (overlay._escHandler) document.removeEventListener('keydown', overlay._escHandler);
                 overlay.remove();
             }
-            // If the preview just recorded a Game Notes session (the iframe's pagehide
-            // finalizes it into history), open its notes document. If NOTHING was
-            // recorded, say so — a silent close reads as "where are my results?".
-            setTimeout(function () {
-                try {
-                    var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
-                    var s = hist[0];
-                    if (s && s.endedAt && (Date.now() - s.endedAt) < 15000 && !s.shown) {
-                        s.shown = true;
-                        localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
-                        _gnShowReport(s);
-                    } else {
-                        _gnToast('📝 No game notes were recorded for this preview — click the 📝 button on the game\'s row and toggle some notes ON, then play again.');
-                    }
-                } catch (e) {}
-            }, 250);
+            // Catch previews still use this modal — check for a finished session.
+            setTimeout(_gnCheckFreshSession, 250);
         }
+        // Find previews play in a NEW TAB now: closing it finalizes the session
+        // (pagehide in the preview tab), and the report/toast shows when THIS tab
+        // regains focus. A fresh session → its notes document; a preview ping with
+        // no session (nothing armed) → explain once. A still-running session
+        // (user merely switched tabs mid-game) shows nothing.
+        function _gnCheckFreshSession() {
+            try {
+                _gnFoldStaleSession(); // a killed play tab's session surfaces on the next focus
+                var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
+                var s = hist[0];
+                if (s && s.endedAt && (Date.now() - s.endedAt) < 15000 && !s.shown) {
+                    s.shown = true;
+                    localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist));
+                    localStorage.removeItem('gameNotePreviewPing');
+                    _gnShowReport(s);
+                    return;
+                }
+                if (localStorage.getItem('gameNoteSession_current')) return; // preview still running
+                var ping = null;
+                try { ping = JSON.parse(localStorage.getItem('gameNotePreviewPing') || 'null'); } catch (e2) {}
+                if (ping && ping.t && (Date.now() - ping.t) < 30 * 60000) {
+                    localStorage.removeItem('gameNotePreviewPing');
+                    _gnToast('📝 No game notes were recorded for “' + (ping.game || 'the game') + '” — click the 📝 button on the game\'s row and toggle some notes ON, then play again.');
+                } else if (ping) {
+                    localStorage.removeItem('gameNotePreviewPing'); // stale — consume silently
+                }
+            } catch (e) {}
+        }
+        window.addEventListener('focus', _gnCheckFreshSession);
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') _gnCheckFreshSession(); });
 
         // Initialize game lists on page load
         populateLibraryGames();
@@ -36192,7 +36416,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-2"></script>
+    <script src="js/game.js?v=game-notes-3"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

@@ -20366,7 +20366,7 @@
                 { id: 'correct-answers',  icon: '✅',       name: 'Correct answers',     desc: 'Every correct answer: which card/problem was solved.', applies: ['find', 'catch', 'math'] },
                 { id: 'first-try-answers', icon: '🥇', name: 'First-try answers',   desc: 'Correct on the first attempt (no retries).', applies: ['find', 'catch', 'math'] },
                 { id: 'repeated-mistake', icon: '🔁', name: 'Repeated mistake',    desc: 'The same card/problem missed more than once — a stable gap.', applies: ['find', 'catch', 'math'] },
-                { id: 'missed-per-role',  icon: '🎭', name: 'Missed answers per role', desc: 'N of missed answers per role.', applies: ['find', 'catch'] }
+                { id: 'missed-per-role',  icon: '🎭', name: 'Missed answers per role', desc: 'N of missed answers per role. The role is the domino\'s LOWER card\'s — top cards are ignored.', applies: ['find', 'catch'] }
             ]},
             { group: 'Timing', color: '#00BCD4', rules: [
                 { id: 'time-per-answer',  icon: '⏱️', name: 'Time on each answer', desc: 'How long P takes on every answer.', applies: ['find', 'catch'] },
@@ -20385,7 +20385,7 @@
                 { id: 'guessing-multichoice', icon: '🎯', name: 'Guessing in Multi-Choice', desc: 'P: 1 correct out of R. The game: 1 correct out of N choices. R ≈ N means guessing.', applies: ['find', 'catch'] }
             ]},
             { group: 'Summaries / charts', color: '#c792ea', rules: [
-                { id: 'roles-success-chart', icon: '📊', name: 'Roles success chart',  desc: '% of success for each role.', applies: ['find', 'catch'] },
+                { id: 'roles-success-chart', icon: '📊', name: 'Roles success chart',  desc: '% of success for each role. The role is the domino\'s LOWER card\'s — top cards are ignored.', applies: ['find', 'catch'] },
                 { id: 'per-card-success', icon: '🗂️', name: 'Per-card success',     desc: 'Success rate for each individual card/problem (which to repeat, which to retire).', applies: ['find', 'catch', 'math'] },
                 { id: 'session-totals',   icon: '🕰️', name: 'Session totals',       desc: 'Rounds played, total time in the game, answers per minute.', applies: ['find', 'catch', 'math'] }
             ]}
@@ -20420,13 +20420,52 @@
             if (_gnGameScope.type === 'find') {
                 var gs = loadCustomGames(); gs[_gnGameScope.index] = game; saveCustomGames(gs);
             }
+            _gnBackupLegend(game);
         }
-        // First open of a game's legend: inherit the game TYPE's plan as version 1.
+        // ---- Legend backup (name-keyed) ----
+        // The user's note choices must HOLD no matter what: if any game-save
+        // path ever rebuilds a game object without gameNoteSets, the box (and
+        // the recorder — game.js reads the same key) restores the legend from
+        // this backup instead of silently re-inheriting the type template.
+        function _gnBackupLegend(game) {
+            if (!game || !game.name || !game.gameNoteSets || !game.gameNoteSets.length) return;
+            try {
+                var m = JSON.parse(localStorage.getItem('gameNoteLegends_v1') || '{}') || {};
+                m[game.name] = { sets: game.gameNoteSets, sel: game.gameNoteSetSel || 0 };
+                localStorage.setItem('gameNoteLegends_v1', JSON.stringify(m));
+            } catch (e) {}
+        }
+        function _gnRestoreLegend(game) {
+            if (!game || !game.name) return null;
+            try {
+                var bk = (JSON.parse(localStorage.getItem('gameNoteLegends_v1') || '{}') || {})[game.name];
+                if (bk && bk.sets && bk.sets.length) return bk;
+            } catch (e) {}
+            return null;
+        }
+        // A game's ACTIVE legend notes for the PLAY path (backup-aware, no
+        // template fallback — the caller decides that). Null = no legend.
+        function _gnPlayLegendNotes(g) {
+            if (!g) return null;
+            var sets = g.gameNoteSets, sel = g.gameNoteSetSel || 0;
+            if (!sets || !sets.length) { var bk = _gnRestoreLegend(g); if (bk) { sets = bk.sets; sel = bk.sel || 0; } }
+            if (!sets || !sets.length) return null;
+            return ((sets[sel] || sets[0]) || {}).notes || {};
+        }
+        // First open of a game's legend: restore the backup if the game entry
+        // lost its legend; only a game that NEVER had one inherits the game
+        // TYPE's plan as version 1.
         function _gnEnsureGameSets(game) {
             if (!game.gameNoteSets || !game.gameNoteSets.length) {
-                var tpl = _gnActiveFor(_gnGameScope ? _gnGameScope.type : 'find');
-                game.gameNoteSets = [{ notes: JSON.parse(JSON.stringify(tpl)) }];
-                game.gameNoteSetSel = 0;
+                var bk = _gnRestoreLegend(game);
+                if (bk) {
+                    game.gameNoteSets = JSON.parse(JSON.stringify(bk.sets));
+                    game.gameNoteSetSel = bk.sel || 0;
+                } else {
+                    var tpl = _gnActiveFor(_gnGameScope ? _gnGameScope.type : 'find');
+                    game.gameNoteSets = [{ notes: JSON.parse(JSON.stringify(tpl)) }];
+                    game.gameNoteSetSel = 0;
+                }
             }
             if (game.gameNoteSetSel == null || game.gameNoteSetSel >= game.gameNoteSets.length) game.gameNoteSetSel = 0;
             return game;
@@ -20521,9 +20560,7 @@
             try {
                 if (_gnPlayGameIndex != null) {
                     var g = loadCustomGames()[_gnPlayGameIndex] || {};
-                    act = (g.gameNoteSets && g.gameNoteSets.length)
-                        ? ((g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {})
-                        : _gnActiveFor(_gnSession.type);
+                    act = _gnPlayLegendNotes(g) || _gnActiveFor(_gnSession.type);
                 } else {
                     act = _gnActiveFor(_gnSession.type);
                 }
@@ -20555,19 +20592,34 @@
             if (_gnPlayGameIndex == null) return;
             try {
                 var g = loadCustomGames()[_gnPlayGameIndex] || {};
-                var notes = (g.gameNoteSets && g.gameNoteSets.length)
-                    ? ((g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {})
-                    : null;
-                _gnSessionStart('find', g.name, notes);
+                _gnSessionStart('find', g.name, _gnPlayLegendNotes(g));
             } catch (e) {}
         });
         function _gnFlushSession() {
             if (!_gnSession) return;
             try { localStorage.setItem('gameNoteSession_current', JSON.stringify(_gnSession)); } catch (e) {}
         }
+        // Freeze the played cards' faces INTO the session (session.faces) so a
+        // report's dominoes survive FUTURE library edits — deleting/renaming a
+        // card or set can no longer blank the art in an old report. Only labels
+        // that actually appear in the events are stored (size-capped; a failed
+        // freeze just leaves the view-time resolution as before).
+        function _gnFreezeFaces(session) {
+            try {
+                if (!session || !session.events || !session.events.length || session.faces) return;
+                var all = _gnCardFaces(session), used = {};
+                Object.keys(all).forEach(function (lbl) {
+                    for (var i = 0; i < session.events.length; i++) {
+                        if ((session.events[i].made || '').indexOf(lbl) !== -1) { used[lbl] = all[lbl]; return; }
+                    }
+                });
+                if (Object.keys(used).length && JSON.stringify(used).length < 400000) session.faces = used;
+            } catch (e) {}
+        }
         function _gnSessionEnd() {
             if (!_gnSession) return;
             _gnSession.endedAt = Date.now();
+            _gnFreezeFaces(_gnSession);
             try {
                 var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                 hist.unshift(_gnSession);
@@ -20598,7 +20650,11 @@
                         return '<circle cx="' + (x + p[0]) + '" cy="' + p[1] + '" r="1.7" fill="#2a2140"/>';
                     }).join('');
                 }
-                return '<text x="' + (x + 8) + '" y="12.5" text-anchor="middle" font-size="9" font-weight="700" fill="#2a2140">' + _mpEsc(String(v)) + '</text>';
+                // Non-pip half = the value/label as text, font shrunk to FIT the
+                // 16-unit half (long math-problem labels must not spill out).
+                var s = String(v).trim() || '?';
+                var fs = Math.max(3.2, Math.min(9, 26 / s.length));
+                return '<text x="' + (x + 8) + '" y="' + (9 + fs * 0.36).toFixed(1) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" font-weight="700" fill="#2a2140">' + _mpEsc(s) + '</text>';
             }
             return '<svg width="38" height="20" viewBox="0 0 36 18" style="flex:0 0 auto;vertical-align:middle;">'
                 + '<rect x="0.5" y="0.5" width="35" height="17" rx="3" fill="#fdf6e3" stroke="#8b7d5a"/>'
@@ -20698,20 +20754,66 @@
             } catch (e) {}
             return map;
         }
+        // All card labels of the session's game — the reference set for parsing
+        // `made` strings (labels themselves may contain '+', e.g. "E7_20 + 8").
+        function _gnCardLabels(session) {
+            var set = {};
+            try {
+                var games = loadCustomGames();
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i] && games[i].name === session.game) {
+                        (games[i].cards || []).forEach(function (c) { if (c && c.label) set[c.label] = 1; });
+                        break;
+                    }
+                }
+            } catch (e) {}
+            return set;
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
             var total = ev.length, correct = ev.filter(function (e) { return e.correct; }).length, wrong = total - correct;
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
             var faces = _gnCardFaces(session);
+            // The session's frozen faces (snapshotted when it ended) WIN over the
+            // live stores — they are what the student actually saw, and they
+            // survive library edits made since.
+            if (session.faces) Object.keys(session.faces).forEach(function (k) { faces[k] = session.faces[k]; });
             var roles = _gnCardRoles(session);
-            // Both halves' roles of one answer ("A1+B3" → [role(A1), role(B3)]);
-            // event.role (from gameplay) wins when present.
+            var labelSet = _gnCardLabels(session);
+            // "made" = topLabel + '+' + bottomLabel — but a LABEL can itself
+            // contain '+' (math-problem cards like "E7_20 + 8"). Try every '+'
+            // as the joiner and keep the split where the most sides are KNOWN
+            // card labels; falls back to the first '+' (the old behavior).
+            function madeParts(madeStr) {
+                if (!madeStr) return null;
+                function known(l) { return labelSet[l] || faces[l] || roles[l] ? 1 : 0; }
+                var best = null, bestScore = -1, p = -1;
+                while ((p = madeStr.indexOf('+', p + 1)) !== -1) {
+                    var l = madeStr.slice(0, p), r = madeStr.slice(p + 1);
+                    var score = known(l) + known(r);
+                    if (score > bestScore) { bestScore = score; best = [l, r]; }
+                }
+                return best;
+            }
+            function madeNames(madeStr) {
+                var parts = madeParts(madeStr);
+                return parts ? parts.join(' + ') : (madeStr || '').split('+').join(' + ');
+            }
+            // The role of an answer = the role of the domino's LOWER card only —
+            // the top card is the prompt and is ignored (user rule, July 5).
+            // `made` is recorded as "top+bottom", and the deal/flip logic swaps
+            // the half KEYS together with the values, so the second label is
+            // always the card shown at the BOTTOM. event.role (from gameplay)
+            // wins when present.
             function rolesOf(e) {
                 if (e.role) return [e.role];
-                if (!e.made) return [];
-                return e.made.split('+').map(function (lbl) { return roles[lbl] || ''; }).filter(Boolean);
+                var parts = madeParts(e.made);
+                if (!parts) return [];
+                var r = roles[parts[1]];
+                return r ? [r] : [];
             }
+            var roleFootnote = '<div style="opacity:0.6;font-size:11px;margin-top:4px;">role = the domino’s lower card; top cards don’t count</div>';
             var E = {};
             // Card tallies for A1/A2 — time is insignificant here (user, July 5):
             // one ROW per distinct domino, biggest count first. Each row: the domino
@@ -20720,9 +20822,8 @@
             // ("E1 + B3"), and ×N when it happened several times. Falls back to the
             // pip/value glyph when the faces aren't resolvable (older sessions).
             function dominoFaces(madeStr, valsKey) {
-                if (!madeStr) return '';
-                var parts = madeStr.split('+');
-                if (parts.length !== 2) return '';
+                var parts = madeParts(madeStr);
+                if (!parts) return '';
                 // At least ONE half must resolve to a real face; the other half (a
                 // card missing from the library) shows its value/label as text in
                 // the same domino frame — one bad half must not hide the good one.
@@ -20738,6 +20839,18 @@
                     + halfHtml(parts[1], vals[1], 'border-left:1.5px solid #8b7d5a;')
                     + '</span>';
             }
+            // The GUARANTEED glyph chain — a report row always shows a domino:
+            // real faces → the card key's values (pips for 0-6, text otherwise)
+            // → the made-from labels as text halves → a "?" domino.
+            function dominoGlyph(madeStr, valsKey) {
+                var g = dominoFaces(madeStr, valsKey);
+                if (g) return g;
+                var vals = (valsKey || '').split('|');
+                if (vals.length === 2) return _gnDominoSVG(vals[0], vals[1]);
+                var parts = madeParts(madeStr);
+                if (parts) return _gnDominoSVG(parts[0], parts[1]);
+                return _gnDominoSVG(valsKey || '?', '?');
+            }
             function tallyRows(list, badgeColor) {
                 var m = {}, made = {};
                 list.forEach(function (e) {
@@ -20748,12 +20861,8 @@
                 return Object.keys(m)
                     .sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); })
                     .map(function (k) {
-                        var glyph = dominoFaces(made[k], k);
-                        if (!glyph) {
-                            var vals = k.split('|');
-                            glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
-                        }
-                        var names = made[k] ? made[k].split('+').join(' + ') : k.split('|').join(' / ');
+                        var glyph = dominoGlyph(made[k], k);
+                        var names = made[k] ? madeNames(made[k]) : k.split('|').join(' / ');
                         return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">'
                             + glyph
                             + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
@@ -20788,7 +20897,7 @@
                 return _mpEsc(nCards + ' card' + (nCards === 1 ? '' : 's') + ' missed more than once:') + tallyRows(repEvents, '#e57373');
             };
             E['missed-per-role'] = function () {
-                // Each miss counts under the roles of BOTH its cards (resolved from
+                // Each miss counts under its LOWER card's role (resolved from
                 // the made-from labels via the game's card.role assignments).
                 var m = {}, any = false;
                 ev.forEach(function (e) {
@@ -20805,7 +20914,7 @@
                         + '<span style="display:inline-block;height:9px;width:' + Math.min(160, m[k] * 22) + 'px;background:#e57373;border-radius:5px;"></span>'
                         + '<span>' + m[k] + '</span></div>';
                 }).join('');
-                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>');
+                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>') + roleFootnote;
             };
             E['time-per-answer'] = function () {
                 // Chronological chips: the domino + its answer time, green for
@@ -20813,8 +20922,7 @@
                 if (!total) return _mpEsc('No answers recorded.');
                 var avg = deltas.reduce(function (a, b) { return a + b; }, 0) / total;
                 var chips = ev.map(function (e, i) {
-                    var glyph = dominoFaces(e.made, e.card);
-                    if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                    var glyph = dominoGlyph(e.made, e.card);
                     var col = e.correct ? '#81c784' : '#e57373';
                     return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
                         + '<span style="font-weight:700;color:' + col + ';">' + (deltas[i] / 1000).toFixed(1) + 's</span></span>';
@@ -20824,8 +20932,7 @@
             };
             // Domino + colored time chip, shared by B2/B3 (same look as B1).
             function timeChip(e, ms, color) {
-                var glyph = dominoFaces(e.made, e.card);
-                if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                var glyph = dominoGlyph(e.made, e.card);
                 return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
                     + '<span style="font-weight:700;color:' + color + ';">' + (ms / 1000).toFixed(1) + 's</span></span>';
             }
@@ -20885,8 +20992,8 @@
                 return 'Success ' + Math.round(rate * 100) + '% vs pure chance ' + Math.round(chance * 100) + '% (N ≈ ' + N.toFixed(1) + ' choices): ' + verdict + '.';
             };
             E['roles-success-chart'] = function () {
-                // Same role resolution as A5: an answer counts under the roles of
-                // BOTH its cards (from the made-from labels), event.role wins.
+                // Same role resolution as A5: an answer counts under its LOWER
+                // card's role (from the made-from labels), event.role wins.
                 var m = {}, any = false;
                 ev.forEach(function (e) {
                     var rs = rolesOf(e);
@@ -20900,12 +21007,34 @@
                          + '<span style="display:inline-block;height:10px;width:' + Math.max(2, pct * 1.6) + 'px;background:#c792ea;border-radius:5px;"></span>'
                          + '<span>' + pct + '%</span></div>';
                 }).join('');
-                return html + (any ? '' : '<div style="opacity:0.6;font-size:11px;">cards in this game carry no roles yet</div>');
+                return html + (any ? '' : '<div style="opacity:0.6;font-size:11px;">cards in this game carry no roles yet</div>') + roleFootnote;
             };
             E['per-card-success'] = function () {
-                var m = {}; ev.forEach(function (e) { var k = e.card || '?'; if (!m[k]) m[k] = { c: 0, t: 0 }; m[k].t++; if (e.correct) m[k].c++; });
-                var ks = Object.keys(m); if (!ks.length) return 'No answers recorded.';
-                return ks.map(function (k) { return k + ': ' + Math.round(m[k].c / m[k].t * 100) + '% (' + m[k].c + '/' + m[k].t + ')'; }).join(' · ');
+                // One row per distinct domino — drawn from its REAL card faces
+                // like A1/A2 — worst success first ("which to repeat" reads from
+                // the top). Colored %: red <50, amber <80, green above.
+                var m = {}, made = {};
+                ev.forEach(function (e) {
+                    var k = e.card || '?';
+                    if (!m[k]) m[k] = { c: 0, t: 0 };
+                    m[k].t++; if (e.correct) m[k].c++;
+                    if (!made[k] && e.made) made[k] = e.made;
+                });
+                var ks = Object.keys(m); if (!ks.length) return _mpEsc('No answers recorded.');
+                ks.sort(function (a, b) {
+                    return (m[a].c / m[a].t - m[b].c / m[b].t) || (m[b].t - m[a].t) || a.localeCompare(b);
+                });
+                return ks.map(function (k) {
+                    var glyph = dominoGlyph(made[k], k);
+                    var names = made[k] ? madeNames(made[k]) : k.split('|').join(' / ');
+                    var pct = Math.round(m[k].c / m[k].t * 100);
+                    var col = pct >= 80 ? '#81c784' : (pct >= 50 ? '#ffb74d' : '#e57373');
+                    return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">' + glyph
+                        + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
+                        + '<span style="font-weight:800;color:' + col + ';min-width:44px;">' + pct + '%</span>'
+                        + '<span style="opacity:0.85;">' + m[k].c + '/' + m[k].t + '</span>'
+                        + '</div>';
+                }).join('');
             };
             E['session-totals'] = function () {
                 // Duration floor: the last event's timestamp (guards a clock oddity
@@ -20924,7 +21053,8 @@
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
                     var isHtml = { 'roles-success-chart': 1, 'missed-answers': 1, 'correct-answers': 1,
                                    'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1,
-                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1 }[rule.id];
+                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1,
+                                   'per-card-success': 1 }[rule.id];
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });
@@ -21037,6 +21167,7 @@
                 if ((Date.now() - lastAlive) < 10 * 60000) return; // could still be playing
                 cur.endedAt = lastAlive;
                 cur.interrupted = true;
+                if (typeof _gnFreezeFaces === 'function') _gnFreezeFaces(cur); // killed-tab sessions keep their art too
                 var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                 hist.unshift(cur);
                 localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist.slice(0, 10)));
@@ -36495,10 +36626,7 @@
             try {
                 _gnPlayGameIndex = playIndex; // lets the session re-read the legend later
                 var _gnG = loadCustomGames()[playIndex] || {};
-                var _gnNotes = (_gnG.gameNoteSets && _gnG.gameNoteSets.length)
-                    ? ((_gnG.gameNoteSets[_gnG.gameNoteSetSel || 0] || {}).notes || {})
-                    : null;
-                _gnSessionStart('find', _gnG.name, _gnNotes);
+                _gnSessionStart('find', _gnG.name, _gnPlayLegendNotes(_gnG));
             } catch (e) {}
 
             // Load and start the game (bypasses published check)
@@ -36510,7 +36638,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-3"></script>
+    <script src="js/game.js?v=game-notes-4"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

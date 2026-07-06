@@ -4766,8 +4766,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // no notes armed" (→ explain) apart from an ordinary tab switch.
         try { localStorage.setItem('gameNotePreviewPing', JSON.stringify({ game: g.name || '', t: Date.now() })); } catch (e) {}
         let notes = null;
-        if (g.gameNoteSets && g.gameNoteSets.length) notes = (g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {};
-        if (!notes) notes = loadJSON('activeGameNotes_v2', {}).find || {};
+        let sets = g.gameNoteSets, sel = g.gameNoteSetSel || 0;
+        if (!sets || !sets.length) {
+            // The game entry lost its legend (a game-save path rebuilt the
+            // object) — the Studio keeps a name-keyed backup; use it so the
+            // user's note choices always hold.
+            const bk = loadJSON('gameNoteLegends_v1', {})[g.name || ''];
+            if (bk && bk.sets && bk.sets.length) { sets = bk.sets; sel = bk.sel || 0; }
+        }
+        if (sets && sets.length) notes = ((sets[sel] || sets[0]) || {}).notes || {};
+        if (!notes) notes = loadJSON('activeGameNotes_v2', {}).find || {}; // no legend at all → type template
         if (!Object.keys(notes).length) { S = null; return; }
         S = { type: 'find', game: g.name || '', startedAt: Date.now(), notes: notes, noteSet: null, events: [] };
         flush();

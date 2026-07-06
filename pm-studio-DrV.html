@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:55 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:55 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:55 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -14154,6 +14154,9 @@
                             var card = addNewDrawnCard(svg, key + seq);
                             if (card) {
                                 card.dataset.origin = 'copy';
+                                // Reference/label cards import as reference cards
+                                // (saveCustomCards persists the flag from the DOM).
+                                if (e.info) card.dataset.info = 'true';
                                 var descEl = card.querySelector('.library-desc');
                                 if (descEl && e.desc) descEl.textContent = e.desc;
                                 if (e.cardShape && e.cardShape !== 'square') {
@@ -14234,6 +14237,9 @@
                             var card = addNewDrawnCard(svg, letter + seq);
                             if (card) {
                                 card.dataset.origin = 'copy';
+                                // Reference/label cards import as reference cards
+                                // (saveCustomCards persists the flag from the DOM).
+                                if (e.info) card.dataset.info = 'true';
                                 var descEl = card.querySelector('.library-desc');
                                 if (descEl && e.desc) descEl.textContent = e.desc;
                                 if (e.cardShape && e.cardShape !== 'square') {
@@ -16404,6 +16410,10 @@
             card.dataset.uid = generateCardUID();
             card.dataset.stableId = generateStableId(copyLabel, getCurrentCardSetName());
             card.dataset.origin = 'copy';
+            // A reference/label card (data-info: white graph-paper look, skipped
+            // by the twin-scan) copies as one — the flag drives the white tile
+            // CSS, the loupe ref look, and persists via _stpApplyToData on save.
+            if (sourceCard.dataset.info === 'true') card.dataset.info = 'true';
             // Carry parameters + f-formula + relations onto the copy so the user
             // can reuse the same parameter set (problem/answer split, alt problems).
             _pmCopyCardMathData(sourceCard.dataset.uid, card.dataset.uid);
@@ -17094,6 +17104,8 @@
             if (card.dataset.origin) cardData.origin = card.dataset.origin;
             // Phase 1.2: a move keeps the card's existing art identity.
             cardData.sharedArtId = _srcSharedArtId(card) || ('art_' + (cardData.stableId || cardData.uid || newLabel));
+            // Reference/label cards (data-info) stay reference cards after a move.
+            if (card.dataset.info === 'true') cardData.info = true;
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 cardData.cardShape = card.dataset.cardShape;
                 cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -17158,6 +17170,8 @@
             // OWN uid/stableId/label, but shares sharedArtId — so editing the drawing can
             // later propagate across sets). Fresh id only if the source somehow lacks one.
             cardData.sharedArtId = _srcSharedArtId(card) || ('art_' + (cardData.stableId || cardData.uid || newLabel));
+            // Reference/label cards (data-info) stay reference cards in the target set.
+            if (card.dataset.info === 'true') cardData.info = true;
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 cardData.cardShape = card.dataset.cardShape;
                 cardData.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
@@ -20466,6 +20480,10 @@
         // flushed to localStorage on every event so a closed/killed iframe loses
         // nothing; on end (pagehide) it moves into the gameNoteSessions_v1 history.
         var _gnSession = null;
+        // The play tab's game index (?play=N) — lets a session re-resolve its
+        // game's ACTIVE legend version after load (the Studio tab can edit the
+        // legend while this play tab is already open).
+        var _gnPlayGameIndex = null;
         function _gnSessionStart(type, gameName, notesOverride) {
             // A game WITH a legend records its active version; a game without one
             // falls back to the type template.
@@ -20482,11 +20500,67 @@
         }
         window._gnRecord = function (ev) {
             if (!_gnSession) return;
+            // The legend can be edited in the Studio tab AFTER this play tab
+            // loaded (the load-time snapshot goes stale). Re-read it on the
+            // FIRST judged answer so the session records what is armed when
+            // play actually begins, not when the tab was opened.
+            if (!_gnSession.events.length) _gnRefreshSessionNotes();
+            if (!_gnSession) return; // legend emptied since load → nothing to record
             ev = ev || {};
             ev.t = Date.now() - _gnSession.startedAt;
             _gnSession.events.push(ev);
             _gnFlushSession();
         };
+        // Re-resolve the session's notes from the game's CURRENT active legend
+        // version (localStorage is shared with the Studio tab, so an edit there
+        // is visible here). Only called while the session has no events yet —
+        // once answers exist the session keeps the legend it started with.
+        function _gnRefreshSessionNotes() {
+            if (!_gnSession) return;
+            var act = null;
+            try {
+                if (_gnPlayGameIndex != null) {
+                    var g = loadCustomGames()[_gnPlayGameIndex] || {};
+                    act = (g.gameNoteSets && g.gameNoteSets.length)
+                        ? ((g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {})
+                        : _gnActiveFor(_gnSession.type);
+                } else {
+                    act = _gnActiveFor(_gnSession.type);
+                }
+            } catch (e) { return; }
+            if (!act) return;
+            var tag = document.getElementById('gn-rec-tag');
+            if (!Object.keys(act).length) {
+                // Every note was turned off since the tab opened → record nothing.
+                _gnSession = null;
+                try { localStorage.removeItem('gameNoteSession_current'); } catch (e2) {}
+                if (tag) tag.remove();
+                return;
+            }
+            _gnSession.notes = act;
+            _gnSession.noteSet = _gnSetSignature(act);
+            _gnFlushSession();
+            if (tag) tag.textContent = '📝 recording ' + Object.keys(act).length + ' note' + (Object.keys(act).length === 1 ? '' : 's');
+        }
+        // Keep the armed notes fresh while the play tab idles on the setup
+        // screen: returning to this tab re-syncs the legend (and the tag) —
+        // and if NOTHING was armed at load, arming notes in the Studio tab
+        // and coming back starts the session that load-time skipped.
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState !== 'visible') return;
+            if (_gnSession) {
+                if (!_gnSession.events.length) _gnRefreshSessionNotes();
+                return;
+            }
+            if (_gnPlayGameIndex == null) return;
+            try {
+                var g = loadCustomGames()[_gnPlayGameIndex] || {};
+                var notes = (g.gameNoteSets && g.gameNoteSets.length)
+                    ? ((g.gameNoteSets[g.gameNoteSetSel || 0] || {}).notes || {})
+                    : null;
+                _gnSessionStart('find', g.name, notes);
+            } catch (e) {}
+        });
         function _gnFlushSession() {
             if (!_gnSession) return;
             try { localStorage.setItem('gameNoteSession_current', JSON.stringify(_gnSession)); } catch (e) {}
@@ -20602,8 +20676,21 @@
                 var games = loadCustomGames();
                 for (var i = 0; i < games.length; i++) {
                     if (games[i] && games[i].name === session.game) {
-                        (games[i].cards || []).forEach(function (c) {
-                            if (c && c.label && c.role && !map[c.label]) map[c.label] = c.role;
+                        var cards = games[i].cards || [];
+                        // Pass 1: the game entry's own role when present, else the
+                        // stored card's role by stableId across ALL set stores —
+                        // the SAME lookup the Game View role badges use
+                        // (game.cards entries rarely carry `role` themselves).
+                        cards.forEach(function (c) {
+                            if (!c || !c.label || map[c.label]) return;
+                            var role = c.role || '';
+                            if (!role && c.stableId && typeof _getCardRole === 'function') role = _getCardRole('', c.stableId) || '';
+                            if (role) map[c.label] = role;
+                        });
+                        // Pass 2: variations inherit the original card's role.
+                        cards.forEach(function (c) {
+                            if (!c || !c.label || map[c.label] || !c.isVariation || !c.originalLabel) return;
+                            if (map[c.originalLabel]) map[c.label] = map[c.originalLabel];
                         });
                         break;
                     }
@@ -20798,8 +20885,14 @@
                 return 'Success ' + Math.round(rate * 100) + '% vs pure chance ' + Math.round(chance * 100) + '% (N ≈ ' + N.toFixed(1) + ' choices): ' + verdict + '.';
             };
             E['roles-success-chart'] = function () {
+                // Same role resolution as A5: an answer counts under the roles of
+                // BOTH its cards (from the made-from labels), event.role wins.
                 var m = {}, any = false;
-                ev.forEach(function (e) { var r = e.role || '(no role)'; if (e.role) any = true; if (!m[r]) m[r] = { c: 0, t: 0 }; m[r].t++; if (e.correct) m[r].c++; });
+                ev.forEach(function (e) {
+                    var rs = rolesOf(e);
+                    if (rs.length) any = true; else rs = ['(no role)'];
+                    rs.forEach(function (r) { if (!m[r]) m[r] = { c: 0, t: 0 }; m[r].t++; if (e.correct) m[r].c++; });
+                });
                 var ks = Object.keys(m); if (!ks.length) return 'No answers recorded.';
                 var html = ks.map(function (k) {
                     var pct = Math.round(m[k].c / m[k].t * 100);
@@ -36400,6 +36493,7 @@
             // the game's own legend (active version) wins over the type template.
             // game.js reports judged answers via window._gnRecord.
             try {
+                _gnPlayGameIndex = playIndex; // lets the session re-read the legend later
                 var _gnG = loadCustomGames()[playIndex] || {};
                 var _gnNotes = (_gnG.gameNoteSets && _gnG.gameNoteSets.length)
                     ? ((_gnG.gameNoteSets[_gnG.gameNoteSetSel || 0] || {}).notes || {})

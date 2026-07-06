@@ -6608,10 +6608,12 @@
             if (loupeSourceCard) {
                 _loadCardShapeFromCard(loupeSourceCard);
             } else {
-                // New card: default to square
+                // New card: default to square — including the FRAME SCALE, which
+                // used to stay stale from the previously edited card.
                 currentCardShape = 'square';
                 currentCardWidth = 60;
                 currentCardHeight = 60;
+                currentCardFrameScale = 1;
                 document.querySelectorAll('.draw-shape-btn').forEach(function(b) {
                     b.classList.toggle('active', b.dataset.shape === 'square');
                 });
@@ -9344,6 +9346,14 @@
         }
 
         function openBlankCardLoupe() {
+            // A NEW card starts from the standard shape — reset the shape globals
+            // so nothing leaks in from the previously edited card (a stale
+            // frame scale / width would silently ride onto later saves).
+            currentCardShape = 'square';
+            currentCardWidth = 60;
+            currentCardHeight = 60;
+            currentCardCornerRadius = -1;
+            currentCardFrameScale = 1;
             // Create a temporary blank card element to open in loupe
             var blankCard = document.createElement('div');
             blankCard.className = 'library-card draw-blank-card';
@@ -15273,6 +15283,32 @@
                     menu.appendChild(_refItem);
                 }
                 menu.appendChild(_ctxSep());
+                // "Reset size" \u2014 only for cards carrying a persisted per-card size
+                // (cardShapeW/H \u2260 60 or a frame scale). The loupe's right-edge /
+                // corner drags save such a size; this is the one-click way back.
+                (function () {
+                    var targets = (_ctxIsGroup ? groupEditSelected.slice() : [card]).filter(function (c) {
+                        if (!c || !c.dataset) return false;
+                        var w = parseFloat(c.dataset.cardShapeW) || 60;
+                        var h = parseFloat(c.dataset.cardShapeH) || 60;
+                        var f = parseFloat(c.dataset.cardFrameScale) || 1;
+                        return w !== 60 || h !== 60 || f !== 1;
+                    });
+                    if (!targets.length) return;
+                    menu.appendChild(_ctxItem('\u21f2', 'Reset size' + (targets.length > 1 ? ' (' + targets.length + ')' : '') + ' \u2192 standard', function () {
+                        if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                        targets.forEach(function (c) {
+                            c.dataset.cardShape = 'square';
+                            c.dataset.cardShapeW = 60;
+                            c.dataset.cardShapeH = 60;
+                            delete c.dataset.cardFrameScale;
+                            if (typeof _applyShapeToPreview === 'function') { try { _applyShapeToPreview(c); } catch (e) {} }
+                        });
+                        if (typeof saveVariations === 'function') saveVariations();
+                        if (typeof applyLibZoom === 'function') applyLibZoom();
+                        if (typeof _geFlash === 'function') _geFlash('Card size reset to standard (60\u00d760)');
+                    }));
+                })();
                 menu.appendChild(_ctxItem('\u2699', _ctxIsGroup ? ('Properties (' + _ctxN + ')\u2026') : 'Properties', function() {
                     if (_ctxIsGroup) _ctxShowPropertiesPicker(groupEditSelected.slice());
                     else _ctxShowPropertiesDialog(card);

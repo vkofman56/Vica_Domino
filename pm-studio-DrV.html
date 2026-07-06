@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:58 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:12 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:58 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:12 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:58 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -20594,12 +20594,37 @@
             } catch (e) {}
             return map;
         }
+        // label → the card's ROLE in the session's game (card.role on game.cards) —
+        // lets role notes resolve from the `made` labels at view time.
+        function _gnCardRoles(session) {
+            var map = {};
+            try {
+                var games = loadCustomGames();
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i] && games[i].name === session.game) {
+                        (games[i].cards || []).forEach(function (c) {
+                            if (c && c.label && c.role && !map[c.label]) map[c.label] = c.role;
+                        });
+                        break;
+                    }
+                }
+            } catch (e) {}
+            return map;
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
             var total = ev.length, correct = ev.filter(function (e) { return e.correct; }).length, wrong = total - correct;
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
             var faces = _gnCardFaces(session);
+            var roles = _gnCardRoles(session);
+            // Both halves' roles of one answer ("A1+B3" → [role(A1), role(B3)]);
+            // event.role (from gameplay) wins when present.
+            function rolesOf(e) {
+                if (e.role) return [e.role];
+                if (!e.made) return [];
+                return e.made.split('+').map(function (lbl) { return roles[lbl] || ''; }).filter(Boolean);
+            }
             var E = {};
             // Card tallies for A1/A2 — time is insignificant here (user, July 5):
             // one ROW per distinct domino, biggest count first. Each row: the domino
@@ -20676,10 +20701,24 @@
                 return _mpEsc(nCards + ' card' + (nCards === 1 ? '' : 's') + ' missed more than once:') + tallyRows(repEvents, '#e57373');
             };
             E['missed-per-role'] = function () {
+                // Each miss counts under the roles of BOTH its cards (resolved from
+                // the made-from labels via the game's card.role assignments).
                 var m = {}, any = false;
-                ev.forEach(function (e) { if (!e.correct) { var r = e.role || '(no role)'; m[r] = (m[r] || 0) + 1; if (e.role) any = true; } });
-                var ks = Object.keys(m); if (!ks.length) return 'No missed answers.';
-                return ks.map(function (k) { return k + ': ' + m[k]; }).join(' · ') + (any ? '' : ' — cards in this game carry no roles yet');
+                ev.forEach(function (e) {
+                    if (e.correct) return;
+                    var rs = rolesOf(e);
+                    if (rs.length) { any = true; rs.forEach(function (r) { m[r] = (m[r] || 0) + 1; }); }
+                    else m['(no role)'] = (m['(no role)'] || 0) + 1;
+                });
+                var ks = Object.keys(m); if (!ks.length) return _mpEsc('No missed answers.');
+                ks.sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); });
+                var rows = ks.map(function (k) {
+                    return '<div style="display:flex;align-items:center;gap:8px;margin:3px 0;">'
+                        + '<span style="min-width:70px;font-weight:700;">' + _mpEsc(k) + '</span>'
+                        + '<span style="display:inline-block;height:9px;width:' + Math.min(160, m[k] * 22) + 'px;background:#e57373;border-radius:5px;"></span>'
+                        + '<span>' + m[k] + '</span></div>';
+                }).join('');
+                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>');
             };
             E['time-per-answer'] = function () {
                 // Chronological chips: the domino + its answer time, green for
@@ -20696,15 +20735,27 @@
                 return '<div style="display:flex;flex-wrap:wrap;align-items:center;">' + chips + '</div>'
                     + '<div style="margin-top:3px;opacity:0.8;">avg ' + (avg / 1000).toFixed(1) + 's</div>';
             };
+            // Domino + colored time chip, shared by B2/B3 (same look as B1).
+            function timeChip(e, ms, color) {
+                var glyph = dominoFaces(e.made, e.card);
+                if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
+                    + '<span style="font-weight:700;color:' + color + ';">' + (ms / 1000).toFixed(1) + 's</span></span>';
+            }
             E['fast-correct'] = function (p) {
                 var lim = (p.t || 5) * 1000;
-                var f = ev.filter(function (e, i) { return e.correct && deltas[i] < lim; });
-                return f.length + ' correct answer' + (f.length === 1 ? '' : 's') + ' faster than ' + (p.t || 5) + 's' + (f.length ? ': ' + listCards(f) : '.');
+                var f = [];
+                ev.forEach(function (e, i) { if (e.correct && deltas[i] < lim) f.push(timeChip(e, deltas[i], '#81c784')); });
+                if (!f.length) return _mpEsc('No correct answers faster than ' + (p.t || 5) + 's.');
+                return _mpEsc(f.length + ' correct answer' + (f.length === 1 ? '' : 's') + ' faster than ' + (p.t || 5) + 's:')
+                    + '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-top:3px;">' + f.join('') + '</div>';
             };
             E['long-gap'] = function (p) {
                 var lim = (p.t || 20) * 1000, out = [];
-                ev.forEach(function (e, i) { if (deltas[i] > lim) out.push('before ' + (e.card || 'answer ' + (i + 1)) + ' (' + (deltas[i] / 1000).toFixed(0) + 's)'); });
-                return out.length ? out.length + ' long gap' + (out.length === 1 ? '' : 's') + ': ' + out.join(', ') : 'No gaps longer than ' + (p.t || 20) + 's.';
+                ev.forEach(function (e, i) { if (deltas[i] > lim) out.push(timeChip(e, deltas[i], '#ffb74d')); });
+                if (!out.length) return _mpEsc('No gaps longer than ' + (p.t || 20) + 's.');
+                return _mpEsc(out.length + ' long gap' + (out.length === 1 ? '' : 's') + ' (the answer that followed the wait):')
+                    + '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-top:3px;">' + out.join('') + '</div>';
             };
             E['best-timing-streak'] = function (p) {
                 var C = Math.max(1, p.C || 5), best = null;
@@ -20779,7 +20830,8 @@
                     var fn = E[rule.id], text;
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
                     var isHtml = { 'roles-success-chart': 1, 'missed-answers': 1, 'correct-answers': 1,
-                                   'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1 }[rule.id];
+                                   'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1,
+                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1 }[rule.id];
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });

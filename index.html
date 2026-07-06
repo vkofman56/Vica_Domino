@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">08:51 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">04:08 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -2076,6 +2076,62 @@
             for (var i = 0; i < list.length; i++) { if (_mgLegendsEqual(list[i].legend, legend)) return i; }
             return -1;
         }
+        // The mini-game chip the user explicitly SELECTED on Setup (the one being
+        // edited). Kept across control tweaks — a dirty edit no longer matches by
+        // legend, but it's still "the chosen mini-game" until another chip is
+        // picked or the Setup target changes. idx: -2 = Default, >=0 = saved index.
+        var _mgChipSel = null;
+        function _mgChipKey(tgt) { return tgt.type + ':' + tgt.index; }
+        // Chip row on Setup: Default + every saved mini-game of this game. Click
+        // one → its legend loads into the controls (you're now editing it); a
+        // "•" marks the selected chip when the controls have unsaved changes.
+        function _mgRenderChips() {
+            var box = document.getElementById('mg-name-box'); if (!box) return;
+            var tgt = _mgSetupTarget(); if (!tgt) return;
+            var row = document.getElementById('mg-chips-row');
+            if (!row) {
+                row = document.createElement('div');
+                row.id = 'mg-chips-row';
+                row.style.cssText = 'flex:0 0 100%;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px;';
+                box.insertBefore(row, box.firstChild);
+            }
+            row.innerHTML = '';
+            var key = _mgChipKey(tgt);
+            if (_mgChipSel && _mgChipSel.key !== key) _mgChipSel = null;
+            var list = _mgListFor(tgt.type, tgt.index);
+            var legendNow = _mgCaptureSetupLegend(tgt.type, tgt.index);
+            var matchIdx = _mgFindMatchIdx(tgt.type, tgt.index, legendNow);
+            var defMatch = _mgLegendsEqual(legendNow, _mgDefaultLegend(tgt.type, tgt.index));
+            var selIdx = (_mgChipSel && _mgChipSel.key === key) ? _mgChipSel.idx : null;
+            function chip(label, idx, legend, isDefault) {
+                var active = (selIdx !== null) ? (selIdx === idx)
+                           : (isDefault ? (defMatch && matchIdx < 0) : (matchIdx === idx));
+                var clean = isDefault ? defMatch : (matchIdx === idx);
+                var dirty = active && !clean;
+                var c = document.createElement('button');
+                c.type = 'button';
+                c.textContent = label + (dirty ? ' •' : '');
+                c.title = isDefault
+                    ? 'The game\'s own configuration — click to load it'
+                    : 'Click to load “' + label + '” into the controls' + (dirty ? ' (unsaved changes on screen)' : '');
+                c.style.cssText = 'padding:5px 12px;border-radius:12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;'
+                    + (active
+                        ? 'border:2px solid #ffd54f;background:rgba(255,213,79,0.22);color:#fff;'
+                        : 'border:2px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.9);');
+                c.addEventListener('click', function () {
+                    _mgChipSel = { key: key, idx: idx };
+                    // An explicit chip pick outranks in-progress typing: release the
+                    // input's focus so the name box syncs to the picked mini-game.
+                    var inp = document.getElementById('mg-name-input');
+                    if (inp && document.activeElement === inp) inp.blur();
+                    _mgApplyLegend(legend);
+                    _mgUpdateNameBox();
+                });
+                row.appendChild(c);
+            }
+            chip('Default', -2, _mgDefaultLegend(tgt.type, tgt.index), true);
+            list.forEach(function (mg, si) { chip(mg.name || 'Mini-game', si, mg.legend, false); });
+        }
         // Rename (and refresh the legend of) a saved mini-game in place.
         function _mgRenameLegend(type, index, savedIdx, name, legend) {
             var key = (type === 'catch') ? 'savedCatchGames' : 'savedCustomGames';
@@ -2108,13 +2164,20 @@
             var dl = document.createElement('datalist'); dl.id = 'mg-name-list';
             var save = document.createElement('button');
             save.id = 'mg-name-save'; save.type = 'button'; save.textContent = '💾';
-            save.title = 'Save / rename this mini-game';
+            save.title = 'Save: this name = the selected mini-game → update its settings; a new name → create a new mini-game';
             save.style.cssText = 'padding:8px 13px;border-radius:12px;border:2px solid rgba(255,255,255,0.92);cursor:pointer;color:#fff;font-size:16px;line-height:1;' +
                 'background:linear-gradient(135deg,#7c4dff 0%,#b06bff 60%,#d59bff 100%);box-shadow:0 6px 16px rgba(0,0,0,0.32),0 0 16px rgba(196,150,255,0.45);';
+            // ✎ = rename-only (settings untouched) — kept SEPARATE from 💾 so a
+            // changed name + 💾 always means "create new", never a surprise rename.
+            var ren = document.createElement('button');
+            ren.id = 'mg-name-rename'; ren.type = 'button'; ren.textContent = '✎';
+            ren.title = 'Rename the selected mini-game to this name (settings unchanged)';
+            ren.style.cssText = 'padding:8px 12px;border-radius:12px;border:2px solid rgba(255,255,255,0.7);cursor:pointer;color:#fff;font-size:16px;line-height:1;background:rgba(255,255,255,0.14);';
             var msg = document.createElement('div'); msg.id = 'mg-name-msg';
             msg.style.cssText = 'flex:0 0 100%;font-size:11.5px;color:#ffd54f;min-height:14px;';
-            box.appendChild(input); box.appendChild(dl); box.appendChild(save); box.appendChild(msg);
+            box.appendChild(input); box.appendChild(dl); box.appendChild(save); box.appendChild(ren); box.appendChild(msg);
             save.addEventListener('click', _mgNameBoxSave);
+            ren.addEventListener('click', _mgNameBoxRename);
             input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); _mgNameBoxSave(); } });
             input.addEventListener('input', function () { var m = document.getElementById('mg-name-msg'); if (m) m.textContent = ''; });
 
@@ -2138,12 +2201,23 @@
             var legend = _mgCaptureSetupLegend(tgt.type, tgt.index);
             var matchIdx = (typeof tgt.editIdx === 'number') ? tgt.editIdx : _mgFindMatchIdx(tgt.type, tgt.index, legend);
             box._matchIdx = matchIdx;
+            // The ACTIVE mini-game = the chip the user picked (kept while the
+            // controls are edited/dirty), else the legend match. -2 = Default.
+            var selIdx = (_mgChipSel && _mgChipSel.key === _mgChipKey(tgt)) ? _mgChipSel.idx : null;
+            box._activeIdx = (selIdx !== null) ? selIdx : matchIdx;
             if (document.activeElement !== input) {
-                input.value = (matchIdx >= 0 && list[matchIdx]) ? (list[matchIdx].name || '') : '';
+                var showIdx = (box._activeIdx >= 0) ? box._activeIdx : matchIdx;
+                input.value = (showIdx >= 0 && list[showIdx]) ? (list[showIdx].name || '') : '';
             }
+            _mgRenderChips();
         }
-        // Save from the name box: rename the matched/edited mini-game in place, or
-        // file a new one. Blocks an exact (case-insensitive) duplicate name.
+        // 💾 Save from the name box. Semantics (deliberately distinct from ✎):
+        //   • name == the ACTIVE mini-game's name → UPDATE its settings from the
+        //     current controls ("adjust the chosen mini-game").
+        //   • a NEW name → CREATE a new mini-game with the current settings — it
+        //     never silently renames ("change the game and get a new name").
+        //   • name == a DIFFERENT existing mini-game → blocked (duplicate).
+        //   • Default active → always creates (Default itself is protected).
         function _mgNameBoxSave() {
             var box = document.getElementById('mg-name-box'); if (!box) return;
             var tgt = _mgSetupTarget(); if (!tgt) return;
@@ -2152,21 +2226,55 @@
             var name = (input.value || '').trim();
             if (!name) { msg.textContent = 'Type a name first.'; input.focus(); return; }
             var list = _mgListFor(tgt.type, tgt.index);
-            var matchIdx = (typeof box._matchIdx === 'number') ? box._matchIdx : -1;
+            var active = (typeof box._activeIdx === 'number') ? box._activeIdx : -1;
+            var legend = _mgCaptureSetupLegend(tgt.type, tgt.index);
+            if (active >= 0 && list[active] && (list[active].name || '').trim().toLowerCase() === name.toLowerCase()) {
+                // Same name as the active mini-game → save the settings into it.
+                _mgRenameLegend(tgt.type, tgt.index, active, list[active].name, legend);
+                msg.textContent = '✓ Updated “' + list[active].name + '” with the current settings.';
+                _mgChipSel = { key: _mgChipKey(tgt), idx: active };
+            } else {
+                for (var i = 0; i < list.length; i++) {
+                    if ((list[i].name || '').trim().toLowerCase() === name.toLowerCase()) {
+                        msg.textContent = '“' + name + '” already exists — pick a different name (or ✎ to rename).'; input.focus(); return;
+                    }
+                }
+                _mgAddTo(tgt.type, tgt.index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                                                name: name, createdAt: Date.now(), legend: legend });
+                _mgChipSel = { key: _mgChipKey(tgt), idx: _mgListFor(tgt.type, tgt.index).length - 1 };
+                msg.textContent = '✓ Saved new mini-game “' + name + '”.';
+            }
+            _mgUpdateNameBox();
+            if (typeof populateIntroGames === 'function') { try { populateIntroGames(); } catch (e) {} }
+        }
+        // ✎ Rename the ACTIVE mini-game to the typed name — settings untouched
+        // (its stored legend is kept as-is, even if the controls are dirty).
+        function _mgNameBoxRename() {
+            var box = document.getElementById('mg-name-box'); if (!box) return;
+            var tgt = _mgSetupTarget(); if (!tgt) return;
+            var input = document.getElementById('mg-name-input');
+            var msg = document.getElementById('mg-name-msg');
+            var name = (input.value || '').trim();
+            if (!name) { msg.textContent = 'Type the new name first.'; input.focus(); return; }
+            var list = _mgListFor(tgt.type, tgt.index);
+            var active = (typeof box._activeIdx === 'number') ? box._activeIdx : -1;
+            if (active < 0 || !list[active]) {
+                msg.textContent = (active === -2)
+                    ? 'Default is the game\'s own configuration — it can\'t be renamed.'
+                    : 'Pick a mini-game chip first, then ✎ renames it.';
+                return;
+            }
+            if ((list[active].name || '').trim().toLowerCase() === name.toLowerCase()) { msg.textContent = 'That is already its name.'; return; }
             for (var i = 0; i < list.length; i++) {
-                if (i === matchIdx) continue;
+                if (i === active) continue;
                 if ((list[i].name || '').trim().toLowerCase() === name.toLowerCase()) {
                     msg.textContent = '“' + name + '” already exists — pick a different name.'; input.focus(); return;
                 }
             }
-            var legend = _mgCaptureSetupLegend(tgt.type, tgt.index);
-            if (matchIdx >= 0) {
-                _mgRenameLegend(tgt.type, tgt.index, matchIdx, name, legend);
-            } else {
-                _mgAddTo(tgt.type, tgt.index, { id: 'mg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-                                                name: name, createdAt: Date.now(), legend: legend });
-            }
-            msg.textContent = '✓ Saved “' + name + '”.';
+            var oldName = list[active].name || 'Mini-game';
+            _mgRenameLegend(tgt.type, tgt.index, active, name, null); // null legend = keep stored settings
+            msg.textContent = '✓ Renamed “' + oldName + '” → “' + name + '”.';
+            _mgChipSel = { key: _mgChipKey(tgt), idx: active };
             _mgUpdateNameBox();
             if (typeof populateIntroGames === 'function') { try { populateIntroGames(); } catch (e) {} }
         }
@@ -2206,16 +2314,28 @@
             startBtn.style.marginLeft = '0px';
             input.style.width = '170px';
             void startBtn.offsetWidth;
-            // 1) Play: shift so its RIGHT edge meets the Type column's LEFT edge.
-            var shift = typeLeft - startBtn.getBoundingClientRect().right;
-            if (shift > -500 && shift < 500) { startBtn.style.marginLeft = shift + 'px'; void startBtn.offsetWidth; }
-            // 2) Name box: grow the input so the whole widget (input + gap + save)
-            //    right edge reaches the Type column's RIGHT edge.
-            var boxLeft = box.getBoundingClientRect().left;
-            var saveW = save ? save.getBoundingClientRect().width : 42;
-            var gap = 7;
-            var inputW = typeRight - boxLeft - gap - saveW;
-            if (inputW > 120 && inputW < 700) input.style.width = Math.round(inputW) + 'px';
+            // Targets: the name box's right edge reaches the Type column's RIGHT
+            // edge, and Play's LEFT edge lines up with the Type column's LEFT edge
+            // (user, July 5 — same rule on GPt and GPm Setup). The input width and
+            // Play's margin interact through row wrapping (each change reflows the
+            // other's baseline), so run TWO passes — each measures fresh and sets
+            // absolute targets, which converges. Oversize values are CLAMPED, not
+            // skipped (the old <700 / ±500 sanity guards silently dropped the
+            // resize on wide windows, leaving the tiny 170px input).
+            var renBtn = document.getElementById('mg-name-rename');
+            for (var pass = 0; pass < 2; pass++) {
+                var boxLeft = box.getBoundingClientRect().left;
+                var saveW = save ? save.getBoundingClientRect().width : 42;
+                var renW = renBtn ? renBtn.getBoundingClientRect().width + 7 : 0; // + its gap
+                var gap = 7;
+                var inputW = typeRight - boxLeft - gap - saveW - renW;
+                if (inputW > 120) input.style.width = Math.round(Math.min(inputW, 1200)) + 'px';
+                void startBtn.offsetWidth;
+                var curM = parseFloat(startBtn.style.marginLeft) || 0;
+                var newM = curM + (typeLeft - startBtn.getBoundingClientRect().left);
+                if (newM > -1200 && newM < 1200) startBtn.style.marginLeft = newM + 'px';
+                void startBtn.offsetWidth;
+            }
             requestAnimationFrame(function () { try { startBtn.style.transition = ''; } catch (e) {} });
         }
         if (typeof window !== 'undefined') {
@@ -3417,14 +3537,20 @@
             if (prev) prev.parentNode.removeChild(prev);
             var prevP = sub.querySelector('.subtitle-player-glyph');
             if (prevP) prevP.parentNode.removeChild(prevP);
+            var prevH = sub.querySelector('.subtitle-home-hint');
+            if (prevH) prevH.parentNode.removeChild(prevH);
             if (mode == null) mode = (typeof _findInputMode !== 'undefined') ? _findInputMode : null;
             if (mode !== 'touch' && mode !== 'mouse') return;
             // Don't decorate the placeholder ("Please select a game").
             if (!/:/.test(sub.textContent)) return;
+            var goHome = function () { var h = document.getElementById('home-btn-setup'); if (h) h.click(); };
             var g = document.createElement('span');
             g.className = 'subtitle-mode-glyph';
             g.setAttribute('aria-hidden', 'true');
             g.innerHTML = (mode === 'mouse') ? '&#128433;' : '&#9995;';
+            g.title = 'Input mode: ' + mode + ' — change on Home page';
+            g.style.cursor = 'pointer';
+            g.addEventListener('click', goHome);
             sub.appendChild(g);
             // Player-mode glyph (1 / 2 stick figures) reflecting the GP 0 toggle —
             // shown right after the mouse/hand icon. Carries no text, so subtitle
@@ -3435,7 +3561,21 @@
             pg.className = 'subtitle-player-glyph';
             pg.setAttribute('aria-hidden', 'true');
             pg.innerHTML = _gpPlayerSvg(players);
+            pg.title = players + ' player' + (players === 1 ? '' : 's') + ' — change on Home page';
+            pg.style.cursor = 'pointer';
+            pg.addEventListener('click', goHome);
             sub.appendChild(pg);
+            // "— change on Home page" appended after the glyphs (user, July 5):
+            // says where the mode/players come from; clicking it (or a glyph) does
+            // exactly what the Home button does.
+            var hint = document.createElement('button');
+            hint.className = 'subtitle-home-hint';
+            hint.type = 'button';
+            hint.textContent = '— change on Home page';
+            hint.title = 'The input mode (✋/🖱) and player count are set on the Home page';
+            hint.style.cssText = 'margin-left:10px;background:none;border:none;padding:0;cursor:pointer;color:rgba(255,255,255,0.55);font-size:0.6em;font-weight:600;vertical-align:middle;text-decoration:underline;text-underline-offset:2px;font-family:inherit;white-space:nowrap;';
+            hint.addEventListener('click', goHome);
+            sub.appendChild(hint);
         };
 
         // Clone the Game Preview subtitle's game name + ✋/🖱 glyph into `target`
@@ -3454,8 +3594,9 @@
                 dst.appendChild(src.childNodes[i].cloneNode(true));
             }
             // The board TITLE shows only the game name — drop the cloned mode/player
-            // glyph decorations (✋/🖱 + stick figures) so nothing extra sits under it.
-            var _gl = dst.querySelectorAll('.subtitle-mode-glyph, .subtitle-player-glyph');
+            // glyph decorations (✋/🖱 + stick figures) and the "change on Home page"
+            // hint so nothing extra sits under it.
+            var _gl = dst.querySelectorAll('.subtitle-mode-glyph, .subtitle-player-glyph, .subtitle-home-hint');
             for (var _gi = 0; _gi < _gl.length; _gi++) _gl[_gi].parentNode.removeChild(_gl[_gi]);
             // Split "Type: Name" → "Type" (line 1, NO colon) + the concrete name in a
             // .board-id-name span. Phone CSS puts it on its own 2nd line; elsewhere a
@@ -8218,7 +8359,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-2"></script>
+    <script src="js/game.js?v=game-notes-3"></script>
     <script>
         // After game.js loads, intercept Start Game for catch mode.
         // Uses DOCUMENT-level delegation (capture phase) so it survives

@@ -1135,7 +1135,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:02 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:14 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1153,7 +1153,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:02 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:14 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1395,7 +1395,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:02 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:14 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3289,6 +3289,16 @@
         // editable (delete/restore a digit) and the construction is written.
         var _pvActive = false, _pvDigits = null;
         function _pvEffRange() {
+            // TARGET-AWARE: the pv helper describes the rule the construct edits —
+            // when a specific rule is targeted, decompose ITS range (a set part has
+            // nothing to decompose). Only the All (union) view uses the first range.
+            if (typeof _mpConstructTarget !== 'undefined' && _mpConstructTarget !== 'all'
+                && typeof _mpDraftParts !== 'undefined' && _mpDraftParts && _mpDraftParts[_mpConstructTarget]) {
+                var part = _mpDraftParts[_mpConstructTarget];
+                if (part.type !== 'range') return null;
+                var b = _mpRangeBounds(part);
+                return (b && b[0] <= b[1]) ? b : null;
+            }
             var loEl = document.getElementById('mp-lo'), hiEl = document.getElementById('mp-hi');
             var lo = parseInt((loEl || {}).value, 10), hi = parseInt((hiEl || {}).value, 10);
             if (isNaN(lo) || isNaN(hi)) return null;
@@ -3404,7 +3414,24 @@
         // The decomposition follows the range: recompute it whenever the range
         // changes (so 10..999 immediately becomes 100a + 10b + c), re-applying if on.
         function _pvOnRangeChange() {
+            var prev = (_pvActive && _pvDigits) ? _pvDigits : null;
             _pvDigits = _pvCompute();
+            // PRESERVE the user's manual digit restrictions across the recompute:
+            // intersect each recomputed place with its previous set (matched by
+            // name + place). An empty intersection means the new range genuinely
+            // excludes those digits — then the recomputed set wins. Without this,
+            // any range edit silently erased restrictions like b∈{1..9}.
+            if (prev && _pvDigits) {
+                _pvDigits.forEach(function (d) {
+                    for (var i = 0; i < prev.length; i++) {
+                        if (prev[i].name === d.name && prev[i].place === d.place) {
+                            var keep = d.set.filter(function (v) { return prev[i].set.indexOf(v) >= 0; });
+                            if (keep.length) d.set = keep;
+                            return;
+                        }
+                    }
+                });
+            }
             if (_pvActive) {
                 if (_pvDigits) _pvApply((document.getElementById('mp-sym') || {}).value || 'D');
                 else { _pvActive = false; var d = document.getElementById('mp-def'); if (d) { d.value = ''; if (typeof _mpSyncConstructTargetToDraft === 'function') _mpSyncConstructTargetToDraft(); _mpRenderMicros(); } }
@@ -3761,10 +3788,14 @@
                         + '<span class="par-list-sym">' + _mpEsc(sym) + '</span>'
                         + _mpOpSelect('mp-hi-op' + sfx, part.hiOp || 'le')
                         + '<input class="par-input par-num" id="mp-hi' + sfx + '" type="number" placeholder="max" value="' + _mpEsc(part.hi) + '">';
-                    row.querySelector('#mp-lo' + sfx).addEventListener('input', function () { part.lo = this.value; });
-                    row.querySelector('#mp-hi' + sfx).addEventListener('input', function () { part.hi = this.value; });
-                    row.querySelector('#mp-lo-op' + sfx).addEventListener('change', function () { part.loOp = this.value; });
-                    row.querySelector('#mp-hi-op' + sfx).addEventListener('change', function () { part.hiOp = this.value; });
+                    // Non-canonical ranges: refresh the pv ghost too when THIS rule is
+                    // the one being edited (the canonical first range is wired via
+                    // _mpBindRangeAux; _pvEffRange itself is target-aware).
+                    var _pvKick = function () { if (sfx !== '' && idx === _mpConstructTarget && typeof _pvOnRangeChange === 'function') _pvOnRangeChange(); };
+                    row.querySelector('#mp-lo' + sfx).addEventListener('input', function () { part.lo = this.value; _pvKick(); });
+                    row.querySelector('#mp-hi' + sfx).addEventListener('input', function () { part.hi = this.value; _pvKick(); });
+                    row.querySelector('#mp-lo-op' + sfx).addEventListener('change', function () { part.loOp = this.value; _pvKick(); });
+                    row.querySelector('#mp-hi-op' + sfx).addEventListener('change', function () { part.hiOp = this.value; _pvKick(); });
                 } else {
                     row.innerHTML =
                         '<span class="par-list-sym">' + _mpEsc(sym) + '</span>'
@@ -3877,7 +3908,12 @@
                 inset: { kind: 'inset', vals: [] },
                 exclude: { kind: 'exclude', vals: [] }
             }[kind];
-            if (def) { _mpDraftRestr.push(def); _mpRenderRestrList(); }
+            if (def) {
+                // The block sits under the targeted rule — a constraint added there
+                // belongs to THAT rule (the applies-to select can widen it to All).
+                if (_mpDraftParts.length >= 2 && _mpConstructTarget !== 'all') def.target = _mpConstructTarget;
+                _mpDraftRestr.push(def); _mpRenderRestrList();
+            }
         }
 
         // ---- read the editor form into a param object ----

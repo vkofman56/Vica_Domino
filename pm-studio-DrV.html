@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:51 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:51 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2802,6 +2802,7 @@
         var _mpDraftParts = [];    // Values parts (ranges + sets) of the in-progress editor
         var _mpDraftConstructs = {}; // per-part construct: target ('all'|partIdx) -> def string
         var _mpConstructTarget = 'all'; // which construct block the mp-def textarea is editing
+        var _mpBlockCollapsed = true;   // single-rule param: its editor starts folded (✎ opens it)
 
         function _mpEsc(s) {
             return String(s == null ? '' : s)
@@ -3036,15 +3037,10 @@
             _mpDraftConstructs = {};
             var _pcs = _mpConstructsOf(p);
             _pcs.forEach(function (c) { _mpDraftConstructs[c.target] = c.def; });
-            // Open on the shared 'all' block if it has content; otherwise on the first
-            // per-part block that does — so a per-part-only construct isn't hidden
-            // behind an empty "All parts" view on reopen.
+            // The editor opens CLEAN: every rule collapsed to its line (+ compact
+            // summary when it has content) — ✎ on a rule opens its editing tools.
             _mpConstructTarget = 'all';
-            if (!(_mpDraftConstructs.all && _mpDraftConstructs.all.trim())) {
-                for (var _ci = 0; _ci < _pcs.length; _ci++) {
-                    if (_pcs[_ci].target !== 'all' && _pcs[_ci].def && _pcs[_ci].def.trim()) { _mpConstructTarget = _pcs[_ci].target; break; }
-                }
-            }
+            _mpBlockCollapsed = true;
             // Values parts: migrate the old model into a working list of ranges/sets.
             _mpDraftParts = _mpPartsOf(p).map(function (part) {
                 var d = (part.type === 'set')
@@ -3499,6 +3495,11 @@
         // ('all'/null → none) — the whole bordered box brightens green.
         function _mpHighlightPart(idx) {
             var groups = document.querySelectorAll('#mp-parts .mp-rule-group');
+            // Single rule: its box highlights while its editing tools are open.
+            if (_mpDraftParts.length < 2) {
+                if (groups[0]) groups[0].classList.toggle('par-chosen', !_mpBlockCollapsed);
+                return;
+            }
             for (var i = 0; i < groups.length; i++) {
                 groups[i].classList.toggle('par-chosen', idx != null && idx !== 'all' && i === idx);
             }
@@ -3511,15 +3512,22 @@
             var home = document.getElementById('mp-rule-home');
             if (!block || !home) return;
             var host = document.getElementById('mp-parts');
-            if (_mpConstructTarget !== 'all' && host) {
-                var groups = host.querySelectorAll('.mp-rule-group');
-                var group = groups[_mpConstructTarget];
-                if (group) { block.style.display = 'flex'; group.appendChild(block); return; }
+            var groups = host ? host.querySelectorAll('.mp-rule-group') : [];
+            if (_mpConstructTarget !== 'all' && groups[_mpConstructTarget]) {
+                block.style.display = 'flex';
+                groups[_mpConstructTarget].appendChild(block);
+                return;
             }
-            // With SEVERAL rules and none targeted, every rule is collapsed — no
-            // stray union editor floats below; Check/Sample then cover the whole
-            // parameter. A single-rule param keeps its editor at home as always.
-            block.style.display = (_mpDraftParts.length >= 2) ? 'none' : 'flex';
+            // A single-rule param: its editor ALSO lives inside the rule's box, and
+            // starts folded (✎ opens it) — no stack of tools on a fresh parameter.
+            if (_mpDraftParts.length < 2 && groups[0]) {
+                block.style.display = _mpBlockCollapsed ? 'none' : 'flex';
+                groups[0].appendChild(block);
+                return;
+            }
+            // Several rules, none open: everything collapsed — no stray union
+            // editor floats below; Check/Sample then cover the whole parameter.
+            block.style.display = 'none';
             home.parentNode.insertBefore(block, home.nextSibling);
         }
         // The "starts transparent — or copy from rule N" row: shown when the current
@@ -3553,8 +3561,24 @@
         function _mpRenderRuleSummaries() {
             var host = document.getElementById('mp-parts'); if (!host) return;
             host.querySelectorAll('.mp-rule-summary').forEach(function (n) { n.remove(); });
-            if (_mpDraftParts.length < 2) return;
             var groups = host.querySelectorAll('.mp-rule-group');
+            // Single rule, folded: its content (the 'all' construct + constraints)
+            // shows as the same compact summary — click it to open the tools.
+            if (_mpDraftParts.length < 2) {
+                if (!_mpBlockCollapsed || !groups[0]) return;
+                var sDef = _mpDraftConstructs.all;
+                var sHas = sDef && sDef.trim();
+                var sN = (_mpDraftRestr || []).length;
+                if (!sHas && !sN) return;
+                var sBox = document.createElement('div');
+                sBox.className = 'mp-rule-summary';
+                sBox.title = 'Click to edit this rule\'s constraints/construct';
+                var sTxt = sHas ? sDef.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).join('  ·  ') : 'constraints only';
+                sBox.innerHTML = _mpEsc(sTxt) + (sN ? ' <span style="opacity:0.55;">· ' + sN + ' constraint' + (sN === 1 ? '' : 's') + '</span>' : '');
+                sBox.onclick = function () { _mpBlockCollapsed = false; _mpRenderConstructTarget(); };
+                groups[0].appendChild(sBox);
+                return;
+            }
             _mpDraftParts.forEach(function (part, i) {
                 if (i === _mpConstructTarget) return; // the live editor block sits here
                 var def = _mpDraftConstructs[i];
@@ -3629,6 +3653,7 @@
             if (_mpConstructTarget !== 'all' && (_mpConstructTarget >= _mpDraftParts.length || !multi)) {
                 _mpSyncConstructTargetToDraft();
                 _mpConstructTarget = 'all';
+                if (!multi) _mpBlockCollapsed = false; // was editing → keep the tools open
                 _mpLoadConstructTarget();
             }
             // Highlight + block position follow the target whenever there IS a
@@ -3639,15 +3664,15 @@
             _mpRenderRuleSummaries();
             _mpRefreshRuleToggles();
         }
-        // Sync every rule row's ✎/▴ toggle with the current target: the rule being
-        // edited shows ▴ (collapse), the others ✎ (open for editing).
+        // Sync every rule row's ✎/▴ toggle: the rule whose editing tools are open
+        // shows ▴ (fold), the others ✎ (open for editing).
         function _mpRefreshRuleToggles() {
             var togs = document.querySelectorAll('#mp-parts .mp-rule-toggle');
             for (var i = 0; i < togs.length; i++) {
-                var isTgt = (i === _mpConstructTarget);
-                togs[i].textContent = isTgt ? '▴' : '✎';
-                togs[i].title = isTgt ? 'Collapse — done editing this rule' : 'Edit this rule — open its construct/constraints';
-                togs[i].style.color = isTgt ? '#9fd6a0' : '#cfeede';
+                var open = (_mpDraftParts.length < 2) ? !_mpBlockCollapsed : (i === _mpConstructTarget);
+                togs[i].textContent = open ? '▴' : '✎';
+                togs[i].title = open ? 'Collapse — done editing this rule' : 'Edit this rule — open its constraints/construct';
+                togs[i].style.color = open ? '#9fd6a0' : '#cfeede';
             }
         }
         function _mpRenderRestrList() {
@@ -3851,26 +3876,30 @@
                     numTag.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;min-width:14px;flex:0 0 auto;';
                     row.insertBefore(numTag, row.firstChild);
                 }
-                // Editable / collapsed toggle (multi-rule only): ✎ opens this rule's
-                // editable form (the editor moves into its box); ▴ collapses it back
-                // to its compact summary. Refreshed by _mpRefreshRuleToggles.
-                if (_mpDraftParts.length >= 2) {
-                    var tog = document.createElement('button');
-                    tog.type = 'button'; tog.className = 'par-mini-btn mp-rule-toggle';
-                    tog.style.cssText = 'margin-left:auto;flex:0 0 auto;font-size:13px;';
-                    tog.onclick = function (e) {
-                        e.stopPropagation();
-                        var isTgt = (idx === _mpConstructTarget);
-                        _mpSyncConstructTargetToDraft();
-                        _mpConstructTarget = isTgt ? 'all' : idx; // ▴ collapses; ✎ edits
-                        _mpLoadConstructTarget();
+                // Editable / collapsed toggle on EVERY rule: ✎ opens the rule's
+                // editing tools inside its box; ▴ folds them away. A single-rule
+                // param flips its fold flag (its scope stays the whole parameter);
+                // multi-rule moves the shared editor. Refreshed by _mpRefreshRuleToggles.
+                var tog = document.createElement('button');
+                tog.type = 'button'; tog.className = 'par-mini-btn mp-rule-toggle';
+                tog.style.cssText = 'margin-left:auto;flex:0 0 auto;font-size:13px;';
+                tog.onclick = function (e) {
+                    e.stopPropagation();
+                    if (_mpDraftParts.length < 2) {
+                        _mpBlockCollapsed = !_mpBlockCollapsed;
                         _mpRenderConstructTarget();
-                    };
-                    row.appendChild(tog);
-                }
+                        return;
+                    }
+                    var isTgt = (idx === _mpConstructTarget);
+                    _mpSyncConstructTargetToDraft();
+                    _mpConstructTarget = isTgt ? 'all' : idx; // ▴ collapses; ✎ edits
+                    _mpLoadConstructTarget();
+                    _mpRenderConstructTarget();
+                };
+                row.appendChild(tog);
                 var x = document.createElement('button');
                 x.type = 'button'; x.className = 'par-mini-btn par-x'; x.innerHTML = '&#10005;'; x.title = 'Delete';
-                x.style.marginLeft = (_mpDraftParts.length >= 2) ? '2px' : 'auto';
+                x.style.marginLeft = '2px';
                 x.onclick = function () {
                     _mpSyncConstructTargetToDraft();
                     _mpDraftParts.splice(idx, 1);
@@ -3887,7 +3916,12 @@
                 // to reach a rule that has no summary box yet (nothing to click).
                 row.addEventListener('click', function (e) {
                     if (e.target.closest('input, select, button')) return;
-                    if (_mpDraftParts.length < 2 || idx === _mpConstructTarget) return;
+                    if (_mpDraftParts.length < 2) {
+                        // single rule: clicking its line unfolds the editing tools
+                        if (_mpBlockCollapsed) { _mpBlockCollapsed = false; _mpRenderConstructTarget(); }
+                        return;
+                    }
+                    if (idx === _mpConstructTarget) return;
                     _mpSyncConstructTargetToDraft();
                     _mpConstructTarget = idx;
                     _mpLoadConstructTarget();

@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:34 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:34 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:26 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:34 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3089,17 +3089,13 @@
                 + '<div id="mp-rule-block" style="display:flex;flex-direction:column;gap:8px;">'
                 + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
+                // No "for rule" selector: the block sits INSIDE its rule's bordered
+                // box — click another rule's line (or summary box) to edit that one.
+                // A not-yet-constructed rule ≥2 offers "copy from…" after Construct.
                 + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
                 +   '<button class="par-add-btn" id="mp-add-restr-btn">+ Add constraint ▾</button>'
                 +   '<button class="par-add-btn" id="mp-construct-btn" title="Build this parameter from hidden helper sub-parameters, e.g. A = 10a + b">Construct</button>'
-                +   '<span id="mp-construct-forrule" style="display:none;font-size:12px;color:#cfeede;">for rule</span>'
-                +   '<select id="mp-construct-target" class="par-input" style="display:none;padding:2px 6px;font-size:12px;width:auto;"></select>'
-                + '</div>'
-                // New rule's starting point: transparent (values pass through) — or
-                // copy another rule's construct/constraints and adjust.
-                + '<div id="mp-copy-row" style="display:none;align-items:center;gap:7px;font-size:11.5px;color:rgba(255,255,255,0.55);">'
-                +   '<span>construct: transparent — values pass through, or</span>'
-                +   '<select id="mp-copy-from" class="par-input" style="padding:2px 5px;font-size:11px;width:auto;"></select>'
+                +   '<select id="mp-copy-from" class="par-input" style="display:none;padding:2px 6px;font-size:12px;width:auto;" title="This rule starts transparent — its values pass through. Copy another rule\'s construct (and its constraints), then adjust."></select>'
                 + '</div>'
                 // Construction: a kind of constraint — build the value from hidden
                 // helper sub-parameters via a free-text formula. Toggled by Construct.
@@ -3174,14 +3170,6 @@
                 _mpRenderCopyRow(); // a typed construct is no longer "transparent"
             });
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
-            document.getElementById('mp-construct-target').addEventListener('change', function () {
-                _mpSyncConstructTargetToDraft();
-                _mpConstructTarget = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
-                _mpLoadConstructTarget();
-                _mpHighlightPart(_mpConstructTarget);
-                _mpPositionRuleBlock();
-                _mpRenderCopyRow();
-            });
             document.getElementById('mp-copy-from').addEventListener('change', function () {
                 if (this.value !== '') _mpCopyRuleFrom(this.value);
             });
@@ -3531,9 +3519,8 @@
         // The "starts transparent — or copy from rule N" row: shown when the current
         // target is a rule whose construct is still EMPTY and another block has one.
         function _mpRenderCopyRow() {
-            var row = document.getElementById('mp-copy-row');
             var sel = document.getElementById('mp-copy-from');
-            if (!row || !sel) return;
+            if (!sel) return;
             var t = _mpConstructTarget;
             var curEmpty = !(_mpDraftConstructs[t] && _mpDraftConstructs[t].trim());
             var sources = [];
@@ -3543,7 +3530,7 @@
                 sources.push(k);
             });
             var show = (t !== 'all') && curEmpty && sources.length > 0 && _mpDraftParts.length >= 2;
-            row.style.display = show ? 'flex' : 'none';
+            sel.style.display = show ? '' : 'none';
             if (!show) return;
             var html = '<option value="">copy from…</option>';
             sources.forEach(function (k) {
@@ -3618,19 +3605,11 @@
             _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             if (typeof _mpRenderCopyRow === 'function') _mpRenderCopyRow();
         }
-        // Populate + show/hide the inline "for rule [▾]" construct selector. It shows
-        // only when the Construct editor is OPEN and there are ≥2 rules; with one rule
-        // everything is "All".
+        // Keep the per-rule editing state consistent (no "for rule" selector — the
+        // block lives inside its rule's bordered box; click a rule's line or its
+        // summary box to move the editor there).
         function _mpRenderConstructTarget() {
-            var sel = document.getElementById('mp-construct-target');
-            var lbl = document.getElementById('mp-construct-forrule');
-            if (!sel) return;
             var multi = _mpDraftParts.length >= 2;
-            var cs = document.getElementById('mp-constructed-section');
-            var open = cs && cs.style.display !== 'none';
-            var show = multi && open;
-            sel.style.display = show ? '' : 'none';
-            if (lbl) lbl.style.display = show ? '' : 'none';
             // Down to one part: a per-part construct IS the whole domain — fold it
             // into the shared 'all' block so it reads cleanly and uses the simple path.
             if (!multi) {
@@ -3646,8 +3625,6 @@
                 _mpConstructTarget = 'all';
                 _mpLoadConstructTarget();
             }
-            sel.innerHTML = _mpTargetOptionsHTML(_mpConstructTarget);
-            sel.value = String(_mpConstructTarget);
             // Highlight + block position follow the target whenever there IS a
             // choice of rules (not only while the construct editor is open).
             _mpHighlightPart(multi ? _mpConstructTarget : null);
@@ -3852,7 +3829,7 @@
                     row.insertBefore(opSel, row.firstChild);
                     var numTag = document.createElement('span');
                     numTag.textContent = (idx + 1) + '.';
-                    numTag.title = 'Rule ' + (idx + 1) + ' — a construct or constraint can target it';
+                    numTag.title = 'Rule ' + (idx + 1) + ' — click the line to edit its construct/constraints';
                     numTag.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;min-width:14px;flex:0 0 auto;';
                     row.insertBefore(numTag, row.firstChild);
                 }
@@ -3870,6 +3847,17 @@
                     _pvOnRangeChange();
                 };
                 row.appendChild(x);
+                // Clicking a rule's LINE (not its inputs) moves the editor into its
+                // box — this replaced the "for rule" selector, and it's the only way
+                // to reach a rule that has no summary box yet (nothing to click).
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('input, select, button')) return;
+                    if (_mpDraftParts.length < 2 || idx === _mpConstructTarget) return;
+                    _mpSyncConstructTargetToDraft();
+                    _mpConstructTarget = idx;
+                    _mpLoadConstructTarget();
+                    _mpRenderConstructTarget();
+                });
                 // Each rule gets its own bordered GROUP box; the row is its first
                 // child, and the summary / editing block joins it below.
                 var group = document.createElement('div');

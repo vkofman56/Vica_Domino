@@ -830,6 +830,17 @@
             box-shadow: 0 0 0 1.5px rgba(126,255,126,0.7);
             border-radius: 6px; padding: 3px 5px; margin: -3px -5px;
         }
+        /* Compact per-rule box under a NON-active rule: its construct/constraints
+           at a glance; click to make it the rule being edited. */
+        #mp-parts .mp-rule-summary {
+            margin-left: 20px; padding: 3px 8px;
+            border: 1px dashed rgba(126,255,126,0.32); border-radius: 6px;
+            font-family: 'Roboto Mono', monospace; font-size: 11px; color: #cfe8cf;
+            cursor: pointer; line-height: 1.45; word-break: break-word;
+        }
+        #mp-parts .mp-rule-summary:hover {
+            border-color: rgba(126,255,126,0.75); background: rgba(126,255,126,0.08);
+        }
         .par-restr-row {
             display: flex; align-items: center; gap: 5px; font-size: 12px;
             background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.12);
@@ -1124,7 +1135,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:48 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:02 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1142,7 +1153,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:48 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:02 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1384,7 +1395,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:48 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:02 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3120,9 +3131,20 @@
             // (values pass through) and offers "copy from rule N" to seed one.
             function _mpAddPart(part) {
                 _mpSyncConstructTargetToDraft();
+                // Going 1 → 2 rules: a construct made while there was a single
+                // range/set belongs to THAT first rule, not to "All" — reassign it
+                // so rule 1 keeps its visible box and the new rule starts truly
+                // transparent instead of inheriting the shared construct.
+                if (_mpDraftParts.length === 1
+                    && _mpDraftConstructs.all && _mpDraftConstructs.all.trim()
+                    && !(_mpDraftConstructs[0] && _mpDraftConstructs[0].trim())) {
+                    _mpDraftConstructs[0] = _mpDraftConstructs.all;
+                    delete _mpDraftConstructs.all;
+                    if (_mpConstructTarget === 'all') _mpConstructTarget = 0;
+                }
                 _mpDraftParts.push(part);
                 _mpConstructTarget = _mpDraftParts.length - 1;
-                _mpRenderParts();          // renders rows + repositions the block + copy row
+                _mpRenderParts();          // renders rows + repositions the block + copy row + rule boxes
                 _mpLoadConstructTarget();  // empty (transparent) construct for the new rule
             }
             document.getElementById('mp-add-range-btn').addEventListener('click', function () {
@@ -3477,6 +3499,37 @@
             sel.innerHTML = html;
             sel.value = '';
         }
+        // Compact per-rule boxes: every rule EXCEPT the one being edited shows its
+        // construct (and targeted-constraint count) in a small box right under its
+        // row — so rule 1's box stays visible while rule 2 is edited. Click a box
+        // to switch the editor to that rule.
+        function _mpRenderRuleSummaries() {
+            var host = document.getElementById('mp-parts'); if (!host) return;
+            host.querySelectorAll(':scope > .mp-rule-summary').forEach(function (n) { n.remove(); });
+            if (_mpDraftParts.length < 2) return;
+            var rows = host.querySelectorAll(':scope > .par-range-row');
+            _mpDraftParts.forEach(function (part, i) {
+                if (i === _mpConstructTarget) return; // the live editor block sits here
+                var def = _mpDraftConstructs[i];
+                var hasDef = def && def.trim();
+                var nRestr = (_mpDraftRestr || []).filter(function (r) { return r.target === i; }).length;
+                if (!hasDef && !nRestr) return; // a transparent rule needs no box
+                var box = document.createElement('div');
+                box.className = 'mp-rule-summary';
+                box.title = 'Rule ' + (i + 1) + ' — click to edit its construct/constraints';
+                var txt = hasDef ? def.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).join('  ·  ') : 'transparent';
+                box.innerHTML = '<span style="opacity:0.55;">' + (i + 1) + ':</span> ' + _mpEsc(txt)
+                    + (nRestr ? ' <span style="opacity:0.55;">· ' + nRestr + ' constraint' + (nRestr === 1 ? '' : 's') + '</span>' : '');
+                box.onclick = function () {
+                    _mpSyncConstructTargetToDraft();
+                    _mpConstructTarget = i;
+                    _mpLoadConstructTarget();
+                    _mpRenderConstructTarget(); // re-highlights, repositions the block, re-renders boxes
+                };
+                var row = rows[i];
+                if (row) host.insertBefore(box, row.nextSibling);
+            });
+        }
         // Copy another block's construct (and, for a rule source, its targeted
         // constraints) into the CURRENT target, then let the user adjust.
         function _mpCopyRuleFrom(srcKey) {
@@ -3547,11 +3600,13 @@
             _mpHighlightPart(multi ? _mpConstructTarget : null);
             _mpPositionRuleBlock();
             _mpRenderCopyRow();
+            _mpRenderRuleSummaries();
         }
         function _mpRenderRestrList() {
             var host = document.getElementById('mp-restr-list');
             if (!host) return;
             host.innerHTML = '';
+            if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries(); // constraint counts show in the rule boxes
             var noneEl = document.getElementById('mp-constraints-none');
             if (!_mpDraftRestr.length) {
                 if (noneEl) noneEl.style.display = '';
@@ -3572,6 +3627,7 @@
                     tsel.addEventListener('change', function () {
                         r.target = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
                         _mpHighlightPart(r.target);
+                        if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries();
                     });
                     // Highlight the targeted range/set while this constraint is focused.
                     tsel.addEventListener('focus', function () { _mpHighlightPart(r.target == null ? 'all' : r.target); });

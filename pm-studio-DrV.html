@@ -1112,7 +1112,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1130,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:55 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1372,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:55 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:23 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2769,6 +2769,8 @@
         var _mpEditIdx = null;     // index being edited; null = adding new
         var _mpDraftRestr = [];    // constraints of the in-progress editor
         var _mpDraftParts = [];    // Values parts (ranges + sets) of the in-progress editor
+        var _mpDraftConstructs = {}; // per-part construct: target ('all'|partIdx) -> def string
+        var _mpConstructTarget = 'all'; // which construct block the mp-def textarea is editing
 
         function _mpEsc(s) {
             return String(s == null ? '' : s)
@@ -2998,6 +3000,19 @@
             // Drop any legacy "In set" restriction — it migrates into a set PART below.
             _mpDraftRestr = (p.restrictions || []).map(function (r) { return JSON.parse(JSON.stringify(r)); })
                 .filter(function (r) { return r.kind !== 'inset'; });
+            // Per-part construct blocks (migrated from the single def) into a working map.
+            _mpDraftConstructs = {};
+            var _pcs = _mpConstructsOf(p);
+            _pcs.forEach(function (c) { _mpDraftConstructs[c.target] = c.def; });
+            // Open on the shared 'all' block if it has content; otherwise on the first
+            // per-part block that does — so a per-part-only construct isn't hidden
+            // behind an empty "All parts" view on reopen.
+            _mpConstructTarget = 'all';
+            if (!(_mpDraftConstructs.all && _mpDraftConstructs.all.trim())) {
+                for (var _ci = 0; _ci < _pcs.length; _ci++) {
+                    if (_pcs[_ci].target !== 'all' && _pcs[_ci].def && _pcs[_ci].def.trim()) { _mpConstructTarget = _pcs[_ci].target; break; }
+                }
+            }
             // Values parts: migrate the old model into a working list of ranges/sets.
             _mpDraftParts = _mpPartsOf(p).map(function (part) {
                 return (part.type === 'set')
@@ -3041,6 +3056,10 @@
                 // Construction: a kind of constraint — build the value from hidden
                 // helper sub-parameters via a free-text formula. Toggled by Construct.
                 + '<div id="mp-constructed-section" style="display:none;flex-direction:column;gap:5px;margin-top:2px;font-size:14px;">'
+                +   '<div id="mp-construct-target-row" style="display:none;align-items:center;gap:6px;font-size:12px;color:#cfeede;">'
+                +     '<span>Construct applies to</span>'
+                +     '<select id="mp-construct-target" class="par-input" style="padding:2px 6px;font-size:12px;width:auto;"></select>'
+                +   '</div>'
                 +   '<div id="mp-pv-helper" style="display:none;padding:7px 9px;border:1px dashed rgba(126,255,126,0.35);border-radius:8px;"></div>'
                 +   '<div class="par-sym-bar">'
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-mul" title="Insert × (multiply)">×</button>'
@@ -3080,6 +3099,11 @@
                 _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             });
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
+            document.getElementById('mp-construct-target').addEventListener('change', function () {
+                _mpSyncConstructTargetToDraft();
+                _mpConstructTarget = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
+                _mpLoadConstructTarget();
+            });
             function _mpRuleInput() { return document.getElementById('mp-rule-input') || document.getElementById('mp-def'); }
             document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '×'); });
             document.getElementById('mp-ins-div').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '÷'); });
@@ -3104,8 +3128,10 @@
             // Reset / restore the place-value helper for this parameter.
             _pvActive = false; _pvDigits = null; _mpRuleDraft = '';
             if (p.def && p.def.trim()) _pvLoadFromDef(p.def, p.sym);
-            // Open the construction editor if this parameter already has one.
-            _mpShowConstruct(!!(p.def && p.def.trim()));
+            // Open the construction editor if this parameter already has any construct.
+            _mpShowConstruct(_mpConstructsOf(p).length > 0);
+            _mpRenderConstructTarget();
+            _mpLoadConstructTarget(); // show the initial target's formula in the textarea
             _mpRenderMicros(); _mpRenderRules();
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
@@ -3325,13 +3351,77 @@
             if (hint) hint.style.display = show ? 'block' : 'none';
             var btn = document.getElementById('mp-construct-btn');
             if (btn) btn.classList.toggle('active', !!show);
-            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
+            if (show) { _mpRenderConstructTarget(); _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
         }
         function _mpToggleConstruct() {
             var cs = document.getElementById('mp-constructed-section');
             var open = cs && cs.style.display !== 'none';
             _mpShowConstruct(!open);
             if (!open) { var d = document.getElementById('mp-def'); if (d) d.focus(); }
+        }
+        // ===== Per-part rule targeting (UI) =====
+        // A short label for a part, used in the "applies to" selectors.
+        function _mpPartLabel(part, idx) {
+            var body;
+            if (part.type === 'set') {
+                var vs = (part.vals || []);
+                body = '{' + vs.slice(0, 4).join(',') + (vs.length > 4 ? '…' : '') + '}';
+            } else {
+                var lo = (part.lo === '' || part.lo == null) ? '?' : part.lo;
+                var hi = (part.hi === '' || part.hi == null) ? '?' : part.hi;
+                body = lo + '..' + hi;
+            }
+            return 'Part ' + (idx + 1) + ' · ' + body;
+        }
+        // <option> list: "All parts" + one per current draft part.
+        function _mpTargetOptionsHTML(current) {
+            var html = '<option value="all"' + (current === 'all' ? ' selected' : '') + '>All parts (union)</option>';
+            _mpDraftParts.forEach(function (part, i) {
+                html += '<option value="' + i + '"' + (String(current) === String(i) ? ' selected' : '') + '>' + _mpEsc(_mpPartLabel(part, i)) + '</option>';
+            });
+            return html;
+        }
+        // Save the construct textarea into the block for the CURRENT target.
+        function _mpSyncConstructTargetToDraft() {
+            var d = document.getElementById('mp-def'); if (!d) return;
+            var v = d.value;
+            if (v && v.trim()) _mpDraftConstructs[_mpConstructTarget] = v;
+            else delete _mpDraftConstructs[_mpConstructTarget];
+        }
+        // Load the CURRENT target's block into the construct textarea + re-render.
+        function _mpLoadConstructTarget() {
+            var d = document.getElementById('mp-def'); if (!d) return;
+            d.value = _mpDraftConstructs[_mpConstructTarget] || '';
+            var sym = (document.getElementById('mp-sym') || {}).value || 'D';
+            if (!_pvLoadFromDef(d.value, sym)) { _pvActive = false; _pvDigits = null; }
+            _mpRuleDraft = '';
+            _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
+        }
+        // Populate + show/hide the construct target selector. Per-part construct is
+        // only meaningful with ≥2 parts; with one part everything is "All".
+        function _mpRenderConstructTarget() {
+            var sel = document.getElementById('mp-construct-target');
+            var row = document.getElementById('mp-construct-target-row');
+            if (!sel || !row) return;
+            var multi = _mpDraftParts.length >= 2;
+            row.style.display = multi ? 'flex' : 'none';
+            // Down to one part: a per-part construct IS the whole domain — fold it
+            // into the shared 'all' block so it reads cleanly and uses the simple path.
+            if (!multi) {
+                if (!(_mpDraftConstructs.all && _mpDraftConstructs.all.trim())) {
+                    var keys = Object.keys(_mpDraftConstructs).filter(function (k) { return k !== 'all' && _mpDraftConstructs[k] && _mpDraftConstructs[k].trim(); });
+                    if (keys.length) _mpDraftConstructs.all = _mpDraftConstructs[keys[0]];
+                }
+                Object.keys(_mpDraftConstructs).forEach(function (k) { if (k !== 'all') delete _mpDraftConstructs[k]; });
+            }
+            // clamp a stale target (a part was removed / we dropped to one part)
+            if (_mpConstructTarget !== 'all' && (_mpConstructTarget >= _mpDraftParts.length || !multi)) {
+                _mpSyncConstructTargetToDraft();
+                _mpConstructTarget = 'all';
+                _mpLoadConstructTarget();
+            }
+            sel.innerHTML = _mpTargetOptionsHTML(_mpConstructTarget);
+            sel.value = String(_mpConstructTarget);
         }
         function _mpRenderRestrList() {
             var host = document.getElementById('mp-restr-list');
@@ -3347,6 +3437,18 @@
                 var row = document.createElement('div');
                 row.className = 'par-restr-row';
                 row.appendChild(_mpRestrEditor(r));
+                // "applies to" — only meaningful with ≥2 parts. Default: All.
+                if (_mpDraftParts.length >= 2) {
+                    var tsel = document.createElement('select');
+                    tsel.className = 'par-input';
+                    tsel.title = 'Which part(s) this constraint filters';
+                    tsel.style.cssText = 'padding:2px 5px;font-size:11px;width:auto;margin-left:4px;';
+                    tsel.innerHTML = _mpTargetOptionsHTML(r.target == null ? 'all' : r.target);
+                    tsel.addEventListener('change', function () {
+                        r.target = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
+                    });
+                    row.appendChild(tsel);
+                }
                 var x = document.createElement('button');
                 x.className = 'par-mini-btn par-x';
                 x.innerHTML = '&#10005;'; x.title = 'Remove';
@@ -3455,10 +3557,18 @@
             var host = document.getElementById('mp-parts'); if (!host) return;
             host.innerHTML = '';
             var sym = _mpCurSym(), firstRangeDone = false;
+            var showNums = _mpDraftParts.length >= 2; // number parts once there's a choice to target
             _mpDraftParts.forEach(function (part, idx) {
                 var row = document.createElement('div');
                 row.className = 'par-range-row';
                 row.style.cssText = 'display:flex;align-items:center;gap:4px;';
+                if (showNums) {
+                    var numTag = document.createElement('span');
+                    numTag.textContent = (idx + 1) + '.';
+                    numTag.title = 'Part ' + (idx + 1) + ' — rules can target it';
+                    numTag.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;min-width:14px;';
+                    row.appendChild(numTag);
+                }
                 if (part.type === 'range') {
                     var sfx = firstRangeDone ? ('-' + idx) : ''; firstRangeDone = true;
                     row.innerHTML =
@@ -3482,11 +3592,42 @@
                 var x = document.createElement('button');
                 x.type = 'button'; x.className = 'par-mini-btn par-x'; x.innerHTML = '&#10005;'; x.title = 'Delete';
                 x.style.marginLeft = 'auto';
-                x.onclick = function () { _mpDraftParts.splice(idx, 1); _mpRenderParts(); _pvOnRangeChange(); };
+                x.onclick = function () {
+                    _mpSyncConstructTargetToDraft();
+                    _mpDraftParts.splice(idx, 1);
+                    _mpRemapPartTargets(idx);          // shift construct/constraint targets past the gap
+                    _mpRenderParts();
+                    _mpRenderConstructTarget();
+                    _mpRenderRestrList();
+                    _mpLoadConstructTarget();
+                    _pvOnRangeChange();
+                };
                 row.appendChild(x);
                 host.appendChild(row);
             });
             _mpBindRangeAux();
+            if (typeof _mpRenderConstructTarget === 'function') _mpRenderConstructTarget();
+        }
+        // When part `removed` is deleted, drop its targeted construct/constraints and
+        // shift every higher part index down one so targets keep pointing correctly.
+        function _mpRemapPartTargets(removed) {
+            var next = {};
+            Object.keys(_mpDraftConstructs).forEach(function (k) {
+                if (k === 'all') { next.all = _mpDraftConstructs.all; return; }
+                var i = parseInt(k, 10);
+                if (i === removed) return;
+                next[i > removed ? i - 1 : i] = _mpDraftConstructs[k];
+            });
+            _mpDraftConstructs = next;
+            if (_mpConstructTarget !== 'all') {
+                if (_mpConstructTarget === removed) _mpConstructTarget = 'all';
+                else if (_mpConstructTarget > removed) _mpConstructTarget -= 1;
+            }
+            (_mpDraftRestr || []).forEach(function (r) {
+                if (r.target == null || r.target === 'all') return;
+                if (r.target === removed) r.target = 'all';
+                else if (r.target > removed) r.target -= 1;
+            });
         }
         function _mpParseList(s) {
             return (s || '').split(',').map(function (x) { return parseInt(x.trim(), 10); })
@@ -3538,14 +3679,32 @@
 
         // ---- read the editor form into a param object ----
         function _mpReadEditor() {
-            var defEl = document.getElementById('mp-def');
-            var def = defEl ? defEl.value : '';
+            // Fold the visible construct textarea into the current target's block.
+            if (typeof _mpSyncConstructTargetToDraft === 'function') _mpSyncConstructTargetToDraft();
             // Values parts (deep copy of the working list); also mirror the first
             // range into lo/hi for the legacy consumers (constructed filter etc.).
             var parts = _mpDraftParts.map(function (part) {
                 return (part.type === 'set')
                     ? { type: 'set', vals: _mpUniqSortInt(part.vals || []) }
                     : { type: 'range', lo: part.lo, hi: part.hi, loOp: part.loOp || 'le', hiOp: part.hiOp || 'le' };
+            });
+            // Build the construct blocks: keep 'all' + only per-part blocks whose part
+            // still exists. `def` (legacy) mirrors the shared 'all' block.
+            var constructs = [];
+            Object.keys(_mpDraftConstructs).forEach(function (k) {
+                var d = _mpDraftConstructs[k];
+                if (!d || !d.trim()) return;
+                if (k === 'all') { constructs.push({ target: 'all', def: d }); return; }
+                var i = parseInt(k, 10);
+                if (i >= 0 && i < parts.length) constructs.push({ target: i, def: d });
+            });
+            constructs.sort(function (a, b) { return (a.target === 'all' ? -1 : a.target) - (b.target === 'all' ? -1 : b.target); });
+            var def = _mpDraftConstructs.all || '';
+            // Restrictions: carry `target`, but clamp a target past the last part to 'all'.
+            var restrictions = _mpDraftRestr.map(function (r) {
+                var c = JSON.parse(JSON.stringify(r));
+                if (c.target != null && c.target !== 'all' && !(c.target >= 0 && c.target < parts.length)) c.target = 'all';
+                return c;
             });
             var firstR = null; for (var i = 0; i < parts.length; i++) { if (parts[i].type === 'range') { firstR = parts[i]; break; } }
             var loN = firstR ? parseInt(firstR.lo, 10) : NaN, hiN = firstR ? parseInt(firstR.hi, 10) : NaN;
@@ -3560,13 +3719,15 @@
             return {
                 sym: (document.getElementById('mp-sym').value || '').trim(),
                 type: 'int',
-                // A parameter is "constructed" whenever it has a (non-empty) formula.
+                // A parameter is "constructed" whenever the shared formula is non-empty.
+                // (Per-part-only constructs route via _mpUsesPerPart, not this flag.)
                 mode: (def.trim() ? 'constructed' : 'direct'),
                 def: def,
+                constructs: constructs,
                 parts: parts,
                 lo: { val: (isNaN(loN) ? null : loN), op: (firstR ? firstR.loOp : 'le') },
                 hi: { val: (isNaN(hiN) ? null : hiN), op: (firstR ? firstR.hiOp : 'le') },
-                restrictions: _mpDraftRestr.map(function (r) { return JSON.parse(JSON.stringify(r)); }),
+                restrictions: restrictions,
                 width: width
             };
         }
@@ -3603,6 +3764,40 @@
             else { if (hasRange) addRange(); addSet(); } // no domain: oldest model (range + maybe inset)
             return parts;
         }
+        // ===== Per-part constructs / constraints (July 6) =====
+        // A parameter can carry a construct AND constraints that apply to the whole
+        // union (the classic behaviour) OR to ONE numbered part. Storage:
+        //   p.constructs = [{ target: 'all' | <partIdx 0-based>, def: '…' }]  (migrated from p.def)
+        //   each restriction gets an optional `target` ('all'/undefined = union, or <partIdx>)
+        // A per-part construct's output is FILTERED by that part's own range/set
+        // (user decision, July 6). p.def stays = the 'all' block so every existing
+        // reader (info cards, generator dispatch) keeps working unchanged.
+        function _mpConstructsOf(p) {
+            if (p.constructs && p.constructs.length) return p.constructs;
+            // migrate the single legacy def into one 'all' block
+            return (p.def && p.def.trim()) ? [{ target: 'all', def: p.def }] : [];
+        }
+        // Index constructs by target ('all' or a part index) → def string.
+        function _mpConstructByTarget(p) {
+            var m = {};
+            _mpConstructsOf(p).forEach(function (c) { m[c.target] = c.def; });
+            return m;
+        }
+        // True when this parameter uses ANY per-part targeting (a construct scoped to
+        // a part, more than one construct block, or a constraint scoped to a part).
+        // The whole per-part code path is GATED on this — false ⇒ identical to before.
+        function _mpUsesPerPart(p) {
+            var cs = _mpConstructsOf(p);
+            if (cs.length > 1) return true;
+            for (var i = 0; i < cs.length; i++) { if (cs[i].target !== 'all' && cs[i].target != null) return true; }
+            var rs = p.restrictions || [];
+            for (var j = 0; j < rs.length; j++) { if (rs[j].target != null && rs[j].target !== 'all') return true; }
+            // A shared ('all') construct over ≥2 parts means "fill the UNION" — the
+            // per-part engine filters the construct into EACH part (single-part
+            // constructed params keep the untouched legacy first-range path).
+            if (cs.length === 1 && cs[0].def && cs[0].def.trim() && _mpPartsOf(p).length >= 2) return true;
+            return false;
+        }
         // Effective [a,b] of a single range part (honours </≤ ops). null = incomplete.
         function _mpRangeBounds(part) {
             var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
@@ -3638,6 +3833,28 @@
             if (!values.length) return emptyRanges.length ? { emptyRange: emptyRanges[0] } : { needRange: true };
             return { values: _mpUniqSortInt(values) };
         }
+        // Is `val` inside ONE part (a range's [a,b] or a set's members)?
+        function _mpValInPart(val, part) {
+            if (!part) return false;
+            if (part.type === 'set') return _mpUniqSortInt(part.vals || []).indexOf(val) >= 0;
+            var b = _mpRangeBounds(part);
+            return !!b && val >= b[0] && val <= b[1];
+        }
+        // Enumerate ONE part's base pool. Returns {values:[…]} (capped), or
+        // {big,a,span} for a huge range (sample), or {empty:true}/{incomplete:true}.
+        function _mpEnumPart(part) {
+            var CAP = 2000000;
+            if (part.type === 'set') {
+                var vs = _mpUniqSortInt(part.vals || []);
+                return vs.length ? { values: vs } : { empty: true };
+            }
+            var b = _mpRangeBounds(part);
+            if (!b) return { incomplete: true };
+            if (b[0] > b[1]) return { empty: true };
+            if ((b[1] - b[0] + 1) > CAP) return { big: true, a: b[0], span: b[1] - b[0] + 1 };
+            var out = []; for (var v = b[0]; v <= b[1]; v++) out.push(v);
+            return { values: out };
+        }
         // Validate a direct parameter's Values parts; null = OK, else a message.
         function _mpValidateDirect(p) {
             // The formula's ANSWER parameter (e.g. C in "A + B = C") is computed, so a
@@ -3660,6 +3877,21 @@
             if (isAnswer) return null;                          // answer: no range is fine
             if (incomplete) return 'Finish the range — set both a min and a max.';
             return 'Add a range or a set of values.';
+        }
+        // Validate a per-part parameter: needs a domain, and every construct block
+        // (shared or per-part) must parse. null = OK, else a message.
+        function _mpValidatePerPart(p) {
+            if (!_mpHasDomain(p)) return 'Add a range or a set of values.';
+            var cs = _mpConstructsOf(p), out = [];
+            cs.forEach(function (c) {
+                if (!c.def || !c.def.trim()) return;
+                var parsed = _mpParseDef(c.def, p.sym);
+                if (parsed.errors.length) {
+                    var who = (c.target === 'all') ? 'shared construct' : ('construct for part ' + ((c.target | 0) + 1));
+                    out.push(who + ' — ' + parsed.errors.join('; '));
+                }
+            });
+            return out.length ? out.join('\n') : null;
         }
         // Does p have any usable range or set part (a real domain)?
         function _mpHasDomain(p) {
@@ -3997,8 +4229,15 @@
         function _mpWitness(env, names) {
             return names.map(function (k) { return k + '=' + env[k]; }).join(', ');
         }
-        function _mpGenerateConstructed(p, n) {
-            var parsed = _mpParseDef(p.def || '', p.sym);
+        function _mpGenerateConstructed(p, n, opts) {
+            opts = opts || {};
+            // opts.def       — formula to use instead of p.def (per-part construct)
+            // opts.filter    — fn(val)->bool replacing the effective-range filter
+            //                  (per-part construct: keep only values inside its part)
+            // opts.restrict  — restrictions to apply instead of p.restrictions
+            var _def = (opts.def != null) ? opts.def : (p.def || '');
+            var _pCheck = (opts.restrict != null) ? Object.assign({}, p, { restrictions: opts.restrict }) : p;
+            var parsed = _mpParseDef(_def, p.sym);
             if (parsed.errors.length) return { error: parsed.errors.join('\n') };
             var freeNames = Object.keys(parsed.freeVars);
             for (var i = 0; i < freeNames.length; i++) {
@@ -4037,9 +4276,9 @@
                         var rel = parsed.relations[r];
                         if (!_mpCmp(_mpEvalToks(rel.a, env), rel.op, _mpEvalToks(rel.b, env))) return;
                     }
-                    var rng = _mpEffectiveRange(p);
-                    if (rng && (val < rng[0] || val > rng[1])) return;
-                    if (!_mpValueOK(val, p)) return;
+                    if (opts.filter) { if (!opts.filter(val)) return; }
+                    else { var rng = _mpEffectiveRange(p); if (rng && (val < rng[0] || val > rng[1])) return; }
+                    if (!_mpValueOK(val, _pCheck)) return;
                     if (!seen[val]) { seen[val] = 1; distinct.push({ value: val, env: JSON.parse(JSON.stringify(env)) }); }
                 } catch (ex) { tryEnv._err = ex.message; }
             }
@@ -4070,9 +4309,77 @@
             return { samples: picks, count: (combos <= CAP ? distinct.length : null), witnessNames: witnessNames };
         }
 
+        // ---- PER-PART generation: union of each part's own values ----
+        // Each part is generated independently: a part WITH a construct (its own, or
+        // the shared 'all' one) generates from that formula then keeps only values
+        // that land inside the part's range/set; a part WITHOUT a construct just
+        // enumerates its range/set. Constraints apply if their target is 'all' or
+        // this part. The parameter's pool is the UNION. Returns {value,env} samples
+        // (constructed-style) so witnesses + cross-param env still work.
+        function _mpGeneratePerPart(p, n) {
+            var parts = _mpPartsOf(p);
+            if (!parts.length) return { error: 'Add a range or a set of values.' };
+            var byT = _mpConstructByTarget(p);
+            var allDef = byT['all'] || '';
+            var restr = p.restrictions || [];
+            var pool = [], seen = {}, envByVal = {}, anyErr = null, big = false;
+            parts.forEach(function (part, i) {
+                var def_i = (byT[i] != null) ? byT[i] : allDef;
+                var restr_i = restr.filter(function (r) { return r.target == null || r.target === 'all' || r.target === i; });
+                if (def_i && def_i.trim()) {
+                    var filt = (function (pt) { return function (v) { return _mpValInPart(v, pt); }; })(part);
+                    var g = _mpGenerateConstructed(p, Math.max(n, 40), { def: def_i, filter: filt, restrict: restr_i });
+                    if (g.error) { anyErr = g.error; return; }
+                    (g.samples || []).forEach(function (s) {
+                        if (!seen[s.value]) { seen[s.value] = 1; pool.push(s.value); envByVal[s.value] = s.env || {}; }
+                    });
+                } else {
+                    var pView = Object.assign({}, p, { restrictions: restr_i });
+                    var e = _mpEnumPart(part);
+                    if (e.incomplete || e.empty) return;
+                    if (e.big) {
+                        big = true;
+                        var tries = 0;
+                        while (tries < 200000 && pool.length < n * 30) {
+                            tries++;
+                            var rv = e.a + Math.floor(Math.random() * e.span);
+                            if (!seen[rv] && _mpValueOK(rv, pView)) { seen[rv] = 1; pool.push(rv); envByVal[rv] = {}; }
+                        }
+                    } else {
+                        e.values.forEach(function (v) {
+                            if (!seen[v] && _mpValueOK(v, pView)) { seen[v] = 1; pool.push(v); envByVal[v] = {}; }
+                        });
+                    }
+                }
+            });
+            if (!pool.length) return anyErr ? { error: anyErr } : { samples: [], count: 0, empty: true };
+            pool.sort(function (a, b) { return a - b; });
+            var picks;
+            if (pool.length <= n) picks = pool.slice();
+            else { picks = []; var step = pool.length / n; for (var pi = 0; pi < n; pi++) picks.push(pool[Math.floor(pi * step)]); }
+            var wn = {};
+            var samples = picks.map(function (v) {
+                var env = envByVal[v] || {};
+                Object.keys(env).forEach(function (k) { wn[k] = 1; });
+                return { value: v, env: env };
+            });
+            return { samples: samples, count: big ? null : pool.length, witnessNames: Object.keys(wn) };
+        }
+        // Dispatch: per-part (gated) → constructed → direct. Keeps a single call site
+        // for all consumers; non-per-part params route to the untouched generators.
+        // Constructed-ness is read from the construct block (robust to a stale `mode`).
+        function _mpGenerateAny(p, n) {
+            if (_mpUsesPerPart(p)) return _mpGeneratePerPart(p, n);
+            var cs = _mpConstructsOf(p);          // 0 or 1 block here (per-part gate is false)
+            var allDef = (cs.length && cs[0].target === 'all') ? cs[0].def : '';
+            if ((p.mode === 'constructed') || (allDef && allDef.trim())) {
+                return _mpGenerateConstructed(p, n, allDef ? { def: allDef } : undefined);
+            }
+            return _mpGenerate(p, n);
+        }
         // One random valid value for a saved param (used by the f-formula preview).
         function _mpGenerateOne(p) {
-            var r = (p.mode === 'constructed') ? _mpGenerateConstructed(p, 400) : _mpGenerate(p, 400);
+            var r = _mpGenerateAny(p, 400);
             if (r.error) return { error: r.error };
             if (!r.samples || !r.samples.length) return { empty: true };
             var pick = r.samples[Math.floor(Math.random() * r.samples.length)];
@@ -4082,8 +4389,8 @@
         // witness env (so the joint generator can expose A__a, A__b, … and enforce
         // cross-parameter constraints). Direct params return an empty env.
         function _mpGenerateOneWithEnv(p) {
-            if (p.mode === 'constructed') {
-                var r = _mpGenerateConstructed(p, 400);
+            if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                var r = _mpGenerateAny(p, 400);
                 if (r.error) return { error: r.error };
                 if (!r.samples || !r.samples.length) return { empty: true };
                 var pick = r.samples[Math.floor(Math.random() * r.samples.length)];
@@ -4097,12 +4404,13 @@
         function _mpSampleCurrent() {
             var out = document.getElementById('mp-sample-out');
             var p = _mpReadEditor();
-            var res = (p.mode === 'constructed') ? _mpGenerateConstructed(p, 6) : _mpGenerate(p, 6);
+            var perPart = _mpUsesPerPart(p);
+            var res = _mpGenerateAny(p, 6);
             out.className = 'par-sample-out';
             if (res.error) { out.classList.add('warn'); out.textContent = '⚠ ' + res.error; return; }
             if (res.empty) { out.classList.add('warn'); out.textContent = '⚠ No value satisfies these rules — they may contradict.'; return; }
             out.classList.add('ok');
-            if (p.mode === 'constructed') {
+            if (perPart || p.mode === 'constructed') {
                 var vals = res.samples.map(function (s) { return s.value; });
                 var cnt = (res.count == null) ? 'many' : (res.count + ' value' + (res.count === 1 ? '' : 's'));
                 var wit = res.samples.map(function (s) {
@@ -4126,7 +4434,11 @@
         // ---- Check ✓ : validate the definition WITHOUT saving ----
         function _mpCheckCurrent() {
             var p = _mpReadEditor();
-            if (p.mode === 'constructed') {
+            if (_mpUsesPerPart(p)) {
+                var errs = _mpValidatePerPart(p);
+                if (errs) { _mpMsg('warn', '⚠ ' + errs); return; }
+                _mpMsg('ok', '✓ Per-part rules look good.');
+            } else if (p.mode === 'constructed') {
                 var parsed = _mpParseDef(p.def || '', p.sym);
                 if (parsed.errors.length) { _mpMsg('warn', '⚠ ' + parsed.errors.join('\n')); return; }
                 _mpMsg('ok', '✓ Definition looks good.');
@@ -4145,7 +4457,10 @@
             for (var i = 0; i < arr.length; i++) {
                 if (i !== _mpEditIdx && arr[i].sym === p.sym) { _mpMsg('warn', '⚠ Symbol "' + p.sym + '" is already used.'); return; }
             }
-            if (p.mode === 'constructed') {
+            if (_mpUsesPerPart(p)) {
+                var pperr = _mpValidatePerPart(p);
+                if (pperr) { _mpMsg('warn', '⚠ ' + pperr); return; }
+            } else if (p.mode === 'constructed') {
                 var parsed = _mpParseDef(p.def || '', p.sym);
                 if (parsed.errors.length) { _mpMsg('warn', '⚠ ' + parsed.errors.join('\n')); return; }
             } else {
@@ -6608,10 +6923,12 @@
             if (loupeSourceCard) {
                 _loadCardShapeFromCard(loupeSourceCard);
             } else {
-                // New card: default to square
+                // New card: default to square — including the FRAME SCALE, which
+                // used to stay stale from the previously edited card.
                 currentCardShape = 'square';
                 currentCardWidth = 60;
                 currentCardHeight = 60;
+                currentCardFrameScale = 1;
                 document.querySelectorAll('.draw-shape-btn').forEach(function(b) {
                     b.classList.toggle('active', b.dataset.shape === 'square');
                 });
@@ -9344,6 +9661,14 @@
         }
 
         function openBlankCardLoupe() {
+            // A NEW card starts from the standard shape — reset the shape globals
+            // so nothing leaks in from the previously edited card (a stale
+            // frame scale / width would silently ride onto later saves).
+            currentCardShape = 'square';
+            currentCardWidth = 60;
+            currentCardHeight = 60;
+            currentCardCornerRadius = -1;
+            currentCardFrameScale = 1;
             // Create a temporary blank card element to open in loupe
             var blankCard = document.createElement('div');
             blankCard.className = 'library-card draw-blank-card';
@@ -13045,20 +13370,27 @@
             }
 
             // Find row matching this letter within the ACTIVE card set only
-            // (searching across all sets could place cards in a hidden container)
+            // (searching across all sets could place cards in a hidden container).
+            // The row's OWN letter (data-row-letter) is authoritative; matching by
+            // card labels is only a fallback for rows without one — mid-operation
+            // (e.g. a group move before renumberRow) another row can still hold
+            // cards with stale labels of this letter, and a label match there
+            // would drop the card into the WRONG row.
             var firstChar = _rowKeyParse(label) || label.charAt(0).toUpperCase();
             var rows = appendTarget.querySelectorAll('.library-row');
             var targetRow = null;
             rows.forEach(function(r) {
-                if ((r.dataset.rowLetter || '') === firstChar) {
-                    targetRow = r;
-                } else {
+                if ((r.dataset.rowLetter || '') === firstChar) targetRow = r;
+            });
+            if (!targetRow) {
+                rows.forEach(function(r) {
+                    if (r.dataset.rowLetter) return; // lettered rows already had their chance
                     var firstLabel = r.querySelector('.library-label');
                     if (firstLabel && _rowKeyParse(firstLabel.textContent) === firstChar) {
                         targetRow = r;
                     }
-                }
-            });
+                });
+            }
             if (!targetRow) {
                 var section = document.createElement('div');
                 section.className = 'library-section';
@@ -15273,6 +15605,32 @@
                     menu.appendChild(_refItem);
                 }
                 menu.appendChild(_ctxSep());
+                // "Reset size" \u2014 only for cards carrying a persisted per-card size
+                // (cardShapeW/H \u2260 60 or a frame scale). The loupe's right-edge /
+                // corner drags save such a size; this is the one-click way back.
+                (function () {
+                    var targets = (_ctxIsGroup ? groupEditSelected.slice() : [card]).filter(function (c) {
+                        if (!c || !c.dataset) return false;
+                        var w = parseFloat(c.dataset.cardShapeW) || 60;
+                        var h = parseFloat(c.dataset.cardShapeH) || 60;
+                        var f = parseFloat(c.dataset.cardFrameScale) || 1;
+                        return w !== 60 || h !== 60 || f !== 1;
+                    });
+                    if (!targets.length) return;
+                    menu.appendChild(_ctxItem('\u21f2', 'Reset size' + (targets.length > 1 ? ' (' + targets.length + ')' : '') + ' \u2192 standard', function () {
+                        if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot();
+                        targets.forEach(function (c) {
+                            c.dataset.cardShape = 'square';
+                            c.dataset.cardShapeW = 60;
+                            c.dataset.cardShapeH = 60;
+                            delete c.dataset.cardFrameScale;
+                            if (typeof _applyShapeToPreview === 'function') { try { _applyShapeToPreview(c); } catch (e) {} }
+                        });
+                        if (typeof saveVariations === 'function') saveVariations();
+                        if (typeof applyLibZoom === 'function') applyLibZoom();
+                        if (typeof _geFlash === 'function') _geFlash('Card size reset to standard (60\u00d760)');
+                    }));
+                })();
                 menu.appendChild(_ctxItem('\u2699', _ctxIsGroup ? ('Properties (' + _ctxN + ')\u2026') : 'Properties', function() {
                     if (_ctxIsGroup) _ctxShowPropertiesPicker(groupEditSelected.slice());
                     else _ctxShowPropertiesDialog(card);
@@ -20366,7 +20724,7 @@
                 { id: 'correct-answers',  icon: '✅',       name: 'Correct answers',     desc: 'Every correct answer: which card/problem was solved.', applies: ['find', 'catch', 'math'] },
                 { id: 'first-try-answers', icon: '🥇', name: 'First-try answers',   desc: 'Correct on the first attempt (no retries).', applies: ['find', 'catch', 'math'] },
                 { id: 'repeated-mistake', icon: '🔁', name: 'Repeated mistake',    desc: 'The same card/problem missed more than once — a stable gap.', applies: ['find', 'catch', 'math'] },
-                { id: 'missed-per-role',  icon: '🎭', name: 'Missed answers per role', desc: 'N of missed answers per role.', applies: ['find', 'catch'] }
+                { id: 'missed-per-role',  icon: '🎭', name: 'Missed answers per role', desc: 'N of missed answers per role. The role is the domino\'s LOWER card\'s — top cards are ignored.', applies: ['find', 'catch'] }
             ]},
             { group: 'Timing', color: '#00BCD4', rules: [
                 { id: 'time-per-answer',  icon: '⏱️', name: 'Time on each answer', desc: 'How long P takes on every answer.', applies: ['find', 'catch'] },
@@ -20385,7 +20743,7 @@
                 { id: 'guessing-multichoice', icon: '🎯', name: 'Guessing in Multi-Choice', desc: 'P: 1 correct out of R. The game: 1 correct out of N choices. R ≈ N means guessing.', applies: ['find', 'catch'] }
             ]},
             { group: 'Summaries / charts', color: '#c792ea', rules: [
-                { id: 'roles-success-chart', icon: '📊', name: 'Roles success chart',  desc: '% of success for each role.', applies: ['find', 'catch'] },
+                { id: 'roles-success-chart', icon: '📊', name: 'Roles success chart',  desc: '% of success for each role. The role is the domino\'s LOWER card\'s — top cards are ignored.', applies: ['find', 'catch'] },
                 { id: 'per-card-success', icon: '🗂️', name: 'Per-card success',     desc: 'Success rate for each individual card/problem (which to repeat, which to retire).', applies: ['find', 'catch', 'math'] },
                 { id: 'session-totals',   icon: '🕰️', name: 'Session totals',       desc: 'Rounds played, total time in the game, answers per minute.', applies: ['find', 'catch', 'math'] }
             ]}
@@ -20420,13 +20778,52 @@
             if (_gnGameScope.type === 'find') {
                 var gs = loadCustomGames(); gs[_gnGameScope.index] = game; saveCustomGames(gs);
             }
+            _gnBackupLegend(game);
         }
-        // First open of a game's legend: inherit the game TYPE's plan as version 1.
+        // ---- Legend backup (name-keyed) ----
+        // The user's note choices must HOLD no matter what: if any game-save
+        // path ever rebuilds a game object without gameNoteSets, the box (and
+        // the recorder — game.js reads the same key) restores the legend from
+        // this backup instead of silently re-inheriting the type template.
+        function _gnBackupLegend(game) {
+            if (!game || !game.name || !game.gameNoteSets || !game.gameNoteSets.length) return;
+            try {
+                var m = JSON.parse(localStorage.getItem('gameNoteLegends_v1') || '{}') || {};
+                m[game.name] = { sets: game.gameNoteSets, sel: game.gameNoteSetSel || 0 };
+                localStorage.setItem('gameNoteLegends_v1', JSON.stringify(m));
+            } catch (e) {}
+        }
+        function _gnRestoreLegend(game) {
+            if (!game || !game.name) return null;
+            try {
+                var bk = (JSON.parse(localStorage.getItem('gameNoteLegends_v1') || '{}') || {})[game.name];
+                if (bk && bk.sets && bk.sets.length) return bk;
+            } catch (e) {}
+            return null;
+        }
+        // A game's ACTIVE legend notes for the PLAY path (backup-aware, no
+        // template fallback — the caller decides that). Null = no legend.
+        function _gnPlayLegendNotes(g) {
+            if (!g) return null;
+            var sets = g.gameNoteSets, sel = g.gameNoteSetSel || 0;
+            if (!sets || !sets.length) { var bk = _gnRestoreLegend(g); if (bk) { sets = bk.sets; sel = bk.sel || 0; } }
+            if (!sets || !sets.length) return null;
+            return ((sets[sel] || sets[0]) || {}).notes || {};
+        }
+        // First open of a game's legend: restore the backup if the game entry
+        // lost its legend; only a game that NEVER had one inherits the game
+        // TYPE's plan as version 1.
         function _gnEnsureGameSets(game) {
             if (!game.gameNoteSets || !game.gameNoteSets.length) {
-                var tpl = _gnActiveFor(_gnGameScope ? _gnGameScope.type : 'find');
-                game.gameNoteSets = [{ notes: JSON.parse(JSON.stringify(tpl)) }];
-                game.gameNoteSetSel = 0;
+                var bk = _gnRestoreLegend(game);
+                if (bk) {
+                    game.gameNoteSets = JSON.parse(JSON.stringify(bk.sets));
+                    game.gameNoteSetSel = bk.sel || 0;
+                } else {
+                    var tpl = _gnActiveFor(_gnGameScope ? _gnGameScope.type : 'find');
+                    game.gameNoteSets = [{ notes: JSON.parse(JSON.stringify(tpl)) }];
+                    game.gameNoteSetSel = 0;
+                }
             }
             if (game.gameNoteSetSel == null || game.gameNoteSetSel >= game.gameNoteSets.length) game.gameNoteSetSel = 0;
             return game;
@@ -20480,6 +20877,10 @@
         // flushed to localStorage on every event so a closed/killed iframe loses
         // nothing; on end (pagehide) it moves into the gameNoteSessions_v1 history.
         var _gnSession = null;
+        // The play tab's game index (?play=N) — lets a session re-resolve its
+        // game's ACTIVE legend version after load (the Studio tab can edit the
+        // legend while this play tab is already open).
+        var _gnPlayGameIndex = null;
         function _gnSessionStart(type, gameName, notesOverride) {
             // A game WITH a legend records its active version; a game without one
             // falls back to the type template.
@@ -20496,18 +20897,87 @@
         }
         window._gnRecord = function (ev) {
             if (!_gnSession) return;
+            // The legend can be edited in the Studio tab AFTER this play tab
+            // loaded (the load-time snapshot goes stale). Re-read it on the
+            // FIRST judged answer so the session records what is armed when
+            // play actually begins, not when the tab was opened.
+            if (!_gnSession.events.length) _gnRefreshSessionNotes();
+            if (!_gnSession) return; // legend emptied since load → nothing to record
             ev = ev || {};
             ev.t = Date.now() - _gnSession.startedAt;
             _gnSession.events.push(ev);
             _gnFlushSession();
         };
+        // Re-resolve the session's notes from the game's CURRENT active legend
+        // version (localStorage is shared with the Studio tab, so an edit there
+        // is visible here). Only called while the session has no events yet —
+        // once answers exist the session keeps the legend it started with.
+        function _gnRefreshSessionNotes() {
+            if (!_gnSession) return;
+            var act = null;
+            try {
+                if (_gnPlayGameIndex != null) {
+                    var g = loadCustomGames()[_gnPlayGameIndex] || {};
+                    act = _gnPlayLegendNotes(g) || _gnActiveFor(_gnSession.type);
+                } else {
+                    act = _gnActiveFor(_gnSession.type);
+                }
+            } catch (e) { return; }
+            if (!act) return;
+            var tag = document.getElementById('gn-rec-tag');
+            if (!Object.keys(act).length) {
+                // Every note was turned off since the tab opened → record nothing.
+                _gnSession = null;
+                try { localStorage.removeItem('gameNoteSession_current'); } catch (e2) {}
+                if (tag) tag.remove();
+                return;
+            }
+            _gnSession.notes = act;
+            _gnSession.noteSet = _gnSetSignature(act);
+            _gnFlushSession();
+            if (tag) tag.textContent = '📝 recording ' + Object.keys(act).length + ' note' + (Object.keys(act).length === 1 ? '' : 's');
+        }
+        // Keep the armed notes fresh while the play tab idles on the setup
+        // screen: returning to this tab re-syncs the legend (and the tag) —
+        // and if NOTHING was armed at load, arming notes in the Studio tab
+        // and coming back starts the session that load-time skipped.
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState !== 'visible') return;
+            if (_gnSession) {
+                if (!_gnSession.events.length) _gnRefreshSessionNotes();
+                return;
+            }
+            if (_gnPlayGameIndex == null) return;
+            try {
+                var g = loadCustomGames()[_gnPlayGameIndex] || {};
+                _gnSessionStart('find', g.name, _gnPlayLegendNotes(g));
+            } catch (e) {}
+        });
         function _gnFlushSession() {
             if (!_gnSession) return;
             try { localStorage.setItem('gameNoteSession_current', JSON.stringify(_gnSession)); } catch (e) {}
         }
+        // Freeze the played cards' faces INTO the session (session.faces) so a
+        // report's dominoes survive FUTURE library edits — deleting/renaming a
+        // card or set can no longer blank the art in an old report. Only labels
+        // that actually appear in the events are stored (size-capped; a failed
+        // freeze just leaves the view-time resolution as before).
+        function _gnFreezeFaces(session) {
+            try {
+                if (!session || !session.events || !session.events.length || session.faces) return;
+                var all = _gnCardFaces(session), used = {};
+                Object.keys(all).forEach(function (lbl) {
+                    for (var i = 0; i < session.events.length; i++) {
+                        if ((session.events[i].made || '').indexOf(lbl) !== -1) { used[lbl] = all[lbl]; return; }
+                    }
+                });
+                if (Object.keys(used).length && JSON.stringify(used).length < 400000) session.faces = used;
+            } catch (e) {}
+        }
         function _gnSessionEnd() {
             if (!_gnSession) return;
             _gnSession.endedAt = Date.now();
+            _gnFreezeFaces(_gnSession);
             try {
                 var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                 hist.unshift(_gnSession);
@@ -20538,7 +21008,11 @@
                         return '<circle cx="' + (x + p[0]) + '" cy="' + p[1] + '" r="1.7" fill="#2a2140"/>';
                     }).join('');
                 }
-                return '<text x="' + (x + 8) + '" y="12.5" text-anchor="middle" font-size="9" font-weight="700" fill="#2a2140">' + _mpEsc(String(v)) + '</text>';
+                // Non-pip half = the value/label as text, font shrunk to FIT the
+                // 16-unit half (long math-problem labels must not spill out).
+                var s = String(v).trim() || '?';
+                var fs = Math.max(3.2, Math.min(9, 26 / s.length));
+                return '<text x="' + (x + 8) + '" y="' + (9 + fs * 0.36).toFixed(1) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" font-weight="700" fill="#2a2140">' + _mpEsc(s) + '</text>';
             }
             return '<svg width="38" height="20" viewBox="0 0 36 18" style="flex:0 0 auto;vertical-align:middle;">'
                 + '<rect x="0.5" y="0.5" width="35" height="17" rx="3" fill="#fdf6e3" stroke="#8b7d5a"/>'
@@ -20616,8 +21090,21 @@
                 var games = loadCustomGames();
                 for (var i = 0; i < games.length; i++) {
                     if (games[i] && games[i].name === session.game) {
-                        (games[i].cards || []).forEach(function (c) {
-                            if (c && c.label && c.role && !map[c.label]) map[c.label] = c.role;
+                        var cards = games[i].cards || [];
+                        // Pass 1: the game entry's own role when present, else the
+                        // stored card's role by stableId across ALL set stores —
+                        // the SAME lookup the Game View role badges use
+                        // (game.cards entries rarely carry `role` themselves).
+                        cards.forEach(function (c) {
+                            if (!c || !c.label || map[c.label]) return;
+                            var role = c.role || '';
+                            if (!role && c.stableId && typeof _getCardRole === 'function') role = _getCardRole('', c.stableId) || '';
+                            if (role) map[c.label] = role;
+                        });
+                        // Pass 2: variations inherit the original card's role.
+                        cards.forEach(function (c) {
+                            if (!c || !c.label || map[c.label] || !c.isVariation || !c.originalLabel) return;
+                            if (map[c.originalLabel]) map[c.label] = map[c.originalLabel];
                         });
                         break;
                     }
@@ -20625,20 +21112,66 @@
             } catch (e) {}
             return map;
         }
+        // All card labels of the session's game — the reference set for parsing
+        // `made` strings (labels themselves may contain '+', e.g. "E7_20 + 8").
+        function _gnCardLabels(session) {
+            var set = {};
+            try {
+                var games = loadCustomGames();
+                for (var i = 0; i < games.length; i++) {
+                    if (games[i] && games[i].name === session.game) {
+                        (games[i].cards || []).forEach(function (c) { if (c && c.label) set[c.label] = 1; });
+                        break;
+                    }
+                }
+            } catch (e) {}
+            return set;
+        }
         function _gnEvaluate(session) {
             var ev = session.events || [];
             var deltas = ev.map(function (e, i) { return e.t - (i ? ev[i - 1].t : 0); });
             var total = ev.length, correct = ev.filter(function (e) { return e.correct; }).length, wrong = total - correct;
             function listCards(arr) { return arr.map(function (e) { return e.card || '?'; }).join(', '); }
             var faces = _gnCardFaces(session);
+            // The session's frozen faces (snapshotted when it ended) WIN over the
+            // live stores — they are what the student actually saw, and they
+            // survive library edits made since.
+            if (session.faces) Object.keys(session.faces).forEach(function (k) { faces[k] = session.faces[k]; });
             var roles = _gnCardRoles(session);
-            // Both halves' roles of one answer ("A1+B3" → [role(A1), role(B3)]);
-            // event.role (from gameplay) wins when present.
+            var labelSet = _gnCardLabels(session);
+            // "made" = topLabel + '+' + bottomLabel — but a LABEL can itself
+            // contain '+' (math-problem cards like "E7_20 + 8"). Try every '+'
+            // as the joiner and keep the split where the most sides are KNOWN
+            // card labels; falls back to the first '+' (the old behavior).
+            function madeParts(madeStr) {
+                if (!madeStr) return null;
+                function known(l) { return labelSet[l] || faces[l] || roles[l] ? 1 : 0; }
+                var best = null, bestScore = -1, p = -1;
+                while ((p = madeStr.indexOf('+', p + 1)) !== -1) {
+                    var l = madeStr.slice(0, p), r = madeStr.slice(p + 1);
+                    var score = known(l) + known(r);
+                    if (score > bestScore) { bestScore = score; best = [l, r]; }
+                }
+                return best;
+            }
+            function madeNames(madeStr) {
+                var parts = madeParts(madeStr);
+                return parts ? parts.join(' + ') : (madeStr || '').split('+').join(' + ');
+            }
+            // The role of an answer = the role of the domino's LOWER card only —
+            // the top card is the prompt and is ignored (user rule, July 5).
+            // `made` is recorded as "top+bottom", and the deal/flip logic swaps
+            // the half KEYS together with the values, so the second label is
+            // always the card shown at the BOTTOM. event.role (from gameplay)
+            // wins when present.
             function rolesOf(e) {
                 if (e.role) return [e.role];
-                if (!e.made) return [];
-                return e.made.split('+').map(function (lbl) { return roles[lbl] || ''; }).filter(Boolean);
+                var parts = madeParts(e.made);
+                if (!parts) return [];
+                var r = roles[parts[1]];
+                return r ? [r] : [];
             }
+            var roleFootnote = '<div style="opacity:0.6;font-size:11px;margin-top:4px;">role = the domino’s lower card; top cards don’t count</div>';
             var E = {};
             // Card tallies for A1/A2 — time is insignificant here (user, July 5):
             // one ROW per distinct domino, biggest count first. Each row: the domino
@@ -20647,9 +21180,8 @@
             // ("E1 + B3"), and ×N when it happened several times. Falls back to the
             // pip/value glyph when the faces aren't resolvable (older sessions).
             function dominoFaces(madeStr, valsKey) {
-                if (!madeStr) return '';
-                var parts = madeStr.split('+');
-                if (parts.length !== 2) return '';
+                var parts = madeParts(madeStr);
+                if (!parts) return '';
                 // At least ONE half must resolve to a real face; the other half (a
                 // card missing from the library) shows its value/label as text in
                 // the same domino frame — one bad half must not hide the good one.
@@ -20665,6 +21197,18 @@
                     + halfHtml(parts[1], vals[1], 'border-left:1.5px solid #8b7d5a;')
                     + '</span>';
             }
+            // The GUARANTEED glyph chain — a report row always shows a domino:
+            // real faces → the card key's values (pips for 0-6, text otherwise)
+            // → the made-from labels as text halves → a "?" domino.
+            function dominoGlyph(madeStr, valsKey) {
+                var g = dominoFaces(madeStr, valsKey);
+                if (g) return g;
+                var vals = (valsKey || '').split('|');
+                if (vals.length === 2) return _gnDominoSVG(vals[0], vals[1]);
+                var parts = madeParts(madeStr);
+                if (parts) return _gnDominoSVG(parts[0], parts[1]);
+                return _gnDominoSVG(valsKey || '?', '?');
+            }
             function tallyRows(list, badgeColor) {
                 var m = {}, made = {};
                 list.forEach(function (e) {
@@ -20675,12 +21219,8 @@
                 return Object.keys(m)
                     .sort(function (a, b) { return (m[b] - m[a]) || a.localeCompare(b); })
                     .map(function (k) {
-                        var glyph = dominoFaces(made[k], k);
-                        if (!glyph) {
-                            var vals = k.split('|');
-                            glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : '';
-                        }
-                        var names = made[k] ? made[k].split('+').join(' + ') : k.split('|').join(' / ');
+                        var glyph = dominoGlyph(made[k], k);
+                        var names = made[k] ? madeNames(made[k]) : k.split('|').join(' / ');
                         return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">'
                             + glyph
                             + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
@@ -20715,7 +21255,7 @@
                 return _mpEsc(nCards + ' card' + (nCards === 1 ? '' : 's') + ' missed more than once:') + tallyRows(repEvents, '#e57373');
             };
             E['missed-per-role'] = function () {
-                // Each miss counts under the roles of BOTH its cards (resolved from
+                // Each miss counts under its LOWER card's role (resolved from
                 // the made-from labels via the game's card.role assignments).
                 var m = {}, any = false;
                 ev.forEach(function (e) {
@@ -20732,7 +21272,7 @@
                         + '<span style="display:inline-block;height:9px;width:' + Math.min(160, m[k] * 22) + 'px;background:#e57373;border-radius:5px;"></span>'
                         + '<span>' + m[k] + '</span></div>';
                 }).join('');
-                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>');
+                return rows + (any ? '' : '<div style="opacity:0.6;font-size:11px;">no role assignments found on this game\'s cards</div>') + roleFootnote;
             };
             E['time-per-answer'] = function () {
                 // Chronological chips: the domino + its answer time, green for
@@ -20740,8 +21280,7 @@
                 if (!total) return _mpEsc('No answers recorded.');
                 var avg = deltas.reduce(function (a, b) { return a + b; }, 0) / total;
                 var chips = ev.map(function (e, i) {
-                    var glyph = dominoFaces(e.made, e.card);
-                    if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                    var glyph = dominoGlyph(e.made, e.card);
                     var col = e.correct ? '#81c784' : '#e57373';
                     return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
                         + '<span style="font-weight:700;color:' + col + ';">' + (deltas[i] / 1000).toFixed(1) + 's</span></span>';
@@ -20751,8 +21290,7 @@
             };
             // Domino + colored time chip, shared by B2/B3 (same look as B1).
             function timeChip(e, ms, color) {
-                var glyph = dominoFaces(e.made, e.card);
-                if (!glyph) { var vals = (e.card || '').split('|'); glyph = (vals.length === 2) ? _gnDominoSVG(vals[0], vals[1]) : _mpEsc(e.card || '?'); }
+                var glyph = dominoGlyph(e.made, e.card);
                 return '<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0;">' + glyph
                     + '<span style="font-weight:700;color:' + color + ';">' + (ms / 1000).toFixed(1) + 's</span></span>';
             }
@@ -20812,8 +21350,14 @@
                 return 'Success ' + Math.round(rate * 100) + '% vs pure chance ' + Math.round(chance * 100) + '% (N ≈ ' + N.toFixed(1) + ' choices): ' + verdict + '.';
             };
             E['roles-success-chart'] = function () {
+                // Same role resolution as A5: an answer counts under its LOWER
+                // card's role (from the made-from labels), event.role wins.
                 var m = {}, any = false;
-                ev.forEach(function (e) { var r = e.role || '(no role)'; if (e.role) any = true; if (!m[r]) m[r] = { c: 0, t: 0 }; m[r].t++; if (e.correct) m[r].c++; });
+                ev.forEach(function (e) {
+                    var rs = rolesOf(e);
+                    if (rs.length) any = true; else rs = ['(no role)'];
+                    rs.forEach(function (r) { if (!m[r]) m[r] = { c: 0, t: 0 }; m[r].t++; if (e.correct) m[r].c++; });
+                });
                 var ks = Object.keys(m); if (!ks.length) return 'No answers recorded.';
                 var html = ks.map(function (k) {
                     var pct = Math.round(m[k].c / m[k].t * 100);
@@ -20821,12 +21365,34 @@
                          + '<span style="display:inline-block;height:10px;width:' + Math.max(2, pct * 1.6) + 'px;background:#c792ea;border-radius:5px;"></span>'
                          + '<span>' + pct + '%</span></div>';
                 }).join('');
-                return html + (any ? '' : '<div style="opacity:0.6;font-size:11px;">cards in this game carry no roles yet</div>');
+                return html + (any ? '' : '<div style="opacity:0.6;font-size:11px;">cards in this game carry no roles yet</div>') + roleFootnote;
             };
             E['per-card-success'] = function () {
-                var m = {}; ev.forEach(function (e) { var k = e.card || '?'; if (!m[k]) m[k] = { c: 0, t: 0 }; m[k].t++; if (e.correct) m[k].c++; });
-                var ks = Object.keys(m); if (!ks.length) return 'No answers recorded.';
-                return ks.map(function (k) { return k + ': ' + Math.round(m[k].c / m[k].t * 100) + '% (' + m[k].c + '/' + m[k].t + ')'; }).join(' · ');
+                // One row per distinct domino — drawn from its REAL card faces
+                // like A1/A2 — worst success first ("which to repeat" reads from
+                // the top). Colored %: red <50, amber <80, green above.
+                var m = {}, made = {};
+                ev.forEach(function (e) {
+                    var k = e.card || '?';
+                    if (!m[k]) m[k] = { c: 0, t: 0 };
+                    m[k].t++; if (e.correct) m[k].c++;
+                    if (!made[k] && e.made) made[k] = e.made;
+                });
+                var ks = Object.keys(m); if (!ks.length) return _mpEsc('No answers recorded.');
+                ks.sort(function (a, b) {
+                    return (m[a].c / m[a].t - m[b].c / m[b].t) || (m[b].t - m[a].t) || a.localeCompare(b);
+                });
+                return ks.map(function (k) {
+                    var glyph = dominoGlyph(made[k], k);
+                    var names = made[k] ? madeNames(made[k]) : k.split('|').join(' / ');
+                    var pct = Math.round(m[k].c / m[k].t * 100);
+                    var col = pct >= 80 ? '#81c784' : (pct >= 50 ? '#ffb74d' : '#e57373');
+                    return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0;">' + glyph
+                        + '<span style="min-width:70px;">' + _mpEsc(names) + '</span>'
+                        + '<span style="font-weight:800;color:' + col + ';min-width:44px;">' + pct + '%</span>'
+                        + '<span style="opacity:0.85;">' + m[k].c + '/' + m[k].t + '</span>'
+                        + '</div>';
+                }).join('');
             };
             E['session-totals'] = function () {
                 // Duration floor: the last event's timestamp (guards a clock oddity
@@ -20845,7 +21411,8 @@
                     try { text = fn ? fn(armed.params || {}) : '(no evaluator yet)'; } catch (e) { text = '(error: ' + e.message + ')'; }
                     var isHtml = { 'roles-success-chart': 1, 'missed-answers': 1, 'correct-answers': 1,
                                    'first-try-answers': 1, 'repeated-mistake': 1, 'time-per-answer': 1,
-                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1 }[rule.id];
+                                   'fast-correct': 1, 'long-gap': 1, 'missed-per-role': 1,
+                                   'per-card-success': 1 }[rule.id];
                     out.push({ icon: rule.icon, name: rule.name, html: isHtml ? text : _mpEsc(text) });
                 });
             });
@@ -20958,6 +21525,7 @@
                 if ((Date.now() - lastAlive) < 10 * 60000) return; // could still be playing
                 cur.endedAt = lastAlive;
                 cur.interrupted = true;
+                if (typeof _gnFreezeFaces === 'function') _gnFreezeFaces(cur); // killed-tab sessions keep their art too
                 var hist = JSON.parse(localStorage.getItem('gameNoteSessions_v1') || '[]') || [];
                 hist.unshift(cur);
                 localStorage.setItem('gameNoteSessions_v1', JSON.stringify(hist.slice(0, 10)));
@@ -36414,11 +36982,9 @@
             // the game's own legend (active version) wins over the type template.
             // game.js reports judged answers via window._gnRecord.
             try {
+                _gnPlayGameIndex = playIndex; // lets the session re-read the legend later
                 var _gnG = loadCustomGames()[playIndex] || {};
-                var _gnNotes = (_gnG.gameNoteSets && _gnG.gameNoteSets.length)
-                    ? ((_gnG.gameNoteSets[_gnG.gameNoteSetSel || 0] || {}).notes || {})
-                    : null;
-                _gnSessionStart('find', _gnG.name, _gnNotes);
+                _gnSessionStart('find', _gnG.name, _gnPlayLegendNotes(_gnG));
             } catch (e) {}
 
             // Load and start the game (bypasses published check)
@@ -36430,7 +36996,7 @@
     </script>
     <script src="js/domino.js?v=restore-full-1"></script>
     <script src="js/voice.js?v=v1"></script>
-    <script src="js/game.js?v=game-notes-3"></script>
+    <script src="js/game.js?v=game-notes-4"></script>
     <script>
         // Intercept Start Game button for catch play mode.
         //

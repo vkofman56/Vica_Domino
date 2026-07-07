@@ -824,6 +824,12 @@
         .par-input.sym { width: 48px; text-align: center; font-weight: bold; color: #7eff7e; }
         .par-num { width: 52px; }
         .par-range-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        /* A range/set row highlighted as the one a construct/constraint is targeting. */
+        #mp-parts .par-range-row.par-chosen {
+            background: rgba(126,255,126,0.14);
+            box-shadow: 0 0 0 1.5px rgba(126,255,126,0.7);
+            border-radius: 6px; padding: 3px 5px; margin: -3px -5px;
+        }
         .par-restr-row {
             display: flex; align-items: center; gap: 5px; font-size: 12px;
             background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.12);
@@ -1118,7 +1124,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:20 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1136,7 +1142,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">10:20 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1378,7 +1384,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:54 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">10:20 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3040,6 +3046,19 @@
                 '<div class="par-title" style="display:flex;align-items:center;gap:8px;margin:0;">Parameters'
                 +   '<input class="par-input sym" id="mp-sym" maxlength="6" value="' + _mpEsc(p.sym || '') + '">'
                 +   '<span style="font-size:11px;color:#888;font-weight:normal;">integer</span></div>'
+                // Space-box is PER-PARAMETER (not per-range), so it sits right under
+                // the header: "Space-box" label, then a reserve line with "Off = free
+                // width" pushed to the end. Reserves a fixed digit width for EVERY
+                // instance so a short value keeps the slot padded and layouts hold.
+                + '<div class="par-section-label" style="margin-top:2px;">Space-box</div>'
+                + '<div class="par-range-row" id="mp-box-row">'
+                +   '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">'
+                +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '> reserve'
+                +   '</label>'
+                +   '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
+                +   '<span style="font-size:12px;color:#cfeede;">digit space</span>'
+                +   '<span class="par-help" style="margin-left:auto;text-transform:none;letter-spacing:0;">Off = free width</span>'
+                + '</div>'
                 // Values: a list of PARTS — one or more ranges and/or sets, each
                 // add/deletable. The parameter's domain is the UNION of them all.
                 + '<div id="mp-parts" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>'
@@ -3047,17 +3066,6 @@
                 + '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;">'
                 +   '<button type="button" class="par-add-btn" id="mp-add-range-btn">+ Add range</button>'
                 +   '<button type="button" class="par-add-btn" id="mp-add-set-btn">+ Add set</button>'
-                + '</div>'
-                // Space-box: reserve a fixed digit width for EVERY instance of this
-                // parameter, so a short value (e.g. "5") keeps the rest of the slot
-                // empty and layouts don't shift. Proposed from the range's largest value.
-                + '<div class="par-section-label" style="display:flex;align-items:baseline;">Space-box <span class="par-help" style="text-transform:none;letter-spacing:0;margin:0 0 0 10px;">Off = free width</span></div>'
-                + '<div class="par-range-row" id="mp-box-row">'
-                +   '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">'
-                +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '> reserve'
-                +   '</label>'
-                +   '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
-                +   '<span style="font-size:12px;color:#cfeede;">digit space</span>'
                 + '</div>'
                 + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
@@ -3106,6 +3114,7 @@
             document.getElementById('mp-def').addEventListener('input', function () {
                 var sym = (document.getElementById('mp-sym') || {}).value || 'D';
                 if (!_pvLoadFromDef(this.value, sym)) { _pvActive = false; _pvDigits = null; }
+                _mpSyncConstructTargetToDraft(); // keep the current rule's block current — switching can't lose it
                 _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             });
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
@@ -3113,6 +3122,7 @@
                 _mpSyncConstructTargetToDraft();
                 _mpConstructTarget = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
                 _mpLoadConstructTarget();
+                _mpHighlightPart(_mpConstructTarget);
             });
             function _mpRuleInput() { return document.getElementById('mp-rule-input') || document.getElementById('mp-def'); }
             document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '×'); });
@@ -3278,7 +3288,7 @@
             if (!digits.length) return false;
             _pvDigits = digits; _pvActive = true; return true;
         }
-        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); _mpRenderMicros(); _mpRenderRules(); } }
+        function _pvApply(sym) { var d = document.getElementById('mp-def'); if (d) { d.value = _pvToDef(sym, _pvDigits); if (typeof _mpSyncConstructTargetToDraft === 'function') _mpSyncConstructTargetToDraft(); _mpRenderMicros(); _mpRenderRules(); } }
         function _mpRenderPVHelper() {
             var host = document.getElementById('mp-pv-helper'); if (!host) return;
             host.innerHTML = '';
@@ -3295,7 +3305,7 @@
             mcb.onchange = function () {
                 _pvActive = this.checked;
                 if (_pvActive) { if (!_pvDigits) _pvDigits = _pvCompute(); _pvApply(sym); }
-                else { _pvDigits = null; var d = document.getElementById('mp-def'); if (d) { d.value = ''; _mpRenderMicros(); } }
+                else { _pvDigits = null; var d = document.getElementById('mp-def'); if (d) { d.value = ''; if (typeof _mpSyncConstructTargetToDraft === 'function') _mpSyncConstructTargetToDraft(); _mpRenderMicros(); } }
                 _mpRenderPVHelper();
             };
             mline.appendChild(mcb);
@@ -3348,7 +3358,7 @@
             _pvDigits = _pvCompute();
             if (_pvActive) {
                 if (_pvDigits) _pvApply((document.getElementById('mp-sym') || {}).value || 'D');
-                else { _pvActive = false; var d = document.getElementById('mp-def'); if (d) { d.value = ''; _mpRenderMicros(); } }
+                else { _pvActive = false; var d = document.getElementById('mp-def'); if (d) { d.value = ''; if (typeof _mpSyncConstructTargetToDraft === 'function') _mpSyncConstructTargetToDraft(); _mpRenderMicros(); } }
             }
             _mpRenderPVHelper();
         }
@@ -3391,6 +3401,14 @@
                 html += '<option value="' + i + '"' + (String(current) === String(i) ? ' selected' : '') + '>' + _mpEsc(_mpPartLabel(part, i)) + '</option>';
             });
             return html;
+        }
+        // Highlight the range/set row a rule currently targets ('all'/null → none),
+        // so it's clear which range/set the visible construct/constraint belongs to.
+        function _mpHighlightPart(idx) {
+            var rows = document.querySelectorAll('#mp-parts .par-range-row');
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].classList.toggle('par-chosen', idx != null && idx !== 'all' && i === idx);
+            }
         }
         // Save the construct textarea into the block for the CURRENT target.
         function _mpSyncConstructTargetToDraft() {
@@ -3438,6 +3456,7 @@
             }
             sel.innerHTML = _mpTargetOptionsHTML(_mpConstructTarget);
             sel.value = String(_mpConstructTarget);
+            _mpHighlightPart(show ? _mpConstructTarget : null);
         }
         function _mpRenderRestrList() {
             var host = document.getElementById('mp-restr-list');
@@ -3462,7 +3481,10 @@
                     tsel.innerHTML = _mpTargetOptionsHTML(r.target == null ? 'all' : r.target);
                     tsel.addEventListener('change', function () {
                         r.target = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
+                        _mpHighlightPart(r.target);
                     });
+                    // Highlight the targeted range/set while this constraint is focused.
+                    tsel.addEventListener('focus', function () { _mpHighlightPart(r.target == null ? 'all' : r.target); });
                     row.appendChild(tsel);
                 }
                 var x = document.createElement('button');

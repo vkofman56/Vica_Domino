@@ -773,6 +773,12 @@
             position: fixed; top: 80px; right: 24px; left: auto;
             display: flex; flex-direction: column; gap: 8px;
             width: 300px; max-height: calc(100vh - 120px); overflow-y: auto;
+        }
+        /* The Parameters editor holds wider rows (numbered parts + the ×, the
+           inline "for rule" construct selector) — give it more room so nothing
+           wraps to a second line. */
+        #par-panel {
+            width: 408px;
             z-index: 2200;
             background: rgba(42, 42, 74, 0.97);
             border: 1.5px solid rgba(126, 255, 126, 0.5);
@@ -816,7 +822,7 @@
             border-radius: 4px; color: #fff; font-family: inherit; padding: 3px 5px; font-size: 12px;
         }
         .par-input.sym { width: 48px; text-align: center; font-weight: bold; color: #7eff7e; }
-        .par-num { width: 58px; }
+        .par-num { width: 52px; }
         .par-range-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
         .par-restr-row {
             display: flex; align-items: center; gap: 5px; font-size: 12px;
@@ -1112,7 +1118,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:29 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1130,7 +1136,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:29 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:54 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1372,7 +1378,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:29 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:54 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1729,7 +1735,7 @@
                 <div class="panel-drag-handle" id="par-panel-drag-handle" title="Drag to move · double-click to reset position">
                     <svg viewBox="0 0 20 6" width="20" height="6" aria-hidden="true"><circle cx="4" cy="3" r="1.2" fill="currentColor"/><circle cx="10" cy="3" r="1.2" fill="currentColor"/><circle cx="16" cy="3" r="1.2" fill="currentColor"/></svg>
                 </div>
-                <div class="par-title">Parameters</div>
+                <div class="par-title" id="par-main-title">Parameters</div>
                 <div id="par-list-view">
                     <div class="par-help">Each parameter is a value the formula can use. Set its range and any restrictions.</div>
                     <div id="par-list" style="display:flex;flex-direction:column;gap:6px;margin:8px 0;"></div>
@@ -2870,6 +2876,7 @@
         function _mpShowList() {
             document.getElementById('par-editor-view').style.display = 'none';
             document.getElementById('par-list-view').style.display = 'block';
+            var _mt = document.getElementById('par-main-title'); if (_mt) _mt.style.display = ''; // restore standalone title
             var host = document.getElementById('par-list');
             host.innerHTML = '';
             var params = _mpReadParams(loupeSourceCard);
@@ -3015,19 +3022,24 @@
             }
             // Values parts: migrate the old model into a working list of ranges/sets.
             _mpDraftParts = _mpPartsOf(p).map(function (part) {
-                return (part.type === 'set')
+                var d = (part.type === 'set')
                     ? { type: 'set', vals: (part.vals || []).slice() }
                     : { type: 'range', lo: (part.lo == null ? '' : String(part.lo)), hi: (part.hi == null ? '' : String(part.hi)), loOp: part.loOp || 'le', hiOp: part.hiOp || 'le' };
+                if (part.op === 'sub') d.op = 'sub';
+                return d;
             });
             if (!_mpDraftParts.length) _mpDraftParts = [{ type: 'range', lo: '', hi: '', loOp: 'le', hiOp: 'le' }];
             document.getElementById('par-list-view').style.display = 'none';
             var ev = document.getElementById('par-editor-view');
             ev.style.display = 'flex';
+            var _mt = document.getElementById('par-main-title'); if (_mt) _mt.style.display = 'none'; // editor shows its own combined title
             var defPlaceholder = (p.sym || 'A') + ' = 10a + b\na = 2k\nb ∈ [2, 4]\nk ∈ [1, 9]'; // CAPITAL result, lowercase helpers
             ev.innerHTML =
-                '<div class="par-field"><label>Symbol</label>'
+                // Header row doubles as the panel title: "Parameters [A] integer"
+                // (the standalone title is hidden while editing). No "Symbol" label.
+                '<div class="par-title" style="display:flex;align-items:center;gap:8px;margin:0;">Parameters'
                 +   '<input class="par-input sym" id="mp-sym" maxlength="6" value="' + _mpEsc(p.sym || '') + '">'
-                +   '<span style="font-size:11px;color:#888;">integer</span></div>'
+                +   '<span style="font-size:11px;color:#888;font-weight:normal;">integer</span></div>'
                 // Values: a list of PARTS — one or more ranges and/or sets, each
                 // add/deletable. The parameter's domain is the UNION of them all.
                 + '<div id="mp-parts" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>'
@@ -3036,7 +3048,6 @@
                 +   '<button type="button" class="par-add-btn" id="mp-add-range-btn">+ Add range</button>'
                 +   '<button type="button" class="par-add-btn" id="mp-add-set-btn">+ Add set</button>'
                 + '</div>'
-                + '<div class="par-help" id="mp-parts-hint" style="display:none;">Parts 1, 2, … make a union. Open <b>Construct</b> or add a <b>Constraint</b> below, then set its “applies to” to give ONE part its own rule.</div>'
                 // Space-box: reserve a fixed digit width for EVERY instance of this
                 // parameter, so a short value (e.g. "5") keeps the rest of the slot
                 // empty and layouts don't shift. Proposed from the range's largest value.
@@ -3050,17 +3061,15 @@
                 + '</div>'
                 + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
-                + '<div style="display:flex;gap:8px;align-items:center;">'
+                + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
                 +   '<button class="par-add-btn" id="mp-add-restr-btn">+ Add constraint ▾</button>'
                 +   '<button class="par-add-btn" id="mp-construct-btn" title="Build this parameter from hidden helper sub-parameters, e.g. A = 10a + b">Construct</button>'
+                +   '<span id="mp-construct-forrule" style="display:none;font-size:12px;color:#cfeede;">for rule</span>'
+                +   '<select id="mp-construct-target" class="par-input" style="display:none;padding:2px 6px;font-size:12px;width:auto;"></select>'
                 + '</div>'
                 // Construction: a kind of constraint — build the value from hidden
                 // helper sub-parameters via a free-text formula. Toggled by Construct.
                 + '<div id="mp-constructed-section" style="display:none;flex-direction:column;gap:5px;margin-top:2px;font-size:14px;">'
-                +   '<div id="mp-construct-target-row" style="display:none;align-items:center;gap:6px;font-size:12px;color:#cfeede;">'
-                +     '<span>Construct applies to</span>'
-                +     '<select id="mp-construct-target" class="par-input" style="padding:2px 6px;font-size:12px;width:auto;"></select>'
-                +   '</div>'
                 +   '<div id="mp-pv-helper" style="display:none;padding:7px 9px;border:1px dashed rgba(126,255,126,0.35);border-radius:8px;"></div>'
                 +   '<div class="par-sym-bar">'
                 +     '<button type="button" class="par-sym-btn" id="mp-ins-mul" title="Insert × (multiply)">×</button>'
@@ -3352,7 +3361,8 @@
             if (hint) hint.style.display = show ? 'block' : 'none';
             var btn = document.getElementById('mp-construct-btn');
             if (btn) btn.classList.toggle('active', !!show);
-            if (show) { _mpRenderConstructTarget(); _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
+            _mpRenderConstructTarget(); // show/hide the inline "for rule" selector with the editor
+            if (show) { _mpRenderPVHelper(); _mpRenderMicros(); _mpRenderRules(); }
         }
         function _mpToggleConstruct() {
             var cs = document.getElementById('mp-constructed-section');
@@ -3372,11 +3382,11 @@
                 var hi = (part.hi === '' || part.hi == null) ? '?' : part.hi;
                 body = lo + '..' + hi;
             }
-            return 'Part ' + (idx + 1) + ' · ' + body;
+            return (idx + 1) + ' · ' + body;
         }
-        // <option> list: "All parts" + one per current draft part.
+        // <option> list: "All (union)" + one per current draft rule (no "Part").
         function _mpTargetOptionsHTML(current) {
-            var html = '<option value="all"' + (current === 'all' ? ' selected' : '') + '>All parts (union)</option>';
+            var html = '<option value="all"' + (current === 'all' ? ' selected' : '') + '>All (union)</option>';
             _mpDraftParts.forEach(function (part, i) {
                 html += '<option value="' + i + '"' + (String(current) === String(i) ? ' selected' : '') + '>' + _mpEsc(_mpPartLabel(part, i)) + '</option>';
             });
@@ -3398,14 +3408,19 @@
             _mpRuleDraft = '';
             _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
         }
-        // Populate + show/hide the construct target selector. Per-part construct is
-        // only meaningful with ≥2 parts; with one part everything is "All".
+        // Populate + show/hide the inline "for rule [▾]" construct selector. It shows
+        // only when the Construct editor is OPEN and there are ≥2 rules; with one rule
+        // everything is "All".
         function _mpRenderConstructTarget() {
             var sel = document.getElementById('mp-construct-target');
-            var row = document.getElementById('mp-construct-target-row');
-            if (!sel || !row) return;
+            var lbl = document.getElementById('mp-construct-forrule');
+            if (!sel) return;
             var multi = _mpDraftParts.length >= 2;
-            row.style.display = multi ? 'flex' : 'none';
+            var cs = document.getElementById('mp-constructed-section');
+            var open = cs && cs.style.display !== 'none';
+            var show = multi && open;
+            sel.style.display = show ? '' : 'none';
+            if (lbl) lbl.style.display = show ? '' : 'none';
             // Down to one part: a per-part construct IS the whole domain — fold it
             // into the shared 'all' block so it reads cleanly and uses the simple path.
             if (!multi) {
@@ -3583,13 +3598,22 @@
                         + '<span style="color:#bbb;">}</span>';
                     row.querySelector('.mp-set-inp').addEventListener('input', function () { part.vals = _mpParseList(this.value); });
                 }
-                // Number the part (1., 2., …) once there are ≥2 — so it visibly
-                // matches the "Part N" targets in the construct/constraint selectors.
-                // Prepended AFTER innerHTML so it isn't wiped by the assignment above.
+                // Number each rule (1., 2., …) once there are ≥2, and give it an
+                // Add / Subtract op: Add rules union into the domain, Subtract rules
+                // remove their values from it. Prepended AFTER innerHTML so they
+                // aren't wiped by the assignment above (front → number, then op).
                 if (showNums) {
+                    var opSel = document.createElement('select');
+                    opSel.className = 'par-input';
+                    opSel.title = 'Add = include these values · Subtract = remove them from the domain';
+                    opSel.style.cssText = 'padding:2px 4px;font-size:11px;width:auto;flex:0 0 auto;';
+                    opSel.innerHTML = '<option value="add"' + (part.op !== 'sub' ? ' selected' : '') + '>Add</option>'
+                        + '<option value="sub"' + (part.op === 'sub' ? ' selected' : '') + '>Subtract</option>';
+                    opSel.addEventListener('change', function () { if (this.value === 'sub') part.op = 'sub'; else delete part.op; });
+                    row.insertBefore(opSel, row.firstChild);
                     var numTag = document.createElement('span');
                     numTag.textContent = (idx + 1) + '.';
-                    numTag.title = 'Part ' + (idx + 1) + ' — a construct or constraint can target it';
+                    numTag.title = 'Rule ' + (idx + 1) + ' — a construct or constraint can target it';
                     numTag.style.cssText = 'color:#8a90a0;font-size:11px;font-weight:700;min-width:14px;flex:0 0 auto;';
                     row.insertBefore(numTag, row.firstChild);
                 }
@@ -3610,8 +3634,6 @@
                 host.appendChild(row);
             });
             _mpBindRangeAux();
-            var partsHint = document.getElementById('mp-parts-hint');
-            if (partsHint) partsHint.style.display = showNums ? 'block' : 'none';
             if (typeof _mpRenderConstructTarget === 'function') _mpRenderConstructTarget();
         }
         // When part `removed` is deleted, drop its targeted construct/constraints and
@@ -3690,9 +3712,11 @@
             // Values parts (deep copy of the working list); also mirror the first
             // range into lo/hi for the legacy consumers (constructed filter etc.).
             var parts = _mpDraftParts.map(function (part) {
-                return (part.type === 'set')
+                var d = (part.type === 'set')
                     ? { type: 'set', vals: _mpUniqSortInt(part.vals || []) }
                     : { type: 'range', lo: part.lo, hi: part.hi, loOp: part.loOp || 'le', hiOp: part.hiOp || 'le' };
+                if (part.op === 'sub') d.op = 'sub';
+                return d;
             });
             // Build the construct blocks: keep 'all' + only per-part blocks whose part
             // still exists. `def` (legacy) mirrors the shared 'all' block.
@@ -3798,6 +3822,9 @@
             for (var i = 0; i < cs.length; i++) { if (cs[i].target !== 'all' && cs[i].target != null) return true; }
             var rs = p.restrictions || [];
             for (var j = 0; j < rs.length; j++) { if (rs[j].target != null && rs[j].target !== 'all') return true; }
+            // A Subtract rule means the domain is a set difference — needs the union engine.
+            var pt = _mpPartsOf(p);
+            for (var k = 0; k < pt.length; k++) { if (pt[k].op === 'sub') return true; }
             // A shared ('all') construct over ≥2 parts means "fill the UNION" — the
             // per-part engine filters the construct into EACH part (single-part
             // constructed params keep the untouched legacy first-range path).
@@ -4328,17 +4355,23 @@
             var byT = _mpConstructByTarget(p);
             var allDef = byT['all'] || '';
             var restr = p.restrictions || [];
-            var pool = [], seen = {}, envByVal = {}, anyErr = null, big = false;
+            // Compute each rule's own value list, then combine: union of the Add
+            // rules MINUS the union of the Subtract rules.
+            var addSeen = {}, addPool = [], subSeen = {}, envByVal = {}, anyErr = null, big = false;
             parts.forEach(function (part, i) {
+                var isSub = (part.op === 'sub');
+                var sink = isSub ? subSeen : addSeen;
+                function emit(v, env) {
+                    if (isSub) { subSeen[v] = 1; return; }
+                    if (!addSeen[v]) { addSeen[v] = 1; addPool.push(v); envByVal[v] = env || {}; }
+                }
                 var def_i = (byT[i] != null) ? byT[i] : allDef;
                 var restr_i = restr.filter(function (r) { return r.target == null || r.target === 'all' || r.target === i; });
                 if (def_i && def_i.trim()) {
                     var filt = (function (pt) { return function (v) { return _mpValInPart(v, pt); }; })(part);
                     var g = _mpGenerateConstructed(p, Math.max(n, 40), { def: def_i, filter: filt, restrict: restr_i });
                     if (g.error) { anyErr = g.error; return; }
-                    (g.samples || []).forEach(function (s) {
-                        if (!seen[s.value]) { seen[s.value] = 1; pool.push(s.value); envByVal[s.value] = s.env || {}; }
-                    });
+                    (g.samples || []).forEach(function (s) { emit(s.value, s.env); });
                 } else {
                     var pView = Object.assign({}, p, { restrictions: restr_i });
                     var e = _mpEnumPart(part);
@@ -4346,18 +4379,18 @@
                     if (e.big) {
                         big = true;
                         var tries = 0;
-                        while (tries < 200000 && pool.length < n * 30) {
+                        while (tries < 200000 && addPool.length < n * 30) {
                             tries++;
                             var rv = e.a + Math.floor(Math.random() * e.span);
-                            if (!seen[rv] && _mpValueOK(rv, pView)) { seen[rv] = 1; pool.push(rv); envByVal[rv] = {}; }
+                            if (!sink[rv] && _mpValueOK(rv, pView)) emit(rv, {});
                         }
                     } else {
-                        e.values.forEach(function (v) {
-                            if (!seen[v] && _mpValueOK(v, pView)) { seen[v] = 1; pool.push(v); envByVal[v] = {}; }
-                        });
+                        e.values.forEach(function (v) { if (_mpValueOK(v, pView)) emit(v, {}); });
                     }
                 }
             });
+            // Set difference: keep Add values not removed by any Subtract rule.
+            var pool = addPool.filter(function (v) { return !subSeen[v]; });
             if (!pool.length) return anyErr ? { error: anyErr } : { samples: [], count: 0, empty: true };
             pool.sort(function (a, b) { return a - b; });
             var picks;
@@ -8530,12 +8563,13 @@
             if (!row) return;
             var letter = row.dataset.rowLetter;
             if (!letter) return;
+            var tip = 'Row ' + letter + ' — click to select/deselect all in this row.\nUse right click to add row above or below.';
             var existing = row.querySelector(':scope > .library-row-letter');
-            if (existing) { existing.textContent = letter; return; }
+            if (existing) { existing.textContent = letter; existing.setAttribute('title', tip); return; }
             var span = document.createElement('span');
             span.className = 'library-row-letter';
             span.textContent = letter;
-            span.setAttribute('title', 'Row ' + letter + ' — click to select/deselect all in this row');
+            span.setAttribute('title', tip);
             row.insertBefore(span, row.firstChild);
         }
 

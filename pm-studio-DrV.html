@@ -13055,20 +13055,27 @@
             }
 
             // Find row matching this letter within the ACTIVE card set only
-            // (searching across all sets could place cards in a hidden container)
+            // (searching across all sets could place cards in a hidden container).
+            // The row's OWN letter (data-row-letter) is authoritative; matching by
+            // card labels is only a fallback for rows without one — mid-operation
+            // (e.g. a group move before renumberRow) another row can still hold
+            // cards with stale labels of this letter, and a label match there
+            // would drop the card into the WRONG row.
             var firstChar = _rowKeyParse(label) || label.charAt(0).toUpperCase();
             var rows = appendTarget.querySelectorAll('.library-row');
             var targetRow = null;
             rows.forEach(function(r) {
-                if ((r.dataset.rowLetter || '') === firstChar) {
-                    targetRow = r;
-                } else {
+                if ((r.dataset.rowLetter || '') === firstChar) targetRow = r;
+            });
+            if (!targetRow) {
+                rows.forEach(function(r) {
+                    if (r.dataset.rowLetter) return; // lettered rows already had their chance
                     var firstLabel = r.querySelector('.library-label');
                     if (firstLabel && _rowKeyParse(firstLabel.textContent) === firstChar) {
                         targetRow = r;
                     }
-                }
-            });
+                });
+            }
             if (!targetRow) {
                 var section = document.createElement('div');
                 section.className = 'library-section';

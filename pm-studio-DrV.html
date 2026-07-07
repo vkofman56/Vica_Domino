@@ -778,7 +778,7 @@
            inline "for rule" construct selector) — give it more room so nothing
            wraps to a second line. */
         #par-panel {
-            width: 408px;
+            width: 434px;
             z-index: 2200;
             background: rgba(42, 42, 74, 0.97);
             border: 1.5px solid rgba(126, 255, 126, 0.5);
@@ -824,11 +824,16 @@
         .par-input.sym { width: 48px; text-align: center; font-weight: bold; color: #7eff7e; }
         .par-num { width: 52px; }
         .par-range-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-        /* A range/set row highlighted as the one a construct/constraint is targeting. */
-        #mp-parts .par-range-row.par-chosen {
-            background: rgba(126,255,126,0.14);
-            box-shadow: 0 0 0 1.5px rgba(126,255,126,0.7);
-            border-radius: 6px; padding: 3px 5px; margin: -3px -5px;
+        /* Each rule (range/set) lives in its OWN bordered box together with its
+           construct/constraints — the box brightens green while being edited. */
+        #mp-parts .mp-rule-group {
+            display: flex; flex-direction: column; gap: 6px;
+            border: 1px solid rgba(255,255,255,0.22); border-radius: 8px;
+            padding: 6px 8px;
+        }
+        #mp-parts .mp-rule-group.par-chosen {
+            background: rgba(126,255,126,0.07);
+            border-color: rgba(126,255,126,0.75);
         }
         /* Compact per-rule box under a NON-active rule: its construct/constraints
            at a glance; click to make it the rule being edited. */
@@ -1135,7 +1140,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:11 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1153,7 +1158,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:11 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1395,7 +1400,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:11 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3062,8 +3067,8 @@
                 // "Off = free width" last (user layout, July 7). Reserves a fixed
                 // digit width for EVERY instance so short values keep the slot padded.
                 + '<div class="par-range-row" id="mp-box-row" style="margin-top:2px;">'
-                +   '<span class="par-section-label" style="margin:0;">Space-box</span>'
-                +   '<label for="mp-box-on" style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;margin-left:19px;">reserve'
+                +   '<span class="par-section-label" id="mp-box-label" style="margin:0;">Space-box</span>'
+                +   '<label for="mp-box-on" id="mp-box-reserve" style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">reserve'
                 +     '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
                 +     '<span>digit space</span>'
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
@@ -3206,6 +3211,16 @@
             _mpRenderConstructTarget();
             _mpLoadConstructTarget(); // show the initial target's formula in the textarea
             _mpRenderMicros(); _mpRenderRules();
+            // Align "reserve" with the parameter-symbol box: both are the second
+            // item of their line — match their left edges (measured, since the
+            // leading labels render at different widths). setTimeout, not rAF:
+            // rAF stalls in a backgrounded tab.
+            setTimeout(function () {
+                var symEl = document.getElementById('mp-sym'), res = document.getElementById('mp-box-reserve');
+                if (!symEl || !res) return;
+                var dx = symEl.getBoundingClientRect().left - res.getBoundingClientRect().left;
+                if (isFinite(dx) && dx > 0.5) res.style.marginLeft = dx + 'px';
+            }, 0);
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
         // as chips coloured by THIS Big parameter — so each micro-param's connection
@@ -3487,26 +3502,26 @@
             });
             return html;
         }
-        // Highlight the range/set row a rule currently targets ('all'/null → none),
-        // so it's clear which range/set the visible construct/constraint belongs to.
+        // Highlight the rule GROUP a construct/constraint currently targets
+        // ('all'/null → none) — the whole bordered box brightens green.
         function _mpHighlightPart(idx) {
-            var rows = document.querySelectorAll('#mp-parts > .par-range-row');
-            for (var i = 0; i < rows.length; i++) {
-                rows[i].classList.toggle('par-chosen', idx != null && idx !== 'all' && i === idx);
+            var groups = document.querySelectorAll('#mp-parts .mp-rule-group');
+            for (var i = 0; i < groups.length; i++) {
+                groups[i].classList.toggle('par-chosen', idx != null && idx !== 'all' && i === idx);
             }
         }
-        // Re-home the construct+constraints BLOCK: directly under the rule row it
-        // targets (so the next rule's line reads below rule 1's rules), or back to
-        // its home slot (below the Add buttons) when targeting All.
+        // Re-home the construct+constraints BLOCK: INTO the bordered group of the
+        // rule it targets (below its row), or back to its home slot (below the
+        // rules area) when targeting All.
         function _mpPositionRuleBlock() {
             var block = document.getElementById('mp-rule-block');
             var home = document.getElementById('mp-rule-home');
             if (!block || !home) return;
             var host = document.getElementById('mp-parts');
             if (_mpConstructTarget !== 'all' && host) {
-                var rows = host.querySelectorAll(':scope > .par-range-row');
-                var row = rows[_mpConstructTarget];
-                if (row) { host.insertBefore(block, row.nextSibling); return; }
+                var groups = host.querySelectorAll('.mp-rule-group');
+                var group = groups[_mpConstructTarget];
+                if (group) { group.appendChild(block); return; }
             }
             home.parentNode.insertBefore(block, home.nextSibling);
         }
@@ -3541,9 +3556,9 @@
         // to switch the editor to that rule.
         function _mpRenderRuleSummaries() {
             var host = document.getElementById('mp-parts'); if (!host) return;
-            host.querySelectorAll(':scope > .mp-rule-summary').forEach(function (n) { n.remove(); });
+            host.querySelectorAll('.mp-rule-summary').forEach(function (n) { n.remove(); });
             if (_mpDraftParts.length < 2) return;
-            var rows = host.querySelectorAll(':scope > .par-range-row');
+            var groups = host.querySelectorAll('.mp-rule-group');
             _mpDraftParts.forEach(function (part, i) {
                 if (i === _mpConstructTarget) return; // the live editor block sits here
                 var def = _mpDraftConstructs[i];
@@ -3562,8 +3577,7 @@
                     _mpLoadConstructTarget();
                     _mpRenderConstructTarget(); // re-highlights, repositions the block, re-renders boxes
                 };
-                var row = rows[i];
-                if (row) host.insertBefore(box, row.nextSibling);
+                if (groups[i]) groups[i].appendChild(box);
             });
         }
         // Copy another block's construct (and, for a rule source, its targeted
@@ -3642,6 +3656,9 @@
             var host = document.getElementById('mp-restr-list');
             if (!host) return;
             host.innerHTML = '';
+            // An empty list must not eat a flex-gap slot — hide it so the
+            // "+ Add constraint / Construct" row sits right under "Constraints".
+            host.style.display = _mpDraftRestr.length ? 'flex' : 'none';
             if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries(); // constraint counts show in the rule boxes
             var noneEl = document.getElementById('mp-constraints-none');
             if (!_mpDraftRestr.length) {
@@ -3780,7 +3797,7 @@
             (function () {
                 var block = document.getElementById('mp-rule-block');
                 var home = document.getElementById('mp-rule-home');
-                if (block && home && block.parentNode === host) home.parentNode.insertBefore(block, home.nextSibling);
+                if (block && home && host.contains(block)) home.parentNode.insertBefore(block, home.nextSibling);
             })();
             host.innerHTML = '';
             var sym = _mpCurSym(), firstRangeDone = false;
@@ -3850,7 +3867,12 @@
                     _pvOnRangeChange();
                 };
                 row.appendChild(x);
-                host.appendChild(row);
+                // Each rule gets its own bordered GROUP box; the row is its first
+                // child, and the summary / editing block joins it below.
+                var group = document.createElement('div');
+                group.className = 'mp-rule-group';
+                group.appendChild(row);
+                host.appendChild(group);
             });
             _mpBindRangeAux();
             if (typeof _mpRenderConstructTarget === 'function') _mpRenderConstructTarget();
@@ -4708,7 +4730,7 @@
         // green badge before the ✕). Any re-render clears the badges — right, since
         // an edit makes them stale. Subtract rules show "−N" (values they remove).
         function _mpAnnotateRuleCounts(p) {
-            var rows = document.querySelectorAll('#mp-parts > .par-range-row');
+            var rows = document.querySelectorAll('#mp-parts .par-range-row');
             (p.parts || []).forEach(function (part, i) {
                 var row = rows[i]; if (!row) return;
                 row.querySelectorAll('.mp-rule-count').forEach(function (n) { n.remove(); });

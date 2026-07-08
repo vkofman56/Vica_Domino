@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:26 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:20 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:26 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:20 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:26 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -4886,8 +4886,46 @@
                 else row.appendChild(badge);
             });
         }
-        // Per-rule Sample (the pair INSIDE an extended rule box): samples the
-        // current rule alone — its values under its own construct/constraints.
+        // ---- Sample PAGING: each Sample click shows the NEXT batch of examples;
+        // after the last batch the user is told and it starts from the beginning.
+        // The page cache resets whenever the definition (or the sampled rule) changes.
+        var _mpSamplePage = { key: null, vals: [], cursor: 0, count: null, witnessNames: [] };
+        function _mpSamplePageNext(kind, p, i, pageSize) {
+            var key;
+            try { key = kind + '|' + (i == null ? '' : i) + '|' + JSON.stringify([p.sym, p.parts, p.constructs, p.restrictions]); }
+            catch (e) { key = kind + '|' + (i == null ? '' : i); }
+            if (_mpSamplePage.key !== key) {
+                var res = (kind === 'rule') ? _mpGenerateForRule(p, i, 600) : _mpGenerateAny(p, 600);
+                if (res.error) return { error: res.error };
+                var vals = (res.samples || []).map(function (s) { return (typeof s === 'object') ? s : { value: s, env: {} }; });
+                if (!vals.length) return { empty: true };
+                _mpSamplePage = { key: key, vals: vals, cursor: 0, count: res.count, witnessNames: res.witnessNames || [] };
+            }
+            var pg = _mpSamplePage, wrapped = false;
+            if (pg.cursor >= pg.vals.length) { pg.cursor = 0; wrapped = true; }
+            var page = pg.vals.slice(pg.cursor, pg.cursor + pageSize);
+            var start = pg.cursor;
+            pg.cursor += page.length;
+            return { page: page, start: start, total: pg.vals.length, count: pg.count, witnessNames: pg.witnessNames, wrapped: wrapped };
+        }
+        // Shared renderer: values line + witnesses + optional wrap note.
+        function _mpRenderSamplePage(out, head, r) {
+            out.classList.add('ok');
+            var vals = r.page.map(function (s) { return s.value; });
+            var totalTxt = (r.count == null)
+                ? (r.total + ' sampled (many exist)')
+                : (r.count > r.total ? (r.total + ' of ' + r.count) : String(r.total));
+            var pos = 'showing ' + (r.start + 1) + '–' + (r.start + r.page.length) + ' of ' + totalTxt;
+            var wit = r.page.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
+                return s.value + '← ' + _mpEsc(_mpWitness(s.env, r.witnessNames || Object.keys(s.env)));
+            }).join('&nbsp; | &nbsp;');
+            out.innerHTML = (r.wrapped && r.total > r.page.length ? '<div style="color:#ffd54f;font-size:11px;margin-bottom:2px;">All examples were shown — starting from the beginning.</div>' : '')
+                + '<div>' + _mpEsc(head) + ' ' + vals.join(', ') + '</div>'
+                + '<div style="opacity:0.7;font-size:11px;margin-top:2px;">' + _mpEsc(pos) + ' — click Sample for the next ones</div>'
+                + (wit ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit + '</div>' : '');
+        }
+        // Per-rule Sample (the pair INSIDE an extended rule box): pages through the
+        // current rule's values under its own construct/constraints.
         function _mpSampleRule() {
             var out = document.getElementById('mp-rule-sample-out'); if (!out) return;
             var p = _mpReadEditor();
@@ -4895,30 +4933,17 @@
             var i = _mpConstructTarget;
             if (i === 'all' || !(p.parts || [])[i]) { out.textContent = ''; return; }
             try { _mpAnnotateRuleCounts(p); } catch (e) {}
-            var g = _mpGenerateForRule(p, i, 6);
-            if (g.error) { out.classList.add('warn'); out.textContent = '⚠ ' + g.error; return; }
-            var isSub = p.parts[i] && p.parts[i].op === 'sub';
-            if (!g.samples || !g.samples.length) {
+            var r = _mpSamplePageNext('rule', p, i, 6);
+            if (r.error) { out.classList.add('warn'); out.textContent = '⚠ ' + r.error; return; }
+            if (r.empty) {
                 out.classList.add('warn');
                 out.textContent = '⚠ Rule ' + (i + 1) + ' produces no values — its construct/constraints may contradict its range/set.';
                 return;
             }
-            out.classList.add('ok');
-            var picks_i = g.samples;
-            if (picks_i.length > 8) { // a spread of 8 reads fine; the count says the rest
-                var spread = []; var st = picks_i.length / 8;
-                for (var vi = 0; vi < 8; vi++) spread.push(picks_i[Math.floor(vi * st)]);
-                picks_i = spread;
-            }
-            var vals_i = picks_i.map(function (s) { return s.value; });
-            if (g.samples.length > picks_i.length) vals_i = vals_i.concat(['…']);
-            var cnt_i = (g.count == null) ? 'many values' : (g.count + ' value' + (g.count === 1 ? '' : 's'));
+            var isSub = p.parts[i] && p.parts[i].op === 'sub';
+            var cnt_i = (r.count == null) ? 'many values' : (r.count + ' value' + (r.count === 1 ? '' : 's'));
             var head = 'Rule ' + (i + 1) + (isSub ? ' (Subtract) removes ' : ' — ') + cnt_i + ':';
-            var wit_i = picks_i.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
-                return s.value + '← ' + _mpEsc(_mpWitness(s.env, g.witnessNames || Object.keys(s.env)));
-            }).join('&nbsp; | &nbsp;');
-            out.innerHTML = '<div>' + _mpEsc(head) + ' ' + vals_i.join(', ') + '</div>'
-                + (wit_i ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit_i + '</div>' : '');
+            _mpRenderSamplePage(out, head, r);
         }
         // Per-rule Check: validates the current rule (its range/set + construct).
         function _mpCheckRule() {
@@ -4947,25 +4972,11 @@
             out.className = 'par-sample-out';
             // Every rule row gets its instance count (user-initiated → ok to compute).
             if (multi) { try { _mpAnnotateRuleCounts(p); } catch (e) {} }
-            var perPart = _mpUsesPerPart(p);
-            var res = _mpGenerateAny(p, 6);
-            if (res.error) { out.classList.add('warn'); out.textContent = '⚠ ' + res.error; return; }
-            if (res.empty) { out.classList.add('warn'); out.textContent = '⚠ No value satisfies these rules — they may contradict.'; return; }
-            out.classList.add('ok');
-            if (perPart || p.mode === 'constructed') {
-                var vals = res.samples.map(function (s) { return s.value; });
-                var cnt = (res.count == null) ? 'many' : (res.count + ' value' + (res.count === 1 ? '' : 's'));
-                // Pass-through values (no construct) have no micro-params — skip
-                // their empty "N←" witness stubs.
-                var wit = res.samples.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
-                    return s.value + '← ' + _mpEsc(_mpWitness(s.env, res.witnessNames || Object.keys(s.env)));
-                }).join('&nbsp; | &nbsp;');
-                out.innerHTML = '<div>' + vals.join(', ') + '&nbsp;&nbsp;(' + cnt + ')</div>'
-                    + (wit ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit + '</div>' : '');
-            } else {
-                var cnt2 = (res.count == null) ? 'many' : (res.count + ' valid');
-                out.textContent = res.samples.join(', ') + '   (' + cnt2 + ')';
-            }
+            var r = _mpSamplePageNext('main', p, null, 6);
+            if (r.error) { out.classList.add('warn'); out.textContent = '⚠ ' + r.error; return; }
+            if (r.empty) { out.classList.add('warn'); out.textContent = '⚠ No value satisfies these rules — they may contradict.'; return; }
+            var cnt = (r.count == null) ? 'many values' : (r.count + ' value' + (r.count === 1 ? '' : 's'));
+            _mpRenderSamplePage(out, cnt + ':', r);
         }
 
         // Inline message in the editor's Check area (no blocking popups).

@@ -1,0 +1,152 @@
+# Handover — July 7, 2026 (evening): MATH PROBLEMS SAVED GAMES (Interactive Worksheets)
+
+All in `pm-studio-DrV.html` (plus 2 lines in `js/sync.js`), on `work/cardmaker-rowcopy`.
+Work tip **`ca56f53`**, deployed via merge **`4aa1a33`** → `claude/review-project-docs-JOOeh`
+(+ both mirrors at the same tip). Everything below was verified live on :8012 with seeded
+data before shipping. This session ran in PARALLEL with the Par-rules session (see
+`HANDOVER_2026-07-07_PAR-RULES.md`) — the two swept each other's working tree into commits
+several times (`f38378e`, `b0a6748`, `ca56f53`); use `git log -S <symbol>` to find where a
+change actually landed, and NEVER `git add -A`.
+
+## What it is
+
+"Math Problems" is now a REAL saved game type, not just the ad-hoc worksheet generator:
+GM → + New Game → Math Problems goes through the normal name + card-selection flow, saves
+a game, and opens a Math-specific SETUP screen (no Freeze/neutral/moving columns). ▶ plays
+the interactive worksheet built FROM the saved game. The old single-card generator path
+(`wsOpenGenerator`) still works unchanged for ad-hoc pages.
+
+## The notes model (user-corrected twice — get this right)
+
+- NOTES are authoring aids, in two forms: (1) the **white note-box ON the card face** —
+  the label box `g.card-label` inside the card's SVG, one per card, dropped by the label-box
+  tool and locked/unlocked with the anchor ⚓ / crossed anchor (`data-frozen`); (2) the
+  **white note-CARDS** (`data-info="true"`: ＋Info / ＋Examples / label cards).
+- **The player NEVER sees any of it** — the worksheet shows plain generated text problems
+  only (never a card face, box, or note card). `_wsGenerateFromGame` skips `info.isNote`
+  cards explicitly.
+- In the setup screen the notes are FOR the author: each problem card's note cards render
+  right beside it, at Card-Set look and size — that's the information used to set the
+  probabilities. No captions/labels over them (the gold "NOTES — ONLY YOU SEE THESE" text
+  and the internal card names were removed on user request; both live on as hover tooltips).
+
+## Storage + sync
+
+- `savedMathGames` (localStorage): `loadMathGames()` / `saveMathGames()` next to the catch
+  pair (~`_resolveGameNameCollision`, which now also handles `'math'`).
+- Game object: `{ name, description, cards:[info…], ws:{count, perCol, attempts, repeats},
+  hiddenOverrides:{cardKey:[sym…]}, roles:{cardKey:name},
+  probOptions:[{id, name, weights:{cardKey:n}}], activeProbOptionId }`.
+  Card keys via `_probCardKey` (`u:uid` → `s:stableId` → `l:label`). `_mgMigrate` fills all
+  defaults idempotently.
+- Card info entries gain `isNote:true` when selected from a `data-info` card
+  (`_gmSelectCard`); older entries fall back to "no params ⇒ note".
+- `js/sync.js`: `savedMathGames` added to `_localWinsKeys` AND the card-backup key list;
+  cache-buster bumped to `sync.js?v=local-wins-16` in pm-studio-DrV.html ONLY (index.html
+  belongs to the other stream; the sync change is backward-compatible).
+
+## Game Maker flow
+
+- `_showGameTypeChoice` 'math' no longer jumps to the generator — the generic path runs
+  (`gameMakerType='math'`, title/bar in green `#7eff7e`, label "Math Problems").
+- Selection bar gains `#gm-copy-mode` (math games only): **Card only / Card + its notes /
+  Just the notes** — a click on a parametric card also grabs (or grabs only) the
+  consecutive `data-info` cards right after it in its row. Shared capture helper
+  `_gmSelectCard(card)`.
+- `completeGame()` math branch saves and then opens the setup screen directly (no alert).
+- GM popup: a "Math Problems" `_gmAppendDirectory` (open → `openMathGameView`, edit →
+  selection). Library: `GAME_TYPES` id **`mathpages`** maps to `loadMathGames` in
+  `_gtLoadGames`; `_gtBuildMathRow` (▶ `wsOpenGeneratorForGame`, name `openMathGameView`,
+  ✕ `deleteMathGame`); `_gtOpenRecent` + folder move/delete have math branches;
+  `recordGameActivation('mathpages', …)` on open/play.
+
+## The setup screen (`#mg-overlay`)
+
+`openMathGameView(i)` / `closeMathGameView` / `_mgRender` / `_mgEnsureDom` (~search "MATH
+PROBLEMS GAME — saved-game SETUP screen").
+
+- **Bar**: name + ✎ rename (collision-checked), Problems/page, **Per column**, Attempts,
+  Repeats (all persist onchange to `game.ws`), ▶ Play worksheet, ✕ Close.
+- **Mix presets** (`probOptions`): chips (click = activate), ＋ Prob (copies the active
+  preset's weights), ✎ rename, 🗑 delete (≥1 kept). Beside them the SCALE note:
+  "· weights total 200 — weight 1 ≈ 0.5% of the page".
+- **Weights are RELATIVE, not out of 100** (user-specified): share = w ÷ total. `_mgPct`
+  is honest at the edges — 99.5 never shows as 100, a tiny share shows as `<0.01`, one
+  decimal below 10%, two below 1%.
+- **Card rows** (one per problem card, built by `_mgUnits`-equivalent walk in `_mgRender`):
+  - **Pictures are literal Card-Set copies** (`_mgPreviewEl`): live `.library-card` clone
+    (root class swapped to `mg-card-copy` so global sweeps/handlers ignore it; `data-uid`
+    stripped; buttons removed) → else REBUILT from stored data (`_mgCardDataFor`: stableId
+    lookup via `_findCardDataByStableId` → uid scan over `_getAllCardStorageKeys` → the
+    game's own `svgMarkup`) → else a labeled chip. `zoom:1.6` for readability. Internal
+    card name hidden (compact-view parity) — hover tooltip instead. Note copies keep
+    `data-info` so the white graph-paper rule applies (replicated for `.mg-card-copy`).
+  - **"Player sees"**: a REAL sample problem (via `_wsGenerate(stub,1,hidden,true)`) with
+    each blank's VALUE half-transparent + gold underline (`.mg-hid-val`), ↻ resamples.
+    NOT the formula — the formula/box is note content. Warnings when no formula / no blank.
+  - **"Show a problem"** eye chips: per-GAME override `hiddenOverrides[key]` (card's own
+    eye config is only the default; ↺ card default forgets the override).
+  - **Role** (`game.roles[key]`) + **Weight** (active preset; editing a card with a role
+    fans the weight to the whole role) + live "≈ X% of the page".
+  - The line's note cards beside it; loose notes (no problem card before them) in a
+    section at the bottom.
+- **Line management — direct manipulation, no buttons** (user: "why do we need a special
+  button for that?"):
+  - Click toggles a line; click a note picture to select just that note; **marquee** drag
+    from the background selects lines (Shift adds); Esc clears (second Esc closes).
+  - **Drag a line to move it** (`_mgStartRowDrag`): gold drop bar `#mg-dropline` shows the
+    target; dragging a selected line moves the whole selection in order; grabbing an
+    unselected line picks it alone. Notes travel with their line. `_mgReorderByKeys`
+    rebuilds `game.cards` from the visual order (`_mgUnits`/`_mgFlattenUnits` keep a
+    problem card + its trailing notes as one unit).
+  - **Delete/Backspace** removes the selection (confirm; cards stay in the Card Set;
+    roles/overrides/ALL presets' weights cleaned). **↑/↓** nudges. The keydown listener is
+    CAPTURE-phase + stopPropagation so the Card Maker under the overlay never sees these
+    keys.
+  - `#mg-selbar` holds only what has no gesture: count, common **Weight → Set for
+    selected**, a hint line, ✕ Clear.
+
+## The worksheet player
+
+- `wsOpenGeneratorForGame(i)`: ws overlay in GAME mode (`_wsGameIdx`; source select locked
+  to "Game — name"); bar edits persist back to `game.ws`; `wsOpenGenerator()` resets to
+  single-card mode.
+- `_wsGenerateFromGame`: each problem SLOT draws its card INDEPENDENTLY by weight —
+  deterministic largest-remainder was deliberately replaced because it rounds a 0.5% card
+  to zero on EVERY page ("never" instead of "rare"); verified ≈4 appearances per 100 pages
+  at 0.5% × 8. Problems merge + Fisher-Yates shuffle; per-card errors are prefixed with the
+  card's label; `repeatWarn` carries through.
+- **Detached stubs work**: `_mgCardStub(info)` returns the live library card OR a bare div
+  with `dataset.uid` — the whole generation pipeline (params/formula stores, batch memory)
+  is uid-keyed, so cards do NOT need to be in the DOM.
+- **Page layout** (user-specified): list numbers are the SAME SIZE as the problems
+  (lighter `#b9bfd0`, own period, `min-width:44px + 22px` gap so "2." never reads as part
+  of the math); **Per column** (`ws.perCol`, default 5) sets how many problems stack per
+  column — `grid-auto-flow:column`, `grid-template-rows:repeat(perCol)`, columns =
+  ceil(n/perCol), and NUMBERING RUNS DOWN each column.
+
+## Gotchas / lessons
+
+- The Card Maker hides `.library-label`/`.library-desc` via `.compact-view` — copies
+  rendered elsewhere must hide them too or internal names leak (the
+  "E1_A+B=C7+2=999+2=10190" incident).
+- Note-card styling keys on `.library-card[data-info]` — any copy that swaps the root
+  class must replicate the rule or notes lose their graph-paper look.
+- Setup opened from the LIBRARY has no Card Maker DOM — pictures MUST resolve from stored
+  card data, not just `querySelector` (the "labeled chips instead of cards" incident).
+- `_getAllCardStorageKeys` only lists REGISTERED sets (savedCardSets) — a uid scan misses
+  unregistered stores.
+- Prompt-driven flows (`prompt()`) can't be automated headlessly; everything else was
+  verified with synthetic events on :8012 (localStorage is per-port; test data was
+  seeded and cleaned each time).
+
+## Open / next steps (agreed)
+
+1. **📝 recording hooks for Math games** — `_gnScopedGame`/`_gnSaveScopedGame` support
+   'find' only; math worksheet sessions don't record Game Notes yet (no 📝 button on math
+   rows on purpose).
+2. Math games in the **Game Preview / new-tab play** flow (currently the ws overlay lives
+   in the Studio tab).
+3. Roles → notes integration (the user already writes "ROLE: …" in the on-card note-box;
+   pre-filling the setup's Role field from it was floated and welcomed, not built).
+4. A real user-data pass on :8000.

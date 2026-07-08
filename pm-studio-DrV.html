@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:43 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:54 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:43 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:54 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:43 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:54 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2973,6 +2973,39 @@
                 host.appendChild(row);
             });
         }
+        // A construct's formula line with each RESTRICTED micro-parameter (digit
+        // set missing some of 0–9) shown YELLOW; hovering lists the digits it
+        // does NOT have. Micros with the full 0–9 set stay white.
+        function _mpFormulaLineHTML(defText, sym) {
+            var first = (String(defText || '').split('\n')[0] || '').trim();
+            var fv = {};
+            try { fv = (_mpParseDef(defText, sym) || {}).freeVars || {}; } catch (e) { fv = {}; }
+            function missingOf(name) {
+                var v = fv[name]; if (!v) return null;
+                var set = null;
+                if (v.set) set = v.set;
+                else if (v.lo != null && v.hi != null) {
+                    if (v.lo < 0 || v.hi > 9) return null;
+                    set = []; for (var x = v.lo; x <= v.hi; x++) set.push(x);
+                } else return null;
+                for (var q = 0; q < set.length; q++) { if (set[q] < 0 || set[q] > 9) return null; }
+                var miss = [];
+                for (var d0 = 0; d0 <= 9; d0++) if (set.indexOf(d0) < 0) miss.push(d0);
+                return miss.length ? miss : null;
+            }
+            var out = '';
+            first.split(/([A-Za-z_]\w*)/).forEach(function (tok, k) {
+                if (k % 2 === 1 && tok !== sym) {
+                    var miss = missingOf(tok);
+                    if (miss) {
+                        out += '<span style="color:#ffd54f;font-weight:700;cursor:help;" title="' + _mpEsc(tok + ' does not have: ' + miss.join(', ')) + '">' + _mpEsc(tok) + '</span>';
+                        return;
+                    }
+                }
+                out += _mpEsc(tok);
+            });
+            return out;
+        }
         // Rich list summary: each rule (range/set) in its OWN rectangle with its
         // construct/constraints inside; the joining sign is the rule's op —
         // "+" for Add, "−" for Subtract (user layout, July 7). Returns null for
@@ -2995,12 +3028,14 @@
                     if (!isNaN(lo) && !isNaN(hi)) body = lo + ' ' + (part.loOp === 'lt' ? '<' : '≤') + ' ' + sym + ' ' + (part.hiOp === 'lt' ? '<' : '≤') + ' ' + hi;
                 }
                 if (!body) return;
-                var extras = [];
+                var content = _mpEsc(body);
                 var d = byT[i];
-                if (d && d.trim()) extras.push(d.split('\n')[0].trim());
-                (p.restrictions || []).forEach(function (r) { if (r.kind !== 'inset' && r.target === i) extras.push(_mpRestrLabel(r)); });
+                if (d && d.trim()) content += ', ' + _mpFormulaLineHTML(d, sym);
+                var rl = [];
+                (p.restrictions || []).forEach(function (r) { if (r.kind !== 'inset' && r.target === i) rl.push(_mpRestrLabel(r)); });
+                if (rl.length) content += ', ' + _mpEsc(rl.join(', '));
                 chips.push({
-                    html: '<span style="display:inline-block;border:1px solid rgba(255,255,255,0.35);border-radius:6px;padding:0 6px;margin:1px 0;white-space:nowrap;">' + _mpEsc(body + (extras.length ? ', ' + extras.join(', ') : '')) + '</span>',
+                    html: '<span style="display:inline-block;border:1px solid rgba(255,255,255,0.35);border-radius:6px;padding:0 6px;margin:1px 0;white-space:nowrap;">' + content + '</span>',
                     op: (part.op === 'sub') ? '−' : '+'
                 });
             });
@@ -3011,9 +3046,9 @@
                 html += c.html;
             });
             var tail = [];
-            if (byT['all'] && byT['all'].trim() && parts.length >= 2) tail.push(byT['all'].split('\n')[0].trim() + ' (all)');
-            (p.restrictions || []).forEach(function (r) { if (r.kind !== 'inset' && (r.target == null || r.target === 'all')) tail.push(_mpRestrLabel(r)); });
-            if (tail.length) html += ' <span style="opacity:0.75;">· ' + _mpEsc(tail.join(' · ')) + '</span>';
+            if (byT['all'] && byT['all'].trim() && parts.length >= 2) tail.push(_mpFormulaLineHTML(byT['all'], sym) + ' (all)');
+            (p.restrictions || []).forEach(function (r) { if (r.kind !== 'inset' && (r.target == null || r.target === 'all')) tail.push(_mpEsc(_mpRestrLabel(r))); });
+            if (tail.length) html += ' <span style="opacity:0.75;">· ' + tail.join(' · ') + '</span>';
             return html;
         }
         function _mpSummary(p) {

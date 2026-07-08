@@ -140,6 +140,40 @@ PROBLEMS GAME — saved-game SETUP screen").
   verified with synthetic events on :8012 (localStorage is per-port; test data was
   seeded and cleaned each time).
 
+## July 8 addendum — worksheet INPUT MODES (touch keypad + draggable digits)
+
+Commit **`10b1d93`**, deployed via merge **`dfe5153`** (+ mirrors). Banner 12:01 AM PDT.
+
+- **Two input modes**, chosen by the author (Input select in the ws bar AND the game
+  setup's options row; `ws.input` `'mouse'|'touch'`, default mouse; the switch applies to
+  the CURRENT page without regenerating — `_wsApplyInputMode`).
+- **Mouse** = no keyboard on the screen at all; answers type normally.
+- **Touch** = a fixed on-screen keypad `#ws-pad`, **TWO lines** (user spec — was 4):
+  `1 2 3 4 5 | ⌫ delete` / `6 7 8 9 0 | ◀ back · ⏎ enter`. Answers become `readOnly`
+  (a tablet never pops its own keyboard); the ACTIVE answer highlights gold
+  (`.ws-active`); tapping any answer selects it. **⏎ enter** jumps to the next EMPTY
+  problem, wrapping; all filled → focuses Check. **◀ back** = previous problem.
+  **⌫** deletes the last digit. Plumbing: `_wsActiveInput`/`_wsInputsList`/
+  `_wsSetActive`/`_wsPadKey`.
+- **Digits DRAG off the keypad onto ANY problem, in any order** (pointer events;
+  `touch-action:none` on the keys): >8px movement lifts a gold chip (`.ws-drag-digit`,
+  `pointer-events:none`) that follows the finger; the hovered row's answer highlights
+  green (`.ws-drop`); release types the digit there and makes that box active; a miss is
+  a no-op; a second drop APPENDS. Three details that made it work:
+  1. **The whole `.ws-prob` row is the drop target** — the bare input is a tiny touch
+     target; near-misses made drops feel "in order only".
+  2. **The keypad sets `pointer-events:none` while a drag is live**, so rows behind it
+     stay reachable — and the drop target is resolved in `pointerup` BEFORE restoring it
+     (restoring first swallowed every drop over the pad region — real bug, fixed).
+  3. A `_wsPadDragDone` flag swallows the click that Chrome fires at the capturing
+     button after a drag (otherwise the digit typed twice).
+- **Status bar**: a fresh page shows ONLY the "Attempt N of M" pill — the "Fill in the
+  answers, then press Check." instruction is gone (user request), including its copy at
+  the end of the repeat warning. Wrong-answer feedback is unchanged.
+- Testing gotcha: on the logged-out preview port, `.sync-login-overlay` (plus the Admin
+  Login dialog) covers the page and breaks `elementFromPoint`-based drop tests — hide
+  both before simulating drags; the user's logged-in :8000 doesn't have them.
+
 ## Open / next steps (agreed)
 
 1. **📝 recording hooks for Math games** — `_gnScopedGame`/`_gnSaveScopedGame` support

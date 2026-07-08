@@ -33,6 +33,15 @@
   22px gap + author-set problems-per-column (numbering runs DOWN columns), detached
   uid-stubs satisfy the whole generation pipeline (all stores are uid-keyed).
   Full map: `docs/HANDOVER_2026-07-07_MATH-GAMES.md`.
+- **Worksheet input modes** (July 8, `10b1d93`→`dfe5153`): `ws.input` mouse|touch.
+  Touch = TWO-line keypad (`1-5|⌫` / `6-0|◀ back·⏎ enter`), answers `readOnly` so a
+  tablet keyboard never pops, ⏎ = next EMPTY problem, digits DRAG onto ANY problem —
+  three drag lessons: **the whole row is the drop target** (a bare input is a near-miss
+  trap on touch), **the keypad must go `pointer-events:none` during a drag** (rows behind
+  it), and **resolve the drop target BEFORE restoring the pad's pointer-events** (the
+  other order swallows drops over the pad). Suppress the post-drag click (pointer capture
+  retargets it at the button) or digits type twice. Fresh pages show only the attempt
+  pill — no instruction text (user).
 
 ---
 

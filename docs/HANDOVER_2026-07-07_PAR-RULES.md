@@ -76,8 +76,13 @@ sets. New this session: each rule owns its op, its construct, its constraints.
   (`_mpFormulaLineHTML`); plain `_mpSummary` string remains for the i-panel.
 
 ### Known not-done
-- ＋ Info card summary still reads only the shared formula (per-rule constructs
-  not itemized there). Examples card / worksheets use the generator → correct.
+- ~~＋ Info card summary still reads only the shared formula~~ **DONE July 8**
+  (`b0a6748`): `_pmPerPartInfo` itemizes each rule on the Info card + i-panel
+  detail. Same commit fixed a REAL July-7 leftover this list missed: the
+  enumeration consumers (`_mpValueSet`/`_mpJointSpace`/`_mpValueCount`) still
+  dispatched on `p.mode==='constructed'`+`p.def` and so IGNORED rule-targeted
+  constructs (Preview/Examples showed values the construct forbids) — all three
+  now route through `_mpGenerateAny`. See STATUS_NOTES July 8.
 - The editor panel does not render in headless screenshots (long-standing);
   everything was verified by DOM assertions + generator tests.
 

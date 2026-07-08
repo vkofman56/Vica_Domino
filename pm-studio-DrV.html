@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:20 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:20 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:14 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:20 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3087,7 +3087,9 @@
                 + '<div id="mp-parts" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>'
                 + '<div id="mp-rule-home" style="display:none;"></div>'
                 + '<div id="mp-rule-block" style="display:flex;flex-direction:column;gap:8px;">'
-                + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span></div>'
+                + '<div class="par-section-label" style="display:flex;align-items:baseline;">Constraints <span id="mp-constraints-none" class="par-help" style="font-style:italic;margin:0 0 0 1cm;text-transform:none;letter-spacing:0;">none</span>'
+                +   '<select id="mp-restr-copy-from" class="par-input" style="display:none;margin-left:10px;padding:2px 5px;font-size:11px;width:auto;text-transform:none;letter-spacing:normal;" title="Copy another rule\'s constraints into this rule"></select>'
+                + '</div>'
                 + '<div id="mp-restr-list" style="display:flex;flex-direction:column;gap:5px;"></div>'
                 // No "for rule" selector: the block sits INSIDE its rule's bordered
                 // box — click another rule's line (or summary box) to edit that one.
@@ -3151,6 +3153,13 @@
                     delete _mpDraftConstructs.all;
                     if (_mpConstructTarget === 'all') _mpConstructTarget = 0;
                 }
+                // Same for constraints: authored while there was one rule → they
+                // belong to THAT rule, not to "all rules".
+                if (_mpDraftParts.length === 1) {
+                    (_mpDraftRestr || []).forEach(function (r) {
+                        if (r.target == null || r.target === 'all') r.target = 0;
+                    });
+                }
                 _mpDraftParts.push(part);
                 _mpConstructTarget = _mpDraftParts.length - 1;
                 _mpRenderParts();          // renders rows + repositions the block + copy row + rule boxes
@@ -3173,6 +3182,14 @@
             document.getElementById('mp-construct-btn').addEventListener('click', _mpToggleConstruct);
             document.getElementById('mp-copy-from').addEventListener('change', function () {
                 if (this.value !== '') _mpCopyRuleFrom(this.value);
+            });
+            document.getElementById('mp-restr-copy-from').addEventListener('change', function () {
+                if (this.value === '') return;
+                var src = parseInt(this.value, 10);
+                _mpDraftRestr.forEach(function (r) {
+                    if (r.target === src) { var c = JSON.parse(JSON.stringify(r)); c.target = _mpConstructTarget; _mpDraftRestr.push(c); }
+                });
+                _mpRenderRestrList();
             });
             function _mpRuleInput() { return document.getElementById('mp-rule-input') || document.getElementById('mp-def'); }
             document.getElementById('mp-ins-mul').addEventListener('click', function () { _mpInsertAtCursor(_mpRuleInput(), '×'); });
@@ -3669,6 +3686,7 @@
             var ro = document.getElementById('mp-rule-sample-out');
             if (ro) { ro.textContent = ''; ro.className = 'par-sample-out'; }
             _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
+            if (typeof _mpRenderRestrList === 'function') _mpRenderRestrList(); // the list is filtered PER RULE
             if (typeof _mpRenderCopyRow === 'function') _mpRenderCopyRow();
         }
         // Keep the per-rule editing state consistent (no "for rule" selector — the
@@ -3711,39 +3729,63 @@
                 togs[i].style.color = open ? '#9fd6a0' : '#cfeede';
             }
         }
+        // "copy from…" next to CONSTRAINTS: offered only while editing a rule and
+        // only when ANOTHER rule has constraints of its own; copies them here.
+        function _mpRenderRestrCopy() {
+            var sel = document.getElementById('mp-restr-copy-from');
+            if (!sel) return;
+            var t = _mpConstructTarget;
+            var multi = _mpDraftParts.length >= 2;
+            var sources = {};
+            if (multi && t !== 'all') {
+                _mpDraftRestr.forEach(function (r) {
+                    if (r.target != null && r.target !== 'all' && r.target !== t) sources[r.target] = 1;
+                });
+            }
+            var keys = Object.keys(sources);
+            sel.style.display = keys.length ? '' : 'none';
+            if (!keys.length) return;
+            var html = '<option value="">copy from…</option>';
+            keys.sort(function (a, b) { return a - b; }).forEach(function (k) {
+                html += '<option value="' + k + '">rule ' + ((k | 0) + 1) + '</option>';
+            });
+            sel.innerHTML = html;
+            sel.value = '';
+        }
         function _mpRenderRestrList() {
             var host = document.getElementById('mp-restr-list');
             if (!host) return;
             host.innerHTML = '';
+            if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries(); // constraint counts show in the rule boxes
+            var multi = _mpDraftParts.length >= 2;
+            var t = _mpConstructTarget;
+            // The box shows ONLY the current rule's constraints (its own + shared
+            // 'all' ones) — no per-row "applies to": the box says whose they are.
+            var visible = [];
+            _mpDraftRestr.forEach(function (r, i) {
+                if (!multi || t === 'all' || r.target == null || r.target === 'all' || r.target === t) visible.push(i);
+            });
             // An empty list must not eat a flex-gap slot — hide it so the
             // "+ Add constraint / Construct" row sits right under "Constraints".
-            host.style.display = _mpDraftRestr.length ? 'flex' : 'none';
-            if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries(); // constraint counts show in the rule boxes
+            host.style.display = visible.length ? 'flex' : 'none';
+            _mpRenderRestrCopy();
             var noneEl = document.getElementById('mp-constraints-none');
-            if (!_mpDraftRestr.length) {
+            if (!visible.length) {
                 if (noneEl) noneEl.style.display = '';
                 return;
             }
             if (noneEl) noneEl.style.display = 'none';
-            _mpDraftRestr.forEach(function (r, i) {
+            visible.forEach(function (i) {
+                var r = _mpDraftRestr[i];
                 var row = document.createElement('div');
                 row.className = 'par-restr-row';
                 row.appendChild(_mpRestrEditor(r));
-                // "applies to" — only meaningful with ≥2 parts. Default: All.
-                if (_mpDraftParts.length >= 2) {
-                    var tsel = document.createElement('select');
-                    tsel.className = 'par-input';
-                    tsel.title = 'Which part(s) this constraint filters';
-                    tsel.style.cssText = 'padding:2px 5px;font-size:11px;width:auto;margin-left:4px;';
-                    tsel.innerHTML = _mpTargetOptionsHTML(r.target == null ? 'all' : r.target);
-                    tsel.addEventListener('change', function () {
-                        r.target = (this.value === 'all') ? 'all' : parseInt(this.value, 10);
-                        _mpHighlightPart(r.target);
-                        if (typeof _mpRenderRuleSummaries === 'function') _mpRenderRuleSummaries();
-                    });
-                    // Highlight the targeted range/set while this constraint is focused.
-                    tsel.addEventListener('focus', function () { _mpHighlightPart(r.target == null ? 'all' : r.target); });
-                    row.appendChild(tsel);
+                if (multi && (r.target == null || r.target === 'all')) {
+                    var allTag = document.createElement('span');
+                    allTag.textContent = '(all rules)';
+                    allTag.title = 'This constraint applies to every rule';
+                    allTag.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.45);margin-left:4px;flex:0 0 auto;';
+                    row.appendChild(allTag);
                 }
                 var x = document.createElement('button');
                 x.className = 'par-mini-btn par-x';

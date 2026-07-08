@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:03 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:51 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:03 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:51 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:03 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2048,6 +2048,11 @@
             <!-- Game Maker selection bar -->
             <div id="game-maker-bar" style="display:none;">
                 <span id="game-maker-bar-text">Select cards for game</span>
+                <select id="gm-copy-mode" style="display:none;font:inherit;border-radius:7px;padding:3px 6px;" title="What a click on a problem card selects: just the card, the card plus its Info/Examples notes, or only those notes.">
+                    <option value="card">Card only</option>
+                    <option value="card+notes">Card + its notes</option>
+                    <option value="notes">Just the notes</option>
+                </select>
                 <button onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
                 <button onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
                 <button onclick="completeGame()">Complete the game</button>
@@ -2291,7 +2296,7 @@
     <script src="js/firebase-config.js?v=1"></script>
 
     <!-- Cloud sync layer — must load BEFORE app scripts so localStorage is patched -->
-    <script src="js/sync.js?v=local-wins-15"></script>
+    <script src="js/sync.js?v=local-wins-16"></script>
 
     <script>
         /* ---- Backup / Restore ---- */
@@ -3367,10 +3372,13 @@
             if (!digits) { host.style.display = 'none'; return; }
             host.style.display = 'block';
             var op = _pvActive ? '1' : '0.5';
-            // "Step", not "Rule": rules are the numbered ranges/sets; the construct's
-            // own numbered lines are its STEPS (step 1 = the decomposition).
-            var _pvTgt = (typeof _mpConstructTarget !== 'undefined' && _mpConstructTarget !== 'all' && _mpDraftParts && _mpDraftParts.length >= 2) ? (' (rule ' + (_mpConstructTarget + 1) + ')') : '';
-            var title = document.createElement('div'); title.className = 'par-help'; title.style.cssText = 'margin:0 0 4px;opacity:0.8;'; title.textContent = (_pvActive ? ('Construct step 1' + _pvTgt + ' — place-value decomposition:') : 'Place-value decomposition (tick to use):'); host.appendChild(title);
+            // ACTIVE ("extended") state: no title row — an inline label
+            // "Construct = place-value decomposition" sits ON the formula line,
+            // 2cm after it (user layout, July 7). The inactive ghost keeps its
+            // "tick to use" instruction line.
+            if (!_pvActive) {
+                var title = document.createElement('div'); title.className = 'par-help'; title.style.cssText = 'margin:0 0 4px;opacity:0.8;'; title.textContent = 'Place-value decomposition (tick to use):'; host.appendChild(title);
+            }
             // master line
             var mline = document.createElement('label'); mline.style.cssText = 'display:flex;align-items:center;gap:7px;opacity:' + op + ';margin:2px 0;cursor:pointer;';
             var mcb = document.createElement('input'); mcb.type = 'checkbox'; mcb.checked = _pvActive;
@@ -3388,6 +3396,12 @@
             mtxt.appendChild(_pvPart('=', true));
             digits.forEach(function (d, i) { if (i > 0) mtxt.appendChild(_pvPart('+', true)); mtxt.appendChild(_pvPart(d.place === 1 ? d.name : (d.place + d.name))); });
             mline.appendChild(mtxt);
+            if (_pvActive) {
+                var inlineLbl = document.createElement('span');
+                inlineLbl.textContent = 'Construct = place-value decomposition';
+                inlineLbl.style.cssText = 'margin-left:2cm;font-size:11px;font-weight:normal;font-family:\'Segoe UI\',sans-serif;color:rgba(255,255,255,0.55);flex:0 0 auto;';
+                mline.appendChild(inlineLbl);
+            }
             host.appendChild(mline);
             // digit lines — 1px between the name, ∈ and the opening brace; the
             // digit list inside { } stays compact so the line doesn't wrap.
@@ -14206,25 +14220,26 @@
                     card.classList.remove('card-selected');
                     gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
                 } else {
-                    var cardSvgEl = card.querySelector('svg');
-                    card.classList.add('card-selected');
-                    var info = { label: labelText, isVariation: false, uid: card.dataset.uid || '' };
-                    // Link to stable card identity
-                    if (card.dataset.stableId) info.stableId = card.dataset.stableId;
-                    // Track which card set this card belongs to
-                    if (activeCardSet === 'abc') info.cardSet = 'ABC';
-                    else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
-                    else info.cardSet = activeCardSet;
-                    // Store SVG markup only if no stableId (stableId lookup provides live data)
-                    if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
-                    // Store card shape
-                    if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
-                        info.cardShape = card.dataset.cardShape;
-                        info.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
-                        info.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
-                        info.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+                    // Math games: the bar's copy-mode select decides what a click
+                    // on a PROBLEM card grabs — just the card, the card plus its
+                    // trailing Info/Examples note cards, or ONLY those notes.
+                    var copyMode = 'card';
+                    if (gameMakerType === 'math' && card.dataset.info !== 'true' &&
+                        typeof _mpReadParams === 'function' && _mpReadParams(card).length) {
+                        var modeSel = document.getElementById('gm-copy-mode');
+                        if (modeSel) copyMode = modeSel.value || 'card';
                     }
-                    gameMakerSelected.push(info);
+                    if (copyMode !== 'notes') _gmSelectCard(card);
+                    if (copyMode !== 'card') {
+                        // A card's notes = the consecutive data-info cards right
+                        // after it in its row (where ＋ Info/＋ Examples drop them).
+                        var sib = card.nextElementSibling;
+                        while (sib && sib.classList && sib.classList.contains('library-card') &&
+                               sib.dataset.info === 'true') {
+                            if (!sib.classList.contains('card-selected')) _gmSelectCard(sib);
+                            sib = sib.nextElementSibling;
+                        }
+                    }
                 }
                 return;
             }
@@ -22227,6 +22242,7 @@
             popup.innerHTML = '';
             var games = loadCustomGames();
             var catchGames = loadCatchGames();
+            var mathGames = loadMathGames();
 
             // "+ New Game" with game type choice
             var newBtn = document.createElement('button');
@@ -22235,7 +22251,9 @@
             newBtn.onclick = function() {
                 popup.style.display = 'none';
                 _showGameTypeChoice(function(type) {
-                    if (type === 'math') { wsOpenGenerator(); return; }
+                    // 'math' now flows through the SAME make-a-game path as
+                    // find/catch — the game is saved and gets its own setup
+                    // screen; ▶ plays the interactive worksheet.
                     var name = prompt('Game name:');
                     if (!name || !name.trim()) return;
                     var unique = _resolveGameNameCollision(name, type, -1);
@@ -22269,6 +22287,16 @@
                     gameMakerEditIndex = i;
                     gameMakerEditCatch = true;
                     gameMakerType = 'catch';
+                    gameMakerName = game.name;
+                    gameMakerDesc = game.description || '';
+                    enterSelectionMode();
+                });
+            _gmAppendDirectory(popup, 'Math Problems', mathGames,
+                function(i) { openMathGameView(i, 'domino-library-screen'); },
+                function(i, game) {
+                    gameMakerEditIndex = i;
+                    gameMakerEditCatch = false;
+                    gameMakerType = 'math';
                     gameMakerName = game.name;
                     gameMakerDesc = game.description || '';
                     enterSelectionMode();
@@ -22534,9 +22562,12 @@
             };
         }
 
-        // Entry from the GM popup.
+        // Entry for the AD-HOC single-card page (no saved game).
         function wsOpenGenerator() {
             _wsEnsureDom();
+            _wsGameIdx = null;
+            var selg = document.getElementById('ws-source');
+            if (selg) selg.disabled = false;
             var cards = _wsParamCardsInSet();
             if (!cards.length) {
                 // Non-blocking: show the overlay with a guidance message instead
@@ -22576,12 +22607,26 @@
         }
 
         function _wsBuildPage() {
-            if (!_wsCard) return;
+            if (_wsGameIdx == null && !_wsCard) return;
             var n = Math.max(1, Math.min(40, parseInt(document.getElementById('ws-count').value, 10) || 10));
             var allowRep = ((document.getElementById('ws-repeats') || {}).value === 'yes');
-            // The game maker does NOT edit the card — it uses each card's own
-            // stored invisible/hidden config (set in the Card Editor).
-            var r = _wsGenerate(_wsCard, n, null, allowRep);
+            var r;
+            if (_wsGameIdx != null) {
+                // Saved-game mode: draw from all the game's cards by weight,
+                // and persist the bar's option edits back onto the game.
+                var mgames = loadMathGames(), mgame = mgames[_wsGameIdx];
+                if (!mgame) return;
+                _mgMigrate(mgame);
+                mgame.ws.count = n;
+                mgame.ws.attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('ws-attempts').value, 10) || 3));
+                mgame.ws.repeats = allowRep ? 'yes' : 'no';
+                saveMathGames(mgames);
+                r = _wsGenerateFromGame(mgame, n, allowRep);
+            } else {
+                // Single-card mode does NOT edit the card — it uses the card's
+                // own stored invisible/hidden config (set in the Card Editor).
+                r = _wsGenerate(_wsCard, n, null, allowRep);
+            }
             var host = document.getElementById('ws-gridhost');
             document.getElementById('ws-h1').textContent = document.getElementById('ws-title').value || 'Worksheet';
             _wsAttemptsUsed = 0; _wsLocked = false;
@@ -22676,6 +22721,513 @@
             document.querySelectorAll('#ws-overlay input.ws-ans').forEach(function (i) { i.disabled = true; });
         }
 
+        // ============================================================
+        //  MATH PROBLEMS GAME — saved-game SETUP screen + play entry.
+        //  No red/neutral/green columns: a Math game is a list of
+        //  problem cards. Per card the game stores which parameters
+        //  show HALF-TRANSPARENT ("show a problem" — the blanks the
+        //  student fills), an optional ROLE, and the active Prob
+        //  preset holds a WEIGHT per card — the mix of problems on a
+        //  page. Everything lives on the saved game (hiddenOverrides /
+        //  roles / probOptions); the card itself is never edited.
+        // ============================================================
+
+        function _mgParamsByUid(uid) {
+            if (!uid) return [];
+            var s = _mpLoadStore();
+            return Array.isArray(s[uid]) ? s[uid] : [];
+        }
+        function _mgFxByUid(uid) {
+            if (!uid) return null;
+            try { return (JSON.parse(localStorage.getItem(_FX_STORE_KEY)) || {})[uid] || null; }
+            catch (e) { return null; }
+        }
+        // Live library card when its set is loaded; else a detached stub —
+        // the generation pipeline (_mpReadParams/_fxLoad/_pmBatchCardKey)
+        // only ever reads dataset.uid.
+        function _mgCardStub(info) {
+            var el = info && info.uid
+                ? document.querySelector('.library-card[data-uid="' + info.uid + '"]') : null;
+            if (el) return el;
+            var stub = document.createElement('div');
+            if (info && info.uid) stub.dataset.uid = info.uid;
+            if (info && info.stableId) stub.dataset.stableId = info.stableId;
+            return stub;
+        }
+        function _mgMigrate(game) {
+            if (!game.ws) game.ws = { count: 10, attempts: 3, repeats: 'no' };
+            if (!game.hiddenOverrides) game.hiddenOverrides = {};
+            if (!game.roles) game.roles = {};
+            if (!Array.isArray(game.probOptions) || !game.probOptions.length) {
+                game.probOptions = [{ id: 'mp1', name: 'Prob 1', weights: {} }];
+                game.activeProbOptionId = 'mp1';
+            }
+            var ok = game.probOptions.some(function (p) { return p && p.id === game.activeProbOptionId; });
+            if (!ok) game.activeProbOptionId = game.probOptions[0].id;
+        }
+        function _mgActiveProb(game) {
+            _mgMigrate(game);
+            for (var i = 0; i < game.probOptions.length; i++)
+                if (game.probOptions[i].id === game.activeProbOptionId) return game.probOptions[i];
+            return game.probOptions[0];
+        }
+        // The game's blank set for one card: the per-game override when set,
+        // else the card's own eye config (params.invisible ∪ formula hidden).
+        function _mgHiddenFor(game, info) {
+            var key = _probCardKey(info);
+            var ov = game.hiddenOverrides && game.hiddenOverrides[key];
+            var m = {};
+            if (Array.isArray(ov)) { ov.forEach(function (s) { m[s] = true; }); return m; }
+            _mgParamsByUid(info.uid).forEach(function (p) { if (p.invisible) m[p.sym] = true; });
+            var fx = _mgFxByUid(info.uid);
+            ((fx && fx.hidden) || []).forEach(function (s) { m[s] = true; });
+            return m;
+        }
+        // Weight of one card in the active Prob (default 1; 0 = never drawn).
+        function _mgWeightFor(prob, key) {
+            var w = prob.weights ? prob.weights[key] : null;
+            return (typeof w === 'number' && isFinite(w) && w >= 0) ? w : 1;
+        }
+
+        var _mgIndex = null; // math game being edited in the setup screen
+
+        function _mgEnsureDom() {
+            if (document.getElementById('mg-overlay')) return;
+            var st = document.createElement('style');
+            st.id = 'mg-style';
+            st.textContent =
+                '#mg-overlay{position:fixed;inset:0;z-index:2550;background:rgba(18,22,40,.94);display:none;flex-direction:column;overflow:auto;}' +
+                '#mg-overlay.show{display:flex;}' +
+                '.mg-bar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;padding:14px 20px;background:rgba(0,0,0,.25);}' +
+                '.mg-titlewrap{display:flex;align-items:center;gap:8px;align-self:center;margin-right:8px;}' +
+                '.mg-title{font-weight:800;font-size:1.05rem;color:#7eff7e;}' +
+                '.mg-title small{color:#fff;opacity:.65;font-weight:600;margin-right:6px;}' +
+                '.mg-iconbtn{background:rgba(255,255,255,.12);border:0;border-radius:7px;color:#fff;cursor:pointer;padding:4px 8px;font:inherit;}' +
+                '.mg-fld{display:flex;flex-direction:column;gap:4px;}' +
+                '.mg-fld label{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;color:#fff;}' +
+                '.mg-fld input,.mg-fld select{font:inherit;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:7px 10px;}' +
+                '.mg-fld input[type=number]{width:72px;} .mg-fld input[type=text]{width:200px;}' +
+                '.mg-go{margin-left:auto;align-self:center;display:flex;gap:8px;}' +
+                '.mg-go button{font:inherit;font-weight:700;border:0;border-radius:9px;padding:9px 16px;cursor:pointer;}' +
+                '.mg-play{background:#7eff7e;color:#143314;}' +
+                '.mg-closebtn{background:rgba(255,255,255,.14);color:#fff;}' +
+                '.mg-probs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;color:#fff;}' +
+                '.mg-probs .mg-probs-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
+                '.mg-prob-chip{font:inherit;border-radius:16px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;padding:5px 14px;cursor:pointer;}' +
+                '.mg-prob-chip.active{background:#f5c518;border-color:#f5c518;color:#222;font-weight:700;}' +
+                '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:980px;}' +
+                '.mg-hint{color:#fff;opacity:.55;font-size:.82rem;}' +
+                '.mg-row{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;color:#fff;}' +
+                '.mg-row.mg-note-row{opacity:.85;}' +
+                '.mg-prev{flex:none;width:76px;min-height:46px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
+                '.mg-prev svg{width:100%;height:auto;display:block;}' +
+                '.mg-prev-label{color:#23304a;font-weight:700;padding:6px;}' +
+                '.mg-main{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}' +
+                '.mg-formula{font-size:1.25rem;font-variant-numeric:tabular-nums;}' +
+                '.mg-formula .mg-sym{font-weight:700;}' +
+                '.mg-formula .mg-sym.mg-hid{opacity:.35;border-bottom:2px solid #f5c518;}' +
+                '.mg-line{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:.86rem;}' +
+                '.mg-line .mg-lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
+                '.mg-eye{font:inherit;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);padding:3px 10px;cursor:pointer;font-weight:700;}' +
+                '.mg-eye.mg-hid{opacity:.4;border-style:dashed;}' +
+                '.mg-reset{background:none;border:0;color:#f5c518;cursor:pointer;font:inherit;font-size:.8rem;}' +
+                '.mg-role{width:110px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:4px 8px;}' +
+                '.mg-weight{width:64px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:4px 8px;}' +
+                '.mg-share{opacity:.65;} .mg-warn{color:#ffb14e;font-size:.84rem;}' +
+                '.mg-sec{margin-top:8px;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;opacity:.6;font-weight:700;}';
+            document.head.appendChild(st);
+
+            var ov = document.createElement('div');
+            ov.id = 'mg-overlay';
+            ov.innerHTML =
+                '<div class="mg-bar">' +
+                  '<div class="mg-titlewrap"><span class="mg-title" id="mg-title"></span>' +
+                  '<button class="mg-iconbtn" id="mg-rename" title="Rename this game">✎</button></div>' +
+                  '<div class="mg-fld"><label>Problems / page</label><input type="number" id="mg-count" min="1" max="40"></div>' +
+                  '<div class="mg-fld"><label>Attempts</label><input type="number" id="mg-attempts" min="1" max="9"></div>' +
+                  '<div class="mg-fld"><label>Repeats</label><select id="mg-repeats"><option value="no">Avoid previous page</option><option value="yes">Allow repeats</option></select></div>' +
+                  '<div class="mg-go">' +
+                    '<button class="mg-play" id="mg-play">▶ Play worksheet</button>' +
+                    '<button class="mg-closebtn" id="mg-close">✕ Close</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="mg-probs" id="mg-probs"></div>' +
+                '<div class="mg-wrap" id="mg-list"></div>';
+            document.body.appendChild(ov);
+
+            document.getElementById('mg-close').onclick = closeMathGameView;
+            document.getElementById('mg-play').onclick = function () {
+                if (_mgIndex != null) wsOpenGeneratorForGame(_mgIndex);
+            };
+            document.getElementById('mg-rename').onclick = function () {
+                var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+                var name = prompt('Game name:', g.name); if (!name || !name.trim()) return;
+                var unique = _resolveGameNameCollision(name, 'math', _mgIndex); if (!unique) return;
+                g.name = unique; saveMathGames(games); _mgRender();
+                try { populateLibraryGames(); } catch (e) {}
+            };
+            ['mg-count', 'mg-attempts', 'mg-repeats'].forEach(function (id) {
+                document.getElementById(id).onchange = function () {
+                    var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+                    _mgMigrate(g);
+                    g.ws.count = Math.max(1, Math.min(40, parseInt(document.getElementById('mg-count').value, 10) || 10));
+                    g.ws.attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('mg-attempts').value, 10) || 3));
+                    g.ws.repeats = document.getElementById('mg-repeats').value;
+                    saveMathGames(games);
+                };
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    var mo = document.getElementById('mg-overlay');
+                    var wo = document.getElementById('ws-overlay');
+                    // Worksheet on top closes first (its own listener has none).
+                    if (mo && mo.classList.contains('show') && !(wo && wo.classList.contains('show'))) closeMathGameView();
+                }
+            });
+        }
+
+        function openMathGameView(mathIndex, returnScreen) {
+            var games = loadMathGames();
+            if (!games[mathIndex]) return;
+            _mgEnsureDom();
+            _mgIndex = mathIndex;
+            _mgMigrate(games[mathIndex]);
+            saveMathGames(games);
+            try { recordGameActivation('mathpages', games[mathIndex].name, 'creator'); } catch (e) {}
+            _mgRender();
+            document.getElementById('mg-overlay').classList.add('show');
+        }
+        function closeMathGameView() {
+            var ov = document.getElementById('mg-overlay');
+            if (ov) ov.classList.remove('show');
+            _mgIndex = null;
+        }
+
+        // Formula text with each parameter colored; the game's blanks render
+        // half-transparent with a gold underline — the on-sheet look.
+        function _mgFormulaHtml(text, params, hidden) {
+            var known = {};
+            params.forEach(function (p) { known[p.sym] = true; });
+            return String(text).replace(/[A-Za-z_][A-Za-z0-9_]*|[<>&]|./g, function (tok) {
+                if (tok === '<') return '&lt;'; if (tok === '>') return '&gt;'; if (tok === '&') return '&amp;';
+                if (!known[tok]) return _mpEsc(tok);
+                return '<span class="mg-sym' + (hidden[tok] ? ' mg-hid' : '') + '" style="color:' +
+                    _pmParamColor(tok) + '">' + _mpEsc(tok) + '</span>';
+            });
+        }
+        function _mgPreviewEl(info) {
+            var box = document.createElement('div');
+            box.className = 'mg-prev';
+            var live = info && info.uid
+                ? document.querySelector('.library-card[data-uid="' + info.uid + '"] svg') : null;
+            if (live) { box.appendChild(live.cloneNode(true)); }
+            else {
+                var l = document.createElement('span');
+                l.className = 'mg-prev-label';
+                l.textContent = (info && info.label) || '?';
+                box.appendChild(l);
+            }
+            return box;
+        }
+
+        function _mgRender() {
+            var games = loadMathGames(), game = games[_mgIndex];
+            if (!game) return;
+            _mgMigrate(game);
+            var prob = _mgActiveProb(game);
+
+            document.getElementById('mg-title').innerHTML =
+                '<small>Math Problems —</small>' + _mpEsc(game.name);
+            document.getElementById('mg-count').value = game.ws.count;
+            document.getElementById('mg-attempts').value = game.ws.attempts;
+            document.getElementById('mg-repeats').value = game.ws.repeats;
+
+            // --- Prob preset chips: the page MIX presets (Prob 1, Prob 2, …) ---
+            var pr = document.getElementById('mg-probs');
+            pr.innerHTML = '<span class="mg-probs-label">Mix presets</span>';
+            game.probOptions.forEach(function (p) {
+                var chip = document.createElement('button');
+                chip.className = 'mg-prob-chip' + (p.id === game.activeProbOptionId ? ' active' : '');
+                chip.textContent = p.name || 'Prob';
+                chip.title = 'Use this mix of problems (each card’s weight below is stored per preset)';
+                chip.onclick = function () {
+                    game.activeProbOptionId = p.id; saveMathGames(games); _mgRender();
+                };
+                pr.appendChild(chip);
+            });
+            var add = document.createElement('button');
+            add.className = 'mg-iconbtn'; add.textContent = '＋ Prob';
+            add.title = 'New mix preset (starts as a copy of the active one)';
+            add.onclick = function () {
+                var np = { id: 'mp' + Date.now(), name: 'Prob ' + (game.probOptions.length + 1),
+                           weights: JSON.parse(JSON.stringify(prob.weights || {})) };
+                game.probOptions.push(np); game.activeProbOptionId = np.id;
+                saveMathGames(games); _mgRender();
+            };
+            pr.appendChild(add);
+            var ren = document.createElement('button');
+            ren.className = 'mg-iconbtn'; ren.textContent = '✎';
+            ren.title = 'Rename the active preset';
+            ren.onclick = function () {
+                var name = prompt('Preset name:', prob.name || ''); if (!name || !name.trim()) return;
+                prob.name = name.trim(); saveMathGames(games); _mgRender();
+            };
+            pr.appendChild(ren);
+            if (game.probOptions.length > 1) {
+                var del = document.createElement('button');
+                del.className = 'mg-iconbtn'; del.textContent = '🗑';
+                del.title = 'Delete the active preset';
+                del.onclick = function () {
+                    if (!confirm('Delete preset “' + (prob.name || 'Prob') + '”?')) return;
+                    game.probOptions = game.probOptions.filter(function (p) { return p.id !== prob.id; });
+                    game.activeProbOptionId = game.probOptions[0].id;
+                    saveMathGames(games); _mgRender();
+                };
+                pr.appendChild(del);
+            }
+
+            // --- Card rows ---
+            var list = document.getElementById('mg-list');
+            list.innerHTML = '';
+            var paramCards = [], noteCards = [];
+            (game.cards || []).forEach(function (info) {
+                if (_mgParamsByUid(info.uid).length) paramCards.push(info); else noteCards.push(info);
+            });
+
+            if (!paramCards.length) {
+                var none = document.createElement('div');
+                none.className = 'mg-hint';
+                none.textContent = 'No parametric cards in this game yet. Edit the game (GM → Math Problems → its name) and select cards that have parameters (Par) and a formula (f).';
+                list.appendChild(none);
+            }
+
+            // Total weight over the cards that can actually generate problems.
+            var totalW = 0;
+            paramCards.forEach(function (info) {
+                var fx = _mgFxByUid(info.uid);
+                if (fx && fx.text) totalW += _mgWeightFor(prob, _probCardKey(info));
+            });
+
+            paramCards.forEach(function (info) {
+                var key = _probCardKey(info);
+                var params = _mgParamsByUid(info.uid);
+                var fx = _mgFxByUid(info.uid);
+                var hidden = _mgHiddenFor(game, info);
+                var w = _mgWeightFor(prob, key);
+
+                var row = document.createElement('div');
+                row.className = 'mg-row';
+                row.appendChild(_mgPreviewEl(info));
+                var main = document.createElement('div');
+                main.className = 'mg-main';
+
+                // "Show a problem": the formula as it appears to the student —
+                // half-transparent parameters are the blanks.
+                var f = document.createElement('div');
+                f.className = 'mg-formula';
+                if (fx && fx.text) f.innerHTML = _mgFormulaHtml(fx.text, params, hidden);
+                else f.innerHTML = '<span class="mg-warn">No formula yet — open the card → f and write one.</span>';
+                main.appendChild(f);
+
+                // Per-parameter half-transparent toggles (per-GAME override).
+                var eyeLine = document.createElement('div');
+                eyeLine.className = 'mg-line';
+                var el = document.createElement('span');
+                el.className = 'mg-lbl'; el.textContent = 'Show a problem';
+                el.title = 'Click a parameter to make it half-transparent on the sheet — those are the blanks the student fills.';
+                eyeLine.appendChild(el);
+                params.forEach(function (p) {
+                    var b = document.createElement('button');
+                    b.className = 'mg-eye' + (hidden[p.sym] ? ' mg-hid' : '');
+                    b.textContent = p.sym;
+                    b.style.color = _pmParamColor(p.sym);
+                    b.title = hidden[p.sym]
+                        ? p.sym + ' is a blank (half-transparent) — click to show it'
+                        : p.sym + ' is shown — click to make it a blank (half-transparent)';
+                    b.onclick = function () {
+                        var m = _mgHiddenFor(game, info);
+                        if (m[p.sym]) delete m[p.sym]; else m[p.sym] = true;
+                        game.hiddenOverrides[key] = Object.keys(m);
+                        saveMathGames(games); _mgRender();
+                    };
+                    eyeLine.appendChild(b);
+                });
+                if (Array.isArray(game.hiddenOverrides[key])) {
+                    var rst = document.createElement('button');
+                    rst.className = 'mg-reset'; rst.textContent = '↺ card default';
+                    rst.title = 'Forget this game’s override and follow the card’s own eye setting';
+                    rst.onclick = function () {
+                        delete game.hiddenOverrides[key];
+                        saveMathGames(games); _mgRender();
+                    };
+                    eyeLine.appendChild(rst);
+                }
+                main.appendChild(eyeLine);
+
+                // Role + weight (weight lives in the ACTIVE preset; editing a
+                // card that has a role writes the weight to the whole role).
+                var wLine = document.createElement('div');
+                wLine.className = 'mg-line';
+                var rl = document.createElement('span'); rl.className = 'mg-lbl'; rl.textContent = 'Role';
+                wLine.appendChild(rl);
+                var role = document.createElement('input');
+                role.className = 'mg-role'; role.type = 'text';
+                role.placeholder = '—'; role.value = game.roles[key] || '';
+                role.title = 'Optional role name — cards sharing a role share one weight';
+                role.onchange = function () {
+                    var v = role.value.trim();
+                    if (v) game.roles[key] = v; else delete game.roles[key];
+                    saveMathGames(games); _mgRender();
+                };
+                wLine.appendChild(role);
+                var wl = document.createElement('span'); wl.className = 'mg-lbl'; wl.textContent = 'Weight';
+                wLine.appendChild(wl);
+                var wi = document.createElement('input');
+                wi.className = 'mg-weight'; wi.type = 'number'; wi.min = '0'; wi.step = '1';
+                wi.value = w;
+                wi.title = 'Relative weight in the active preset — how much of the page comes from this card (0 = never)';
+                wi.onchange = function () {
+                    var v = Math.max(0, parseFloat(wi.value) || 0);
+                    if (!prob.weights) prob.weights = {};
+                    var myRole = game.roles[key];
+                    if (myRole) {
+                        paramCards.forEach(function (o) {
+                            var ok = _probCardKey(o);
+                            if (game.roles[ok] === myRole) prob.weights[ok] = v;
+                        });
+                    } else prob.weights[key] = v;
+                    saveMathGames(games); _mgRender();
+                };
+                wLine.appendChild(wi);
+                var share = document.createElement('span');
+                share.className = 'mg-share';
+                if (fx && fx.text && totalW > 0) share.textContent = '≈ ' + Math.round(100 * w / totalW) + '% of the page';
+                else if (fx && fx.text) share.textContent = 'no cards active — page would be empty';
+                wLine.appendChild(share);
+                main.appendChild(wLine);
+
+                row.appendChild(main);
+                list.appendChild(row);
+            });
+
+            if (noteCards.length) {
+                var sec = document.createElement('div');
+                sec.className = 'mg-sec';
+                sec.textContent = 'Notes cards (printed with the sheet, no problems)';
+                list.appendChild(sec);
+                noteCards.forEach(function (info) {
+                    var row = document.createElement('div');
+                    row.className = 'mg-row mg-note-row';
+                    row.appendChild(_mgPreviewEl(info));
+                    var main = document.createElement('div');
+                    main.className = 'mg-main';
+                    var t = document.createElement('div');
+                    t.textContent = info.label || 'Note card';
+                    main.appendChild(t);
+                    row.appendChild(main);
+                    list.appendChild(row);
+                });
+            }
+        }
+
+        // ---- Play a SAVED math game: the worksheet draws from all its cards
+        //      according to the active preset's weights. ----
+        var _wsGameIdx = null;
+
+        function wsOpenGeneratorForGame(mathIndex) {
+            var games = loadMathGames(), game = games[mathIndex];
+            if (!game) return;
+            _mgMigrate(game);
+            _wsEnsureDom();
+            _wsGameIdx = mathIndex;
+            _wsCard = null;
+            var sel = document.getElementById('ws-source');
+            sel.innerHTML = '';
+            var o = document.createElement('option');
+            o.textContent = 'Game — ' + game.name;
+            sel.appendChild(o);
+            sel.disabled = true;
+            document.getElementById('ws-title').value = game.name;
+            document.getElementById('ws-count').value = game.ws.count;
+            document.getElementById('ws-attempts').value = game.ws.attempts;
+            document.getElementById('ws-repeats').value = game.ws.repeats;
+            try { recordGameActivation('mathpages', game.name, 'preview'); } catch (e) {}
+            document.getElementById('ws-overlay').classList.add('show');
+            _wsBuildPage();
+        }
+
+        // n problems drawn from the game's cards by the active preset's
+        // weights (largest-remainder split), then shuffled together.
+        function _wsGenerateFromGame(game, n, allowRepeats) {
+            var prob = _mgActiveProb(game);
+            var entries = [];
+            (game.cards || []).forEach(function (info) {
+                var params = _mgParamsByUid(info.uid);
+                var fx = _mgFxByUid(info.uid);
+                if (!params.length || !fx || !fx.text) return;
+                entries.push({ info: info, key: _probCardKey(info) });
+            });
+            if (!entries.length) return { error: 'No playable cards — the game needs cards with parameters (Par) and a formula (f).' };
+            var totalW = 0;
+            entries.forEach(function (e) { e.w = _mgWeightFor(prob, e.key); totalW += e.w; });
+            if (totalW <= 0) return { error: 'All weights are 0 in preset “' + (prob.name || 'Prob') + '” — give at least one card a weight.' };
+            // Largest-remainder apportionment of n over the weights.
+            var rem = [];
+            var used = 0;
+            entries.forEach(function (e, i) {
+                var exact = n * e.w / totalW;
+                e.k = Math.floor(exact);
+                used += e.k;
+                rem.push({ i: i, r: exact - e.k });
+            });
+            rem.sort(function (a, b) { return b.r - a.r; });
+            for (var j = 0; used < n && j < rem.length; j++, used++) entries[rem[j].i].k++;
+            var all = [], repeatWarn = false, totals = 0, anyApprox = false;
+            for (var i = 0; i < entries.length; i++) {
+                var e = entries[i];
+                if (!e.k) continue;
+                var hidden = _mgHiddenFor(game, e.info);
+                var r = _wsGenerate(_mgCardStub(e.info), e.k, hidden, allowRepeats);
+                if (r.error) return { error: (e.info.label ? '“' + e.info.label + '”: ' : '') + r.error };
+                all = all.concat(r.problems);
+                repeatWarn = repeatWarn || r.repeatWarn;
+                if (r.total == null) anyApprox = true; else totals += r.total;
+            }
+            if (!all.length) return { error: 'No problems could be generated — check the cards’ parameters and blanks.' };
+            // Shuffle so the cards' problems interleave.
+            for (var s = all.length - 1; s > 0; s--) {
+                var t = Math.floor(Math.random() * (s + 1));
+                var tmp = all[s]; all[s] = all[t]; all[t] = tmp;
+            }
+            return { problems: all, total: anyApprox ? null : totals, totalApprox: anyApprox, repeatWarn: repeatWarn };
+        }
+
+        // Select one library card into the game being built (shared by the
+        // click handler for the clicked card and, for math games, its notes).
+        function _gmSelectCard(card) {
+            var label = card.querySelector('.library-label');
+            if (!label) return;
+            var cardSvgEl = card.querySelector('svg');
+            card.classList.add('card-selected');
+            var info = { label: label.textContent, isVariation: false, uid: card.dataset.uid || '' };
+            // Link to stable card identity
+            if (card.dataset.stableId) info.stableId = card.dataset.stableId;
+            // Track which card set this card belongs to
+            if (activeCardSet === 'abc') info.cardSet = 'ABC';
+            else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
+            else info.cardSet = activeCardSet;
+            // Store SVG markup only if no stableId (stableId lookup provides live data)
+            if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
+            // Store card shape
+            if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
+                info.cardShape = card.dataset.cardShape;
+                info.cardShapeW = parseFloat(card.dataset.cardShapeW) || 60;
+                info.cardShapeH = parseFloat(card.dataset.cardShapeH) || 60;
+                info.cardCornerR = parseFloat(card.dataset.cardCornerR) || 0;
+            }
+            gameMakerSelected.push(info);
+        }
+
         function enterSelectionMode() {
             // Save all card edits before entering game maker mode
             if (typeof saveVariations === 'function') saveVariations();
@@ -22690,7 +23242,9 @@
             });
             // If editing, pre-highlight existing cards
             if (gameMakerEditIndex >= 0) {
-                var games = gameMakerEditCatch ? loadCatchGames() : loadCustomGames();
+                var games = gameMakerEditCatch ? loadCatchGames()
+                          : (gameMakerType === 'math') ? loadMathGames()
+                          : loadCustomGames();
                 var existingCards = games[gameMakerEditIndex].cards || [];
                 var allCards = document.querySelectorAll('#domino-library-screen .library-card');
                 var matched = {};
@@ -22739,8 +23293,12 @@
             }
             // Show game name in title span
             var titleSpan = document.getElementById('card-maker-set-title');
-            var typeLabel = gameMakerType === 'catch' ? 'Catch the double' : 'Find the double';
-            var titleColor = gameMakerType === 'catch' ? '#00BFFF' : '#FFD700';
+            var typeLabel = gameMakerType === 'catch' ? 'Catch the double'
+                          : gameMakerType === 'math'  ? 'Math Problems'
+                          : 'Find the double';
+            var titleColor = gameMakerType === 'catch' ? '#00BFFF'
+                           : gameMakerType === 'math'  ? '#7eff7e'
+                           : '#FFD700';
             if (gameMakerEditIndex >= 0) {
                 titleSpan.textContent = 'Editing ' + typeLabel + ': ' + gameMakerName;
                 titleSpan.style.color = titleColor;
@@ -22758,6 +23316,10 @@
             // Show selection bar
             var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
             document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D';
+            // Math games: show the copy-mode select (card / card + its notes /
+            // just the notes) \u2014 other types always grab just the clicked card.
+            var copySel = document.getElementById('gm-copy-mode');
+            if (copySel) copySel.style.display = (gameMakerType === 'math') ? '' : 'none';
             document.getElementById('game-maker-bar').style.display = 'flex';
         }
 
@@ -23387,7 +23949,35 @@
             }
 
             // Save the game — route to correct storage by type
-            var gameTypeLabel = gameMakerType === 'catch' ? 'Catch the double' : 'Find the double';
+            var gameTypeLabel = gameMakerType === 'catch' ? 'Catch the double'
+                              : gameMakerType === 'math'  ? 'Math Problems'
+                              : 'Find the double';
+            if (gameMakerType === 'math') {
+                var mathGames = loadMathGames();
+                var mathIdx;
+                if (gameMakerEditIndex >= 0 && mathGames[gameMakerEditIndex]) {
+                    mathGames[gameMakerEditIndex].description = gameMakerDesc;
+                    mathGames[gameMakerEditIndex].cards = gameMakerSelected;
+                    mathIdx = gameMakerEditIndex;
+                } else {
+                    mathGames.push({
+                        name: gameMakerName,
+                        description: gameMakerDesc,
+                        cards: gameMakerSelected,
+                        ws: { count: 10, attempts: 3, repeats: 'no' }
+                    });
+                    mathIdx = mathGames.length - 1;
+                }
+                saveMathGames(mathGames);
+                cancelGameMaker();
+                populateLibraryGames();
+                populateStartScreenGames();
+                populateCardMakerGames();
+                // No columns/probability grid for worksheets — go straight to
+                // the Math-specific setup screen instead of an alert.
+                openMathGameView(mathIdx, 'domino-library-screen');
+                return;
+            }
             if (gameMakerType === 'catch') {
                 var catchGames = loadCatchGames();
                 if (gameMakerEditCatch && gameMakerEditIndex >= 0) {
@@ -23449,6 +24039,23 @@
             localStorage.setItem('savedCatchGames', JSON.stringify(games));
         }
 
+        // --- Math Problems games (interactive worksheets) ---
+        // Same card-info shape as find/catch games, plus:
+        //   ws:  { count, attempts, repeats } — worksheet options
+        //   hiddenOverrides: { cardKey: [sym,…] } — per-GAME blank choice
+        //     (which parameters show half-transparent); the card's own
+        //     eye config is only the default.
+        function loadMathGames() {
+            try {
+                var data = localStorage.getItem('savedMathGames');
+                return data ? JSON.parse(data) : [];
+            } catch(e) { return []; }
+        }
+
+        function saveMathGames(games) {
+            localStorage.setItem('savedMathGames', JSON.stringify(games));
+        }
+
         // --- Duplicate-name handling (Option 3: confirm-with-default) ---
         // If the user typed a name that collides with another game in the SAME
         // list (Find-the-Double or Catch-the-Double), re-prompt with an
@@ -23473,7 +24080,9 @@
         function _resolveGameNameCollision(desiredName, gameType, currentIndex) {
             desiredName = (desiredName || '').trim();
             if (!desiredName) return null;
-            var games = (gameType === 'catch') ? loadCatchGames() : loadCustomGames();
+            var games = (gameType === 'catch') ? loadCatchGames()
+                      : (gameType === 'math')  ? loadMathGames()
+                      : loadCustomGames();
             var lower = desiredName.toLowerCase();
             var clash = -1;
             for (var i = 0; i < games.length; i++) {
@@ -31845,6 +32454,7 @@
         function _gtLoadGames(typeId) {
             if (typeId === 'find')  return loadCustomGames();
             if (typeId === 'catch') return loadCatchGames();
+            if (typeId === 'mathpages') return loadMathGames();
             try { return JSON.parse(localStorage.getItem('savedGames_' + typeId) || '[]') || []; } catch (e) { return []; }
         }
 
@@ -31910,10 +32520,12 @@
             if (kind === 'preview') {
                 if (typeId === 'find') openPlayModal(idx);
                 else if (typeId === 'catch') openCatchPlayModal(idx);
+                else if (typeId === 'mathpages') wsOpenGeneratorForGame(idx);
                 else openGameTypeDirectory(typeId);
             } else {
                 if (typeId === 'find') openGameView(idx, 'card-library-screen');
                 else if (typeId === 'catch') openCatchGameView(idx, 'card-library-screen');
+                else if (typeId === 'mathpages') openMathGameView(idx, 'card-library-screen');
                 else openGameTypeDirectory(typeId);
             }
         }
@@ -32002,11 +32614,13 @@
             _gtSaveFolders(typeId, _gtLoadFolders(typeId).filter(function (x) { return x !== name; }));
             if (typeId === 'find') { var g = loadCustomGames(); g.forEach(function (x) { if (x && x._folder === name) delete x._folder; }); localStorage.setItem('savedCustomGames', JSON.stringify(g)); }
             else if (typeId === 'catch') { var c = loadCatchGames(); c.forEach(function (x) { if (x && x._folder === name) delete x._folder; }); saveCatchGames(c); }
+            else if (typeId === 'mathpages') { var m = loadMathGames(); m.forEach(function (x) { if (x && x._folder === name) delete x._folder; }); saveMathGames(m); }
             renderGameTypeDirectory();
         }
         function _gtMoveGameToFolder(typeId, idx, folder) {
             if (typeId === 'find') { var g = loadCustomGames(); if (g[idx]) { if (folder) g[idx]._folder = folder; else delete g[idx]._folder; localStorage.setItem('savedCustomGames', JSON.stringify(g)); } }
             else if (typeId === 'catch') { var c = loadCatchGames(); if (c[idx]) { if (folder) c[idx]._folder = folder; else delete c[idx]._folder; saveCatchGames(c); } }
+            else if (typeId === 'mathpages') { var m = loadMathGames(); if (m[idx]) { if (folder) m[idx]._folder = folder; else delete m[idx]._folder; saveMathGames(m); } }
             renderGameTypeDirectory();
         }
 
@@ -32039,9 +32653,29 @@
             del.onclick = (function (idx) { return function (e) { e.stopPropagation(); deleteCatchGame(idx); }; })(ci); row.appendChild(del);
             return row;
         }
+        function _gtBuildMathRow(mg, mi) {
+            var row = document.createElement('div'); row.className = 'library-game-row';
+            var play = document.createElement('button'); play.className = 'play-test-btn'; play.innerHTML = '&#9654;'; play.title = 'Play this worksheet';
+            play.onclick = (function (idx) { return function (e) { e.stopPropagation(); wsOpenGeneratorForGame(idx); }; })(mi); row.appendChild(play);
+            row.appendChild(_makeGameInfoBtn((function (idx) { return function () { return loadMathGames()[idx]; }; })(mi), 'Math Problems game'));
+            var name = document.createElement('button'); name.className = 'library-game-link'; name.textContent = mg.name;
+            name.onclick = (function (idx) { return function () { openMathGameView(idx, 'card-library-screen'); }; })(mi); row.appendChild(name);
+            var del = document.createElement('button'); del.className = 'delete-catch-btn'; del.title = 'Delete this Math Problems game'; del.innerHTML = '&#10005;';
+            del.onclick = (function (idx) { return function (e) { e.stopPropagation(); deleteMathGame(idx); }; })(mi); row.appendChild(del);
+            return row;
+        }
+        function deleteMathGame(mathIndex) {
+            var games = loadMathGames();
+            var g = games[mathIndex]; if (!g) return;
+            if (!confirm('Delete Math Problems game “' + g.name + '”?\n\nThis cannot be undone.')) return;
+            games.splice(mathIndex, 1);
+            saveMathGames(games);
+            if (_gtCurrentType) renderGameTypeDirectory(); else populateLibraryGames();
+        }
         function _gtDirRow(typeId, entry) {
             var row = (typeId === 'find') ? _gtBuildFindRow(entry.g, entry.i)
-                    : (typeId === 'catch') ? _gtBuildCatchRow(entry.g, entry.i) : null;
+                    : (typeId === 'catch') ? _gtBuildCatchRow(entry.g, entry.i)
+                    : (typeId === 'mathpages') ? _gtBuildMathRow(entry.g, entry.i) : null;
             if (!row) return null;
             var folders = _gtLoadFolders(typeId);
             if (folders.length) {

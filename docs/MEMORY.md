@@ -1,5 +1,94 @@
 # Vica Domino Project Memory
-**Last Updated**: July 5, 2026 — **visual notes reports + new-tab play + mini-game chips** (see below + STATUS_NOTES July 5). Prior: July 4 Game Notes system; June 29 counting overhaul; June 27–28 parametric Math Problems.
+**Last Updated**: July 7–8, 2026 (night session, TWO parallel streams) — **Par per-rule fix pass + Card Maker Role flow** AND **Math Problems saved games (Interactive Worksheets)**, both DEPLOYED in `4aa1a33` (see the two sections below + STATUS_NOTES July 8). Prior: July 7 Par rules redesign; July 5 visual notes reports; July 4 Game Notes system.
+
+---
+
+## 🎯 July 7–8, 2026 — Math Problems saved games: the notes model, honest weights, gesture UI
+
+- **NOTES are author-only, in two forms** (user corrected this twice — never mix it up
+  again): (1) the white note-box ON the card face = the label box `g.card-label` inside
+  the card's SVG (anchor ⚓ locks it, `data-frozen`); (2) the white note-CARDS
+  (`data-info="true"`). **The player NEVER sees either** — worksheets show plain generated
+  text problems only. In the game SETUP they render beside their problem card at
+  **Card-Set look and size** ("copy the chosen cards from card-set" — clone the whole
+  `.library-card`, or rebuild from stored data when the Card Maker DOM isn't loaded;
+  `_mgCardDataFor`: stableId → uid scan → saved markup). Internal card names (row +
+  squashed face text, e.g. `E1_A+B=C7+2=…`) are HIDDEN by the Card Maker's compact view —
+  hide them on any copy too, or they leak as garble.
+- **Weights are RELATIVE, never "out of 100"**: share = weight ÷ total of all weights
+  (total 200 ⇒ weight 1 = 0.5%). Show the total next to the presets, show fractional
+  percents honestly (99.5 ≠ 100, tiny ≠ 0), and draw each worksheet slot INDEPENDENTLY by
+  weight — deterministic apportionment turns "rare" into "never" for sub-slot shares.
+- **Direct manipulation over buttons** (user: "why do we need a special button for
+  that?"): selected lines respond to Delete/Backspace, ↑/↓, drag-to-move with a drop bar,
+  marquee-from-background, Shift adds, Esc clears. Buttons only for actions with no
+  natural gesture (common weight). Keyboard handling on an overlay must be CAPTURE-phase
+  + stopPropagation, or the screen underneath acts on the same keys.
+- **"Show a problem" = show what the PLAYER gets** — a real sample instance with the
+  blank's value half-transparent — NOT the formula (the formula is note-box content;
+  rendering it as the row's headline was a flagged mix-up).
+- Math games: `savedMathGames` (LOCAL-WINS + backups, `sync.js?v=local-wins-16` — the
+  buster is DONE, in HEAD), Library type id `mathpages`, per-game blank overrides
+  (`hiddenOverrides`, card's eye = default), worksheet numbering at problem size with a
+  22px gap + author-set problems-per-column (numbering runs DOWN columns), detached
+  uid-stubs satisfy the whole generation pipeline (all stores are uid-keyed).
+  Full map: `docs/HANDOVER_2026-07-07_MATH-GAMES.md`.
+- **Worksheet input modes** (July 8, `10b1d93`→`dfe5153`): `ws.input` mouse|touch.
+  Touch = TWO-line keypad (`1-5|⌫` / `6-0|◀ back·⏎ enter`), answers `readOnly` so a
+  tablet keyboard never pops, ⏎ = next EMPTY problem, digits DRAG onto ANY problem —
+  three drag lessons: **the whole row is the drop target** (a bare input is a near-miss
+  trap on touch), **the keypad must go `pointer-events:none` during a drag** (rows behind
+  it), and **resolve the drop target BEFORE restoring the pad's pointer-events** (the
+  other order swallows drops over the pad). Suppress the post-drag click (pointer capture
+  retargets it at the button) or digits type twice. Fresh pages show only the attempt
+  pill — no instruction text (user).
+
+---
+
+## 🎯 July 7–8, 2026 (night) — per-rule engine leaks, invisible panels, Role flow
+
+- **"All the Par buttons stopped working" = the panels were opening INVISIBLY.**
+  `98c33d4` moved the shared `.par-panel` styles (z-index 2200, background,
+  border, padding) onto the `#par-panel` id while widening it — the other four
+  panels (`fx/rel/pv/i-panel`) share the `.par-panel` CLASS and were left with
+  `z-index:auto` + no background, so they rendered behind the loupe card.
+  Lesson: the five math panels share `.par-panel`; per-panel overrides go on
+  the id (`#par-panel { width:452px }`), shared styling STAYS on the class.
+- **Any consumer that branches on `p.mode === 'constructed'` + reads `p.def`
+  is blind to per-rule params** — a rule-targeted construct leaves `p.def`
+  EMPTY, so those readers enumerate the plain range (user's A: construct
+  `A=10a+b, b∈{1..8}` on rule 1 → examples showed 60/90/30/69). Fixed by
+  routing `_mpValueSet` / `_mpJointSpace` / `_mpValueCount` through
+  **`_mpGenerateAny`** gated on `_mpUsesPerPart(p) || mode==='constructed'`
+  (commit `b0a6748`; `_mpGenerateOneWithEnv` was already correct). RULE: any
+  NEW value-enumerating consumer calls `_mpGenerateAny` — never
+  `_mpGenerateConstructed`/`p.def` directly.
+- **The ＋ Info card + i-panel detail now itemize per-rule params** via
+  `_pmPerPartInfo`: each rule's domain `:` its construct's first line + its
+  restricted digit sets (full 0..9 sets skipped) + per-rule constraints,
+  `−` prefix on Subtract rules, shared 'all' construct once with "(all)".
+  Info cards are FROZEN SVG snapshots — remake (＋ Info card) after edits.
+  SVG `<text>` collapses leading spaces — indentation doesn't render.
+- **Card Maker Select/Role UX** (all in `ca56f53`): a plain click on empty
+  grid space now EXITS Select mode (iPad has no Esc; card taps still toggle,
+  mouse-band release is guarded by `marqueeJustEnded`). New rail **Role**
+  button under + ⇤ W V: selection → the 'Role for N cards' picker directly;
+  none → **role-pending** Select mode (`_cmRolePending`) where the next card
+  tap opens the Role box (the bulk-action menu NEVER shows while pending),
+  Save applies + folds the mode away, Cancel keeps the flow. The Select box's
+  own 'Role (N)…' item is untouched (user may retire it later).
+- **Deploy from the SHARED tree via a temp worktree** — never checkout the
+  deploy branch in the shared checkout (the parallel session lives there):
+  `git worktree add <scratch>/deploy-wt claude/review-project-docs-JOOeh` →
+  merge work → push branch + both mirrors → `git worktree remove`. Deployed
+  merge `4aa1a33` this way; all 3 remote tips verified identical.
+- **"commit all" in a shared tree commits the OTHER session's work too** —
+  `ca56f53` deliberately carried the parallel session's Math-game line
+  selection (click/marquee select, Delete/↑↓, drag-with-drop-bar, Esc rules)
+  at the user's request. Read the diff and describe both in the message.
+- **No `node` on this Mac** — syntax-check inline JS via JavaScriptCore:
+  extract the `<script>` block (python3), then
+  `osascript -l JavaScript` + `new Function(code)`.
 
 ---
 

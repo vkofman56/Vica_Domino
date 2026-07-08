@@ -425,7 +425,7 @@
                     // its work. A FRESH device (empty local) still pulls cloud
                     // normally. Trade-off: edits to these keys don't propagate
                     // device→device (acceptable for single-superuser editing).
-                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'savedBigGames', 'vica_global_players'];
+                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'savedBigGames', 'savedMathGames', 'vica_global_players'];
                     _localWinsKeys.forEach(function (lk) {
                         var lv = _origGetItem(lk);
                         if (!lv) return;
@@ -631,7 +631,8 @@
                 k === 'savedCustomGames' ||
                 k === 'savedCatchGames' ||
                 k === 'savedCombinedGames' ||
-                k === 'savedBigGames') {   // Phase 3: Big Games (legend-based stage sequences)
+                k === 'savedBigGames' ||   // Phase 3: Big Games (legend-based stage sequences)
+                k === 'savedMathGames') {  // Math Problems worksheet games (July 2026)
                 backup[k] = _origGetItem(k);
             }
         }

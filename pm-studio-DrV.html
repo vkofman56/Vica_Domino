@@ -773,17 +773,17 @@
             position: fixed; top: 80px; right: 24px; left: auto;
             display: flex; flex-direction: column; gap: 8px;
             width: 300px; max-height: calc(100vh - 120px); overflow-y: auto;
+            z-index: 2200;
+            background: rgba(42, 42, 74, 0.97);
+            border: 1.5px solid rgba(126, 255, 126, 0.5);
+            border-radius: 10px; padding: 10px 12px;
+            color: #ddd; font-family: 'Segoe UI', sans-serif;
         }
         /* The Parameters editor holds wider rows (numbered parts + the ×, the
            inline "for rule" construct selector) — give it more room so nothing
            wraps to a second line. */
         #par-panel {
             width: 452px;
-            z-index: 2200;
-            background: rgba(42, 42, 74, 0.97);
-            border: 1.5px solid rgba(126, 255, 126, 0.5);
-            border-radius: 10px; padding: 10px 12px;
-            color: #ddd; font-family: 'Segoe UI', sans-serif;
         }
         .par-close-btn {
             position: absolute; top: 4px; right: 6px;
@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:54 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:22 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:54 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:22 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:54 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:22 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1666,6 +1666,10 @@
                     <button class="zoom-btn" id="import-word-btn" onclick="document.getElementById('docx-file-input').click()" title="Import from Word: upload a .docx file with a table to auto-create cards." style="font-size:11px;color:#7eff7e;">W</button>
                     <button class="zoom-btn" id="var-tool-btn" onclick="toggleVariationToolbar()" title="Variation tools: open toolbar to create card variations (reflections, rotations, symbol swaps)." style="color:#7eff7e;">V</button>
                 </div>
+                <!-- Role: the same picker as the Select box's "Role (N)…" item,
+                     surfaced in the rail so it's easy to find. No selection yet →
+                     turns Select mode on so you can tap cards first. -->
+                <button class="zoom-btn" id="cm-role-btn" onclick="cmRoleButton()" title="Role: tag the selected cards with a meaning games can use (e.g. answer, multiplication). Nothing selected yet? It turns Select mode on — tap cards, then press Role again." style="font-size:10px;font-weight:bold;color:#7eff7e;">Role</button>
                 <!-- Select: turn on tap-to-select, then a bulk-action box (copy / move / role / delete) follows the selection. -->
                 <button class="zoom-btn" id="cm-select-btn" onclick="toggleCmSelectMode()" title="Bulk actions. Tap to see more." style="font-size:10px;font-weight:bold;color:#7eff7e;">Select</button>
                 <button class="zoom-btn game-maker-trigger" id="gm-btn" onclick="toggleGmPopup()" title="Game Maker: open the list of games to add cards to or create new games.">GM</button>
@@ -5737,8 +5741,8 @@
         // All valid values a single Par can take (for counting the problem space).
         // Returns {vals:[...]} | {capped:true} (too big to enumerate) | {error}.
         function _mpValueSet(p) {
-            if (p.mode === 'constructed') {
-                var r = _mpGenerateConstructed(p, 500000);
+            if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                var r = _mpGenerateAny(p, 500000);
                 if (r.error) return { error: r.error };
                 if (r.empty) return { vals: [] };
                 if (r.count == null || r.samples.length !== r.count) return { capped: true };
@@ -5787,8 +5791,8 @@
             var opts = [], product = 1, ENUM_CAP = 500000;
             for (var i = 0; i < params.length; i++) {
                 var p = params[i], list;
-                if (p.mode === 'constructed') {
-                    var rc = _mpGenerateConstructed(p, 2000000);
+                if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                    var rc = _mpGenerateAny(p, 2000000);
                     if (rc.error) return { error: rc.error };
                     if (rc.count == null) return { capped: true }; // too big to enumerate exhaustively
                     list = rc.samples.map(function (s) {
@@ -5837,8 +5841,8 @@
         // whole joint space. Exact for plain ranges/sets; an estimate (approx:true)
         // for a huge constrained range or a capped construction.
         function _mpValueCount(p) {
-            if (p.mode === 'constructed') {
-                var r = _mpGenerateConstructed(p, 200000);
+            if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                var r = _mpGenerateAny(p, 200000);
                 if (r.error) return { error: r.error };
                 if (r.empty) return { count: 0 };
                 if (r.count != null && r.samples.length === r.count) return { count: r.count };
@@ -6284,6 +6288,63 @@
             if ((p.restrictions || []).length) out.push(p.restrictions.map(_mpRestrLabel).join(', '));
             return out;
         }
+        // The restricted digit sets of a construct def — one "b∈{…}" chunk per
+        // micro-parameter whose set is narrower than the full 0..9 (a full digit
+        // set carries no information, so it is skipped).
+        function _pmDefDigitSets(def, sym) {
+            var out = [];
+            var parsed; try { parsed = _mpParseDef(def || '', sym); } catch (e) { return out; }
+            if (!parsed || parsed.errors.length || !parsed.freeVars) return out;
+            Object.keys(parsed.freeVars).forEach(function (name) {
+                if (name === sym) return;
+                var fv = parsed.freeVars[name], set = null;
+                if (fv.set) set = fv.set;
+                else if (fv.lo != null && fv.hi != null) { set = []; for (var v = fv.lo; v <= fv.hi; v++) set.push(v); }
+                if (!set) return;
+                var isFullDigit = set.length === 10 && set.every(function (v, i) { return v === i; });
+                if (!isFullDigit) out.push(name + '∈{' + set.join(',') + '}');
+            });
+            return out;
+        }
+        // Info lines for a PER-RULE parameter — the same story the Par list tells:
+        // each rule's domain with its own construct + restricted digit sets + its
+        // constraints (a Subtract rule is prefixed −), then the shared pieces.
+        function _pmPerPartInfo(p) {
+            var sym = p.sym || 'x';
+            var byT = _mpConstructByTarget(p), allDef = byT['all'] || '';
+            var out = [];
+            _mpPartsOf(p).forEach(function (part, i) {
+                var dom;
+                if (part.type === 'set') dom = sym + ' ∈ {' + (part.vals || []).join(',') + '}';
+                else {
+                    var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
+                    var loOp = (part.loOp === 'lt') ? '<' : '≤', hiOp = (part.hiOp === 'lt') ? '<' : '≤';
+                    dom = (!isNaN(lo) && !isNaN(hi)) ? (lo + ' ' + loOp + ' ' + sym + ' ' + hiOp + ' ' + hi) : '(unset)';
+                }
+                var prefix = (part.op === 'sub') ? '− ' : (i ? '+ ' : '');
+                var ownDef = (byT[i] != null) ? byT[i] : '';
+                var detail = [];
+                if (ownDef && ownDef.trim()) {
+                    var fl = ownDef.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && s.charAt(0) !== '#'; });
+                    if (fl.length) detail.push(fl[0]);
+                    detail = detail.concat(_pmDefDigitSets(ownDef, sym));
+                }
+                (p.restrictions || []).forEach(function (r) {
+                    if (r.target === i && r.kind !== 'inset') detail.push(_mpRestrLabel(r));
+                });
+                out.push(prefix + dom + (detail.length ? ':' : ''));
+                detail.forEach(function (d) { out.push('   ' + d); });
+            });
+            // The shared construct (fills every rule) and shared constraints, once.
+            if (allDef && allDef.trim()) {
+                var afl = allDef.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && s.charAt(0) !== '#'; });
+                if (afl.length) out.push(afl[0] + ' (all)');
+                _pmDefDigitSets(allDef, sym).forEach(function (d) { out.push('   ' + d); });
+            }
+            var shared = (p.restrictions || []).filter(function (r) { return (r.target == null || r.target === 'all') && r.kind !== 'inset'; });
+            if (shared.length) out.push(shared.map(_mpRestrLabel).join(', '));
+            return out;
+        }
         // Render a relation string as one SVG <text> with COLOURED parameter symbols
         // (and micro-params coloured by their Big parameter, e.g. A's b in A's colour),
         // converting <= >= != into ≤ ≥ ≠.
@@ -6318,7 +6379,8 @@
             params.forEach(function (p) {
                 var col = (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#222';
                 var faded = !!hidden[p.sym];
-                if (p.mode === 'constructed') { _pmConstructInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
+                if (_mpUsesPerPart(p)) { _pmPerPartInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
+                else if (p.mode === 'constructed') { _pmConstructInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
                 else { lines.push({ text: _mpSummary(p), col: col, faded: faded }); }
             });
             var rels = [];
@@ -6369,6 +6431,13 @@
         function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; }
         function _iParamDetail(p) {
             var lines = [];
+            if (_mpUsesPerPart(p)) {
+                // Per-rule params: _pmPerPartInfo already folds in the constructs
+                // and every constraint, so it IS the whole detail.
+                lines.push('Rules:');
+                _pmPerPartInfo(p).forEach(function (l) { lines.push('  ' + l); });
+                return lines.join('\n');
+            }
             if (p.mode === 'constructed') {
                 lines.push('Constructed:');
                 (p.def || '').split('\n').forEach(function (l) { if (l.trim()) lines.push('  ' + l.trim()); });
@@ -14354,7 +14423,10 @@
             // the bulk-action box re-renders to follow it. stopPropagation keeps
             // the document-level click handler from closing that box.
             if (cmSelectModeActive && !gameMakerActive && !shapeModeActive) {
-                if (!card) return; // clicks on empty space keep the selection + box
+                // A plain click on empty space = "changed my mind": collapse the
+                // box and leave Select mode. (Card taps toggle the selection, and
+                // a mouse-band release is caught by marqueeJustEnded above.)
+                if (!card) { exitCmSelectMode(); return; }
                 e.stopPropagation();
                 if (card.classList.contains('ge-selected')) {
                     card.classList.remove('ge-selected');
@@ -14365,6 +14437,10 @@
                     groupEditSelected.push(card);
                 }
                 _cmRefreshSelectBox();
+                // Select mode entered via the RAIL ROLE BUTTON: the user came
+                // for a role, so the tap goes straight to the Role box — not
+                // the bulk-action menu. (Deselecting back to 0 just waits.)
+                if (_cmRolePending && groupEditSelected.length) cmRoleButton();
                 return;
             }
 
@@ -22698,7 +22774,9 @@
                 '.ws-sheet h1{margin:0 0 22px;font-size:1.5rem;min-height:1.5rem;}' +
                 '.ws-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 34px;}' +
                 '.ws-prob{display:flex;align-items:center;gap:8px;height:64px;}' +
-                '.ws-prob .ws-n{color:#aab;font-size:.8rem;width:26px;text-align:right;flex:none;}' +
+                // The list number matches the problems' size, and a wide gap +
+                // its own period keep it from reading as part of the problem.
+                '.ws-prob .ws-n{color:#b9bfd0;font-size:1.4rem;min-width:44px;margin-right:22px;text-align:right;flex:none;font-variant-numeric:tabular-nums;}' +
                 '.ws-prob .ws-q{font-size:1.4rem;font-variant-numeric:tabular-nums;white-space:nowrap;display:flex;align-items:center;gap:6px;}' +
                 '.ws-prob input.ws-ans{width:60px;font:inherit;font-size:1.25rem;text-align:center;border:0;border-bottom:2px solid #9aa;background:transparent;color:#23304a;padding:2px 0;}' +
                 '.ws-prob input.ws-ans:focus{outline:0;border-bottom-color:#36c5f0;}' +
@@ -22722,6 +22800,7 @@
                   '<div class="ws-fld"><label>Title</label><input type="text" id="ws-title"></div>' +
                   '<div class="ws-fld"><label>Source card</label><select id="ws-source"></select></div>' +
                   '<div class="ws-fld"><label>Problems / page</label><input type="number" id="ws-count" min="1" max="40" value="10"></div>' +
+                  '<div class="ws-fld"><label>Per column</label><input type="number" id="ws-percol" min="1" max="40" value="5" title="How many problems stack in one column — numbering runs DOWN each column"></div>' +
                   '<div class="ws-fld"><label>Attempts</label><input type="number" id="ws-attempts" min="1" max="9" value="3"></div>' +
                   '<div class="ws-fld"><label>Repeats</label><select id="ws-repeats" title="Whether a new page may repeat problems from the previous page"><option value="no">Avoid previous page</option><option value="yes">Allow repeats</option></select></div>' +
                   '<div class="ws-go">' +
@@ -22796,6 +22875,7 @@
         function _wsBuildPage() {
             if (_wsGameIdx == null && !_wsCard) return;
             var n = Math.max(1, Math.min(40, parseInt(document.getElementById('ws-count').value, 10) || 10));
+            var perCol = Math.max(1, Math.min(40, parseInt((document.getElementById('ws-percol') || {}).value, 10) || 5));
             var allowRep = ((document.getElementById('ws-repeats') || {}).value === 'yes');
             var r;
             if (_wsGameIdx != null) {
@@ -22805,6 +22885,7 @@
                 if (!mgame) return;
                 _mgMigrate(mgame);
                 mgame.ws.count = n;
+                mgame.ws.perCol = perCol;
                 mgame.ws.attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('ws-attempts').value, 10) || 3));
                 mgame.ws.repeats = allowRep ? 'yes' : 'no';
                 saveMathGames(mgames);
@@ -22828,6 +22909,12 @@
             }
             _wsProblems = r.problems;
             host.innerHTML = '';
+            // Column-major layout: the author picks how many problems stack in
+            // one column; numbering runs DOWN each column (1..k, then k+1..).
+            var wsCols = Math.max(1, Math.ceil(_wsProblems.length / perCol));
+            host.style.gridAutoFlow = 'column';
+            host.style.gridTemplateRows = 'repeat(' + Math.min(perCol, _wsProblems.length) + ', auto)';
+            host.style.gridTemplateColumns = 'repeat(' + wsCols + ', 1fr)';
             _wsProblems.forEach(function (p, i) {
                 var row = document.createElement('div');
                 row.className = 'ws-prob'; row.dataset.i = i;
@@ -22943,6 +23030,7 @@
         }
         function _mgMigrate(game) {
             if (!game.ws) game.ws = { count: 10, attempts: 3, repeats: 'no' };
+            if (!game.ws.perCol) game.ws.perCol = 5;
             if (!game.hiddenOverrides) game.hiddenOverrides = {};
             if (!game.roles) game.roles = {};
             if (!Array.isArray(game.probOptions) || !game.probOptions.length) {
@@ -22975,6 +23063,19 @@
             var w = prob.weights ? prob.weights[key] : null;
             return (typeof w === 'number' && isFinite(w) && w >= 0) ? w : 1;
         }
+        // Percent share, honest at the edges: weights are relative, so a total
+        // of 200 makes weight 1 = "0.5" — and the 199-weight card shows 99.5,
+        // never a fake 100 (nor a fake 0 for a tiny-but-possible card).
+        function _mgPct(w, totalW) {
+            var pct = 100 * w / totalW;
+            if (pct >= 10) {
+                if (pct < 100 && Math.round(pct) === 100) return String(Math.floor(pct * 10) / 10);
+                return String(Math.round(pct));
+            }
+            if (pct >= 1) return String(Math.round(pct * 10) / 10);
+            var r = Math.round(pct * 100) / 100;
+            return r > 0 ? String(r) : '<0.01';
+        }
 
         var _mgIndex = null; // math game being edited in the setup screen
 
@@ -23002,17 +23103,46 @@
                 '.mg-probs .mg-probs-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
                 '.mg-prob-chip{font:inherit;border-radius:16px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;padding:5px 14px;cursor:pointer;}' +
                 '.mg-prob-chip.active{background:#f5c518;border-color:#f5c518;color:#222;font-weight:700;}' +
-                '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:980px;}' +
+                '#mg-selbar{display:none;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 20px;' +
+                    'background:rgba(245,197,24,.10);border-top:1px solid rgba(245,197,24,.3);border-bottom:1px solid rgba(245,197,24,.3);color:#fff;}' +
+                '#mg-selbar button{font:inherit;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;background:rgba(255,255,255,.14);color:#fff;font-weight:600;}' +
+                '#mg-selbar input{width:70px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:5px 8px;}' +
+                '#mg-selbar .mg-selbar-lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
+                '#mg-selbar #mg-selcount{font-weight:700;color:#f5c518;}' +
+                '.mg-row{cursor:pointer;}' +
+                '.mg-row.mg-selected{outline:2px solid #f5c518;outline-offset:1px;}' +
+                '.mg-row.mg-marq{outline:2px dashed #f5c518;outline-offset:1px;}' +
+                '.mg-row.mg-dragging{opacity:.45;}' +
+                '#mg-selbar .mg-selbar-hint{opacity:.55;font-size:.78rem;}' +
+                '.mg-prev-live.mg-selected{outline:3px solid #f5c518;outline-offset:2px;border-radius:6px;}' +
+                '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:1200px;}' +
                 '.mg-hint{color:#fff;opacity:.55;font-size:.82rem;}' +
-                '.mg-row{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;color:#fff;}' +
+                '.mg-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;color:#fff;}' +
                 '.mg-row.mg-note-row{opacity:.85;}' +
-                '.mg-prev{flex:none;width:76px;min-height:46px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
+                // Cards render at Card-Set size: the note cards (and the note
+                // box on the card face) must be READABLE right here — that is
+                // the information the author reads while setting probabilities.
+                '.mg-prev{flex:none;width:170px;min-height:110px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
                 '.mg-prev svg{width:100%;height:auto;display:block;}' +
                 '.mg-prev-label{color:#23304a;font-weight:700;padding:6px;}' +
+                // Literal card copies (cloned .library-card, root class swapped):
+                // zoomed up so the note box / white note cards are readable —
+                // that's the information used to set the probabilities.
+                '.mg-prev-live{flex:none;zoom:1.6;}' +
+                '.mg-card-copy{text-align:center;position:relative;pointer-events:none;user-select:none;}' +
+                // The Card Maker (compact view) hides the internal card name —
+                // hide it on the copies too; it's a hover tooltip instead.
+                '.mg-prev-live .library-label, .mg-prev-live .library-desc{display:none;}' +
+                // Note cards keep their Card-Set look on the copies: white
+                // graph-paper tile with the bluish border (the Card Set rule
+                // keys on .library-card[data-info] — replicate it for copies).
+                '.mg-card-copy[data-info="true"] .domino-half-preview{background-color:#fff;' +
+                    'background-image:linear-gradient(rgba(80,110,150,.18) 1px,transparent 1px),' +
+                    'linear-gradient(90deg,rgba(80,110,150,.18) 1px,transparent 1px);' +
+                    'background-size:6px 6px;border-color:#9fb4cf;}' +
                 '.mg-main{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}' +
                 '.mg-formula{font-size:1.25rem;font-variant-numeric:tabular-nums;}' +
-                '.mg-formula .mg-sym{font-weight:700;}' +
-                '.mg-formula .mg-sym.mg-hid{opacity:.35;border-bottom:2px solid #f5c518;}' +
+                '.mg-hid-val{opacity:.35;border-bottom:2px solid #f5c518;}' +
                 '.mg-line{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:.86rem;}' +
                 '.mg-line .mg-lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
                 '.mg-eye{font:inherit;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);padding:3px 10px;cursor:pointer;font-weight:700;}' +
@@ -23021,6 +23151,10 @@
                 '.mg-role{width:110px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:4px 8px;}' +
                 '.mg-weight{width:64px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:4px 8px;}' +
                 '.mg-share{opacity:.65;} .mg-warn{color:#ffb14e;font-size:.84rem;}' +
+                '.mg-total{color:#fff;opacity:.6;font-size:.8rem;margin-left:6px;}' +
+                '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;}' +
+                '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:8px;}' +
+                '.mg-notes-cards .mg-prev{outline:2px dashed rgba(245,197,24,.55);outline-offset:1px;}' +
                 '.mg-sec{margin-top:8px;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;opacity:.6;font-weight:700;}';
             document.head.appendChild(st);
 
@@ -23031,6 +23165,7 @@
                   '<div class="mg-titlewrap"><span class="mg-title" id="mg-title"></span>' +
                   '<button class="mg-iconbtn" id="mg-rename" title="Rename this game">✎</button></div>' +
                   '<div class="mg-fld"><label>Problems / page</label><input type="number" id="mg-count" min="1" max="40"></div>' +
+                  '<div class="mg-fld"><label>Per column</label><input type="number" id="mg-percol" min="1" max="40" title="How many problems stack in one worksheet column"></div>' +
                   '<div class="mg-fld"><label>Attempts</label><input type="number" id="mg-attempts" min="1" max="9"></div>' +
                   '<div class="mg-fld"><label>Repeats</label><select id="mg-repeats"><option value="no">Avoid previous page</option><option value="yes">Allow repeats</option></select></div>' +
                   '<div class="mg-go">' +
@@ -23039,6 +23174,16 @@
                   '</div>' +
                 '</div>' +
                 '<div class="mg-probs" id="mg-probs"></div>' +
+                // Selection toolbar: appears when lines/notes are selected
+                // (click a line, or marquee-drag with the mouse).
+                '<div id="mg-selbar">' +
+                  '<span id="mg-selcount"></span>' +
+                  '<span class="mg-selbar-lbl">Weight</span>' +
+                  '<input id="mg-sel-weight" type="number" min="0" step="1" title="One common weight for every selected line (in the active preset)">' +
+                  '<button id="mg-sel-apply" title="Write this weight to all selected lines">Set for selected</button>' +
+                  '<span class="mg-selbar-hint">drag ↕ to move · Delete removes · ↑/↓ nudge</span>' +
+                  '<button id="mg-sel-clear" title="Clear the selection (Esc)">✕ Clear</button>' +
+                '</div>' +
                 '<div class="mg-wrap" id="mg-list"></div>';
             document.body.appendChild(ov);
 
@@ -23053,11 +23198,12 @@
                 g.name = unique; saveMathGames(games); _mgRender();
                 try { populateLibraryGames(); } catch (e) {}
             };
-            ['mg-count', 'mg-attempts', 'mg-repeats'].forEach(function (id) {
+            ['mg-count', 'mg-percol', 'mg-attempts', 'mg-repeats'].forEach(function (id) {
                 document.getElementById(id).onchange = function () {
                     var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
                     _mgMigrate(g);
                     g.ws.count = Math.max(1, Math.min(40, parseInt(document.getElementById('mg-count').value, 10) || 10));
+                    g.ws.perCol = Math.max(1, Math.min(40, parseInt(document.getElementById('mg-percol').value, 10) || 5));
                     g.ws.attempts = Math.max(1, Math.min(9, parseInt(document.getElementById('mg-attempts').value, 10) || 3));
                     g.ws.repeats = document.getElementById('mg-repeats').value;
                     saveMathGames(games);
@@ -23068,9 +23214,286 @@
                     var mo = document.getElementById('mg-overlay');
                     var wo = document.getElementById('ws-overlay');
                     // Worksheet on top closes first (its own listener has none).
-                    if (mo && mo.classList.contains('show') && !(wo && wo.classList.contains('show'))) closeMathGameView();
+                    if (mo && mo.classList.contains('show') && !(wo && wo.classList.contains('show'))) {
+                        // A selection absorbs the first Escape; the second closes.
+                        if (Object.keys(_mgSel.rows).length || Object.keys(_mgSel.notes).length) {
+                            _mgSel.rows = {}; _mgSel.notes = {};
+                            _mgApplySel();
+                        } else closeMathGameView();
+                    }
                 }
             });
+
+            // ---- Keyboard on the selection: Delete/Backspace removes,
+            //      ↑/↓ nudges the selected lines. Capture phase + stop, so the
+            //      Card Maker under the overlay never sees these keys. ----
+            document.addEventListener('keydown', function (e) {
+                var mo = document.getElementById('mg-overlay');
+                var wo = document.getElementById('ws-overlay');
+                if (!mo || !mo.classList.contains('show')) return;
+                if (wo && wo.classList.contains('show')) return; // worksheet on top
+                if (e.target && e.target.closest && e.target.closest('input, textarea, select')) return;
+                var hasSel = Object.keys(_mgSel.rows).length || Object.keys(_mgSel.notes).length;
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault(); e.stopPropagation();
+                    if (hasSel) _mgDeleteSelected();
+                } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && hasSel) {
+                    e.preventDefault(); e.stopPropagation();
+                    _mgMoveSelected(e.key === 'ArrowUp' ? -1 : 1);
+                }
+            }, true);
+
+            // ---- Mouse: click toggles a line (or a note picture). A drag
+            //      that STARTS ON a line MOVES it (drop bar shows where); a
+            //      drag from the background is a MARQUEE selection. ----
+            var list = document.getElementById('mg-list');
+            var _mgSuppressClick = false;
+            list.addEventListener('click', function (e) {
+                if (_mgSuppressClick) return;
+                if (e.target.closest('button, input, select, textarea')) return;
+                var noteEl = e.target.closest('[data-mg-note-key]');
+                var row = e.target.closest('.mg-row');
+                if (noteEl) {
+                    var nk = noteEl.dataset.mgNoteKey;
+                    if (_mgSel.notes[nk]) delete _mgSel.notes[nk]; else _mgSel.notes[nk] = 1;
+                } else if (row && row.dataset.mgKey) {
+                    var k = row.dataset.mgKey;
+                    if (_mgSel.rows[k]) delete _mgSel.rows[k]; else _mgSel.rows[k] = 1;
+                } else return;
+                _mgApplySel();
+            });
+            list.addEventListener('mousedown', function (e) {
+                if (e.button !== 0) return;
+                if (e.target.closest('button, input, select, textarea')) return;
+                var startX = e.clientX, startY = e.clientY;
+                var dragRow = e.target.closest('.mg-row');
+                if (dragRow && dragRow.dataset.mgKey) _mgStartRowDrag(e, dragRow, startX, startY);
+                else _mgStartMarquee(startX, startY);
+            });
+            function _mgStartMarquee(startX, startY) {
+                var band = null;
+                function mv(ev) {
+                    if (!band) {
+                        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 6) return;
+                        band = document.createElement('div');
+                        band.id = 'mg-marquee';
+                        document.body.appendChild(band);
+                        document.body.style.userSelect = 'none';
+                    }
+                    var x1 = Math.min(startX, ev.clientX), y1 = Math.min(startY, ev.clientY);
+                    var x2 = Math.max(startX, ev.clientX), y2 = Math.max(startY, ev.clientY);
+                    band.style.cssText = 'position:fixed;z-index:2570;pointer-events:none;' +
+                        'border:1.5px dashed #f5c518;background:rgba(245,197,24,.12);' +
+                        'left:' + x1 + 'px;top:' + y1 + 'px;width:' + (x2 - x1) + 'px;height:' + (y2 - y1) + 'px;';
+                    document.querySelectorAll('#mg-list .mg-row').forEach(function (r) {
+                        var rc = r.getBoundingClientRect();
+                        r.classList.toggle('mg-marq', !(rc.right < x1 || rc.left > x2 || rc.bottom < y1 || rc.top > y2));
+                    });
+                }
+                function up(ev) {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                    document.body.style.userSelect = '';
+                    if (!band) return;
+                    band.remove();
+                    _mgSuppressClick = true;
+                    setTimeout(function () { _mgSuppressClick = false; }, 0);
+                    if (!ev.shiftKey) _mgSel.rows = {}; // Shift adds to the selection
+                    document.querySelectorAll('#mg-list .mg-row.mg-marq').forEach(function (r) {
+                        r.classList.remove('mg-marq');
+                        if (r.dataset.mgKey) _mgSel.rows[r.dataset.mgKey] = 1;
+                    });
+                    _mgApplySel();
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            }
+            function _mgStartRowDrag(e0, dragRow, startX, startY) {
+                var began = false, dropLine = null, insertBefore = null; // null = at end
+                function draggedKeys() {
+                    // The grabbed line, or the whole selection when it's part of it.
+                    var k = dragRow.dataset.mgKey;
+                    if (!_mgSel.rows[k]) return [k];
+                    return Array.prototype.map.call(document.querySelectorAll('#mg-list .mg-row'), function (r) { return r.dataset.mgKey; })
+                        .filter(function (rk) { return rk && _mgSel.rows[rk]; });
+                }
+                function mv(ev) {
+                    if (!began) {
+                        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 6) return;
+                        began = true;
+                        document.body.style.userSelect = 'none';
+                        document.body.style.cursor = 'grabbing';
+                        if (!_mgSel.rows[dragRow.dataset.mgKey]) {
+                            // Grabbing an unselected line makes it the selection.
+                            _mgSel.rows = {}; _mgSel.rows[dragRow.dataset.mgKey] = 1;
+                            _mgApplySel();
+                        }
+                        var dk = {}; draggedKeys().forEach(function (k) { dk[k] = 1; });
+                        document.querySelectorAll('#mg-list .mg-row').forEach(function (r) {
+                            if (r.dataset.mgKey && dk[r.dataset.mgKey]) r.classList.add('mg-dragging');
+                        });
+                        dropLine = document.createElement('div');
+                        dropLine.id = 'mg-dropline';
+                        document.body.appendChild(dropLine);
+                    }
+                    var rows = Array.prototype.filter.call(document.querySelectorAll('#mg-list .mg-row'), function (r) {
+                        return r.dataset.mgKey && !r.classList.contains('mg-dragging');
+                    });
+                    insertBefore = null;
+                    var y = null;
+                    for (var i = 0; i < rows.length; i++) {
+                        var rc = rows[i].getBoundingClientRect();
+                        if (ev.clientY < rc.top + rc.height / 2) { insertBefore = rows[i].dataset.mgKey; y = rc.top - 5; break; }
+                        y = rc.bottom + 5;
+                    }
+                    var listRc = list.getBoundingClientRect();
+                    if (y == null) y = listRc.top + 5; // empty list
+                    dropLine.style.cssText = 'position:fixed;z-index:2570;pointer-events:none;height:3px;border-radius:2px;' +
+                        'background:#f5c518;left:' + (listRc.left + 14) + 'px;width:' + Math.min(listRc.width - 28, 1160) + 'px;top:' + y + 'px;';
+                }
+                function up() {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                    document.body.style.userSelect = '';
+                    document.body.style.cursor = '';
+                    if (!began) return; // plain click — the click handler toggles
+                    _mgSuppressClick = true;
+                    setTimeout(function () { _mgSuppressClick = false; }, 0);
+                    if (dropLine) dropLine.remove();
+                    var moved = draggedKeys();
+                    var visual = Array.prototype.map.call(document.querySelectorAll('#mg-list .mg-row'), function (r) { return r.dataset.mgKey; })
+                        .filter(Boolean);
+                    var movedSet = {}; moved.forEach(function (k) { movedSet[k] = 1; });
+                    var rest = visual.filter(function (k) { return !movedSet[k]; });
+                    var at = (insertBefore == null) ? rest.length : rest.indexOf(insertBefore);
+                    if (at < 0) at = rest.length;
+                    var order = rest.slice(0, at).concat(moved, rest.slice(at));
+                    document.querySelectorAll('#mg-list .mg-row.mg-dragging').forEach(function (r) { r.classList.remove('mg-dragging'); });
+                    _mgReorderByKeys(order);
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            }
+            document.getElementById('mg-sel-clear').onclick = function () {
+                _mgSel.rows = {}; _mgSel.notes = {};
+                _mgApplySel();
+            };
+            document.getElementById('mg-sel-apply').onclick = function () {
+                var v = Math.max(0, parseFloat(document.getElementById('mg-sel-weight').value) || 0);
+                var keys = Object.keys(_mgSel.rows);
+                if (!keys.length) return;
+                var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+                var prob = _mgActiveProb(g);
+                if (!prob.weights) prob.weights = {};
+                keys.forEach(function (k) { prob.weights[k] = v; });
+                saveMathGames(games); _mgRender();
+            };
+        }
+
+        // ---- Selection state + line (unit) operations ----
+        var _mgSel = { rows: {}, notes: {} };
+        // The game's cards as LINE units: a problem card + its trailing note
+        // cards travel together; loose notes are their own unit. Mirrors the
+        // render-time grouping exactly.
+        function _mgUnits(game) {
+            var units = [], lastEntry = null;
+            (game.cards || []).forEach(function (info) {
+                var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
+                if (!isNote) { lastEntry = { entry: true, key: _probCardKey(info), cards: [info] }; units.push(lastEntry); }
+                else if (lastEntry) lastEntry.cards.push(info);
+                else units.push({ entry: false, key: _probCardKey(info), cards: [info] });
+            });
+            return units;
+        }
+        function _mgFlattenUnits(game, units) {
+            game.cards = [];
+            units.forEach(function (u) { u.cards.forEach(function (c) { game.cards.push(c); }); });
+        }
+        // Rebuild the game's card order from a full list of line keys (the
+        // drag-drop result). Notes travel inside their line's unit.
+        function _mgReorderByKeys(orderedKeys) {
+            var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+            _mgMigrate(g);
+            var units = _mgUnits(g);
+            var byKey = {};
+            units.forEach(function (u) { if (u.key && !byKey[u.key]) byKey[u.key] = u; });
+            var newUnits = [];
+            orderedKeys.forEach(function (k) {
+                if (byKey[k]) { newUnits.push(byKey[k]); delete byKey[k]; }
+            });
+            units.forEach(function (u) { // anything unaccounted for keeps its place at the end
+                if (!u.key || byKey[u.key]) newUnits.push(u);
+            });
+            _mgFlattenUnits(g, newUnits);
+            saveMathGames(games); _mgRender();
+        }
+        function _mgMoveSelected(dir) {
+            if (!Object.keys(_mgSel.rows).length) return;
+            var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+            _mgMigrate(g);
+            var units = _mgUnits(g);
+            function sel(u) { return !!(u.key && _mgSel.rows[u.key]); }
+            var i, t;
+            if (dir < 0) {
+                for (i = 1; i < units.length; i++)
+                    if (sel(units[i]) && !sel(units[i - 1])) { t = units[i - 1]; units[i - 1] = units[i]; units[i] = t; }
+            } else {
+                for (i = units.length - 2; i >= 0; i--)
+                    if (sel(units[i]) && !sel(units[i + 1])) { t = units[i + 1]; units[i + 1] = units[i]; units[i] = t; }
+            }
+            _mgFlattenUnits(g, units);
+            saveMathGames(games); _mgRender();
+        }
+        function _mgDeleteSelected() {
+            var nr = Object.keys(_mgSel.rows).length, nn = Object.keys(_mgSel.notes).length;
+            if (!nr && !nn) return;
+            var what = (nr ? nr + ' line' + (nr > 1 ? 's' : '') : '') +
+                       (nr && nn ? ' and ' : '') +
+                       (nn ? nn + ' note' + (nn > 1 ? 's' : '') : '');
+            if (!confirm('Remove ' + what + ' from this game?\n\nThe cards themselves stay in the Card Set.')) return;
+            var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+            _mgMigrate(g);
+            var removedKeys = {};
+            var units = _mgUnits(g).filter(function (u) {
+                if (u.key && (_mgSel.rows[u.key] || (!u.entry && _mgSel.notes[u.key]))) {
+                    u.cards.forEach(function (c) { removedKeys[_probCardKey(c)] = 1; });
+                    return false;
+                }
+                // Attached notes selected individually leave their line.
+                u.cards = u.cards.filter(function (c, ci) {
+                    if (ci === 0 && u.entry) return true;
+                    var ck = _probCardKey(c);
+                    if (ck && _mgSel.notes[ck]) { removedKeys[ck] = 1; return false; }
+                    return true;
+                });
+                return true;
+            });
+            _mgFlattenUnits(g, units);
+            Object.keys(removedKeys).forEach(function (k) {
+                delete g.roles[k];
+                delete g.hiddenOverrides[k];
+                (g.probOptions || []).forEach(function (p) { if (p.weights) delete p.weights[k]; });
+            });
+            _mgSel.rows = {}; _mgSel.notes = {};
+            saveMathGames(games); _mgRender();
+        }
+        // Re-apply selection highlights + toolbar from state (survives re-renders).
+        function _mgApplySel() {
+            document.querySelectorAll('#mg-list .mg-row').forEach(function (r) {
+                r.classList.toggle('mg-selected', !!(r.dataset.mgKey && _mgSel.rows[r.dataset.mgKey]));
+            });
+            document.querySelectorAll('#mg-list [data-mg-note-key]').forEach(function (n) {
+                n.classList.toggle('mg-selected', !!_mgSel.notes[n.dataset.mgNoteKey]);
+            });
+            var nr = Object.keys(_mgSel.rows).length, nn = Object.keys(_mgSel.notes).length;
+            var bar = document.getElementById('mg-selbar');
+            if (!bar) return;
+            if (!nr && !nn) { bar.style.display = 'none'; return; }
+            bar.style.display = 'flex';
+            document.getElementById('mg-selcount').textContent =
+                (nr ? nr + ' line' + (nr > 1 ? 's' : '') : '') +
+                (nr && nn ? ' + ' : '') +
+                (nn ? nn + ' note' + (nn > 1 ? 's' : '') : '') + ' selected';
         }
 
         function openMathGameView(mathIndex, returnScreen) {
@@ -23078,6 +23501,7 @@
             if (!games[mathIndex]) return;
             _mgEnsureDom();
             _mgIndex = mathIndex;
+            _mgSel.rows = {}; _mgSel.notes = {}; // fresh selection per game
             _mgMigrate(games[mathIndex]);
             saveMathGames(games);
             try { recordGameActivation('mathpages', games[mathIndex].name, 'creator'); } catch (e) {}
@@ -23090,31 +23514,88 @@
             _mgIndex = null;
         }
 
-        // Formula text with each parameter colored; the game's blanks render
-        // half-transparent with a gold underline — the on-sheet look.
-        function _mgFormulaHtml(text, params, hidden) {
-            var known = {};
-            params.forEach(function (p) { known[p.sym] = true; });
-            return String(text).replace(/[A-Za-z_][A-Za-z0-9_]*|[<>&]|./g, function (tok) {
-                if (tok === '<') return '&lt;'; if (tok === '>') return '&gt;'; if (tok === '&') return '&amp;';
-                if (!known[tok]) return _mpEsc(tok);
-                return '<span class="mg-sym' + (hidden[tok] ? ' mg-hid' : '') + '" style="color:' +
-                    _pmParamColor(tok) + '">' + _mpEsc(tok) + '</span>';
-            });
-        }
         function _mgPreviewEl(info) {
+            // A literal COPY of the chosen card from the Card Set: clone the
+            // whole .library-card node so it renders exactly as in the set
+            // (face + note box + label). The root class is swapped to
+            // mg-card-copy so global .library-card sweeps/click handlers
+            // ignore the copy; the inner .domino-half-preview CSS still
+            // applies, which is what gives the card its look.
+            var live = info && info.uid
+                ? document.querySelector('#domino-library-screen .library-card[data-uid="' + info.uid + '"]') : null;
+            if (live) {
+                var clone = live.cloneNode(true);
+                clone.className = 'mg-card-copy' + (live.classList.contains('variation') ? ' variation' : '');
+                clone.removeAttribute('data-uid');
+                clone.removeAttribute('data-stable-id');
+                clone.querySelectorAll('[data-uid]').forEach(function (n) { n.removeAttribute('data-uid'); });
+                clone.querySelectorAll('button, .card-delete-btn, .card-copy-btn, .variation-delete-btn').forEach(function (n) { n.remove(); });
+                var wrap = document.createElement('div');
+                wrap.className = 'mg-prev-live';
+                if (info && info.label) wrap.title = info.label; // internal card name, hover-only
+                wrap.appendChild(clone);
+                return wrap;
+            }
+            // Card not in the DOM (setup opened from the Library, or another
+            // set is loaded) — rebuild the SAME look from the STORED card data,
+            // like the Library/game views do.
+            var data = _mgCardDataFor(info);
+            if (data && typeof data.svgContent === 'string' && data.svgContent.trim()) {
+                var w = data.cardShapeW || 60;
+                var copy = document.createElement('div');
+                copy.className = 'mg-card-copy';
+                // Note cards keep their data-info flag so the graph-paper rule applies.
+                if (data.info || (info && info.isNote)) copy.dataset.info = 'true';
+                var prev = document.createElement('div');
+                prev.className = 'domino-half-preview';
+                if (w !== 60) prev.style.width = Math.round(70 * w / 60) + 'px';
+                var vb = (typeof _frameViewBox === 'function')
+                    ? _frameViewBox(w, data.cardFrameScale || 1)
+                    : ('0 0 ' + w + ' 60');
+                prev.innerHTML = '<svg viewBox="' + vb + '" width="100%" height="100%">' + data.svgContent + '</svg>';
+                copy.appendChild(prev);
+                var lb = document.createElement('span');
+                lb.className = 'library-label';
+                lb.textContent = (info && info.label) || data.label || '';
+                copy.appendChild(lb);
+                var wrap2 = document.createElement('div');
+                wrap2.className = 'mg-prev-live';
+                var nm = (info && info.label) || data.label;
+                if (nm) wrap2.title = nm; // internal card name, hover-only
+                wrap2.appendChild(copy);
+                return wrap2;
+            }
+            // No art anywhere — a labeled chip is the last resort.
             var box = document.createElement('div');
             box.className = 'mg-prev';
-            var live = info && info.uid
-                ? document.querySelector('.library-card[data-uid="' + info.uid + '"] svg') : null;
-            if (live) { box.appendChild(live.cloneNode(true)); }
-            else {
-                var l = document.createElement('span');
-                l.className = 'mg-prev-label';
-                l.textContent = (info && info.label) || '?';
-                box.appendChild(l);
-            }
+            var l = document.createElement('span');
+            l.className = 'mg-prev-label';
+            l.textContent = (info && info.label) || '?';
+            box.appendChild(l);
             return box;
+        }
+        // Stored card data for a saved game card: stableId lookup first (the
+        // reliable identity), then a uid scan across all sets, then the game's
+        // own saved markup.
+        function _mgCardDataFor(info) {
+            if (!info) return null;
+            if (info.stableId && typeof _findCardDataByStableId === 'function') {
+                var d = _findCardDataByStableId(info.stableId);
+                if (d) return d;
+            }
+            if (info.uid && typeof _getAllCardStorageKeys === 'function') {
+                var keys = _getAllCardStorageKeys();
+                for (var i = 0; i < keys.length; i++) {
+                    try {
+                        var cards = JSON.parse(localStorage.getItem(keys[i]) || '[]');
+                        for (var j = 0; j < cards.length; j++) {
+                            if (cards[j] && cards[j].uid === info.uid) return cards[j];
+                        }
+                    } catch (e) {}
+                }
+            }
+            if (info.svgMarkup) return { label: info.label, svgContent: info.svgMarkup, info: !!info.isNote };
+            return null;
         }
 
         function _mgRender() {
@@ -23126,6 +23607,7 @@
             document.getElementById('mg-title').innerHTML =
                 '<small>Math Problems —</small>' + _mpEsc(game.name);
             document.getElementById('mg-count').value = game.ws.count;
+            document.getElementById('mg-percol').value = game.ws.perCol || 5;
             document.getElementById('mg-attempts').value = game.ws.attempts;
             document.getElementById('mg-repeats').value = game.ws.repeats;
 
@@ -23173,15 +23655,20 @@
                 pr.appendChild(del);
             }
 
-            // --- Card rows ---
+            // --- Card rows: walk the game's cards IN ORDER, so each problem
+            //     card keeps its note cards (Info/Examples) beside it. Notes
+            //     are AUTHORING aids — the player never sees them. ---
             var list = document.getElementById('mg-list');
             list.innerHTML = '';
-            var paramCards = [], noteCards = [];
+            var entries = [], looseNotes = [];
             (game.cards || []).forEach(function (info) {
-                if (_mgParamsByUid(info.uid).length) paramCards.push(info); else noteCards.push(info);
+                var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
+                if (!isNote) entries.push({ info: info, notes: [] });
+                else if (entries.length) entries[entries.length - 1].notes.push(info);
+                else looseNotes.push(info);
             });
 
-            if (!paramCards.length) {
+            if (!entries.length) {
                 var none = document.createElement('div');
                 none.className = 'mg-hint';
                 none.textContent = 'No parametric cards in this game yet. Edit the game (GM → Math Problems → its name) and select cards that have parameters (Par) and a formula (f).';
@@ -23190,12 +23677,22 @@
 
             // Total weight over the cards that can actually generate problems.
             var totalW = 0;
-            paramCards.forEach(function (info) {
-                var fx = _mgFxByUid(info.uid);
-                if (fx && fx.text) totalW += _mgWeightFor(prob, _probCardKey(info));
+            entries.forEach(function (e) {
+                var fx = _mgFxByUid(e.info.uid);
+                if (fx && fx.text) totalW += _mgWeightFor(prob, _probCardKey(e.info));
             });
+            // Weights are RELATIVE — shares are out of the TOTAL, not out of
+            // 100. E.g. total 200 → weight 1 = 0.5% of the page.
+            if (totalW > 0) {
+                var tot = document.createElement('span');
+                tot.className = 'mg-total';
+                tot.textContent = '· weights total ' + totalW + ' — weight 1 ≈ ' + _mgPct(1, totalW) + '% of the page';
+                tot.title = 'Shares are weight ÷ total of all weights. Type weights as if out of 100; if the total grows past 100 the shares simply rescale.';
+                pr.appendChild(tot);
+            }
 
-            paramCards.forEach(function (info) {
+            entries.forEach(function (entry) {
+                var info = entry.info;
                 var key = _probCardKey(info);
                 var params = _mgParamsByUid(info.uid);
                 var fx = _mgFxByUid(info.uid);
@@ -23204,16 +23701,71 @@
 
                 var row = document.createElement('div');
                 row.className = 'mg-row';
+                if (key) row.dataset.mgKey = key; // selection identity (click/marquee)
                 row.appendChild(_mgPreviewEl(info));
+                // The card's NOTE cards sit right beside it — they explain the
+                // card to YOU (the game maker); the player never sees them.
+                if (entry.notes.length) {
+                    var ns = document.createElement('div');
+                    ns.className = 'mg-notes';
+                    ns.title = 'Notes for this problem card — authoring aid only; the player never sees them.';
+                    var nrow = document.createElement('div');
+                    nrow.className = 'mg-notes-cards';
+                    entry.notes.forEach(function (ni) {
+                        var pv = _mgPreviewEl(ni);
+                        var nk = _probCardKey(ni);
+                        if (nk) pv.dataset.mgNoteKey = nk; // click-selectable on its own
+                        nrow.appendChild(pv);
+                    });
+                    ns.appendChild(nrow);
+                    row.appendChild(ns);
+                }
                 var main = document.createElement('div');
                 main.className = 'mg-main';
 
-                // "Show a problem": the formula as it appears to the student —
-                // half-transparent parameters are the blanks.
+                // "Player sees": a real SAMPLE problem, exactly as the player
+                // gets it — numbers, with each blank's value half-transparent.
+                // (The formula/white box on the card face is a NOTE — author
+                // material; it is never what the player sees, so it is not
+                // repeated here.)
                 var f = document.createElement('div');
-                f.className = 'mg-formula';
-                if (fx && fx.text) f.innerHTML = _mgFormulaHtml(fx.text, params, hidden);
-                else f.innerHTML = '<span class="mg-warn">No formula yet — open the card → f and write one.</span>';
+                f.className = 'mg-line';
+                var pl = document.createElement('span');
+                pl.className = 'mg-lbl'; pl.textContent = 'Player sees';
+                pl.title = 'A sample problem exactly as it appears on the worksheet — the half-transparent number is the blank the player fills.';
+                f.appendChild(pl);
+                var sample = document.createElement('span');
+                sample.className = 'mg-formula';
+                f.appendChild(sample);
+                var resample = document.createElement('button');
+                resample.className = 'mg-iconbtn'; resample.textContent = '↻';
+                resample.title = 'Another sample problem';
+                function _mgRenderSample() {
+                    if (!fx || !fx.text) {
+                        sample.innerHTML = '<span class="mg-warn">No formula yet — open the card → f and write one.</span>';
+                        resample.style.display = 'none';
+                        return;
+                    }
+                    if (!Object.keys(hidden).length) {
+                        sample.innerHTML = '<span class="mg-warn">No blank chosen — click a parameter below to make one half-transparent.</span>';
+                        resample.style.display = 'none';
+                        return;
+                    }
+                    var r = _wsGenerate(_mgCardStub(info), 1, hidden, true);
+                    if (r.error || !r.problems || !r.problems.length) {
+                        sample.innerHTML = '<span class="mg-warn">' + _mpEsc(r.error || 'No problem could be generated.') + '</span>';
+                        return;
+                    }
+                    var p = r.problems[0], ai = 0;
+                    sample.innerHTML = _mpRenderMath(p.shown).replace(/\?/g, function () {
+                        var a = (p.answers[ai] != null) ? p.answers[ai] : '';
+                        ai++;
+                        return '<span class="mg-hid-val">' + _mpEsc(a) + '</span>';
+                    });
+                }
+                resample.onclick = _mgRenderSample;
+                f.appendChild(resample);
+                _mgRenderSample();
                 main.appendChild(f);
 
                 // Per-parameter half-transparent toggles (per-GAME override).
@@ -23272,14 +23824,14 @@
                 var wi = document.createElement('input');
                 wi.className = 'mg-weight'; wi.type = 'number'; wi.min = '0'; wi.step = '1';
                 wi.value = w;
-                wi.title = 'Relative weight in the active preset — how much of the page comes from this card (0 = never)';
+                wi.title = 'Relative weight in the active preset (0 = never). Share = weight ÷ total of all weights — see the total next to the presets.';
                 wi.onchange = function () {
                     var v = Math.max(0, parseFloat(wi.value) || 0);
                     if (!prob.weights) prob.weights = {};
                     var myRole = game.roles[key];
                     if (myRole) {
-                        paramCards.forEach(function (o) {
-                            var ok = _probCardKey(o);
+                        entries.forEach(function (o) {
+                            var ok = _probCardKey(o.info);
                             if (game.roles[ok] === myRole) prob.weights[ok] = v;
                         });
                     } else prob.weights[key] = v;
@@ -23288,7 +23840,7 @@
                 wLine.appendChild(wi);
                 var share = document.createElement('span');
                 share.className = 'mg-share';
-                if (fx && fx.text && totalW > 0) share.textContent = '≈ ' + Math.round(100 * w / totalW) + '% of the page';
+                if (fx && fx.text && totalW > 0) share.textContent = '≈ ' + _mgPct(w, totalW) + '% of the page';
                 else if (fx && fx.text) share.textContent = 'no cards active — page would be empty';
                 wLine.appendChild(share);
                 main.appendChild(wLine);
@@ -23297,14 +23849,16 @@
                 list.appendChild(row);
             });
 
-            if (noteCards.length) {
+            if (looseNotes.length) {
                 var sec = document.createElement('div');
                 sec.className = 'mg-sec';
-                sec.textContent = 'Notes cards (printed with the sheet, no problems)';
+                sec.textContent = 'Note cards without a problem card — for your eyes only (the player never sees notes)';
                 list.appendChild(sec);
-                noteCards.forEach(function (info) {
+                looseNotes.forEach(function (info) {
                     var row = document.createElement('div');
                     row.className = 'mg-row mg-note-row';
+                    var lk = _probCardKey(info);
+                    if (lk) row.dataset.mgKey = lk;
                     row.appendChild(_mgPreviewEl(info));
                     var main = document.createElement('div');
                     main.className = 'mg-main';
@@ -23315,6 +23869,7 @@
                     list.appendChild(row);
                 });
             }
+            _mgApplySel(); // selection survives re-renders (weights, moves…)
         }
 
         // ---- Play a SAVED math game: the worksheet draws from all its cards
@@ -23336,6 +23891,8 @@
             sel.disabled = true;
             document.getElementById('ws-title').value = game.name;
             document.getElementById('ws-count').value = game.ws.count;
+            var pcEl = document.getElementById('ws-percol');
+            if (pcEl) pcEl.value = game.ws.perCol || 5;
             document.getElementById('ws-attempts').value = game.ws.attempts;
             document.getElementById('ws-repeats').value = game.ws.repeats;
             try { recordGameActivation('mathpages', game.name, 'preview'); } catch (e) {}
@@ -23349,6 +23906,7 @@
             var prob = _mgActiveProb(game);
             var entries = [];
             (game.cards || []).forEach(function (info) {
+                if (info.isNote) return; // authoring notes never reach the player
                 var params = _mgParamsByUid(info.uid);
                 var fx = _mgFxByUid(info.uid);
                 if (!params.length || !fx || !fx.text) return;
@@ -23358,17 +23916,20 @@
             var totalW = 0;
             entries.forEach(function (e) { e.w = _mgWeightFor(prob, e.key); totalW += e.w; });
             if (totalW <= 0) return { error: 'All weights are 0 in preset “' + (prob.name || 'Prob') + '” — give at least one card a weight.' };
-            // Largest-remainder apportionment of n over the weights.
-            var rem = [];
-            var used = 0;
-            entries.forEach(function (e, i) {
-                var exact = n * e.w / totalW;
-                e.k = Math.floor(exact);
-                used += e.k;
-                rem.push({ i: i, r: exact - e.k });
-            });
-            rem.sort(function (a, b) { return b.r - a.r; });
-            for (var j = 0; used < n && j < rem.length; j++, used++) entries[rem[j].i].k++;
+            // Each problem slot draws its card INDEPENDENTLY by weight. A
+            // deterministic split would round a 0.5%-card to zero on every
+            // page — "never" instead of "rare"; random draws make it truly
+            // occasional (≈1 page in 25 for 0.5% × 8 problems).
+            entries.forEach(function (e) { e.k = 0; });
+            for (var d = 0; d < n; d++) {
+                var t = Math.random() * totalW, acc = 0, pick = -1;
+                for (var q = 0; q < entries.length; q++) {
+                    acc += entries[q].w;
+                    if (t < acc) { pick = q; break; }
+                }
+                if (pick < 0) for (var b = entries.length - 1; b >= 0; b--) if (entries[b].w > 0) { pick = b; break; }
+                if (pick >= 0) entries[pick].k++;
+            }
             var all = [], repeatWarn = false, totals = 0, anyApprox = false;
             for (var i = 0; i < entries.length; i++) {
                 var e = entries[i];
@@ -23397,6 +23958,9 @@
             var cardSvgEl = card.querySelector('svg');
             card.classList.add('card-selected');
             var info = { label: label.textContent, isVariation: false, uid: card.dataset.uid || '' };
+            // Info/Examples reference cards are AUTHORING notes: shown to the
+            // game maker next to their problem card, never to the player.
+            if (card.dataset.info === 'true') info.isNote = true;
             // Link to stable card identity
             if (card.dataset.stableId) info.stableId = card.dataset.stableId;
             // Track which card set this card belongs to
@@ -23671,7 +24235,9 @@
             var pos = _cmBoxAnchor || _cmComputeBoxAnchor();
             if (_ctxMenu) { var r = _ctxMenu.getBoundingClientRect(); pos = { x: r.left, y: r.top }; }
             _cmBoxAnchor = pos;
-            if (groupEditSelected.length === 0) { _cmShowSelectHintBox(pos); return; }
+            // Role-pending (rail Role button): the user came for a role, so the
+            // bulk-action menu never shows — only the hint box until the picker.
+            if (groupEditSelected.length === 0 || _cmRolePending) { _cmShowSelectHintBox(pos); return; }
             _ctxShow(groupEditSelected[0], pos.x, pos.y, true);
         }
 
@@ -23682,7 +24248,9 @@
             _ctxAddDragHandle(menu);
             var hint = document.createElement('div');
             hint.className = 'cm-select-hint';
-            hint.innerHTML = '<b>Tap card(s) to select/deselect.</b><br>Use mouse-band if needed.<br><br><span style="white-space:nowrap;">Edit by reference</span>, set role, copy, move, insert, and delete.';
+            hint.innerHTML = _cmRolePending
+                ? '<b>Tap a card — the Role box opens right away.</b><br>Use mouse-band to pick several first.'
+                : '<b>Tap card(s) to select/deselect.</b><br>Use mouse-band if needed.<br><br><span style="white-space:nowrap;">Edit by reference</span>, set role, copy, move, insert, and delete.';
             menu.appendChild(hint);
             menu.appendChild(_ctxSep());
             menu.appendChild(_ctxItem('✕', '', function() { exitCmSelectMode(); }));
@@ -23702,11 +24270,53 @@
 
         function exitCmSelectMode() {
             cmSelectModeActive = false;
+            _cmRolePending = false; // leaving the mode always cancels a pending Role flow
             var btn = document.getElementById('cm-select-btn');
             if (btn) btn.classList.remove('cm-select-on');
             _ctxClose();
             _cmBoxAnchor = null;
             exitGroupEditMode(); // clears the selection + ge classes (sets the flag false again, harmless)
+        }
+
+        // The rail "Role" button — the same picker the Select box offers as
+        // 'Role (N)…', surfaced on its own so it's easy to find. With cards
+        // selected it opens the picker straight away; with none it turns
+        // Select mode on in a ROLE-PENDING state: the very next card tap opens
+        // the Role box (not the bulk-action menu).
+        var _cmRolePending = false;
+        function cmRoleButton() {
+            var sel = (typeof groupEditSelected !== 'undefined') ? groupEditSelected : [];
+            if (!sel.length) {
+                _cmRolePending = true;
+                if (!cmSelectModeActive) toggleCmSelectMode();
+                else _cmRefreshSelectBox(); // already selecting → just retint the hint
+                if (typeof _geFlash === 'function') _geFlash('Tap a card — the Role box opens right away.');
+                return;
+            }
+            var n = sel.length, shared = null;
+            sel.forEach(function (c) {
+                var r = c.dataset.role || '';
+                if (shared === null) shared = r;
+                else if (shared !== r) shared = '';
+            });
+            shared = shared || '';
+            _showRolePicker('Role for ' + n + ' selected card' + (n !== 1 ? 's' : ''), shared, function (role) {
+                if (typeof _undoPushSnapshot === 'function') _undoPushSnapshot(); // Ctrl+Z point
+                role = (role || '').trim();
+                sel.forEach(function (c) {
+                    if (role) c.dataset.role = role; else delete c.dataset.role;
+                });
+                if (role && typeof _addRoleToVocab === 'function') _addRoleToVocab(role);
+                if (typeof saveCustomCards === 'function') saveCustomCards(); // persist role with the cards
+                _applyRoleBadges();
+                if (typeof _geFlash === 'function') {
+                    _geFlash(role ? ('Role "' + role + '" set on ' + n + ' card' + (n !== 1 ? 's' : ''))
+                                  : ('Role cleared on ' + n + ' card' + (n !== 1 ? 's' : '')));
+                }
+                // Role-button flow done: fold the selection mode away with it.
+                if (_cmRolePending && cmSelectModeActive) exitCmSelectMode();
+                _cmRolePending = false;
+            });
         }
 
         function _updateGroupEditStatus() {

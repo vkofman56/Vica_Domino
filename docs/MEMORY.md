@@ -3,6 +3,49 @@
 
 ---
 
+## 🎯 July 7, 2026 — Par per-rule redesign, report-role rules & shared-tree lessons
+
+- **A parameter's Values = numbered RULES** (ranges/sets), each owning an
+  Add/Subtract op, its OWN construct and constraints (`p.constructs[{target,def}]`,
+  `restriction.target`, `part.op='sub'`). Everything is gated on `_mpUsesPerPart` —
+  params that don't use it generate byte-identically to before. A rule's construct
+  output is FILTERED by its own range/set; Subtract = set difference. Terminology:
+  **rules** = ranges/sets, **steps** = a construct's numbered lines.
+- **The Par editor is a fold-out**: every rule collapsed by default (fresh param =
+  6 lines); ONE movable editor block re-homes inside the open rule's bordered box
+  (✎/▴, click the line, or its summary). Collapsed rules show compact summaries
+  with constraints spelled out (`÷{3,5,7}` — never just a count; the word
+  "transparent" was dropped on user request). Sample PAGES (6 per click, wrap
+  notice); per-rule Check/Sample live inside the box, the whole-parameter pair
+  below the Add buttons.
+- **The pv (place-value) helper had an eraser**: recompute-on-range-change reset
+  manual digit restrictions — now it INTERSECT-preserves them; and it decomposes
+  the TARGETED rule's range, not always the first. New constraints default to the
+  rule being edited (they used to bleed to All).
+- **Report roles = the domino's LOWER card only** (`made`="top+bottom"; flips swap
+  keys with values). A5/D1 resolve roles like the Game-View badges (`_getCardRole`
+  by stableId across stores), variations inherit the original's. Card labels may
+  CONTAIN '+' ("E7_20 + 8") — `made` parsing picks the split where both sides are
+  known labels.
+- **The play tab's legend snapshot was the "wrong notes" bug**: it read the game's
+  note legend at TAB LOAD; now re-read at the first judged answer + refocus, and a
+  name-keyed backup (`gameNoteLegends_v1`) restores a legend if a game entry ever
+  loses `gameNoteSets`. Reports freeze played faces into `session.faces` at
+  end/fold — library edits can't blank old reports; every row has a guaranteed
+  domino fallback chain.
+- **Loupe resize handles are three different tools** (S=view zoom, E=permanent
+  card width, SE=permanent frame scale) — that's how cards "mysteriously" grow;
+  right-click → "Reset size → standard". The group-move stray-blank/vanishing-line
+  pair was ONE bug: the emptied line's keeper placeholder landed in the destination
+  (row lookup matched stale labels; now `data-row-letter` is authoritative).
+- **Shared working tree, two live sessions**: never `git add -A` (f38378e swept the
+  other session's Math-Games work in); stage only your files; "File modified since
+  read" collisions → re-read or patch via python3 heredoc. Pending: sync.js
+  cache-buster bump for its `savedMathGames` local-wins entry.
+- rAF stalls in backgrounded tabs — use setTimeout for measure-then-fix layout code.
+
+---
+
 ## 🎯 July 5, 2026 — Visual reports / new-tab play durable lessons
 
 - **Card-face resolution is a CHAIN, not a field.** A game card's art: inline `svgMarkup` exists

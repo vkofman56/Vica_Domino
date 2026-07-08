@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:51 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:27 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:51 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:27 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:51 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -5737,8 +5737,8 @@
         // All valid values a single Par can take (for counting the problem space).
         // Returns {vals:[...]} | {capped:true} (too big to enumerate) | {error}.
         function _mpValueSet(p) {
-            if (p.mode === 'constructed') {
-                var r = _mpGenerateConstructed(p, 500000);
+            if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                var r = _mpGenerateAny(p, 500000);
                 if (r.error) return { error: r.error };
                 if (r.empty) return { vals: [] };
                 if (r.count == null || r.samples.length !== r.count) return { capped: true };
@@ -5787,8 +5787,8 @@
             var opts = [], product = 1, ENUM_CAP = 500000;
             for (var i = 0; i < params.length; i++) {
                 var p = params[i], list;
-                if (p.mode === 'constructed') {
-                    var rc = _mpGenerateConstructed(p, 2000000);
+                if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                    var rc = _mpGenerateAny(p, 2000000);
                     if (rc.error) return { error: rc.error };
                     if (rc.count == null) return { capped: true }; // too big to enumerate exhaustively
                     list = rc.samples.map(function (s) {
@@ -5837,8 +5837,8 @@
         // whole joint space. Exact for plain ranges/sets; an estimate (approx:true)
         // for a huge constrained range or a capped construction.
         function _mpValueCount(p) {
-            if (p.mode === 'constructed') {
-                var r = _mpGenerateConstructed(p, 200000);
+            if (_mpUsesPerPart(p) || p.mode === 'constructed') {
+                var r = _mpGenerateAny(p, 200000);
                 if (r.error) return { error: r.error };
                 if (r.empty) return { count: 0 };
                 if (r.count != null && r.samples.length === r.count) return { count: r.count };
@@ -6284,6 +6284,63 @@
             if ((p.restrictions || []).length) out.push(p.restrictions.map(_mpRestrLabel).join(', '));
             return out;
         }
+        // The restricted digit sets of a construct def — one "b∈{…}" chunk per
+        // micro-parameter whose set is narrower than the full 0..9 (a full digit
+        // set carries no information, so it is skipped).
+        function _pmDefDigitSets(def, sym) {
+            var out = [];
+            var parsed; try { parsed = _mpParseDef(def || '', sym); } catch (e) { return out; }
+            if (!parsed || parsed.errors.length || !parsed.freeVars) return out;
+            Object.keys(parsed.freeVars).forEach(function (name) {
+                if (name === sym) return;
+                var fv = parsed.freeVars[name], set = null;
+                if (fv.set) set = fv.set;
+                else if (fv.lo != null && fv.hi != null) { set = []; for (var v = fv.lo; v <= fv.hi; v++) set.push(v); }
+                if (!set) return;
+                var isFullDigit = set.length === 10 && set.every(function (v, i) { return v === i; });
+                if (!isFullDigit) out.push(name + '∈{' + set.join(',') + '}');
+            });
+            return out;
+        }
+        // Info lines for a PER-RULE parameter — the same story the Par list tells:
+        // each rule's domain with its own construct + restricted digit sets + its
+        // constraints (a Subtract rule is prefixed −), then the shared pieces.
+        function _pmPerPartInfo(p) {
+            var sym = p.sym || 'x';
+            var byT = _mpConstructByTarget(p), allDef = byT['all'] || '';
+            var out = [];
+            _mpPartsOf(p).forEach(function (part, i) {
+                var dom;
+                if (part.type === 'set') dom = sym + ' ∈ {' + (part.vals || []).join(',') + '}';
+                else {
+                    var lo = parseInt(part.lo, 10), hi = parseInt(part.hi, 10);
+                    var loOp = (part.loOp === 'lt') ? '<' : '≤', hiOp = (part.hiOp === 'lt') ? '<' : '≤';
+                    dom = (!isNaN(lo) && !isNaN(hi)) ? (lo + ' ' + loOp + ' ' + sym + ' ' + hiOp + ' ' + hi) : '(unset)';
+                }
+                var prefix = (part.op === 'sub') ? '− ' : (i ? '+ ' : '');
+                var ownDef = (byT[i] != null) ? byT[i] : '';
+                var detail = [];
+                if (ownDef && ownDef.trim()) {
+                    var fl = ownDef.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && s.charAt(0) !== '#'; });
+                    if (fl.length) detail.push(fl[0]);
+                    detail = detail.concat(_pmDefDigitSets(ownDef, sym));
+                }
+                (p.restrictions || []).forEach(function (r) {
+                    if (r.target === i && r.kind !== 'inset') detail.push(_mpRestrLabel(r));
+                });
+                out.push(prefix + dom + (detail.length ? ':' : ''));
+                detail.forEach(function (d) { out.push('   ' + d); });
+            });
+            // The shared construct (fills every rule) and shared constraints, once.
+            if (allDef && allDef.trim()) {
+                var afl = allDef.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s && s.charAt(0) !== '#'; });
+                if (afl.length) out.push(afl[0] + ' (all)');
+                _pmDefDigitSets(allDef, sym).forEach(function (d) { out.push('   ' + d); });
+            }
+            var shared = (p.restrictions || []).filter(function (r) { return (r.target == null || r.target === 'all') && r.kind !== 'inset'; });
+            if (shared.length) out.push(shared.map(_mpRestrLabel).join(', '));
+            return out;
+        }
         // Render a relation string as one SVG <text> with COLOURED parameter symbols
         // (and micro-params coloured by their Big parameter, e.g. A's b in A's colour),
         // converting <= >= != into ≤ ≥ ≠.
@@ -6318,7 +6375,8 @@
             params.forEach(function (p) {
                 var col = (typeof _pmParamColor === 'function') ? _pmParamColor(p.sym) : '#222';
                 var faded = !!hidden[p.sym];
-                if (p.mode === 'constructed') { _pmConstructInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
+                if (_mpUsesPerPart(p)) { _pmPerPartInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
+                else if (p.mode === 'constructed') { _pmConstructInfo(p).forEach(function (t) { lines.push({ text: t, col: col, faded: faded }); }); }
                 else { lines.push({ text: _mpSummary(p), col: col, faded: faded }); }
             });
             var rels = [];
@@ -6369,6 +6427,13 @@
         function _iClosePanel() { var p = document.getElementById('i-panel'); if (p) p.style.display = 'none'; }
         function _iParamDetail(p) {
             var lines = [];
+            if (_mpUsesPerPart(p)) {
+                // Per-rule params: _pmPerPartInfo already folds in the constructs
+                // and every constraint, so it IS the whole detail.
+                lines.push('Rules:');
+                _pmPerPartInfo(p).forEach(function (l) { lines.push('  ' + l); });
+                return lines.join('\n');
+            }
             if (p.mode === 'constructed') {
                 lines.push('Constructed:');
                 (p.def || '').split('\n').forEach(function (l) { if (l.trim()) lines.push('  ' + l.trim()); });
@@ -23015,13 +23080,21 @@
                 '.mg-probs .mg-probs-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;opacity:.6;font-weight:700;}' +
                 '.mg-prob-chip{font:inherit;border-radius:16px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;padding:5px 14px;cursor:pointer;}' +
                 '.mg-prob-chip.active{background:#f5c518;border-color:#f5c518;color:#222;font-weight:700;}' +
-                '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:980px;}' +
+                '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:1200px;}' +
                 '.mg-hint{color:#fff;opacity:.55;font-size:.82rem;}' +
-                '.mg-row{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;color:#fff;}' +
+                '.mg-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;color:#fff;}' +
                 '.mg-row.mg-note-row{opacity:.85;}' +
-                '.mg-prev{flex:none;width:76px;min-height:46px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
+                // Cards render at Card-Set size: the note cards (and the note
+                // box on the card face) must be READABLE right here — that is
+                // the information the author reads while setting probabilities.
+                '.mg-prev{flex:none;width:170px;min-height:110px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
                 '.mg-prev svg{width:100%;height:auto;display:block;}' +
                 '.mg-prev-label{color:#23304a;font-weight:700;padding:6px;}' +
+                // Literal card copies (cloned .library-card, root class swapped):
+                // zoomed up so the note box / white note cards are readable —
+                // that's the information used to set the probabilities.
+                '.mg-prev-live{flex:none;zoom:1.6;}' +
+                '.mg-card-copy{text-align:center;position:relative;pointer-events:none;user-select:none;}' +
                 '.mg-main{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;}' +
                 '.mg-formula{font-size:1.25rem;font-variant-numeric:tabular-nums;}' +
                 '.mg-hid-val{opacity:.35;border-bottom:2px solid #f5c518;}' +
@@ -23034,8 +23107,8 @@
                 '.mg-weight{width:64px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.2);background:#2c3866;color:#fff;padding:4px 8px;}' +
                 '.mg-share{opacity:.65;} .mg-warn{color:#ffb14e;font-size:.84rem;}' +
                 '.mg-total{color:#fff;opacity:.6;font-size:.8rem;margin-left:6px;}' +
-                '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;max-width:260px;}' +
-                '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:6px;}' +
+                '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;}' +
+                '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:8px;}' +
                 '.mg-notes-cards .mg-prev{outline:2px dashed rgba(245,197,24,.55);outline-offset:1px;}' +
                 '.mg-notes-cap{font-size:.64rem;text-transform:uppercase;letter-spacing:.5px;color:#f5c518;opacity:.8;font-weight:700;}' +
                 '.mg-sec{margin-top:8px;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;opacity:.6;font-weight:700;}';
@@ -23108,17 +23181,33 @@
         }
 
         function _mgPreviewEl(info) {
+            // A literal COPY of the chosen card from the Card Set: clone the
+            // whole .library-card node so it renders exactly as in the set
+            // (face + note box + label). The root class is swapped to
+            // mg-card-copy so global .library-card sweeps/click handlers
+            // ignore the copy; the inner .domino-half-preview CSS still
+            // applies, which is what gives the card its look.
+            var live = info && info.uid
+                ? document.querySelector('#domino-library-screen .library-card[data-uid="' + info.uid + '"]') : null;
+            if (live) {
+                var clone = live.cloneNode(true);
+                clone.className = 'mg-card-copy' + (live.classList.contains('variation') ? ' variation' : '');
+                clone.removeAttribute('data-uid');
+                clone.removeAttribute('data-stable-id');
+                clone.querySelectorAll('[data-uid]').forEach(function (n) { n.removeAttribute('data-uid'); });
+                clone.querySelectorAll('button, .card-delete-btn, .card-copy-btn, .variation-delete-btn').forEach(function (n) { n.remove(); });
+                var wrap = document.createElement('div');
+                wrap.className = 'mg-prev-live';
+                wrap.appendChild(clone);
+                return wrap;
+            }
+            // Card's set not loaded — fall back to a labeled chip.
             var box = document.createElement('div');
             box.className = 'mg-prev';
-            var live = info && info.uid
-                ? document.querySelector('.library-card[data-uid="' + info.uid + '"] svg') : null;
-            if (live) { box.appendChild(live.cloneNode(true)); }
-            else {
-                var l = document.createElement('span');
-                l.className = 'mg-prev-label';
-                l.textContent = (info && info.label) || '?';
-                box.appendChild(l);
-            }
+            var l = document.createElement('span');
+            l.className = 'mg-prev-label';
+            l.textContent = (info && info.label) || '?';
+            box.appendChild(l);
             return box;
         }
 

@@ -14484,6 +14484,12 @@
                 var label = card.querySelector('.library-label');
                 if (!label) return;
                 var labelText = label.textContent;
+                // Add-from-Sets mode: a card already in the target game can't
+                // be picked again (covers cards revealed by a set switch,
+                // which bypasses the entry-time hiding).
+                if (typeof _gmMathAddToIdx !== 'undefined' && _gmMathAddToIdx != null &&
+                    typeof _mgGameKeySet === 'function' &&
+                    _mgCardElInGame(_mgGameKeySet(_gmMathAddToIdx), card)) return;
                 if (card.classList.contains('card-selected')) {
                     card.classList.remove('card-selected');
                     gameMakerSelected = gameMakerSelected.filter(function(c) { return c.label !== labelText; });
@@ -23203,6 +23209,7 @@
             if (!game.ws) game.ws = { count: 10, attempts: 3, repeats: 'no' };
             if (!game.ws.perCol) game.ws.perCol = 5;
             if (!game.ws.input) game.ws.input = 'mouse';
+            if (!game.newKeys) game.newKeys = {}; // lines still in the NEW holding section
             if (!game.hiddenOverrides) game.hiddenOverrides = {};
             if (!game.roles) game.roles = {};
             if (!Array.isArray(game.probOptions) || !game.probOptions.length) {
@@ -23292,6 +23299,8 @@
                 // align-items:center puts the standalone buttons (b1, b5) on
                 // the same vertical centerline as the two button boxes.
                 '#mg-overlay .game-view-toolbar{top:150px;align-items:center;}' +
+                // Add-from-Sets mode: cards already in the game are hidden.
+                '.gm-add-hidden{display:none !important;}' +
                 '#mg-overlay .mg-wrap{padding-left:70px;}' +
                 '#mg-overlay #mg-selbar{padding-left:70px;}' +
                 '#mg-overlay .mg-probs{padding-left:70px;}' +
@@ -23369,7 +23378,16 @@
                 '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;}' +
                 '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:8px;}' +
                 '.mg-notes-cards .mg-prev{outline:2px dashed rgba(245,197,24,.55);outline-offset:1px;}' +
-                '.mg-sec{margin-top:8px;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;opacity:.6;font-weight:700;}';
+                '.mg-sec{margin-top:8px;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;opacity:.6;font-weight:700;}' +
+                // NEW holding section: freshly added lines sit under a gold
+                // divider at the bottom until placed.
+                '.mg-new-divider{display:flex;align-items:center;gap:12px;margin-top:12px;color:#f5c518;font-size:.72rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;}' +
+                '.mg-new-divider button{font:inherit;border:1px solid rgba(245,197,24,.6);background:rgba(245,197,24,.15);color:#f5c518;border-radius:8px;padding:2px 10px;cursor:pointer;}' +
+                '.mg-row.mg-new{background:rgba(245,197,24,.10);}' +
+                // Empty placeholder lines (right-click a letter to add one).
+                '.mg-row.mg-empty{min-height:56px;align-items:center;border:1.5px dashed rgba(255,255,255,.35);border-radius:10px;margin:4px 0;}' +
+                '.mg-empty-hint{color:#fff;opacity:.55;font-size:.85rem;}' +
+                '.mg-row.mg-empty.mg-drop-here{border-color:#2ecc71;background:rgba(46,204,113,.18);outline:none;}';
             document.head.appendChild(st);
 
             var ov = document.createElement('div');
@@ -23445,7 +23463,7 @@
             document.getElementById('mg-back').onclick = closeMathGameView;
             // The "+" box (Row/Sets/Gam) — same trio as the other creators.
             document.getElementById('mg-b2').onclick = function () {
-                alert('Math games have no empty rows — every line IS a problem card.\nUse "Sets" to add cards. (This button is a candidate for deletion.)');
+                alert('Right-click a line letter (A, B, C…) to add an EMPTY LINE above or below it.\n\nEmpty lines help you reorganize: lines below an inserted one rename automatically, and dropping a dragged line onto an empty line puts it there.');
             };
             document.getElementById('mg-b3').onclick = _mgAddFromSets;
             document.getElementById('mg-b4').onclick = _mgAddFromGame;
@@ -23576,6 +23594,7 @@
             }
             function _mgStartRowDrag(e0, dragRow, startX, startY) {
                 var began = false, dropLine = null, insertBefore = null; // null = at end
+                var emptyTargetKey = null; // dropping ON an empty line fills it
                 function draggedKeys() {
                     // The grabbed line, or the whole selection when it's part of it.
                     var k = dragRow.dataset.mgKey;
@@ -23616,6 +23635,21 @@
                     if (y == null) y = listRc.top + 5; // empty list
                     dropLine.style.cssText = 'position:fixed;z-index:2570;pointer-events:none;height:3px;border-radius:2px;' +
                         'background:#f5c518;left:' + (listRc.left + 14) + 'px;width:' + Math.min(listRc.width - 28, 1160) + 'px;top:' + y + 'px;';
+                    // Hovering an EMPTY line while dragging = "fill this line":
+                    // it highlights green and the drop bar hides.
+                    emptyTargetKey = null;
+                    document.querySelectorAll('#mg-list .mg-row.mg-empty.mg-drop-here').forEach(function (r) { r.classList.remove('mg-drop-here'); });
+                    for (var j = 0; j < rows.length; j++) {
+                        if (!rows[j].classList.contains('mg-empty')) continue;
+                        var erc = rows[j].getBoundingClientRect();
+                        if (ev.clientY >= erc.top && ev.clientY <= erc.bottom) {
+                            emptyTargetKey = rows[j].dataset.mgKey;
+                            rows[j].classList.add('mg-drop-here');
+                            dropLine.style.display = 'none';
+                            break;
+                        }
+                    }
+                    if (!emptyTargetKey) dropLine.style.display = '';
                 }
                 function up() {
                     document.removeEventListener('mousemove', mv);
@@ -23631,11 +23665,21 @@
                         .filter(Boolean);
                     var movedSet = {}; moved.forEach(function (k) { movedSet[k] = 1; });
                     var rest = visual.filter(function (k) { return !movedSet[k]; });
-                    var at = (insertBefore == null) ? rest.length : rest.indexOf(insertBefore);
-                    if (at < 0) at = rest.length;
-                    var order = rest.slice(0, at).concat(moved, rest.slice(at));
+                    var order, removeKeys = [];
+                    if (emptyTargetKey && !movedSet[emptyTargetKey]) {
+                        // Dropped ON an empty line: the moved lines take its
+                        // place and the placeholder is consumed.
+                        var slot = rest.indexOf(emptyTargetKey);
+                        order = rest.slice(0, slot).concat(moved, rest.slice(slot + 1));
+                        removeKeys = [emptyTargetKey];
+                    } else {
+                        var at = (insertBefore == null) ? rest.length : rest.indexOf(insertBefore);
+                        if (at < 0) at = rest.length;
+                        order = rest.slice(0, at).concat(moved, rest.slice(at));
+                    }
+                    document.querySelectorAll('#mg-list .mg-row.mg-empty.mg-drop-here').forEach(function (r) { r.classList.remove('mg-drop-here'); });
                     document.querySelectorAll('#mg-list .mg-row.mg-dragging').forEach(function (r) { r.classList.remove('mg-dragging'); });
-                    _mgReorderByKeys(order);
+                    _mgReorderByKeys(order, moved, removeKeys);
                 }
                 document.addEventListener('mousemove', mv);
                 document.addEventListener('mouseup', up);
@@ -23664,9 +23708,18 @@
         function _mgUnits(game) {
             var units = [], lastEntry = null;
             (game.cards || []).forEach(function (info) {
+                // An EMPTY LINE is a marker card: its own unit, letters below
+                // it rename automatically (letters are positional).
+                if (info.emptyLine) {
+                    lastEntry = { entry: true, empty: true, key: _probCardKey(info), cards: [info] };
+                    units.push(lastEntry);
+                    return;
+                }
                 var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
                 if (!isNote) { lastEntry = { entry: true, key: _probCardKey(info), cards: [info] }; units.push(lastEntry); }
-                else if (lastEntry) lastEntry.cards.push(info);
+                // newLine: an ADDED note-ish card never glues onto the line
+                // before it — it stands as its own row.
+                else if (lastEntry && !info.newLine) lastEntry.cards.push(info);
                 else units.push({ entry: false, key: _probCardKey(info), cards: [info] });
             });
             return units;
@@ -23675,14 +23728,151 @@
             game.cards = [];
             units.forEach(function (u) { u.cards.forEach(function (c) { game.cards.push(c); }); });
         }
+        // "Sets" (b3): ADD cards from the card sets — like the other
+        // creators, the set opens with NOTHING selected; whatever you pick
+        // is APPENDED to the game on Complete (duplicates skipped). When
+        // called from a line's right-click menu, afterKey pins WHERE the
+        // picked cards land (right below that line, no NEW section).
+        var _gmMathAddToIdx = null;
+        var _gmMathAddAtKey = null;
+        function _mgAddFromSets(afterKey) {
+            if (typeof afterKey !== 'string') afterKey = null; // rail onclick passes the event
+            var idx = _mgIndex;
+            var g = loadMathGames()[idx];
+            if (!g) return;
+            _gmMathAddAtKey = afterKey;
+            closeMathGameView();
+            // Open the Card Maker on the game's home set when we know it.
+            var setName = null;
+            (g.cards || []).some(function (c) { if (c.cardSet) { setName = c.cardSet; return true; } return false; });
+            try { if (setName) selectCardSet(setName); } catch (e) {}
+            document.querySelectorAll('.screen').forEach(function (s) { s.style.display = 'none'; });
+            document.getElementById('domino-library-screen').style.display = 'block';
+            _gmMathAddToIdx = idx;      // append on Complete
+            gameMakerEditIndex = -1;    // NO pre-selection — pick what to add
+            gameMakerEditCatch = false;
+            gameMakerType = 'math';
+            gameMakerName = g.name;
+            gameMakerDesc = g.description || '';
+            enterSelectionMode();
+            // Only cards NOT yet in the game are offered — the rest hide.
+            _mgHideCardsAlreadyInGame(idx);
+        }
+        // Card-key sets for the add-mode filter.
+        function _mgGameKeySet(idx) {
+            var g = loadMathGames()[idx], have = {};
+            if (!g) return have;
+            (g.cards || []).forEach(function (c) {
+                if (c.uid) have['u:' + c.uid] = 1;
+                if (c.stableId) have['s:' + c.stableId] = 1;
+                if (c.label) have['l:' + c.label] = 1;
+            });
+            return have;
+        }
+        function _mgCardElInGame(have, el) {
+            if (el.dataset.uid && have['u:' + el.dataset.uid]) return true;
+            if (el.dataset.stableId && have['s:' + el.dataset.stableId]) return true;
+            var lbl = el.querySelector('.library-label');
+            return !!(lbl && have['l:' + lbl.textContent]);
+        }
+        function _mgHideCardsAlreadyInGame(idx) {
+            var have = _mgGameKeySet(idx);
+            document.querySelectorAll('#domino-library-screen .library-card').forEach(function (el) {
+                el.classList.toggle('gm-add-hidden', _mgCardElInGame(have, el));
+            });
+        }
+        // "Gam" (b4): append LINES from another Math game — they arrive with
+        // their notes, blanks override, role and (active-preset) weight.
+        function _mgAddFromGame(afterKey) {
+            if (typeof afterKey !== 'string') afterKey = null; // rail onclick passes the event
+            var games = loadMathGames();
+            var others = [];
+            games.forEach(function (g, i) { if (i !== _mgIndex && g) others.push({ g: g, i: i }); });
+            if (!others.length) { alert('No other Math Problems games to take lines from.'); return; }
+            var old = document.getElementById('mg-gam-pick');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'mg-gam-pick';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:2590;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2c3866;border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:16px 18px;max-width:340px;max-height:70vh;overflow:auto;display:flex;flex-direction:column;gap:8px;';
+            var t = document.createElement('div');
+            t.style.cssText = 'color:#fff;font-weight:700;';
+            t.textContent = 'Take lines from which game?';
+            box.appendChild(t);
+            others.forEach(function (e) {
+                var b = document.createElement('button');
+                b.style.cssText = 'font:inherit;text-align:left;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:8px 12px;cursor:pointer;';
+                b.textContent = e.g.name + '  (' + ((e.g.cards || []).length) + ' cards)';
+                b.onclick = function () { ov.remove(); _mgAppendLinesFrom(e.i, afterKey); };
+                box.appendChild(b);
+            });
+            var c = document.createElement('button');
+            c.style.cssText = 'font:inherit;background:rgba(255,255,255,.18);border:0;border-radius:8px;color:#fff;padding:7px 12px;cursor:pointer;margin-top:4px;';
+            c.textContent = 'Cancel';
+            c.onclick = function () { ov.remove(); };
+            box.appendChild(c);
+            ov.appendChild(box);
+            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+            document.body.appendChild(ov);
+        }
+        function _mgAppendLinesFrom(srcIdx, afterKey) {
+            var games = loadMathGames(), g = games[_mgIndex], src = games[srcIdx];
+            if (!g || !src) return;
+            _mgMigrate(g); _mgMigrate(src);
+            var have = {};
+            (g.cards || []).forEach(function (c) { var k = _probCardKey(c); if (k) have[k] = 1; });
+            var tp = _mgActiveProb(g), sp = _mgActiveProb(src);
+            var newUnits = [];
+            _mgUnits(src).forEach(function (u) {
+                if (u.key && have[u.key]) return; // line already here
+                var copied = u.cards.map(function (c, ci) {
+                    var cp = JSON.parse(JSON.stringify(c));
+                    // A copied loose-note unit stays its own row — it must not
+                    // glue onto the target game's last line.
+                    if (!u.entry && ci === 0) cp.newLine = true;
+                    return cp;
+                });
+                newUnits.push({ entry: u.entry, empty: u.empty, key: u.key, cards: copied });
+                if (u.key) {
+                    // Positioned inserts are already "placed"; the plain Gam
+                    // button lands them in the NEW holding section instead.
+                    if (!afterKey) g.newKeys[u.key] = 1;
+                    if (src.roles[u.key]) g.roles[u.key] = src.roles[u.key];
+                    if (src.hiddenOverrides[u.key]) g.hiddenOverrides[u.key] = JSON.parse(JSON.stringify(src.hiddenOverrides[u.key]));
+                    if (sp.weights && sp.weights[u.key] != null) {
+                        if (!tp.weights) tp.weights = {};
+                        tp.weights[u.key] = sp.weights[u.key];
+                    }
+                    have[u.key] = 1;
+                }
+            });
+            if (!newUnits.length) { alert('All of “' + src.name + '”’s lines are already in this game.'); return; }
+            var units = _mgUnits(g);
+            var at = units.length;
+            if (afterKey) {
+                for (var i = 0; i < units.length; i++) if (units[i].key === afterKey) { at = i + 1; break; }
+            }
+            Array.prototype.splice.apply(units, [at, 0].concat(newUnits));
+            _mgFlattenUnits(g, units);
+            saveMathGames(games);
+            _mgRender();
+        }
         // Gold line letter (A, B, C…) with the red × under it — the same
         // look as the Find creator's row letters; × deletes the LINE.
         function _mgLineLetterCell(idx, key) {
             var cell = document.createElement('div');
             cell.className = 'mg-line-letter';
+            cell.title = 'Right-click: add an empty line above or below';
             var lt = document.createElement('span');
             lt.textContent = String.fromCharCode(65 + (idx % 26));
             cell.appendChild(lt);
+            if (key) {
+                cell.addEventListener('contextmenu', function (e) {
+                    e.preventDefault(); e.stopPropagation();
+                    _mgLineMenu(e.clientX, e.clientY, key, lt.textContent);
+                });
+            }
             if (key) {
                 var x = document.createElement('button');
                 x.className = 'mg-line-x';
@@ -23693,12 +23883,58 @@
             }
             return cell;
         }
+        // Right-click menu on a line letter — the Card Maker's ctx-menu box
+        // (same look/feel): insert empty line(s) above/below, insert from a
+        // card set or another game AT this position, delete the line.
+        function _mgLineMenu(x, y, refKey, letter) {
+            _ctxClose();
+            var menu = document.createElement('div');
+            menu.className = 'ctx-menu';
+            _ctxAddDragHandle(menu);
+            var hdr = document.createElement('div');
+            hdr.className = 'ctx-menu-item';
+            hdr.style.cssText = 'opacity:0.6;pointer-events:none;font-weight:600;';
+            hdr.textContent = 'Row ' + (letter || '');
+            menu.appendChild(hdr);
+            menu.appendChild(_ctxSep());
+            menu.appendChild(_ctxItem('↑', 'Insert line(s) above…', function () { _mgPromptInsertLines(refKey, false); }));
+            menu.appendChild(_ctxItem('↓', 'Insert line(s) below…', function () { _mgPromptInsertLines(refKey, true); }));
+            menu.appendChild(_ctxItem('⇤', 'Insert from a card set…', function () { _mgAddFromSets(refKey); }));
+            menu.appendChild(_ctxItem('⇤', 'Insert from another game…', function () { _mgAddFromGame(refKey); }));
+            menu.appendChild(_ctxItem('🗑', 'Delete this line', function () { _mgDeleteLineByKey(refKey); }, 'danger'));
+            _ctxMenu = menu;
+            _ctxPosition(menu, x, y);
+        }
+        function _mgPromptInsertLines(refKey, below) {
+            var ans = prompt('How many empty lines to insert ' + (below ? 'below' : 'above') + '?', '1');
+            if (ans === null) return; // cancelled
+            var n = parseInt(ans, 10);
+            if (isNaN(n) || n < 1) n = 1;
+            _mgInsertEmptyLine(refKey, below, n);
+        }
+        function _mgInsertEmptyLine(refKey, below, count) {
+            var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
+            _mgMigrate(g);
+            var units = _mgUnits(g);
+            var at = units.length;
+            for (var i = 0; i < units.length; i++) if (units[i].key === refKey) { at = i + (below ? 1 : 0); break; }
+            var n = Math.max(1, Math.min(26, count || 1));
+            for (var c = 0; c < n; c++) {
+                var info = { label: '(empty line)', emptyLine: true, isVariation: false,
+                             uid: (typeof generateCardUID === 'function') ? generateCardUID() : ('mgempty' + Date.now() + '_' + c) };
+                units.splice(at + c, 0, { entry: true, empty: true, key: 'u:' + info.uid, cards: [info] });
+            }
+            _mgFlattenUnits(g, units);
+            saveMathGames(games); _mgRender();
+        }
         // Remove ONE line (its problem card + attached notes) from the game;
         // roles/overrides/all presets' weights for its cards are cleaned up.
         function _mgDeleteLineByKey(key) {
             var games = loadMathGames(), g = games[_mgIndex]; if (!g || !key) return;
             _mgMigrate(g);
-            if (!confirm('Remove this line from the game?\n\nThe cards themselves stay in the Card Set.')) return;
+            // Removing an EMPTY placeholder needs no confirmation.
+            var isEmptyLine = _mgUnits(g).some(function (u) { return u.key === key && u.empty; });
+            if (!isEmptyLine && !confirm('Remove this line from the game?\n\nThe cards themselves stay in the Card Set.')) return;
             var removed = {};
             var units = _mgUnits(g).filter(function (u) {
                 if (u.key === key) {
@@ -23712,6 +23948,7 @@
             Object.keys(removed).forEach(function (k) {
                 delete g.roles[k];
                 delete g.hiddenOverrides[k];
+                if (g.newKeys) delete g.newKeys[k];
                 (g.probOptions || []).forEach(function (p) { if (p.weights) delete p.weights[k]; });
             });
             delete _mgSel.rows[key];
@@ -23719,17 +23956,23 @@
         }
         // Rebuild the game's card order from a full list of line keys (the
         // drag-drop result). Notes travel inside their line's unit.
-        function _mgReorderByKeys(orderedKeys) {
+        function _mgReorderByKeys(orderedKeys, movedKeys, removeKeys) {
             var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
             _mgMigrate(g);
+            // A dragged line leaves the NEW holding section — it's been placed.
+            (movedKeys || []).forEach(function (k) { if (g.newKeys) delete g.newKeys[k]; });
+            // Consumed placeholders (drop-on-empty) disappear entirely.
+            var gone = {};
+            (removeKeys || []).forEach(function (k) { gone[k] = 1; if (g.newKeys) delete g.newKeys[k]; });
             var units = _mgUnits(g);
             var byKey = {};
-            units.forEach(function (u) { if (u.key && !byKey[u.key]) byKey[u.key] = u; });
+            units.forEach(function (u) { if (u.key && !byKey[u.key] && !gone[u.key]) byKey[u.key] = u; });
             var newUnits = [];
             orderedKeys.forEach(function (k) {
                 if (byKey[k]) { newUnits.push(byKey[k]); delete byKey[k]; }
             });
             units.forEach(function (u) { // anything unaccounted for keeps its place at the end
+                if (u.key && gone[u.key]) return;
                 if (!u.key || byKey[u.key]) newUnits.push(u);
             });
             _mgFlattenUnits(g, newUnits);
@@ -23739,6 +23982,8 @@
             if (!Object.keys(_mgSel.rows).length) return;
             var games = loadMathGames(), g = games[_mgIndex]; if (!g) return;
             _mgMigrate(g);
+            // Arrow-moved lines leave the NEW holding section — they're placed.
+            Object.keys(_mgSel.rows).forEach(function (k) { if (g.newKeys) delete g.newKeys[k]; });
             var units = _mgUnits(g);
             function sel(u) { return !!(u.key && _mgSel.rows[u.key]); }
             var i, t;
@@ -23780,6 +24025,7 @@
             Object.keys(removedKeys).forEach(function (k) {
                 delete g.roles[k];
                 delete g.hiddenOverrides[k];
+                if (g.newKeys) delete g.newKeys[k];
                 (g.probOptions || []).forEach(function (p) { if (p.weights) delete p.weights[k]; });
             });
             _mgSel.rows = {}; _mgSel.notes = {};
@@ -23972,9 +24218,12 @@
             list.innerHTML = '';
             var entries = [], looseNotes = [];
             (game.cards || []).forEach(function (info) {
+                if (info.emptyLine) { entries.push({ info: info, notes: [], empty: true }); return; }
                 var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
                 if (!isNote) entries.push({ info: info, notes: [] });
-                else if (entries.length) entries[entries.length - 1].notes.push(info);
+                // newLine: an ADDED note-ish card renders as its own row, not
+                // glued onto the line before it.
+                else if (entries.length && !info.newLine) entries[entries.length - 1].notes.push(info);
                 else looseNotes.push(info);
             });
 
@@ -24001,16 +24250,53 @@
                 pr.appendChild(tot);
             }
 
-            entries.forEach(function (entry, entryIdx) {
+            // Lines still in the NEW holding section render at the BOTTOM
+            // under a labeled divider, so freshly added cards are easy to
+            // find. Dragging a line out (or ✓ OK) clears its NEW mark.
+            var mgRegular = [], mgFresh = [];
+            entries.forEach(function (e) {
+                var k = _probCardKey(e.info);
+                ((k && game.newKeys && game.newKeys[k]) ? mgFresh : mgRegular).push(e);
+            });
+            var mgOrdered = mgRegular.concat(mgFresh);
+            mgOrdered.forEach(function (entry, entryIdx) {
+                if (mgFresh.length && entryIdx === mgRegular.length) {
+                    var dv = document.createElement('div');
+                    dv.className = 'mg-new-divider';
+                    var dl = document.createElement('span');
+                    dl.textContent = 'New — just added, drag into place';
+                    dv.appendChild(dl);
+                    var ok = document.createElement('button');
+                    ok.textContent = '✓ OK';
+                    ok.title = 'Keep these lines here and remove the NEW mark';
+                    ok.onclick = function () { game.newKeys = {}; saveMathGames(games); _mgRender(); };
+                    dv.appendChild(ok);
+                    list.appendChild(dv);
+                }
                 var info = entry.info;
                 var key = _probCardKey(info);
+                if (entry.empty) {
+                    // Empty line: a dashed placeholder row — gets its letter,
+                    // is selectable/movable, and a dragged line dropped ON it
+                    // takes its place. × removes it (no confirm needed).
+                    var erow = document.createElement('div');
+                    erow.className = 'mg-row mg-empty';
+                    if (key) erow.dataset.mgKey = key;
+                    erow.appendChild(_mgLineLetterCell(entryIdx, key));
+                    var eh = document.createElement('div');
+                    eh.className = 'mg-empty-hint';
+                    eh.textContent = 'Empty line — drop a line here to fill it (× removes it)';
+                    erow.appendChild(eh);
+                    list.appendChild(erow);
+                    return;
+                }
                 var params = _mgParamsByUid(info.uid);
                 var fx = _mgFxByUid(info.uid);
                 var hidden = _mgHiddenFor(game, info);
                 var w = _mgWeightFor(prob, key);
 
                 var row = document.createElement('div');
-                row.className = 'mg-row';
+                row.className = 'mg-row' + (entryIdx >= mgRegular.length ? ' mg-new' : '');
                 if (key) row.dataset.mgKey = key; // selection identity (click/marquee)
                 row.appendChild(_mgLineLetterCell(entryIdx, key));
                 row.appendChild(_mgPreviewEl(info));
@@ -24391,6 +24677,9 @@
         }
 
         function cancelGameMaker() {
+            _gmMathAddToIdx = null; // an abandoned "add from Sets" adds nothing
+            _gmMathAddAtKey = null;
+            document.querySelectorAll('.gm-add-hidden').forEach(function (el) { el.classList.remove('gm-add-hidden'); });
             gameMakerActive = false;
             _syncModeBodyClasses();
             gameMakerSelected = [];
@@ -25068,7 +25357,50 @@
             if (gameMakerType === 'math') {
                 var mathGames = loadMathGames();
                 var mathIdx;
-                if (gameMakerEditIndex >= 0 && mathGames[gameMakerEditIndex]) {
+                if (_gmMathAddToIdx != null && mathGames[_gmMathAddToIdx]) {
+                    // ADD mode (the setup screen's "Sets" button): the picked
+                    // cards APPEND to the game — nothing is replaced. Cards
+                    // the game already has are skipped by key.
+                    var tgtGame = mathGames[_gmMathAddToIdx];
+                    var haveKeys = {};
+                    (tgtGame.cards || []).forEach(function (c) {
+                        var k = _probCardKey(c); if (k) haveKeys[k] = 1;
+                    });
+                    tgtGame.newKeys = tgtGame.newKeys || {};
+                    // Note-ish cards (Info/Examples or paramless) normally
+                    // attach to the line BEFORE them — but an ADDED one must
+                    // never glue onto a pre-existing line (user report). It
+                    // only attaches when it directly follows a problem card
+                    // added in the SAME batch; otherwise it starts its own row.
+                    var lastWasProblem = false;
+                    var appended = [];
+                    gameMakerSelected.forEach(function (info) {
+                        var k = _probCardKey(info);
+                        if (k && haveKeys[k]) return;
+                        var noteish = info.isNote || !_mgParamsByUid(info.uid || '').length;
+                        if (noteish && !lastWasProblem) info.newLine = true;
+                        if (!noteish) lastWasProblem = true;
+                        appended.push(info);
+                        // Plain "Sets" lands in the NEW holding section at the
+                        // bottom; a line-menu insert is already placed.
+                        if (k) { haveKeys[k] = 1; if (!_gmMathAddAtKey) tgtGame.newKeys[k] = 1; }
+                    });
+                    if (_gmMathAddAtKey) {
+                        // Insert right below the line whose menu launched this.
+                        var tUnits = _mgUnits(tgtGame);
+                        var cardAt = tgtGame.cards.length;
+                        for (var ui = 0, pos = 0; ui < tUnits.length; ui++) {
+                            pos += tUnits[ui].cards.length;
+                            if (tUnits[ui].key === _gmMathAddAtKey) { cardAt = pos; break; }
+                        }
+                        Array.prototype.splice.apply(tgtGame.cards, [cardAt, 0].concat(appended));
+                    } else {
+                        appended.forEach(function (info) { tgtGame.cards.push(info); });
+                    }
+                    mathIdx = _gmMathAddToIdx;
+                    _gmMathAddToIdx = null;
+                    _gmMathAddAtKey = null;
+                } else if (gameMakerEditIndex >= 0 && mathGames[gameMakerEditIndex]) {
                     mathGames[gameMakerEditIndex].description = gameMakerDesc;
                     mathGames[gameMakerEditIndex].cards = gameMakerSelected;
                     mathIdx = gameMakerEditIndex;

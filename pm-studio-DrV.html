@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:10 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:03 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:10 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:03 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:10 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3114,18 +3114,19 @@
                 +   '<div id="mp-rules" style="display:flex;flex-direction:column;gap:6px;"></div>'
                 +   '<div id="mp-micros" class="par-micros" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;"></div>'
                 + '</div>'
+                // Per-rule Check/Sample: the LAST row of an extended rule box, shown
+                // only with 2+ rules — they check/sample THIS rule alone.
+                + '<div id="mp-rule-check-row" style="display:none;gap:8px;"><button class="par-btn-secondary" id="mp-rule-check-btn">Check ✓</button><button class="par-btn-secondary" id="mp-rule-sample-btn">Sample ▷</button></div>'
+                + '<div class="par-sample-out" id="mp-rule-sample-out"></div>'
                 + '</div>' // /mp-rule-block
-                // Check/Sample sit BELOW all the rules' boxes (user layout, July 7):
-                // with a rule targeted they check/sample THAT rule (and stamp every
-                // rule's instance count); with none targeted, the whole parameter.
-                + '<div style="display:flex;gap:8px;margin-top:2px;"><button class="par-btn-secondary" id="mp-check-btn">Check ✓</button><button class="par-btn-secondary" id="mp-sample-btn">Sample ▷</button></div>'
-                + '<div class="par-sample-out" id="mp-sample-out"></div>'
-                // Add range / Add set below the check area: finish a rule, check it,
-                // then add the next below it.
+                // Add range / Add set, then the MAIN Check/Sample under them (the
+                // only pair for a single rule) — these cover the WHOLE parameter.
                 + '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;">'
                 +   '<button type="button" class="par-add-btn" id="mp-add-range-btn">+ Add range</button>'
                 +   '<button type="button" class="par-add-btn" id="mp-add-set-btn">+ Add set</button>'
                 + '</div>'
+                + '<div style="display:flex;gap:8px;margin-top:2px;"><button class="par-btn-secondary" id="mp-check-btn">Check ✓</button><button class="par-btn-secondary" id="mp-sample-btn">Sample ▷</button></div>'
+                + '<div class="par-sample-out" id="mp-sample-out"></div>'
                 + '<div class="par-editor-btns">'
                 +   '<button class="par-btn-primary" id="mp-save-btn">Save</button>'
                 +   '<button class="par-btn-secondary" id="mp-cancel-btn">Cancel</button>'
@@ -3184,6 +3185,8 @@
             document.getElementById('mp-add-restr-btn').addEventListener('click', _mpShowRestrMenu);
             document.getElementById('mp-check-btn').addEventListener('click', _mpCheckCurrent);
             document.getElementById('mp-sample-btn').addEventListener('click', _mpSampleCurrent);
+            document.getElementById('mp-rule-check-btn').addEventListener('click', _mpCheckRule);
+            document.getElementById('mp-rule-sample-btn').addEventListener('click', _mpSampleRule);
             document.getElementById('mp-save-btn').addEventListener('click', _mpSaveParam);
             document.getElementById('mp-cancel-btn').addEventListener('click', _mpShowList);
             // Space-box: auto-fill the proposed digit count when enabled. (The
@@ -3527,6 +3530,10 @@
             if (!block || !home) return;
             var host = document.getElementById('mp-parts');
             var groups = host ? host.querySelectorAll('.mp-rule-group') : [];
+            // The per-rule Check/Sample row exists only with 2+ rules — a single
+            // rule uses just the main pair below the Add buttons.
+            var rcr = document.getElementById('mp-rule-check-row');
+            if (rcr) rcr.style.display = (_mpDraftParts.length >= 2) ? 'flex' : 'none';
             if (_mpConstructTarget !== 'all' && groups[_mpConstructTarget]) {
                 block.style.display = 'flex';
                 groups[_mpConstructTarget].appendChild(block);
@@ -3646,6 +3653,10 @@
             var sym = (document.getElementById('mp-sym') || {}).value || 'D';
             if (!_pvLoadFromDef(d.value, sym)) { _pvActive = false; _pvDigits = null; }
             _mpRuleDraft = '';
+            // The block moved to another rule — the previous rule's Check/Sample
+            // results would be misleading here.
+            var ro = document.getElementById('mp-rule-sample-out');
+            if (ro) { ro.textContent = ''; ro.className = 'par-sample-out'; }
             _mpRenderMicros(); _mpRenderPVHelper(); _mpRenderRules();
             if (typeof _mpRenderCopyRow === 'function') _mpRenderCopyRow();
         }
@@ -4822,6 +4833,60 @@
                 else row.appendChild(badge);
             });
         }
+        // Per-rule Sample (the pair INSIDE an extended rule box): samples the
+        // current rule alone — its values under its own construct/constraints.
+        function _mpSampleRule() {
+            var out = document.getElementById('mp-rule-sample-out'); if (!out) return;
+            var p = _mpReadEditor();
+            out.className = 'par-sample-out';
+            var i = _mpConstructTarget;
+            if (i === 'all' || !(p.parts || [])[i]) { out.textContent = ''; return; }
+            try { _mpAnnotateRuleCounts(p); } catch (e) {}
+            var g = _mpGenerateForRule(p, i, 6);
+            if (g.error) { out.classList.add('warn'); out.textContent = '⚠ ' + g.error; return; }
+            var isSub = p.parts[i] && p.parts[i].op === 'sub';
+            if (!g.samples || !g.samples.length) {
+                out.classList.add('warn');
+                out.textContent = '⚠ Rule ' + (i + 1) + ' produces no values — its construct/constraints may contradict its range/set.';
+                return;
+            }
+            out.classList.add('ok');
+            var picks_i = g.samples;
+            if (picks_i.length > 8) { // a spread of 8 reads fine; the count says the rest
+                var spread = []; var st = picks_i.length / 8;
+                for (var vi = 0; vi < 8; vi++) spread.push(picks_i[Math.floor(vi * st)]);
+                picks_i = spread;
+            }
+            var vals_i = picks_i.map(function (s) { return s.value; });
+            if (g.samples.length > picks_i.length) vals_i = vals_i.concat(['…']);
+            var cnt_i = (g.count == null) ? 'many values' : (g.count + ' value' + (g.count === 1 ? '' : 's'));
+            var head = 'Rule ' + (i + 1) + (isSub ? ' (Subtract) removes ' : ' — ') + cnt_i + ':';
+            var wit_i = picks_i.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
+                return s.value + '← ' + _mpEsc(_mpWitness(s.env, g.witnessNames || Object.keys(s.env)));
+            }).join('&nbsp; | &nbsp;');
+            out.innerHTML = '<div>' + _mpEsc(head) + ' ' + vals_i.join(', ') + '</div>'
+                + (wit_i ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit_i + '</div>' : '');
+        }
+        // Per-rule Check: validates the current rule (its range/set + construct).
+        function _mpCheckRule() {
+            var out = document.getElementById('mp-rule-sample-out'); if (!out) return;
+            var p = _mpReadEditor();
+            out.className = 'par-sample-out';
+            var i = _mpConstructTarget;
+            if (i === 'all' || !(p.parts || [])[i]) { out.textContent = ''; return; }
+            var e = _mpEnumPart(p.parts[i]);
+            if (e.incomplete) { out.classList.add('warn'); out.textContent = '⚠ Finish rule ' + (i + 1) + ' — set both a min and a max.'; return; }
+            var byT = _mpConstructByTarget(p);
+            var def_i = (byT[i] != null) ? byT[i] : (byT['all'] || '');
+            if (def_i && def_i.trim()) {
+                var parsed = _mpParseDef(def_i, p.sym);
+                if (parsed.errors.length) { out.classList.add('warn'); out.textContent = '⚠ ' + parsed.errors.join('\n'); return; }
+            }
+            out.classList.add('ok');
+            out.textContent = '✓ Rule ' + (i + 1) + ' looks good.';
+        }
+        // MAIN Sample (below the Add buttons): always the WHOLE parameter — all
+        // rules combined. Also stamps every rule row with its instance count.
         function _mpSampleCurrent() {
             var out = document.getElementById('mp-sample-out');
             var p = _mpReadEditor();
@@ -4829,38 +4894,6 @@
             out.className = 'par-sample-out';
             // Every rule row gets its instance count (user-initiated → ok to compute).
             if (multi) { try { _mpAnnotateRuleCounts(p); } catch (e) {} }
-            // A targeted RULE samples alone: its values under its own constraints.
-            if (multi && _mpConstructTarget !== 'all') {
-                var i = _mpConstructTarget;
-                var g = _mpGenerateForRule(p, i, 6);
-                if (g.error) { out.classList.add('warn'); out.textContent = '⚠ ' + g.error; return; }
-                var isSub = p.parts[i] && p.parts[i].op === 'sub';
-                if (!g.samples || !g.samples.length) {
-                    out.classList.add('warn');
-                    out.textContent = '⚠ Rule ' + (i + 1) + ' produces no values — its construct/constraints may contradict its range/set.';
-                    return;
-                }
-                out.classList.add('ok');
-                var picks_i = g.samples;
-                if (picks_i.length > 8) { // a spread of 8 reads fine; the count says the rest
-                    var spread = []; var st = picks_i.length / 8;
-                    for (var vi = 0; vi < 8; vi++) spread.push(picks_i[Math.floor(vi * st)]);
-                    picks_i = spread;
-                }
-                var vals_i = picks_i.map(function (s) { return s.value; });
-                if (g.samples.length > picks_i.length) vals_i = vals_i.concat(['…']);
-                var cnt_i = (g.count == null) ? 'many values' : (g.count + ' value' + (g.count === 1 ? '' : 's'));
-                var tot = _mpGenerateAny(p, 1);
-                var totTxt = (!tot.error && !tot.empty) ? ((tot.count == null ? 'many' : tot.count) + ' total') : 'no values';
-                var head = 'Rule ' + (i + 1) + (isSub ? ' (Subtract) removes ' : ' — ') + cnt_i + ':';
-                var wit_i = picks_i.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
-                    return s.value + '← ' + _mpEsc(_mpWitness(s.env, g.witnessNames || Object.keys(s.env)));
-                }).join('&nbsp; | &nbsp;');
-                out.innerHTML = '<div>' + _mpEsc(head) + ' ' + vals_i.join(', ') + '</div>'
-                    + (wit_i ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit_i + '</div>' : '')
-                    + '<div style="opacity:0.75;font-size:11px;margin-top:3px;">parameter after all rules: ' + _mpEsc(totTxt) + '</div>';
-                return;
-            }
             var perPart = _mpUsesPerPart(p);
             var res = _mpGenerateAny(p, 6);
             if (res.error) { out.classList.add('warn'); out.textContent = '⚠ ' + res.error; return; }
@@ -4869,11 +4902,13 @@
             if (perPart || p.mode === 'constructed') {
                 var vals = res.samples.map(function (s) { return s.value; });
                 var cnt = (res.count == null) ? 'many' : (res.count + ' value' + (res.count === 1 ? '' : 's'));
-                var wit = res.samples.map(function (s) {
-                    return s.value + '← ' + _mpEsc(_mpWitness(s.env, res.witnessNames));
+                // Pass-through values (no construct) have no micro-params — skip
+                // their empty "N←" witness stubs.
+                var wit = res.samples.filter(function (s) { return s.env && Object.keys(s.env).length; }).map(function (s) {
+                    return s.value + '← ' + _mpEsc(_mpWitness(s.env, res.witnessNames || Object.keys(s.env)));
                 }).join('&nbsp; | &nbsp;');
                 out.innerHTML = '<div>' + vals.join(', ') + '&nbsp;&nbsp;(' + cnt + ')</div>'
-                    + '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit + '</div>';
+                    + (wit ? '<div style="opacity:0.7;font-size:11px;margin-top:3px;">' + wit + '</div>' : '');
             } else {
                 var cnt2 = (res.count == null) ? 'many' : (res.count + ' valid');
                 out.textContent = res.samples.join(', ') + '   (' + cnt2 + ')';

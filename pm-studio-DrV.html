@@ -1143,7 +1143,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:29 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1161,7 +1161,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:26 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:29 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1403,7 +1403,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:26 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:29 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3617,13 +3617,13 @@
                 if (!_mpBlockCollapsed || !groups[0]) return;
                 var sDef = _mpDraftConstructs.all;
                 var sHas = sDef && sDef.trim();
-                var sN = (_mpDraftRestr || []).length;
-                if (!sHas && !sN) return;
+                var sRestr = (_mpDraftRestr || []).map(_mpRestrLabel);
+                if (!sHas && !sRestr.length) return;
                 var sBox = document.createElement('div');
                 sBox.className = 'mp-rule-summary';
                 sBox.title = 'Click to edit this rule\'s constraints/construct';
-                var sTxt = sHas ? sDef.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).join('  ·  ') : 'constraints only';
-                sBox.innerHTML = _mpEsc(sTxt) + (sN ? ' <span style="opacity:0.55;">· ' + sN + ' constraint' + (sN === 1 ? '' : 's') + '</span>' : '');
+                var sTxt = sHas ? sDef.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).join('  ·  ') : 'constraints:';
+                sBox.innerHTML = _mpEsc(sTxt) + (sRestr.length ? ' <span style="opacity:0.75;">· ' + _mpEsc(sRestr.join(' · ')) + '</span>' : '');
                 sBox.onclick = function () { _mpBlockCollapsed = false; _mpRenderConstructTarget(); };
                 groups[0].appendChild(sBox);
                 return;
@@ -3632,14 +3632,20 @@
                 if (i === _mpConstructTarget) return; // the live editor block sits here
                 var def = _mpDraftConstructs[i];
                 var hasDef = def && def.trim();
-                var nRestr = (_mpDraftRestr || []).filter(function (r) { return r.target === i; }).length;
-                if (!hasDef && !nRestr) return; // a transparent rule needs no box
+                // The rule's own constraints, spelled out (÷{3,5,7} · even …);
+                // shared all-rules constraints ride along tagged "(all)".
+                var restrTxts = [];
+                (_mpDraftRestr || []).forEach(function (r) {
+                    if (r.target === i) restrTxts.push(_mpRestrLabel(r));
+                    else if (r.target == null || r.target === 'all') restrTxts.push(_mpRestrLabel(r) + ' (all)');
+                });
+                if (!hasDef && !restrTxts.length) return; // a transparent rule needs no box
                 var box = document.createElement('div');
                 box.className = 'mp-rule-summary';
                 box.title = 'Rule ' + (i + 1) + ' — click to edit its construct/constraints';
                 var txt = hasDef ? def.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).join('  ·  ') : 'transparent';
                 box.innerHTML = '<span style="opacity:0.55;">' + (i + 1) + ':</span> ' + _mpEsc(txt)
-                    + (nRestr ? ' <span style="opacity:0.55;">· ' + nRestr + ' constraint' + (nRestr === 1 ? '' : 's') + '</span>' : '');
+                    + (restrTxts.length ? ' <span style="opacity:0.75;">· ' + _mpEsc(restrTxts.join(' · ')) + '</span>' : '');
                 box.onclick = function () {
                     _mpSyncConstructTargetToDraft();
                     _mpConstructTarget = i;

@@ -1145,7 +1145,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1163,7 +1163,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:11 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1405,7 +1405,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:11 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:56 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -23299,8 +23299,11 @@
                 // align-items:center puts the standalone buttons (b1, b5) on
                 // the same vertical centerline as the two button boxes.
                 '#mg-overlay .game-view-toolbar{top:150px;align-items:center;}' +
-                // Add-from-Sets mode: cards already in the game are hidden.
-                '.gm-add-hidden{display:none !important;}' +
+                // Add-from-Sets mode: cards already in the game are hidden —
+                // but ONLY while the mode is live (.gm-adding on the content).
+                // A stale per-card class can then never hide cards afterwards
+                // (the "lines disappeared from the set" incident).
+                '.domino-library-content.gm-adding .gm-add-hidden{display:none !important;}' +
                 '#mg-overlay .mg-wrap{padding-left:70px;}' +
                 '#mg-overlay #mg-selbar{padding-left:70px;}' +
                 '#mg-overlay .mg-probs{padding-left:70px;}' +
@@ -23755,8 +23758,11 @@
             gameMakerName = g.name;
             gameMakerDesc = g.description || '';
             enterSelectionMode();
-            // Only cards NOT yet in the game are offered — the rest hide.
+            // Only cards NOT yet in the game are offered — the rest hide
+            // (effective only while .gm-adding is on the content container).
             _mgHideCardsAlreadyInGame(idx);
+            var cmc = document.querySelector('#domino-library-screen .domino-library-content');
+            if (cmc) cmc.classList.add('gm-adding');
         }
         // Card-key sets for the add-mode filter.
         function _mgGameKeySet(idx) {
@@ -24056,6 +24062,8 @@
             _mgEnsureDom();
             _mgIndex = mathIndex;
             _mgSel.rows = {}; _mgSel.notes = {}; // fresh selection per game
+            // Defensive: a stale add-mode must never keep set cards hidden.
+            document.querySelectorAll('.domino-library-content.gm-adding').forEach(function (el) { el.classList.remove('gm-adding'); });
             _mgMigrate(games[mathIndex]);
             saveMathGames(games);
             try { recordGameActivation('mathpages', games[mathIndex].name, 'creator'); } catch (e) {}
@@ -24680,6 +24688,7 @@
             _gmMathAddToIdx = null; // an abandoned "add from Sets" adds nothing
             _gmMathAddAtKey = null;
             document.querySelectorAll('.gm-add-hidden').forEach(function (el) { el.classList.remove('gm-add-hidden'); });
+            document.querySelectorAll('.domino-library-content.gm-adding').forEach(function (el) { el.classList.remove('gm-adding'); });
             gameMakerActive = false;
             _syncModeBodyClasses();
             gameMakerSelected = [];

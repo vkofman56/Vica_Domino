@@ -23351,6 +23351,10 @@
                 '.mg-prev{flex:none;width:170px;min-height:110px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
                 '.mg-prev svg{width:100%;height:auto;display:block;}' +
                 '.mg-prev-label{color:#23304a;font-weight:700;padding:6px;}' +
+                // Unresolvable card (remade/deleted in the Card Maker): an
+                // honest warning chip instead of the garbled internal label.
+                '.mg-prev-missing{border:2px dashed #e74c3c;background:#fffdf5;}' +
+                '.mg-prev-missing-text{color:#c0392b;font-size:.72rem;font-weight:700;padding:8px;text-align:center;line-height:1.35;white-space:normal;}' +
                 // Literal card copies (cloned .library-card, root class swapped):
                 // zoomed up so the note box / white note cards are readable —
                 // that's the information used to set the probabilities.
@@ -23551,6 +23555,11 @@
             list.addEventListener('click', function (e) {
                 if (_mgSuppressClick) return;
                 if (e.target.closest('button, input, select, textarea')) return;
+                // A selection click reclaims the keyboard: a still-focused
+                // Weight/Role input would otherwise swallow Delete/arrows
+                // ("delete from the keyboard does not work" report).
+                var ae = document.activeElement;
+                if (ae && ae.matches && ae.matches('input, select, textarea')) ae.blur();
                 var noteEl = e.target.closest('[data-mg-note-key]');
                 var row = e.target.closest('.mg-row');
                 if (noteEl) {
@@ -23579,6 +23588,9 @@
             list.addEventListener('mousedown', function (e) {
                 if (e.button !== 0) return;
                 if (e.target.closest('button, input, select, textarea')) return;
+                // Drag/marquee starts also reclaim the keyboard from inputs.
+                var ae = document.activeElement;
+                if (ae && ae.matches && ae.matches('input, select, textarea')) ae.blur();
                 var startX = e.clientX, startY = e.clientY;
                 var dragRow = e.target.closest('.mg-row');
                 if (dragRow && dragRow.dataset.mgKey) _mgStartRowDrag(e, dragRow, startX, startY);
@@ -24220,34 +24232,46 @@
                 wrap2.appendChild(copy);
                 return wrap2;
             }
-            // No art anywhere — a labeled chip is the last resort.
+            // Nothing resolved. A card that HAS an identity but matches no set
+            // card was probably REMADE or deleted in the Card Maker (e.g. the
+            // per-rule Info cards that had to be recreated) — say so honestly
+            // instead of dumping its internal garbled label (the "distorted
+            // white cards" bug).
             var box = document.createElement('div');
-            box.className = 'mg-prev';
+            box.className = 'mg-prev mg-prev-missing';
+            box.title = 'This card was not found in any card set — it was probably remade or deleted. ' +
+                        'Remove this entry (select + Delete) and re-add the current card via Sets.' +
+                        (info && info.label ? '\n\nStored name: ' + info.label : '');
             var l = document.createElement('span');
-            l.className = 'mg-prev-label';
-            l.textContent = (info && info.label) || '?';
+            l.className = 'mg-prev-missing-text';
+            l.textContent = '⚠ card not found — it was remade or deleted in the Card Maker';
             box.appendChild(l);
             return box;
         }
         // Stored card data for a saved game card: stableId lookup first (the
-        // reliable identity), then a uid scan across all sets, then the game's
-        // own saved markup.
+        // reliable identity), then a uid scan across all sets, then a LABEL
+        // match (note/label cards keep stable names), then the game's own
+        // saved markup snapshot.
         function _mgCardDataFor(info) {
             if (!info) return null;
             if (info.stableId && typeof _findCardDataByStableId === 'function') {
                 var d = _findCardDataByStableId(info.stableId);
                 if (d) return d;
             }
-            if (info.uid && typeof _getAllCardStorageKeys === 'function') {
+            if (typeof _getAllCardStorageKeys === 'function' && (info.uid || info.label)) {
                 var keys = _getAllCardStorageKeys();
+                var byLabel = null;
                 for (var i = 0; i < keys.length; i++) {
                     try {
                         var cards = JSON.parse(localStorage.getItem(keys[i]) || '[]');
                         for (var j = 0; j < cards.length; j++) {
-                            if (cards[j] && cards[j].uid === info.uid) return cards[j];
+                            if (!cards[j]) continue;
+                            if (info.uid && cards[j].uid === info.uid) return cards[j];
+                            if (!byLabel && info.label && cards[j].label === info.label) byLabel = cards[j];
                         }
                     } catch (e) {}
                 }
+                if (byLabel) return byLabel; // weak match — better than nothing
             }
             if (info.svgMarkup) return { label: info.label, svgContent: info.svgMarkup, info: !!info.isNote };
             return null;
@@ -24698,8 +24722,11 @@
             if (activeCardSet === 'abc') info.cardSet = 'ABC';
             else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
             else info.cardSet = activeCardSet;
-            // Store SVG markup only if no stableId (stableId lookup provides live data)
-            if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
+            // Store SVG markup if no stableId (stableId lookup provides live
+            // data) — and ALWAYS for note cards: users remake Info/Examples
+            // cards, and the snapshot keeps the game's preview alive after
+            // the set-side original is deleted.
+            if ((!info.stableId || info.isNote) && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
             // Store card shape
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 info.cardShape = card.dataset.cardShape;

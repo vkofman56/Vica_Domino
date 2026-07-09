@@ -1145,7 +1145,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1163,7 +1163,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1405,7 +1405,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:18 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:56 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -2062,10 +2062,14 @@
                     <option value="card+notes">Card + its notes</option>
                     <option value="notes">Just the notes</option>
                 </select>
-                <button onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
-                <button onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
-                <button onclick="completeGame()">Complete the game</button>
-                <button onclick="cancelGameMaker()">Cancel</button>
+                <button id="gm-bar-selectall" onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
+                <button id="gm-bar-clear" onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
+                <button id="gm-bar-complete" onclick="completeGame()">Complete the game</button>
+                <button id="gm-bar-cancel" onclick="cancelGameMaker()">Cancel</button>
+                <!-- ADD mode (copy cards into a Math game): a minimal bar —
+                     just Copy and ✕; everything else hides. -->
+                <button id="gm-bar-copy" onclick="completeGame()" style="display:none;" title="Copy the selected cards into the game">Copy</button>
+                <button id="gm-bar-x" onclick="_gmMathAddCancel()" style="display:none;" title="Back to the game without copying">&#10005;</button>
             </div>
             <!-- Shape Mode popup removed — superseded by Group Edit 'Shape' action -->
 
@@ -23299,8 +23303,11 @@
                 // align-items:center puts the standalone buttons (b1, b5) on
                 // the same vertical centerline as the two button boxes.
                 '#mg-overlay .game-view-toolbar{top:150px;align-items:center;}' +
-                // Add-from-Sets mode: cards already in the game are hidden.
-                '.gm-add-hidden{display:none !important;}' +
+                // Add-from-Sets mode: cards already in the game are hidden —
+                // but ONLY while the mode is live (.gm-adding on the content).
+                // A stale per-card class can then never hide cards afterwards
+                // (the "lines disappeared from the set" incident).
+                '.domino-library-content.gm-adding .gm-add-hidden{display:none !important;}' +
                 '#mg-overlay .mg-wrap{padding-left:70px;}' +
                 '#mg-overlay #mg-selbar{padding-left:70px;}' +
                 '#mg-overlay .mg-probs{padding-left:70px;}' +
@@ -23375,6 +23382,15 @@
                 '.mg-weight{width:64px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;padding:4px 8px;}' +
                 '.mg-share{opacity:.65;} .mg-warn{color:#ffb14e;font-size:.84rem;}' +
                 '.mg-total{color:#fff;opacity:.6;font-size:.8rem;margin-left:6px;}' +
+                // The card zone (card + notes) is measured as one block so the
+                // info column aligns across lines (see _mgAlignInfoColumns).
+                '.mg-cardzone{flex:none;display:flex;gap:14px;align-items:flex-start;}' +
+                // "Insert from another game" line picker: click toggles a line.
+                '.mg-gamline{display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:10px;cursor:pointer;border:2px solid transparent;}' +
+                '.mg-gamline:hover{background:rgba(255,255,255,.07);}' +
+                '.mg-gamline.mg-gamline-sel{border-color:#f5c518;background:rgba(245,197,24,.14);}' +
+                '.mg-gamline .mg-prev-live{zoom:1;}' + // compact copies in the dialog
+                '.mg-gamline .mg-prev{width:110px;min-height:72px;}' +
                 '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;}' +
                 '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:8px;}' +
                 '.mg-notes-cards .mg-prev{outline:2px dashed rgba(245,197,24,.55);outline-offset:1px;}' +
@@ -23543,7 +23559,21 @@
                 } else if (row && row.dataset.mgKey) {
                     var k = row.dataset.mgKey;
                     if (_mgSel.rows[k]) delete _mgSel.rows[k]; else _mgSel.rows[k] = 1;
-                } else return;
+                } else {
+                    // Plain click on the background: deselect everything
+                    // (same convention as the Card Maker's click-outside).
+                    if (!Object.keys(_mgSel.rows).length && !Object.keys(_mgSel.notes).length) return;
+                    _mgSel.rows = {}; _mgSel.notes = {};
+                }
+                _mgApplySel();
+            });
+            // Clicks on the overlay OUTSIDE the list (e.g. right of the rows,
+            // the gradient below) deselect too — "any place" clears.
+            document.getElementById('mg-overlay').addEventListener('click', function (e) {
+                if (_mgSuppressClick) return;
+                if (e.target !== e.currentTarget) return; // only the bare backdrop
+                if (!Object.keys(_mgSel.rows).length && !Object.keys(_mgSel.notes).length) return;
+                _mgSel.rows = {}; _mgSel.notes = {};
                 _mgApplySel();
             });
             list.addEventListener('mousedown', function (e) {
@@ -23755,8 +23785,17 @@
             gameMakerName = g.name;
             gameMakerDesc = g.description || '';
             enterSelectionMode();
-            // Only cards NOT yet in the game are offered — the rest hide.
+            // Only cards NOT yet in the game are offered — the rest hide
+            // (effective only while .gm-adding is on the content container).
             _mgHideCardsAlreadyInGame(idx);
+            var cmc = document.querySelector('#domino-library-screen .domino-library-content');
+            if (cmc) cmc.classList.add('gm-adding');
+        }
+        // ✕ in the ADD-mode bar: abandon the copy and go back to the game.
+        function _gmMathAddCancel() {
+            var back = _gmMathAddToIdx;
+            cancelGameMaker();
+            if (back != null) openMathGameView(back, 'domino-library-screen');
         }
         // Card-key sets for the add-mode filter.
         function _mgGameKeySet(idx) {
@@ -23804,7 +23843,7 @@
                 var b = document.createElement('button');
                 b.style.cssText = 'font:inherit;text-align:left;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:8px 12px;cursor:pointer;';
                 b.textContent = e.g.name + '  (' + ((e.g.cards || []).length) + ' cards)';
-                b.onclick = function () { ov.remove(); _mgAppendLinesFrom(e.i, afterKey); };
+                b.onclick = function () { ov.remove(); _mgGamPickLines(e.i, afterKey); };
                 box.appendChild(b);
             });
             var c = document.createElement('button');
@@ -23816,7 +23855,65 @@
             ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
             document.body.appendChild(ov);
         }
-        function _mgAppendLinesFrom(srcIdx, afterKey) {
+        // Step 2 of "insert from another game": pick WHICH lines to copy —
+        // same idea as the card-set picker (only lines not yet in the game
+        // are offered; click toggles; Copy applies, ✕ abandons).
+        function _mgGamPickLines(srcIdx, afterKey) {
+            var games = loadMathGames(), tgt = games[_mgIndex], src = games[srcIdx];
+            if (!tgt || !src) return;
+            _mgMigrate(tgt); _mgMigrate(src);
+            var have = {};
+            (tgt.cards || []).forEach(function (c) { var k = _probCardKey(c); if (k) have[k] = 1; });
+            var units = _mgUnits(src).filter(function (u) { return !u.empty && u.key && !have[u.key]; });
+            if (!units.length) { alert('All of “' + src.name + '”’s lines are already in this game.'); return; }
+            var old = document.getElementById('mg-gam-pick');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'mg-gam-pick';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:2590;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2c3866;border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:16px 18px;max-width:760px;max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:8px;';
+            var t = document.createElement('div');
+            t.style.cssText = 'color:#fff;font-weight:700;';
+            t.textContent = 'Select lines to copy from “' + src.name + '” — only lines not yet in “' + tgt.name + '” are shown';
+            box.appendChild(t);
+            var sel = {};
+            units.forEach(function (u) {
+                var lineEl = document.createElement('div');
+                lineEl.className = 'mg-gamline';
+                u.cards.forEach(function (c) { lineEl.appendChild(_mgPreviewEl(c)); });
+                lineEl.onclick = function () {
+                    if (sel[u.key]) { delete sel[u.key]; lineEl.classList.remove('mg-gamline-sel'); }
+                    else { sel[u.key] = 1; lineEl.classList.add('mg-gamline-sel'); }
+                };
+                box.appendChild(lineEl);
+            });
+            var bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;gap:10px;align-items:center;margin-top:4px;';
+            var msg = document.createElement('span');
+            msg.style.cssText = 'color:#f5c518;flex:1;font-size:.9rem;';
+            bar.appendChild(msg);
+            var copy = document.createElement('button');
+            copy.style.cssText = 'font:inherit;font-weight:700;background:#7eff7e;color:#143314;border:0;border-radius:9px;padding:8px 18px;cursor:pointer;';
+            copy.textContent = 'Copy';
+            copy.onclick = function () {
+                if (!Object.keys(sel).length) { msg.textContent = 'Select lines to copy into the game'; return; }
+                ov.remove();
+                _mgAppendLinesFrom(srcIdx, afterKey, sel);
+            };
+            bar.appendChild(copy);
+            var x = document.createElement('button');
+            x.style.cssText = 'font:inherit;background:rgba(255,255,255,.18);border:0;border-radius:9px;color:#fff;padding:8px 14px;cursor:pointer;';
+            x.innerHTML = '&#10005;';
+            x.title = 'Back without copying';
+            x.onclick = function () { ov.remove(); };
+            bar.appendChild(x);
+            box.appendChild(bar);
+            ov.appendChild(box);
+            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+            document.body.appendChild(ov);
+        }
+        function _mgAppendLinesFrom(srcIdx, afterKey, onlyKeys) {
             var games = loadMathGames(), g = games[_mgIndex], src = games[srcIdx];
             if (!g || !src) return;
             _mgMigrate(g); _mgMigrate(src);
@@ -23825,6 +23922,7 @@
             var tp = _mgActiveProb(g), sp = _mgActiveProb(src);
             var newUnits = [];
             _mgUnits(src).forEach(function (u) {
+                if (onlyKeys && (!u.key || !onlyKeys[u.key])) return; // not picked
                 if (u.key && have[u.key]) return; // line already here
                 var copied = u.cards.map(function (c, ci) {
                     var cp = JSON.parse(JSON.stringify(c));
@@ -24056,11 +24154,14 @@
             _mgEnsureDom();
             _mgIndex = mathIndex;
             _mgSel.rows = {}; _mgSel.notes = {}; // fresh selection per game
+            // Defensive: a stale add-mode must never keep set cards hidden.
+            document.querySelectorAll('.domino-library-content.gm-adding').forEach(function (el) { el.classList.remove('gm-adding'); });
             _mgMigrate(games[mathIndex]);
             saveMathGames(games);
             try { recordGameActivation('mathpages', games[mathIndex].name, 'creator'); } catch (e) {}
             _mgRender();
             document.getElementById('mg-overlay').classList.add('show');
+            _mgAlignInfoColumns(); // the first render measured while hidden
         }
         function closeMathGameView() {
             var ov = document.getElementById('mg-overlay');
@@ -24299,7 +24400,11 @@
                 row.className = 'mg-row' + (entryIdx >= mgRegular.length ? ' mg-new' : '');
                 if (key) row.dataset.mgKey = key; // selection identity (click/marquee)
                 row.appendChild(_mgLineLetterCell(entryIdx, key));
-                row.appendChild(_mgPreviewEl(info));
+                // The CARD ZONE (problem card + its notes) is one measured
+                // block, so the info column can align across lines.
+                var zone = document.createElement('div');
+                zone.className = 'mg-cardzone';
+                zone.appendChild(_mgPreviewEl(info));
                 // The card's NOTE cards sit right beside it — they explain the
                 // card to YOU (the game maker); the player never sees them.
                 if (entry.notes.length) {
@@ -24315,8 +24420,9 @@
                         nrow.appendChild(pv);
                     });
                     ns.appendChild(nrow);
-                    row.appendChild(ns);
+                    zone.appendChild(ns);
                 }
+                row.appendChild(zone);
                 var main = document.createElement('div');
                 main.className = 'mg-main';
 
@@ -24470,6 +24576,29 @@
                 });
             }
             _mgApplySel(); // selection survives re-renders (weights, moves…)
+            _mgAlignInfoColumns();
+        }
+
+        // Align the info column across lines: every line with 1–2 cards gets
+        // the SAME card-zone width (the widest such zone — i.e. the "after two
+        // cards" position; if all lines have one card, that's the one-card
+        // position). Lines with 3+ cards keep their natural, wider zone and
+        // only THEIR info moves further right (user spec).
+        function _mgAlignInfoColumns() {
+            var zones = Array.prototype.slice.call(
+                document.querySelectorAll('#mg-list .mg-row:not(.mg-empty):not(.mg-note-row) .mg-cardzone'));
+            if (!zones.length) return;
+            var target = 0;
+            zones.forEach(function (z) {
+                z.style.minWidth = '';
+                var n = z.querySelectorAll('.mg-prev, .mg-prev-live').length;
+                if (n <= 2) target = Math.max(target, z.getBoundingClientRect().width);
+            });
+            if (!target) return; // hidden overlay (first render) — re-run after show
+            zones.forEach(function (z) {
+                var n = z.querySelectorAll('.mg-prev, .mg-prev-live').length;
+                if (n <= 2) z.style.minWidth = Math.ceil(target) + 'px';
+            });
         }
 
         // ---- Play a SAVED math game: the worksheet draws from all its cards
@@ -24668,11 +24797,28 @@
             }
             // Show selection bar
             var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
-            document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D';
+            // ADD mode (copy cards into a Math game) gets a MINIMAL bar: no
+            // text, no copy-mode select, no Select All/Clear/Complete/Cancel \u2014
+            // just Copy and \u2715 (user spec). Whatever is selected goes in.
+            var addMode = (typeof _gmMathAddToIdx !== 'undefined' && _gmMathAddToIdx != null);
+            // ADD mode explains WHY some lines look empty: in-game cards are
+            // hidden on purpose \u2014 only addable cards are offered.
+            document.getElementById('game-maker-bar-text').textContent =
+                addMode ? ('Select cards from the list below \u2014 these cards are currently not in \u201C' + gameMakerName + '\u201D')
+                        : (actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D');
+            ['gm-bar-selectall', 'gm-bar-clear', 'gm-bar-complete', 'gm-bar-cancel'].forEach(function (id) {
+                var b = document.getElementById(id); if (b) b.style.display = addMode ? 'none' : '';
+            });
+            ['gm-bar-copy', 'gm-bar-x'].forEach(function (id) {
+                var b = document.getElementById(id); if (b) b.style.display = addMode ? '' : 'none';
+            });
             // Math games: show the copy-mode select (card / card + its notes /
-            // just the notes) \u2014 other types always grab just the clicked card.
+            // just the notes) \u2014 hidden in ADD mode (plain card picks there).
             var copySel = document.getElementById('gm-copy-mode');
-            if (copySel) copySel.style.display = (gameMakerType === 'math') ? '' : 'none';
+            if (copySel) {
+                copySel.style.display = (gameMakerType === 'math' && !addMode) ? '' : 'none';
+                if (addMode) copySel.value = 'card';
+            }
             document.getElementById('game-maker-bar').style.display = 'flex';
         }
 
@@ -24680,6 +24826,7 @@
             _gmMathAddToIdx = null; // an abandoned "add from Sets" adds nothing
             _gmMathAddAtKey = null;
             document.querySelectorAll('.gm-add-hidden').forEach(function (el) { el.classList.remove('gm-add-hidden'); });
+            document.querySelectorAll('.domino-library-content.gm-adding').forEach(function (el) { el.classList.remove('gm-adding'); });
             gameMakerActive = false;
             _syncModeBodyClasses();
             gameMakerSelected = [];
@@ -25308,6 +25455,12 @@
 
         function completeGame() {
             if (gameMakerSelected.length === 0) {
+                if (typeof _gmMathAddToIdx !== 'undefined' && _gmMathAddToIdx != null) {
+                    // ADD mode: a quiet reminder in the bar, no modal.
+                    var bt = document.getElementById('game-maker-bar-text');
+                    if (bt) bt.textContent = 'Select cards to copy into the game';
+                    return;
+                }
                 alert('Please select at least one card.');
                 return;
             }

@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:23 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -264,8 +264,14 @@
                     </div>
 
                     <div class="setup-right">
-                        <h3 id="setup-right-h3">Choose domino style:</h3>
-                        <div class="domino-style-select" id="domino-style-select">
+                        <h3 id="setup-right-h3">Type of the game</h3>
+                        <!-- No Type configured for this game → ONE pre-selected
+                             "default" button (nothing to choose — it just shows the
+                             axis). _renderTypesPicker hides it when real Types exist. -->
+                        <div class="setup-type-line selected" id="setup-type-default" style="cursor:default;">default</div>
+                        <!-- Legacy decoration (no code reads this selection) — kept
+                             only so old code that queries it finds an element. -->
+                        <div class="domino-style-select" id="domino-style-select" style="display:none;">
                             <svg viewBox="0 0 50 100" width="50" height="100" class="domino-preview">
                                 <rect x="1" y="1" width="48" height="98" rx="6" fill="#f0e0d0" stroke="#999" stroke-width="1.5"/>
                                 <line x1="1" y1="50" x2="49" y2="50" stroke="#999" stroke-width="1"/>
@@ -3941,6 +3947,9 @@
                 window._currentGameSetupTimer = null;
                 window._currentGameSetupSandTimer = null;
                 _applyFallbackPlayerButtons();
+                // No setup at all (e.g. a Catch game without one) → the Type
+                // column still renders: "Type of the game" + the default line.
+                _renderTypesPicker(gameType, null);
                 return;
             }
             var mode = 'touch';
@@ -3960,6 +3969,9 @@
             if (!conf) {
                 window._currentGameSetupTimer = (typeof setup.timer === 'number') ? setup.timer : null;
                 window._currentGameSetupSandTimer = (typeof setup.sandTimer === 'number') ? setup.sandTimer : null;
+                // No config for this mode → same story: the Type column shows
+                // "Type of the game" + the default line, never the legacy panel.
+                _renderTypesPicker(gameType, null);
                 return;
             }
             // Timer ON/OFF switch: visible on Find pages only. Resets to
@@ -4334,15 +4346,18 @@
             if (enabled.length === 1) _stashTypeChoice(enabled[0]);
 
             if (!rightTypes || !rightH3 || !dominoStyleEl) return;
+            var defaultLine = document.getElementById('setup-type-default');
             if (enabled.length < 1) {
-                // 0 types enabled → hide the entire right column. Player runs
-                // with default behavior (manual / no voice) since the stashed
-                // type choice above already covers that. The legacy
-                // domino-style decoration is also hidden so an empty axis
-                // doesn't surface stale "Choose domino style:" UI.
+                // 0 types configured → the column still talks about the game's
+                // Type: the "Type of the game" title with ONE static "default"
+                // line under it (user request, July 9 — an unset Type must not
+                // hide the axis, and never show the legacy domino-style panel).
+                if (rightCol) rightCol.style.display = '';
+                rightH3.style.display = '';
+                rightH3.textContent = 'Type of the game';
+                if (defaultLine) defaultLine.style.display = '';
                 rightTypes.style.display = 'none';
                 dominoStyleEl.style.display = 'none';
-                if (rightCol) rightCol.style.display = 'none';
                 return;
             }
             // ≥1 type enabled → ensure the right column is visible and replace
@@ -4350,6 +4365,7 @@
             // mirrors the admin's axisLabel exactly: empty box in Game
             // Settings → empty heading on the player screen.
             if (rightCol) rightCol.style.display = '';
+            if (defaultLine) defaultLine.style.display = 'none'; // real Types replace the "default" line
             var _tAx = (conf.types && typeof conf.types.axisLabel === 'string') ? conf.types.axisLabel : '';
             // Fixed column title — always "Type" (ignores the game's axisLabel).
             // The single-type case below still hides it.
@@ -4730,6 +4746,7 @@
             var seenStableIds = {};
             game.cards.forEach(function(c) {
                 if (c.isVariation) return;
+                if (c.isNote) return; // note cards are author-only — never in play
                 if (seenLabels[c.label]) return;
                 if (c.stableId && seenStableIds[c.stableId]) return;
                 if (!getGameCardSVG(c)) return; // unresolvable → skip
@@ -7066,6 +7083,7 @@
             var origCards = [];
             var seenLabels = {};
             game.cards.forEach(function(c) {
+                if (c.isNote) return; // note cards are author-only — never in play
                 if (!c.isVariation && !seenLabels[c.label]) {
                     seenLabels[c.label] = true;
                     origCards.push(c);

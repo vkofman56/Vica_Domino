@@ -1,5 +1,34 @@
 # Vica Domino Project Memory
-**Last Updated**: July 7–8, 2026 (night session, TWO parallel streams) — **Par per-rule fix pass + Card Maker Role flow** AND **Math Problems saved games (Interactive Worksheets)**, both DEPLOYED in `4aa1a33` (see the two sections below + STATUS_NOTES July 8). Prior: July 7 Par rules redesign; July 5 visual notes reports; July 4 Game Notes system.
+**Last Updated**: July 9, 2026 — **Math-creator UX round, card-edit guard, parametric Catch phase 1, notes fixed in Find/Catch play** (see the July 9 section + STATUS_NOTES). Prior: July 7–8 two parallel streams (Par per-rule + Math saved games), both deployed.
+
+---
+
+## 🎯 July 9, 2026 — edit guard, parametric Catch phase 1, notes in play
+
+- **Editing a game-used card asks first** (loupe ✓ → dialog): checked games follow the change;
+  UN-checked games keep the OLD card — frozen into **Safe Haven** (art + params/formula/rel cloned
+  under a fresh uid so it still GENERATES identically) and the game re-points (entries + every
+  card-keyed map: roles/blanks/weights/zones). Same philosophy as deleting game-used cards.
+  `drawSave` is now a wrapper over `_drawSaveCore`; guard helpers `_svFindCardUsage` /
+  `_svFreezeOldCard` / `_svRepointGame`. Dialog wording is the user's, with `line C` and
+  `Math Problems: “M Try1”` in yellow; "Safe Haven" (not "Heaven").
+- **Parametric Catch phase 1**: problem freezes, answers fall, pair = ONE instance. ＋ Answer card
+  (i-panel) → linked REAL card (link store `cardAnswerLinks_v1` {answerUid: problemUid}); answer
+  rides its problem's line (green tag), never self-generates; `_pcBakePairs(game,n)` bakes static
+  same-instance face pairs — weighted line draws + DISTINCT answers via retry-WITHIN-the-line
+  (**lesson**: rejecting a duplicate by re-drawing the LINE starves small ranges and inverts the
+  weights). Remaining: "Play as Catch" (read game.js pairing semantics first).
+- **Notes must survive into Find/Catch**: game views re-apply `data-info` on rebuilt tiles
+  (`buildCardFromMarkup`), edit-preselect keeps `isNote`, `_gvBackfillNoteFlags` backfills legacy
+  games on open, and index.html's two PLAY pools (Find dominos ~4731, Catch bubbles ~7069) skip
+  `isNote` — notes are author-only EVERYWHERE. The on-face note-box was already stripped in play
+  by `_stripCardLabelsMarkup` (index.html).
+- **Small UX lessons**: selection clicks must BLUR focused inputs or Delete edits the input
+  ("keyboard delete doesn't work"); unresolvable cards need an honest "not found" chip, never
+  their garbled internal label; align columns structurally (grid / measured min-width), not by
+  font-dependent JS measurement.
+
+---
 
 ---
 

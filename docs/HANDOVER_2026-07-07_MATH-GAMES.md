@@ -174,6 +174,47 @@ Commit **`10b1d93`**, deployed via merge **`dfe5153`** (+ mirrors). Banner 12:01
   Login dialog) covers the page and breaks `elementFromPoint`-based drop tests — hide
   both before simulating drags; the user's logged-in :8000 doesn't have them.
 
+## PARAMETRIC CATCH — the agreed plan + phase 1 (July 9)
+
+**The concept (user's design):** the math problem freezes on the left, answers
+fall — one is correct. A line pairs the EQUATION card (answer symbol invisible)
+with a separate ANSWER card showing that symbol; in play the pair always shares
+ONE instance (A+B= 7+2 freezes ⇒ 9 falls). Line WEIGHTS (the Math presets model)
+set how often each kind/range of problem appears; falling answers are DISTINCT.
+
+**The plan:** (1) explicit problem↔answer link (not inferred from line position);
+(2) phase 1 = PRE-BAKED instance pairs — static faces the existing Catch player
+can use as ordinary paired cards, zero game.js changes; (3) phase 2 (later) =
+live in-game generation. Recommended maker = the Math setup + Catch options.
+
+**Phase 1 SHIPPED pieces:**
+- **＋ Answer card** (i-panel, next to ＋ Info card): drops the linked answer
+  card on the line — a REAL playable card (not data-info) showing the formula's
+  answer symbol in its color; params/formula/relations copied
+  (`_pmCopyCardMathData`) with the answer VISIBLE on it (invisible flags/hidden
+  cleared). Link stored in **`cardAnswerLinks_v1`** (`{answerUid: problemUid}` —
+  its own uid-keyed store, like params; no card-serializer changes).
+- **Setup screen**: an answer card rides its problem card's LINE (never a line
+  of its own) — `_mgUnits` + the render walk attach by the link; it renders in
+  the card zone with a green outline + "answer" tag. Generation
+  (`_wsGenerateFromGame`, `_pcBakePairs`) skips answer views.
+- **Bake engine `_pcBakePairs(game, n)`**: draws each pair's LINE by the active
+  preset's weights (per-slot), generates ONE env per pair
+  (`_pmGenEnvForCard` on a uid stub), and bakes two static faces with
+  `_pcBakeFace` (text[data-param] → env values; hidden syms blank on the
+  problem face). **Distinct answers**: retries WITHIN the drawn line first —
+  re-drawing the line on a collision starved small ranges and inverted the
+  weights (fixed; verified ~70% vs 75% target with a 3:1 preset, capped by the
+  small line's 9-answer pool). Answer face = the linked card's art, else a
+  plain number. Returns `{pairs:[{lineKey, env, answer, problemSvg, answerSvg}]}`.
+
+**Phase 1 REMAINING:** the "Play as Catch" button — wrap baked pairs into a
+transient Catch game (problem = frozen half, answer = falling half; distractors
+are the other pairs' answers, Catch's native behavior) and launch the existing
+player. Needs a check of game.js's pairing semantics (how top/bottom halves
+match) before wiring. Then: N-pairs option, repeats policy, and eventually
+Game-Notes hooks ("80% misses in range X — raise its weight?").
+
 ## Open / next steps (agreed)
 
 1. **📝 recording hooks for Math games** — `_gnScopedGame`/`_gnSaveScopedGame` support

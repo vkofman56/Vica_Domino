@@ -1145,7 +1145,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1163,7 +1163,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1405,7 +1405,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:56 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:56 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -1861,6 +1861,7 @@
                 <div class="par-sample-out" id="i-msg" style="display:none;"></div>
                 <div class="par-editor-btns">
                     <button class="par-btn-secondary" id="i-info-btn" title="Add a reference card to this line summarizing the parameters, ranges, constructions and relations">＋ Info card</button>
+                    <button class="par-btn-secondary" id="i-answer-btn" title="Add the ANSWER card to this line: a linked card showing the formula's answer. In a Catch game the problem freezes and answers fall — the pair always shares one instance.">＋ Answer card</button>
                     <button class="par-btn-secondary" id="i-close2-btn">Close</button>
                 </div>
             </div>
@@ -2062,10 +2063,14 @@
                     <option value="card+notes">Card + its notes</option>
                     <option value="notes">Just the notes</option>
                 </select>
-                <button onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
-                <button onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
-                <button onclick="completeGame()">Complete the game</button>
-                <button onclick="cancelGameMaker()">Cancel</button>
+                <button id="gm-bar-selectall" onclick="_gmSelectAllVisible()" title="Select every card in the current set">Select All</button>
+                <button id="gm-bar-clear" onclick="_gmClearAllVisible()" title="Deselect every card">Clear</button>
+                <button id="gm-bar-complete" onclick="completeGame()">Complete the game</button>
+                <button id="gm-bar-cancel" onclick="cancelGameMaker()">Cancel</button>
+                <!-- ADD mode (copy cards into a Math game): a minimal bar —
+                     just Copy and ✕; everything else hides. -->
+                <button id="gm-bar-copy" onclick="completeGame()" style="display:none;" title="Copy the selected cards into the game">Copy</button>
+                <button id="gm-bar-x" onclick="_gmMathAddCancel()" style="display:none;" title="Back to the game without copying">&#10005;</button>
             </div>
             <!-- Shape Mode popup removed — superseded by Group Edit 'Shape' action -->
 
@@ -6249,6 +6254,59 @@
             if (typeof saveCustomCards === 'function') saveCustomCards();
             return { label: label };
         }
+        // ===== ANSWER cards (parametric Catch, phase 1) =====
+        // An ANSWER card is a real playable card linked to its problem card:
+        // it shows the formula's answer symbol; at bake time the pair is
+        // filled from ONE instance (problem freezes, answer falls). The link
+        // lives in its own uid-keyed store (like params), so no card
+        // serializer changes are needed.
+        var _PC_ANSWER_LINKS_KEY = 'cardAnswerLinks_v1';
+        function _pcAnswerLinks() {
+            try { return JSON.parse(localStorage.getItem(_PC_ANSWER_LINKS_KEY) || '{}') || {}; }
+            catch (e) { return {}; }
+        }
+        function _pcSetAnswerLink(answerUid, problemUid) {
+            if (!answerUid || !problemUid) return;
+            var s = _pcAnswerLinks();
+            s[answerUid] = problemUid;
+            try { localStorage.setItem(_PC_ANSWER_LINKS_KEY, JSON.stringify(s)); } catch (e) {}
+        }
+        function _pcAnswerUidFor(problemUid) {
+            var s = _pcAnswerLinks();
+            for (var k in s) if (s[k] === problemUid) return k;
+            return null;
+        }
+        // "＋ Answer card" (i-panel): drop the linked answer card on the line.
+        function _pmMakeAnswerCard() {
+            if (!loupeSourceCard) return;
+            var msg = document.getElementById('i-msg');
+            function warn(m) { if (msg) { msg.style.display = ''; msg.className = 'par-sample-out warn'; msg.textContent = '⚠ ' + m; } }
+            var ans = _mpAnswerSyms();
+            if (!ans.length) { warn('The card needs a formula with an answer (like A+B=C) first — open f.'); return; }
+            var sym = ans[0];
+            var svgInner = '<text data-param="' + sym + '" x="30" y="40" text-anchor="middle" font-size="26" font-weight="bold" fill="' +
+                _pmParamColor(sym) + '">' + sym + '</text>';
+            var res = _pmDropRefCard(svgInner, 'answer');
+            if (res.error) { warn(res.error); return; }
+            var card = loupeSourceCard.nextSibling; // _pmDropRefCard inserts right after
+            if (!card || !card.dataset) return;
+            // A real playable card, NOT a note: undo the reference-card marks.
+            delete card.dataset.info;
+            card.dataset.origin = 'answer';
+            // Same instance space as the problem card…
+            _pmCopyCardMathData(loupeSourceCard.dataset.uid, card.dataset.uid);
+            // …but the answer is VISIBLE here (the problem card hides it).
+            try {
+                var ps = JSON.parse(localStorage.getItem(_MP_STORE_KEY) || '{}');
+                (ps[card.dataset.uid] || []).forEach(function (p) { delete p.invisible; });
+                localStorage.setItem(_MP_STORE_KEY, JSON.stringify(ps));
+                var fs = JSON.parse(localStorage.getItem(_FX_STORE_KEY) || '{}');
+                if (fs[card.dataset.uid]) { fs[card.dataset.uid].hidden = []; localStorage.setItem(_FX_STORE_KEY, JSON.stringify(fs)); }
+            } catch (e) {}
+            _pcSetAnswerLink(card.dataset.uid, loupeSourceCard.dataset.uid);
+            if (typeof saveCustomCards === 'function') saveCustomCards();
+            _pmSetMadeBtn('i-answer-btn', '＋ Answer card', true);
+        }
         // Toggle a "+ … card" button's made-state: a ✓ + dimmed/disabled after it has
         // added a card; reset (enabled) when the panel reopens or a new batch is made.
         function _pmSetMadeBtn(id, baseLabel, made) {
@@ -6430,6 +6488,7 @@
             if (p.style.display !== 'none') { p.style.display = 'none'; return; }
             _closeMathPanels('i-panel');
             _pmSetMadeBtn('i-info-btn', '＋ Info card', false);
+            _pmSetMadeBtn('i-answer-btn', '＋ Answer card', false);
             _iRender();
             p.style.display = 'flex';
         }
@@ -7316,6 +7375,8 @@
                 if (iClose2) iClose2.addEventListener('click', _iClosePanel);
                 var iInfo = document.getElementById('i-info-btn');
                 if (iInfo) iInfo.addEventListener('click', _pmMakeParamInfoCard);
+                var iAnswer = document.getElementById('i-answer-btn');
+                if (iAnswer) iAnswer.addEventListener('click', _pmMakeAnswerCard);
                 var iInst = document.getElementById('i-instance-btn');
                 if (iInst) iInst.addEventListener('click', _iInstance);
                 var iParam = document.getElementById('i-parametric-btn');
@@ -7528,6 +7589,11 @@
         function openLoupe(cardEl) {
             var svg = cardEl.querySelector('svg');
             if (!svg) return;
+            // The editor session starts with a CLEAN keyboard state: whatever
+            // text field held focus before (set description, a panel input, a
+            // contenteditable label…) would swallow Delete/arrows until some
+            // other click happened to blur it — keys must work immediately.
+            if (typeof _loupeBlurTextField === 'function') _loupeBlurTextField();
             _loupePanelMoved = false; // each editor session starts with no-overlap on
             document.body.classList.add('loupe-active'); // editing: show only the two relevant left-toolbar tools
             // Relocate the EXISTING border (▣) button out of the zoom panel and
@@ -12074,6 +12140,11 @@
             _updateDrawSizeActivation();
             // If the label was just erased, the button goes back to the dashed-rectangle.
             if (typeof _pmUpdateLabelBtnState === 'function') { try { _pmUpdateLabelBtnState(); } catch (e) {} }
+            // The deleted element may have BEEN the label-zone straddler — refresh
+            // the marks right away (they used to survive until the next drag/save).
+            var _dcs = document.getElementById('loupe-card-container');
+            _dcs = _dcs && _dcs.querySelector('svg:not(.loupe-grid)');
+            if (_dcs && typeof _pmMarkStraddlers === 'function') { try { _pmMarkStraddlers(_dcs); } catch (er) {} }
         }
 
         // ===== Element-level copy/paste inside the loupe (card editor) =====
@@ -12220,6 +12291,11 @@
         function _loupeStartMarquee(e, container) {
             var svg = container && container.querySelector('svg:not(.loupe-grid)');
             if (!svg) return;
+            // preventDefault below keeps a focused text field (f-panel input,
+            // card-name label…) focused — the field would then swallow the
+            // Delete/arrow keys meant for the marquee selection. Blur it, as a
+            // plain (non-prevented) click would have.
+            _loupeBlurTextField();
             var p0 = _loupePointerToSvg(e.clientX, e.clientY, container);
             var NS = 'http://www.w3.org/2000/svg';
             var rect = document.createElementNS(NS, 'rect');
@@ -12267,6 +12343,20 @@
             e.preventDefault();
         }
 
+        // A press on the card must take the FOCUS out of any text field (f-panel
+        // input, Par inputs, the contenteditable card-name label…) — several
+        // press paths preventDefault, which suppresses the browser's own blur,
+        // and the still-focused field then swallows Delete/Backspace/arrows
+        // meant for the selection (the "selected it but cannot delete it" bug).
+        function _loupeBlurTextField() {
+            var ae = document.activeElement;
+            if (!ae || ae === document.body) return;
+            var tag = (ae.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || ae.isContentEditable) {
+                try { ae.blur(); } catch (e) {}
+            }
+        }
+
         function attachDrawClickHandler() {
             var container = document.getElementById('loupe-card-container');
 
@@ -12276,6 +12366,7 @@
             drawMouseDownHandler = function(e) {
                 if (!drawModeActive) return;
                 _endLiveType(); // any new press ends a live-typing session
+                _loupeBlurTextField(); // focus leaves text fields — keys belong to the card now
 
                 var target = e.target;
                 // A drawing tool + click inside a label box → let the click DRAW content
@@ -13104,6 +13195,14 @@
                         }
                     }
                     updateSelectionRing(); hasEditedExisting = true; e.preventDefault();
+                    // While a label-zone warning is showing, a nudge may fix (or
+                    // re-create) the straddle — refresh the marks live. Guarded on
+                    // the ring so plain nudging never pays the check.
+                    if (document.querySelector('.pm-straddle-ring')) {
+                        var _ncs = document.getElementById('loupe-card-container');
+                        _ncs = _ncs && _ncs.querySelector('svg:not(.loupe-grid)');
+                        if (_ncs && typeof _pmMarkStraddlers === 'function') { try { _pmMarkStraddlers(_ncs); } catch (er) {} }
+                    }
                 };
                 if (e.key === 'ArrowLeft') {
                     _nudge(Math.max(kMin, pos.x + dxL), Math.max(kMin, Math.min(kMax, pos.y + dyL)));
@@ -13408,7 +13507,29 @@
             last._legacyRemoved = true;
         }
 
+        // GAME-USAGE guard (user spec): saving an EDIT to a card that is
+        // active in games first asks, per game, whether the change applies
+        // there. Games left unchecked keep the OLD version — it is frozen
+        // into Safe Haven and those games re-point to the frozen copy (the
+        // same policy as deleting a game-used card).
+        var _svGameDialogDone = false;
         function drawSave() {
+            try {
+                var shapeChanged = (currentCardShape !== loupeOrigShape ||
+                    currentCardWidth !== loupeOrigShapeW ||
+                    currentCardHeight !== loupeOrigShapeH ||
+                    currentCardCornerRadius !== loupeOrigCornerR ||
+                    currentCardFrameScale !== loupeOrigFrameScale);
+                var hasChanges = drawHistory.length > 0 || hasEditedExisting || shapeChanged;
+                if (loupeSourceCard && hasChanges && !_svGameDialogDone) {
+                    var usage = _svFindCardUsage(loupeSourceCard);
+                    if (usage.length) { _svShowGameUsageDialog(loupeSourceCard, usage); return; }
+                }
+            } catch (e) { console.error('[drawSave] game-usage guard error', e); }
+            _svGameDialogDone = false;
+            _drawSaveCore();
+        }
+        function _drawSaveCore() {
             var container = document.getElementById('loupe-card-container');
             var cardSvg = container.querySelector('svg:not(.loupe-grid)');
             if (!cardSvg) return;
@@ -13505,6 +13626,213 @@
             // Persist + close. (The shared-art dialog path returned early above and
             // calls _drawFinishSave from its callback instead.)
             _drawFinishSave(_newLabel);
+        }
+
+        // ===== Game-usage guard helpers (edit-a-card-used-in-games) =====
+        function _svCardMatchesEntry(entry, uid, sid, lbl) {
+            if (!entry) return false;
+            if (uid && entry.uid === uid) return true;
+            if (sid && entry.stableId === sid) return true;
+            return !entry.uid && !entry.stableId && !!lbl && entry.label === lbl;
+        }
+        // Every game (Find / Catch / Math) that contains this card, with the
+        // line letters it appears on.
+        function _svFindCardUsage(card) {
+            var uid = card.dataset.uid || '', sid = card.dataset.stableId || '';
+            var lblEl = card.querySelector('.library-label');
+            var lbl = lblEl ? lblEl.textContent : '';
+            if (!uid && !sid && !lbl) return [];
+            var out = [];
+            function scan(games, type, typeName) {
+                (games || []).forEach(function (g, i) {
+                    if (!g) return;
+                    var lines = [];
+                    if (type === 'math') {
+                        _mgUnits(g).forEach(function (u, ui) {
+                            if (u.cards.some(function (c) { return _svCardMatchesEntry(c, uid, sid, lbl); }))
+                                lines.push(String.fromCharCode(65 + (ui % 26)));
+                        });
+                    } else {
+                        (g.cards || []).forEach(function (c) {
+                            if (_svCardMatchesEntry(c, uid, sid, lbl)) {
+                                var L = (c.label || '?').charAt(0);
+                                if (lines.indexOf(L) < 0) lines.push(L);
+                            }
+                        });
+                    }
+                    if (lines.length) out.push({ type: type, typeName: typeName, idx: i, name: g.name, lines: lines });
+                });
+            }
+            scan(loadCustomGames(), 'find', 'Find the doubles');
+            scan(loadCatchGames(), 'catch', 'Catch the double');
+            scan(loadMathGames(), 'math', 'Math Problems');
+            return out;
+        }
+        // The card's PRE-EDIT record (the stores still hold the old art until
+        // the save persists).
+        function _svOldRecordFor(card) {
+            var rec = null;
+            if (card.dataset.stableId && typeof _findCardDataByStableId === 'function') {
+                rec = _findCardDataByStableId(card.dataset.stableId);
+            }
+            if (!rec && card.dataset.uid && typeof _getAllCardStorageKeys === 'function') {
+                var keys = _getAllCardStorageKeys();
+                for (var i = 0; i < keys.length && !rec; i++) {
+                    try {
+                        var cards = JSON.parse(localStorage.getItem(keys[i]) || '[]');
+                        for (var j = 0; j < cards.length; j++) {
+                            if (cards[j] && cards[j].uid === card.dataset.uid) { rec = cards[j]; break; }
+                        }
+                    } catch (e) {}
+                }
+            }
+            if (!rec) {
+                var svg = card.querySelector('svg');
+                var lblEl = card.querySelector('.library-label');
+                rec = { label: lblEl ? lblEl.textContent : '', svgContent: svg ? svg.innerHTML : '' };
+                if (card.dataset.info === 'true') rec.info = true;
+            }
+            return rec;
+        }
+        // Freeze the old version into Safe Haven (a COPY with its own
+        // identity; the original card stays live in its set). The frozen
+        // copy also clones the card's math stores so it GENERATES like the
+        // old card.
+        function _svFreezeOldCard(card, rec) {
+            try { if (typeof _ensureSafeHavenExists === 'function') _ensureSafeHavenExists(); } catch (e) {}
+            var key = (typeof _getSetStorageKey === 'function') ? _getSetStorageKey('Safe Haven') : 'customDrawnCards_Safe Haven';
+            var label = (typeof _nextBottomRowLabel === 'function') ? _nextBottomRowLabel(key) : ('Z' + Date.now());
+            var copy = {
+                label: label,
+                svgContent: rec.svgContent || '',
+                uid: (typeof generateCardUID === 'function') ? generateCardUID() : ('sv' + Date.now()),
+                desc: 'Frozen version of ' + (rec.label || 'card'),
+                movedFrom: (typeof activeCardSet !== 'undefined') ? activeCardSet : '',
+                originalLabel: rec.label || ''
+            };
+            copy.stableId = (typeof generateStableId === 'function') ? generateStableId(label, 'Safe Haven') : ('sv-' + copy.uid);
+            copy.sharedArtId = 'art_' + copy.stableId;
+            if (rec.info || card.dataset.info === 'true') copy.info = true;
+            ['cardShape', 'cardShapeW', 'cardShapeH', 'cardCornerR', 'cardFrameScale'].forEach(function (f) {
+                if (rec[f] != null) copy[f] = rec[f];
+            });
+            var arr = [];
+            try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
+            arr.push(copy);
+            try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+            var oldUid = card.dataset.uid;
+            if (oldUid) {
+                ['cardMathParams_v1', 'cardMathFormula_v1', 'cardMathRel_v1'].forEach(function (sk) {
+                    try {
+                        var s = JSON.parse(localStorage.getItem(sk) || '{}');
+                        if (s[oldUid] != null) {
+                            s[copy.uid] = JSON.parse(JSON.stringify(s[oldUid]));
+                            localStorage.setItem(sk, JSON.stringify(s));
+                        }
+                    } catch (e) {}
+                });
+            }
+            return copy;
+        }
+        // Re-point ONE declining game at the frozen copy: card entries AND
+        // every card-keyed map (roles, blanks, weights, zones, NEW flags).
+        function _svRepointGame(u, copy, card) {
+            var uid = card.dataset.uid || '', sid = card.dataset.stableId || '';
+            var lblEl = card.querySelector('.library-label');
+            var lbl = lblEl ? lblEl.textContent : '';
+            function newKeyFor(k) {
+                if (uid && k === 'u:' + uid) return 'u:' + copy.uid;
+                if (sid && k === 's:' + sid) return 's:' + copy.stableId;
+                if (lbl && k === 'l:' + lbl) return 'l:' + copy.label;
+                return null;
+            }
+            function remapObj(o) {
+                if (!o) return;
+                Object.keys(o).forEach(function (k) {
+                    var nk = newKeyFor(k);
+                    if (nk && !(nk in o)) { o[nk] = o[k]; delete o[k]; }
+                });
+            }
+            var games = (u.type === 'find') ? loadCustomGames() : (u.type === 'catch') ? loadCatchGames() : loadMathGames();
+            var g = games[u.idx];
+            if (!g) return;
+            (g.cards || []).forEach(function (c) {
+                if (_svCardMatchesEntry(c, uid, sid, lbl)) {
+                    c.uid = copy.uid;
+                    c.stableId = copy.stableId;
+                    c.label = copy.label;
+                    delete c.svgMarkup; // the frozen record resolves the art now
+                }
+            });
+            remapObj(g.roles); remapObj(g.hiddenOverrides); remapObj(g.newKeys);
+            (g.probOptions || []).forEach(function (p) { remapObj(p.weights); remapObj(p.cardZones); remapObj(p.cardProbs); });
+            if (u.type === 'find') localStorage.setItem('savedCustomGames', JSON.stringify(games));
+            else if (u.type === 'catch') saveCatchGames(games);
+            else saveMathGames(games);
+        }
+        // The dialog: one checkbox per game — checked = the change applies
+        // there; unchecked games keep the old card via the Safe Haven freeze.
+        function _svShowGameUsageDialog(card, usage) {
+            var old = document.getElementById('sv-usage-dialog');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'sv-usage-dialog';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:26000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2a2a4a;border:1.5px solid #7c4dff;border-radius:12px;padding:18px 20px;max-width:520px;max-height:80vh;overflow:auto;color:#ddd;display:flex;flex-direction:column;gap:10px;font-size:14px;';
+            var t = document.createElement('div');
+            t.style.cssText = 'font-weight:700;color:#fff;';
+            t.textContent = 'This card is active in ' + usage.map(function (u) { return '“' + u.name + '”'; }).join(' and ') + '.';
+            box.appendChild(t);
+            var checks = [];
+            usage.forEach(function (u) {
+                var lab = document.createElement('label');
+                lab.style.cssText = 'display:flex;gap:8px;align-items:flex-start;cursor:pointer;';
+                var cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.checked = true;
+                cb.style.cssText = 'margin-top:3px;';
+                lab.appendChild(cb);
+                var s = document.createElement('span');
+                var hl = 'color:#FFD700;font-weight:600;';
+                s.innerHTML = 'You are changing the card in <span style="' + hl + '">line' +
+                    (u.lines.length > 1 ? 's' : '') + ' ' + _mpEsc(u.lines.join(', ')) + '</span> of ' +
+                    '<span style="' + hl + '">' + _mpEsc(u.typeName) + ': “' + _mpEsc(u.name) + '”</span> game.';
+                lab.appendChild(s);
+                box.appendChild(lab);
+                checks.push({ cb: cb, u: u });
+            });
+            var note = document.createElement('div');
+            note.style.cssText = 'font-size:12.5px;color:#b9bfd0;';
+            note.textContent = 'If you UN-CHECK a game, the game’s card will not change — the original card will be backed up in Safe Haven.';
+            box.appendChild(note);
+            var bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:4px;';
+            var ok = document.createElement('button');
+            ok.style.cssText = 'font:inherit;font-weight:700;background:#7c4dff;color:#fff;border:0;border-radius:8px;padding:8px 18px;cursor:pointer;';
+            ok.textContent = 'OK';
+            ok.onclick = function () {
+                ov.remove();
+                try {
+                    var declined = checks.filter(function (c) { return !c.cb.checked; }).map(function (c) { return c.u; });
+                    if (declined.length) {
+                        var rec = _svOldRecordFor(card);
+                        var copy = _svFreezeOldCard(card, rec);
+                        declined.forEach(function (u) { _svRepointGame(u, copy, card); });
+                        try { populateLibraryGames(); } catch (e) {}
+                    }
+                } catch (e) { console.error('[drawSave] freeze/repoint error', e); }
+                _svGameDialogDone = true;
+                drawSave(); // continues into the real save
+            };
+            var cancel = document.createElement('button');
+            cancel.style.cssText = 'font:inherit;background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;';
+            cancel.textContent = 'Cancel';
+            cancel.title = 'Back to editing — nothing is saved yet';
+            cancel.onclick = function () { ov.remove(); };
+            bar.appendChild(ok); bar.appendChild(cancel);
+            box.appendChild(bar);
+            ov.appendChild(box);
+            document.body.appendChild(ov);
         }
 
         // ===== Phase 1.3b — edit-scope for SHARED card art =====
@@ -23327,6 +23655,10 @@
                 '.mg-row.mg-selected{outline:2px solid #f5c518;outline-offset:1px;}' +
                 '.mg-row.mg-marq{outline:2px dashed #f5c518;outline-offset:1px;}' +
                 '.mg-row.mg-dragging{opacity:.45;}' +
+                // NOTE drag: the ghost follows the mouse; the hovered line
+                // (the drop target) highlights green.
+                '.mg-note-ghost{position:fixed;z-index:2600;pointer-events:none;opacity:.85;transform:translate(-50%,-50%);zoom:.9;}' +
+                '.mg-row.mg-note-drop{outline:2px solid #2ecc71;outline-offset:1px;}' +
                 '#mg-selbar .mg-selbar-hint{opacity:.55;font-size:.78rem;}' +
                 '.mg-prev-live.mg-selected{outline:3px solid #f5c518;outline-offset:2px;border-radius:6px;}' +
                 '.mg-wrap{padding:10px 20px 30px;display:flex;flex-direction:column;gap:10px;max-width:1200px;}' +
@@ -23347,6 +23679,10 @@
                 '.mg-prev{flex:none;width:170px;min-height:110px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;overflow:hidden;}' +
                 '.mg-prev svg{width:100%;height:auto;display:block;}' +
                 '.mg-prev-label{color:#23304a;font-weight:700;padding:6px;}' +
+                // Unresolvable card (remade/deleted in the Card Maker): an
+                // honest warning chip instead of the garbled internal label.
+                '.mg-prev-missing{border:2px dashed #e74c3c;background:#fffdf5;}' +
+                '.mg-prev-missing-text{color:#c0392b;font-size:.72rem;font-weight:700;padding:8px;text-align:center;line-height:1.35;white-space:normal;}' +
                 // Literal card copies (cloned .library-card, root class swapped):
                 // zoomed up so the note box / white note cards are readable —
                 // that's the information used to set the probabilities.
@@ -23378,6 +23714,20 @@
                 '.mg-weight{width:64px;font:inherit;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.18);color:#fff;padding:4px 8px;}' +
                 '.mg-share{opacity:.65;} .mg-warn{color:#ffb14e;font-size:.84rem;}' +
                 '.mg-total{color:#fff;opacity:.6;font-size:.8rem;margin-left:6px;}' +
+                // The card zone (card + notes) is measured as one block so the
+                // info column aligns across lines (see _mgAlignInfoColumns).
+                '.mg-cardzone{flex:none;display:flex;gap:14px;align-items:flex-start;}' +
+                // "Insert from another game" line picker: click toggles a line.
+                '.mg-gamline{display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:10px;cursor:pointer;border:2px solid transparent;}' +
+                '.mg-gamline:hover{background:rgba(255,255,255,.07);}' +
+                '.mg-gamline.mg-gamline-sel{border-color:#f5c518;background:rgba(245,197,24,.14);}' +
+                '.mg-gamline .mg-prev-live{zoom:1;}' + // compact copies in the dialog
+                '.mg-gamline .mg-prev{width:110px;min-height:72px;}' +
+                // The linked ANSWER card (parametric Catch pair) — green tag
+                // under it so the pairing reads at a glance.
+                '.mg-answerwrap{flex:none;display:flex;flex-direction:column;gap:3px;align-items:center;}' +
+                '.mg-answerwrap .mg-prev-live, .mg-answerwrap .mg-prev{outline:2px solid rgba(46,204,113,.6);outline-offset:1px;}' +
+                '.mg-answer-cap{font-size:.64rem;text-transform:uppercase;letter-spacing:.5px;color:#2ecc71;font-weight:700;}' +
                 '.mg-notes{flex:none;display:flex;flex-direction:column;gap:3px;}' +
                 '.mg-notes-cards{display:flex;flex-wrap:wrap;gap:8px;}' +
                 '.mg-notes-cards .mg-prev{outline:2px dashed rgba(245,197,24,.55);outline-offset:1px;}' +
@@ -23538,6 +23888,11 @@
             list.addEventListener('click', function (e) {
                 if (_mgSuppressClick) return;
                 if (e.target.closest('button, input, select, textarea')) return;
+                // A selection click reclaims the keyboard: a still-focused
+                // Weight/Role input would otherwise swallow Delete/arrows
+                // ("delete from the keyboard does not work" report).
+                var ae = document.activeElement;
+                if (ae && ae.matches && ae.matches('input, select, textarea')) ae.blur();
                 var noteEl = e.target.closest('[data-mg-note-key]');
                 var row = e.target.closest('.mg-row');
                 if (noteEl) {
@@ -23546,17 +23901,99 @@
                 } else if (row && row.dataset.mgKey) {
                     var k = row.dataset.mgKey;
                     if (_mgSel.rows[k]) delete _mgSel.rows[k]; else _mgSel.rows[k] = 1;
-                } else return;
+                } else {
+                    // Plain click on the background: deselect everything
+                    // (same convention as the Card Maker's click-outside).
+                    if (!Object.keys(_mgSel.rows).length && !Object.keys(_mgSel.notes).length) return;
+                    _mgSel.rows = {}; _mgSel.notes = {};
+                }
+                _mgApplySel();
+            });
+            // Clicks on the overlay OUTSIDE the list (e.g. right of the rows,
+            // the gradient below) deselect too — "any place" clears.
+            document.getElementById('mg-overlay').addEventListener('click', function (e) {
+                if (_mgSuppressClick) return;
+                if (e.target !== e.currentTarget) return; // only the bare backdrop
+                if (!Object.keys(_mgSel.rows).length && !Object.keys(_mgSel.notes).length) return;
+                _mgSel.rows = {}; _mgSel.notes = {};
                 _mgApplySel();
             });
             list.addEventListener('mousedown', function (e) {
                 if (e.button !== 0) return;
                 if (e.target.closest('button, input, select, textarea')) return;
+                // Drag/marquee starts also reclaim the keyboard from inputs.
+                var ae = document.activeElement;
+                if (ae && ae.matches && ae.matches('input, select, textarea')) ae.blur();
                 var startX = e.clientX, startY = e.clientY;
+                // A drag that starts ON A NOTE moves the NOTE (anywhere:
+                // another line, between notes, or loose); on a line moves the
+                // line; on the background it's a marquee.
+                var noteEl = e.target.closest('[data-mg-note-key]');
                 var dragRow = e.target.closest('.mg-row');
-                if (dragRow && dragRow.dataset.mgKey) _mgStartRowDrag(e, dragRow, startX, startY);
+                if (noteEl) _mgStartNoteDrag(noteEl, startX, startY);
+                else if (dragRow && dragRow.dataset.mgKey) _mgStartRowDrag(e, dragRow, startX, startY);
                 else _mgStartMarquee(startX, startY);
             });
+            // ---- NOTE drag: a ghost follows the mouse; the hovered line
+            //      highlights green. Drop ON a line = attach to it (before/
+            //      after the hovered note for in-line ordering); drop on the
+            //      background = the note becomes its own loose row. A plain
+            //      click (no movement) still just toggles selection. ----
+            function _mgStartNoteDrag(noteEl, startX, startY) {
+                var noteKey = noteEl.dataset.mgNoteKey;
+                var ghost = null;
+                function clearHl() {
+                    document.querySelectorAll('#mg-list .mg-row.mg-note-drop').forEach(function (r) { r.classList.remove('mg-note-drop'); });
+                }
+                function rowAt(x, y) {
+                    var el = document.elementFromPoint(x, y);
+                    var row = el && el.closest ? el.closest('#mg-list .mg-row') : null;
+                    if (!row || !row.dataset.mgKey) return null;
+                    if (row.classList.contains('mg-empty') || row.classList.contains('mg-note-row')) return null;
+                    return row;
+                }
+                function mv(ev) {
+                    if (!ghost) {
+                        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 6) return;
+                        ghost = noteEl.cloneNode(true);
+                        ghost.className = 'mg-note-ghost';
+                        document.body.appendChild(ghost);
+                        document.body.style.userSelect = 'none';
+                    }
+                    ghost.style.left = ev.clientX + 'px';
+                    ghost.style.top = ev.clientY + 'px';
+                    clearHl();
+                    var row = rowAt(ev.clientX, ev.clientY);
+                    if (row) row.classList.add('mg-note-drop');
+                }
+                function up(ev) {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                    document.body.style.userSelect = '';
+                    if (!ghost) return; // plain click — selection toggle handles it
+                    ghost.remove();
+                    clearHl();
+                    _mgSuppressClick = true;
+                    setTimeout(function () { _mgSuppressClick = false; }, 0);
+                    var el = document.elementFromPoint(ev.clientX, ev.clientY);
+                    var overNote = el && el.closest ? el.closest('[data-mg-note-key]') : null;
+                    var row = rowAt(ev.clientX, ev.clientY);
+                    var drop = null;
+                    if (row && overNote && overNote.dataset.mgNoteKey !== noteKey) {
+                        var r = overNote.getBoundingClientRect();
+                        drop = { rowKey: row.dataset.mgKey };
+                        if (ev.clientX < r.left + r.width / 2) drop.beforeKey = overNote.dataset.mgNoteKey;
+                        else drop.afterKey = overNote.dataset.mgNoteKey;
+                    } else if (row) {
+                        drop = { rowKey: row.dataset.mgKey };
+                    } else if (el && el.closest && (el.closest('#mg-list') || el.id === 'mg-overlay')) {
+                        drop = { loose: true };
+                    }
+                    if (drop) _mgMoveNote(noteKey, drop);
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            }
             function _mgStartMarquee(startX, startY) {
                 var band = null;
                 function mv(ev) {
@@ -23710,6 +24147,7 @@
         // render-time grouping exactly.
         function _mgUnits(game) {
             var units = [], lastEntry = null;
+            var links = (typeof _pcAnswerLinks === 'function') ? _pcAnswerLinks() : {};
             (game.cards || []).forEach(function (info) {
                 // An EMPTY LINE is a marker card: its own unit, letters below
                 // it rename automatically (letters are positional).
@@ -23717,6 +24155,18 @@
                     lastEntry = { entry: true, empty: true, key: _probCardKey(info), cards: [info] };
                     units.push(lastEntry);
                     return;
+                }
+                // An ANSWER card rides with ITS problem card's line (wherever
+                // that line is) — it never forms a line of its own.
+                var linkTo = info.uid && links[info.uid];
+                if (linkTo) {
+                    for (var li = 0; li < units.length; li++) {
+                        if (units[li].entry && !units[li].empty && units[li].cards[0] && units[li].cards[0].uid === linkTo) {
+                            units[li].cards.push(info);
+                            return;
+                        }
+                    }
+                    // problem card not in this game — fall through as normal
                 }
                 var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
                 if (!isNote) { lastEntry = { entry: true, key: _probCardKey(info), cards: [info] }; units.push(lastEntry); }
@@ -23764,6 +24214,12 @@
             var cmc = document.querySelector('#domino-library-screen .domino-library-content');
             if (cmc) cmc.classList.add('gm-adding');
         }
+        // ✕ in the ADD-mode bar: abandon the copy and go back to the game.
+        function _gmMathAddCancel() {
+            var back = _gmMathAddToIdx;
+            cancelGameMaker();
+            if (back != null) openMathGameView(back, 'domino-library-screen');
+        }
         // Card-key sets for the add-mode filter.
         function _mgGameKeySet(idx) {
             var g = loadMathGames()[idx], have = {};
@@ -23810,7 +24266,7 @@
                 var b = document.createElement('button');
                 b.style.cssText = 'font:inherit;text-align:left;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;padding:8px 12px;cursor:pointer;';
                 b.textContent = e.g.name + '  (' + ((e.g.cards || []).length) + ' cards)';
-                b.onclick = function () { ov.remove(); _mgAppendLinesFrom(e.i, afterKey); };
+                b.onclick = function () { ov.remove(); _mgGamPickLines(e.i, afterKey); };
                 box.appendChild(b);
             });
             var c = document.createElement('button');
@@ -23822,7 +24278,65 @@
             ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
             document.body.appendChild(ov);
         }
-        function _mgAppendLinesFrom(srcIdx, afterKey) {
+        // Step 2 of "insert from another game": pick WHICH lines to copy —
+        // same idea as the card-set picker (only lines not yet in the game
+        // are offered; click toggles; Copy applies, ✕ abandons).
+        function _mgGamPickLines(srcIdx, afterKey) {
+            var games = loadMathGames(), tgt = games[_mgIndex], src = games[srcIdx];
+            if (!tgt || !src) return;
+            _mgMigrate(tgt); _mgMigrate(src);
+            var have = {};
+            (tgt.cards || []).forEach(function (c) { var k = _probCardKey(c); if (k) have[k] = 1; });
+            var units = _mgUnits(src).filter(function (u) { return !u.empty && u.key && !have[u.key]; });
+            if (!units.length) { alert('All of “' + src.name + '”’s lines are already in this game.'); return; }
+            var old = document.getElementById('mg-gam-pick');
+            if (old) old.remove();
+            var ov = document.createElement('div');
+            ov.id = 'mg-gam-pick';
+            ov.style.cssText = 'position:fixed;inset:0;z-index:2590;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#2c3866;border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:16px 18px;max-width:760px;max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:8px;';
+            var t = document.createElement('div');
+            t.style.cssText = 'color:#fff;font-weight:700;';
+            t.textContent = 'Select lines to copy from “' + src.name + '” — only lines not yet in “' + tgt.name + '” are shown';
+            box.appendChild(t);
+            var sel = {};
+            units.forEach(function (u) {
+                var lineEl = document.createElement('div');
+                lineEl.className = 'mg-gamline';
+                u.cards.forEach(function (c) { lineEl.appendChild(_mgPreviewEl(c)); });
+                lineEl.onclick = function () {
+                    if (sel[u.key]) { delete sel[u.key]; lineEl.classList.remove('mg-gamline-sel'); }
+                    else { sel[u.key] = 1; lineEl.classList.add('mg-gamline-sel'); }
+                };
+                box.appendChild(lineEl);
+            });
+            var bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;gap:10px;align-items:center;margin-top:4px;';
+            var msg = document.createElement('span');
+            msg.style.cssText = 'color:#f5c518;flex:1;font-size:.9rem;';
+            bar.appendChild(msg);
+            var copy = document.createElement('button');
+            copy.style.cssText = 'font:inherit;font-weight:700;background:#7eff7e;color:#143314;border:0;border-radius:9px;padding:8px 18px;cursor:pointer;';
+            copy.textContent = 'Copy';
+            copy.onclick = function () {
+                if (!Object.keys(sel).length) { msg.textContent = 'Select lines to copy into the game'; return; }
+                ov.remove();
+                _mgAppendLinesFrom(srcIdx, afterKey, sel);
+            };
+            bar.appendChild(copy);
+            var x = document.createElement('button');
+            x.style.cssText = 'font:inherit;background:rgba(255,255,255,.18);border:0;border-radius:9px;color:#fff;padding:8px 14px;cursor:pointer;';
+            x.innerHTML = '&#10005;';
+            x.title = 'Back without copying';
+            x.onclick = function () { ov.remove(); };
+            bar.appendChild(x);
+            box.appendChild(bar);
+            ov.appendChild(box);
+            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+            document.body.appendChild(ov);
+        }
+        function _mgAppendLinesFrom(srcIdx, afterKey, onlyKeys) {
             var games = loadMathGames(), g = games[_mgIndex], src = games[srcIdx];
             if (!g || !src) return;
             _mgMigrate(g); _mgMigrate(src);
@@ -23831,6 +24345,7 @@
             var tp = _mgActiveProb(g), sp = _mgActiveProb(src);
             var newUnits = [];
             _mgUnits(src).forEach(function (u) {
+                if (onlyKeys && (!u.key || !onlyKeys[u.key])) return; // not picked
                 if (u.key && have[u.key]) return; // line already here
                 var copied = u.cards.map(function (c, ci) {
                     var cp = JSON.parse(JSON.stringify(c));
@@ -23960,6 +24475,52 @@
             delete _mgSel.rows[key];
             saveMathGames(games); _mgRender();
         }
+        // Move ONE note card: detach it from wherever it lives (a line's
+        // notes or its own loose row) and re-home it — onto another line
+        // (optionally before/after a specific note) or as a loose row.
+        function _mgMoveNote(noteKey, drop) {
+            var games = loadMathGames(), g = games[_mgIndex];
+            if (!g || !noteKey || !drop) return;
+            _mgMigrate(g);
+            var units = _mgUnits(g);
+            // Validate the target first (a bad drop must not lose the note).
+            var target = null;
+            if (!drop.loose) {
+                for (var t = 0; t < units.length; t++) {
+                    if (units[t].entry && !units[t].empty && units[t].key === drop.rowKey) { target = units[t]; break; }
+                }
+                if (!target) return;
+            }
+            // Detach the note.
+            var info = null;
+            for (var i = 0; i < units.length && !info; i++) {
+                var u = units[i];
+                if (!u.entry && u.key === noteKey) { info = u.cards[0]; units.splice(i, 1); break; }
+                if (u.entry) {
+                    for (var c = 1; c < u.cards.length; c++) {
+                        if (_probCardKey(u.cards[c]) === noteKey) { info = u.cards[c]; u.cards.splice(c, 1); break; }
+                    }
+                }
+            }
+            if (!info) return;
+            delete info.newLine;
+            if (drop.loose) {
+                info.newLine = true; // its own row, never glued to a line
+                units.push({ entry: false, key: noteKey, cards: [info] });
+            } else {
+                var at = target.cards.length; // default: after the line's last note
+                var refKey = drop.beforeKey || drop.afterKey;
+                if (refKey) {
+                    for (var p = 1; p < target.cards.length; p++) {
+                        if (_probCardKey(target.cards[p]) === refKey) { at = p + (drop.afterKey ? 1 : 0); break; }
+                    }
+                }
+                target.cards.splice(at, 0, info);
+            }
+            if (g.newKeys) delete g.newKeys[noteKey]; // placed by hand
+            _mgFlattenUnits(g, units);
+            saveMathGames(games); _mgRender();
+        }
         // Rebuild the game's card order from a full list of line keys (the
         // drag-drop result). Notes travel inside their line's unit.
         function _mgReorderByKeys(orderedKeys, movedKeys, removeKeys) {
@@ -24069,6 +24630,7 @@
             try { recordGameActivation('mathpages', games[mathIndex].name, 'creator'); } catch (e) {}
             _mgRender();
             document.getElementById('mg-overlay').classList.add('show');
+            _mgAlignInfoColumns(); // the first render measured while hidden
         }
         function closeMathGameView() {
             var ov = document.getElementById('mg-overlay');
@@ -24127,34 +24689,46 @@
                 wrap2.appendChild(copy);
                 return wrap2;
             }
-            // No art anywhere — a labeled chip is the last resort.
+            // Nothing resolved. A card that HAS an identity but matches no set
+            // card was probably REMADE or deleted in the Card Maker (e.g. the
+            // per-rule Info cards that had to be recreated) — say so honestly
+            // instead of dumping its internal garbled label (the "distorted
+            // white cards" bug).
             var box = document.createElement('div');
-            box.className = 'mg-prev';
+            box.className = 'mg-prev mg-prev-missing';
+            box.title = 'This card was not found in any card set — it was probably remade or deleted. ' +
+                        'Remove this entry (select + Delete) and re-add the current card via Sets.' +
+                        (info && info.label ? '\n\nStored name: ' + info.label : '');
             var l = document.createElement('span');
-            l.className = 'mg-prev-label';
-            l.textContent = (info && info.label) || '?';
+            l.className = 'mg-prev-missing-text';
+            l.textContent = '⚠ card not found — it was remade or deleted in the Card Maker';
             box.appendChild(l);
             return box;
         }
         // Stored card data for a saved game card: stableId lookup first (the
-        // reliable identity), then a uid scan across all sets, then the game's
-        // own saved markup.
+        // reliable identity), then a uid scan across all sets, then a LABEL
+        // match (note/label cards keep stable names), then the game's own
+        // saved markup snapshot.
         function _mgCardDataFor(info) {
             if (!info) return null;
             if (info.stableId && typeof _findCardDataByStableId === 'function') {
                 var d = _findCardDataByStableId(info.stableId);
                 if (d) return d;
             }
-            if (info.uid && typeof _getAllCardStorageKeys === 'function') {
+            if (typeof _getAllCardStorageKeys === 'function' && (info.uid || info.label)) {
                 var keys = _getAllCardStorageKeys();
+                var byLabel = null;
                 for (var i = 0; i < keys.length; i++) {
                     try {
                         var cards = JSON.parse(localStorage.getItem(keys[i]) || '[]');
                         for (var j = 0; j < cards.length; j++) {
-                            if (cards[j] && cards[j].uid === info.uid) return cards[j];
+                            if (!cards[j]) continue;
+                            if (info.uid && cards[j].uid === info.uid) return cards[j];
+                            if (!byLabel && info.label && cards[j].label === info.label) byLabel = cards[j];
                         }
                     } catch (e) {}
                 }
+                if (byLabel) return byLabel; // weak match — better than nothing
             }
             if (info.svgMarkup) return { label: info.label, svgContent: info.svgMarkup, info: !!info.isNote };
             return null;
@@ -24225,8 +24799,16 @@
             var list = document.getElementById('mg-list');
             list.innerHTML = '';
             var entries = [], looseNotes = [];
+            var mgLinks = (typeof _pcAnswerLinks === 'function') ? _pcAnswerLinks() : {};
             (game.cards || []).forEach(function (info) {
                 if (info.emptyLine) { entries.push({ info: info, notes: [], empty: true }); return; }
+                // ANSWER cards render inside their problem card's line.
+                var linkTo = info.uid && mgLinks[info.uid];
+                if (linkTo) {
+                    for (var li = 0; li < entries.length; li++) {
+                        if (!entries[li].empty && entries[li].info.uid === linkTo) { entries[li].answer = info; return; }
+                    }
+                }
                 var isNote = info.isNote || !_mgParamsByUid(info.uid).length;
                 if (!isNote) entries.push({ info: info, notes: [] });
                 // newLine: an ADDED note-ish card renders as its own row, not
@@ -24307,7 +24889,24 @@
                 row.className = 'mg-row' + (entryIdx >= mgRegular.length ? ' mg-new' : '');
                 if (key) row.dataset.mgKey = key; // selection identity (click/marquee)
                 row.appendChild(_mgLineLetterCell(entryIdx, key));
-                row.appendChild(_mgPreviewEl(info));
+                // The CARD ZONE (problem card + its notes) is one measured
+                // block, so the info column can align across lines.
+                var zone = document.createElement('div');
+                zone.className = 'mg-cardzone';
+                zone.appendChild(_mgPreviewEl(info));
+                // The linked ANSWER card (parametric Catch pair) sits right
+                // beside its problem card, tagged so the pairing is visible.
+                if (entry.answer) {
+                    var aw = document.createElement('div');
+                    aw.className = 'mg-answerwrap';
+                    aw.title = 'Answer card — in a Catch game the problem freezes and this falls; both always share one instance.';
+                    aw.appendChild(_mgPreviewEl(entry.answer));
+                    var acap = document.createElement('div');
+                    acap.className = 'mg-answer-cap';
+                    acap.textContent = 'answer';
+                    aw.appendChild(acap);
+                    zone.appendChild(aw);
+                }
                 // The card's NOTE cards sit right beside it — they explain the
                 // card to YOU (the game maker); the player never sees them.
                 if (entry.notes.length) {
@@ -24323,8 +24922,9 @@
                         nrow.appendChild(pv);
                     });
                     ns.appendChild(nrow);
-                    row.appendChild(ns);
+                    zone.appendChild(ns);
                 }
+                row.appendChild(zone);
                 var main = document.createElement('div');
                 main.className = 'mg-main';
 
@@ -24478,6 +25078,109 @@
                 });
             }
             _mgApplySel(); // selection survives re-renders (weights, moves…)
+            _mgAlignInfoColumns();
+        }
+
+        // Align the info column across lines: every line with 1–2 cards gets
+        // the SAME card-zone width (the widest such zone — i.e. the "after two
+        // cards" position; if all lines have one card, that's the one-card
+        // position). Lines with 3+ cards keep their natural, wider zone and
+        // only THEIR info moves further right (user spec).
+        function _mgAlignInfoColumns() {
+            var zones = Array.prototype.slice.call(
+                document.querySelectorAll('#mg-list .mg-row:not(.mg-empty):not(.mg-note-row) .mg-cardzone'));
+            if (!zones.length) return;
+            var target = 0;
+            zones.forEach(function (z) {
+                z.style.minWidth = '';
+                var n = z.querySelectorAll('.mg-prev, .mg-prev-live').length;
+                if (n <= 2) target = Math.max(target, z.getBoundingClientRect().width);
+            });
+            if (!target) return; // hidden overlay (first render) — re-run after show
+            zones.forEach(function (z) {
+                var n = z.querySelectorAll('.mg-prev, .mg-prev-live').length;
+                if (n <= 2) z.style.minWidth = Math.ceil(target) + 'px';
+            });
+        }
+
+        // ===== Parametric Catch — the BAKE engine (phase 1). =====
+        // Bakes N problem/answer FACE PAIRS from a math game's lines: each
+        // pair is filled from ONE instance (same env), lines drawn by the
+        // active preset's weights, and all falling answers are DISTINCT so
+        // no two bubbles carry the same value. The output is static art the
+        // Catch player can use as ordinary cards.
+        function _pcBakeFace(svgContent, env, hidden) {
+            var wrap = document.createElement('div');
+            wrap.innerHTML = '<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">' + svgContent + '</svg>';
+            wrap.querySelectorAll('text[data-param]').forEach(function (t) {
+                var sym = t.getAttribute('data-param');
+                if (hidden && hidden[sym]) {
+                    t.textContent = ''; // the player must not see the answer slot's value
+                } else if (env[sym] != null) {
+                    t.textContent = String(env[sym]);
+                    t.style.opacity = '';
+                    t.removeAttribute('opacity');
+                }
+            });
+            var svg = wrap.querySelector('svg');
+            return svg ? svg.innerHTML : svgContent;
+        }
+        function _pcBakePairs(game, n) {
+            _mgMigrate(game);
+            var links = _pcAnswerLinks();
+            var prob = _mgActiveProb(game);
+            var entries = [];
+            (game.cards || []).forEach(function (info) {
+                if (info.isNote || info.emptyLine) return;
+                if (info.uid && links[info.uid]) return; // answer views don't generate
+                var params = _mgParamsByUid(info.uid);
+                var fx = _mgFxByUid(info.uid);
+                if (!params.length || !fx || !fx.text) return;
+                entries.push({ info: info, key: _probCardKey(info), fx: fx });
+            });
+            if (!entries.length) return { error: 'No playable lines — the game needs cards with parameters (Par) and a formula (f).' };
+            var totalW = 0;
+            entries.forEach(function (e) { e.w = _mgWeightFor(prob, e.key); totalW += e.w; });
+            if (totalW <= 0) return { error: 'All weights are 0 in preset “' + (prob.name || 'Prob') + '”.' };
+            var pairs = [], usedAnswers = {}, guard = 0;
+            while (pairs.length < n && guard < n * 12) {
+                guard++;
+                // per-slot weighted line draw (rare stays rare, never never)
+                var t = Math.random() * totalW, acc = 0, e = entries[entries.length - 1];
+                for (var q = 0; q < entries.length; q++) { acc += entries[q].w; if (t < acc) { e = entries[q]; break; } }
+                var eq = e.fx.text.indexOf('=');
+                var ansSym = eq >= 0 ? e.fx.text.slice(eq + 1).trim() : null;
+                if (!ansSym) return { error: 'Line “' + (e.info.label || '?') + '” has no computable answer — the formula needs an = with an answer symbol.' };
+                // Retry WITHIN the drawn line for a distinct answer, so small
+                // ranges aren't starved out of the weighted mix (re-drawing
+                // the line on every collision inverted the weights).
+                var g = null, aVal = null;
+                for (var tries = 0; tries < 25; tries++) {
+                    var cand = _pmGenEnvForCard(_mgCardStub(e.info));
+                    if (cand.error) return { error: (e.info.label ? '“' + e.info.label + '”: ' : '') + cand.error };
+                    var v = (cand.env[ansSym] != null) ? cand.env[ansSym] : null;
+                    if (v == null) return { error: 'Line “' + (e.info.label || '?') + '” has no computable answer.' };
+                    if (!usedAnswers[v]) { g = cand; aVal = v; break; }
+                }
+                if (!g) continue; // this line has no unused answers left — redraw
+                usedAnswers[aVal] = 1;
+                var hidden = _mgHiddenFor(game, e.info);
+                var probRec = _mgCardDataFor(e.info);
+                var problemSvg = (probRec && probRec.svgContent) ? _pcBakeFace(probRec.svgContent, g.env, hidden) : null;
+                // The linked ANSWER card's art if it exists; else a plain number.
+                var aUid = _pcAnswerUidFor(e.info.uid);
+                var ansSvg = null;
+                if (aUid) {
+                    var aRec = _mgCardDataFor({ uid: aUid });
+                    if (aRec && aRec.svgContent) ansSvg = _pcBakeFace(aRec.svgContent, g.env, null);
+                }
+                if (!ansSvg) ansSvg = '<text x="30" y="40" text-anchor="middle" font-size="26" font-weight="bold" fill="#1e90ff">' + _mpEsc(String(aVal)) + '</text>';
+                pairs.push({ lineKey: e.key, env: g.env, answer: aVal, problemSvg: problemSvg, answerSvg: ansSvg });
+            }
+            if (pairs.length < n) {
+                return { error: 'Only ' + pairs.length + ' distinct pairs could be baked — the ranges may be too small for ' + n + ' different answers.', pairs: pairs };
+            }
+            return { pairs: pairs };
         }
 
         // ---- Play a SAVED math game: the worksheet draws from all its cards
@@ -24515,8 +25218,10 @@
         function _wsGenerateFromGame(game, n, allowRepeats) {
             var prob = _mgActiveProb(game);
             var entries = [];
+            var wsLinks = (typeof _pcAnswerLinks === 'function') ? _pcAnswerLinks() : {};
             (game.cards || []).forEach(function (info) {
                 if (info.isNote) return; // authoring notes never reach the player
+                if (info.uid && wsLinks[info.uid]) return; // answer views don't generate
                 var params = _mgParamsByUid(info.uid);
                 var fx = _mgFxByUid(info.uid);
                 if (!params.length || !fx || !fx.text) return;
@@ -24577,8 +25282,11 @@
             if (activeCardSet === 'abc') info.cardSet = 'ABC';
             else if (activeCardSet === 'numbers') info.cardSet = 'Numbers and Dots';
             else info.cardSet = activeCardSet;
-            // Store SVG markup only if no stableId (stableId lookup provides live data)
-            if (!info.stableId && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
+            // Store SVG markup if no stableId (stableId lookup provides live
+            // data) — and ALWAYS for note cards: users remake Info/Examples
+            // cards, and the snapshot keeps the game's preview alive after
+            // the set-side original is deleted.
+            if ((!info.stableId || info.isNote) && cardSvgEl) info.svgMarkup = cardSvgEl.innerHTML;
             // Store card shape
             if (card.dataset.cardShape && card.dataset.cardShape !== 'square') {
                 info.cardShape = card.dataset.cardShape;
@@ -24631,6 +25339,8 @@
                         }
                         if (found && !matched[ecKey]) {
                             var info = { label: lbl.textContent, isVariation: ec.isVariation, uid: cardEl.dataset.uid || '' };
+                            // The note flag must survive an edit round-trip.
+                            if (cardEl.dataset.info === 'true' || ec.isNote) info.isNote = true;
                             if (cardEl.dataset.stableId) info.stableId = cardEl.dataset.stableId;
                             else if (ec.stableId) info.stableId = ec.stableId;
                             if (ec.isVariation) {
@@ -24676,11 +25386,28 @@
             }
             // Show selection bar
             var actionWord = gameMakerEditIndex >= 0 ? 'Edit' : 'Select';
-            document.getElementById('game-maker-bar-text').textContent = actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D';
+            // ADD mode (copy cards into a Math game) gets a MINIMAL bar: no
+            // text, no copy-mode select, no Select All/Clear/Complete/Cancel \u2014
+            // just Copy and \u2715 (user spec). Whatever is selected goes in.
+            var addMode = (typeof _gmMathAddToIdx !== 'undefined' && _gmMathAddToIdx != null);
+            // ADD mode explains WHY some lines look empty: in-game cards are
+            // hidden on purpose \u2014 only addable cards are offered.
+            document.getElementById('game-maker-bar-text').textContent =
+                addMode ? ('Select cards from the list below \u2014 these cards are currently not in \u201C' + gameMakerName + '\u201D')
+                        : (actionWord + ' cards for ' + typeLabel + ' \u201C' + gameMakerName + '\u201D');
+            ['gm-bar-selectall', 'gm-bar-clear', 'gm-bar-complete', 'gm-bar-cancel'].forEach(function (id) {
+                var b = document.getElementById(id); if (b) b.style.display = addMode ? 'none' : '';
+            });
+            ['gm-bar-copy', 'gm-bar-x'].forEach(function (id) {
+                var b = document.getElementById(id); if (b) b.style.display = addMode ? '' : 'none';
+            });
             // Math games: show the copy-mode select (card / card + its notes /
-            // just the notes) \u2014 other types always grab just the clicked card.
+            // just the notes) \u2014 hidden in ADD mode (plain card picks there).
             var copySel = document.getElementById('gm-copy-mode');
-            if (copySel) copySel.style.display = (gameMakerType === 'math') ? '' : 'none';
+            if (copySel) {
+                copySel.style.display = (gameMakerType === 'math' && !addMode) ? '' : 'none';
+                if (addMode) copySel.value = 'card';
+            }
             document.getElementById('game-maker-bar').style.display = 'flex';
         }
 
@@ -25317,6 +26044,12 @@
 
         function completeGame() {
             if (gameMakerSelected.length === 0) {
+                if (typeof _gmMathAddToIdx !== 'undefined' && _gmMathAddToIdx != null) {
+                    // ADD mode: a quiet reminder in the bar, no modal.
+                    var bt = document.getElementById('game-maker-bar-text');
+                    if (bt) bt.textContent = 'Select cards to copy into the game';
+                    return;
+                }
                 alert('Please select at least one card.');
                 return;
             }
@@ -27908,7 +28641,8 @@
             var _cGrpProbs = _migrateGroupProbsToCards(game);
             var _cProbMigrated = _migrateGameToProbOptions(game, catchIndex);
             var _cStripped = _stripGameRow(game); // #4 Step 3: remove leftover _gameRow
-            if (_cPromoted || _cSorted || _cMGrouped || _cProbed || _cGrpProbs || _cProbMigrated || _cStripped) {
+            var _cNoted = _gvBackfillNoteFlags(game); // legacy entries learn they are notes
+            if (_cPromoted || _cSorted || _cMGrouped || _cProbed || _cGrpProbs || _cProbMigrated || _cStripped || _cNoted) {
                 try { saveCatchGames(catchGames); } catch(e) {}
             }
 
@@ -28574,7 +29308,8 @@
             // to consume the Prob instead of the legacy fields.
             var _gProbMigrated = _migrateGameToProbOptions(game, gameIndex);
             var _gStripped = _stripGameRow(game); // #4 Step 3: remove leftover _gameRow
-            if (_gPromoted || _gSorted || _gMGrouped || _gProbed || _gGrpProbs || _gProbMigrated || _gRowRepaired || _gStripped) {
+            var _gNoted = _gvBackfillNoteFlags(game); // legacy entries learn they are notes
+            if (_gPromoted || _gSorted || _gMGrouped || _gProbed || _gGrpProbs || _gProbMigrated || _gRowRepaired || _gStripped || _gNoted) {
                 try { localStorage.setItem('savedCustomGames', JSON.stringify(games)); } catch(e) {}
             }
 
@@ -30508,6 +31243,20 @@
         // One-shot migration: ensure game.probOptions exists with at
         // least one entry built from the current state. Idempotent — if
         // probOptions is already a non-empty array, returns false.
+        // Backfill migration: game entries saved before the isNote flag
+        // existed learn it from their set record (info:true). Keeps note
+        // cards author-only in play and white-graph-paper in the game views.
+        function _gvBackfillNoteFlags(game) {
+            var changed = false;
+            (game && game.cards || []).forEach(function (c) {
+                if (!c || c.isNote || !c.stableId) return;
+                try {
+                    var rec = _findCardDataByStableId(c.stableId);
+                    if (rec && rec.info) { c.isNote = true; changed = true; }
+                } catch (e) {}
+            });
+            return changed;
+        }
         function _migrateGameToProbOptions(game, gameIndex) {
             if (!game) return false;
             if (Array.isArray(game.probOptions) && game.probOptions.length > 0) {
@@ -32869,6 +33618,9 @@
             // which deletes every card sharing that label.
             if (cardInfo.stableId) card.dataset.stableId = cardInfo.stableId;
             if (cardInfo.uid) card.dataset.uid = cardInfo.uid;
+            // Note cards keep their identity in game views too: the white
+            // graph-paper look (CSS keys on data-info) and note-only status.
+            if (cardInfo.isNote) card.dataset.info = 'true';
             if (cardInfo.cardShape && cardInfo.cardShape !== 'square') {
                 card.dataset.cardShape = cardInfo.cardShape;
                 card.dataset.cardShapeW = cardInfo.cardShapeW || 60;
@@ -33182,7 +33934,8 @@
                         cardCornerR: storedCard.cardCornerR,
                         isVariation: cardInfo.isVariation,
                         transform: cardInfo.transform,
-                        originalLabel: cardInfo.originalLabel
+                        originalLabel: cardInfo.originalLabel,
+                        isNote: !!(storedCard.info || cardInfo.isNote)
                     };
                     return buildCardFromMarkup(freshInfo);
                 }
@@ -33224,7 +33977,8 @@
                             cardCornerR: storedCard2.cardCornerR,
                             isVariation: cardInfo.isVariation,
                             transform: cardInfo.transform,
-                            originalLabel: cardInfo.originalLabel
+                            originalLabel: cardInfo.originalLabel,
+                            isNote: !!(storedCard2.info || cardInfo.isNote)
                         };
                         return buildCardFromMarkup(freshInfo2);
                     }

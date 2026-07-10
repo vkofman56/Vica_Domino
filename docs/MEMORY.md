@@ -1,5 +1,38 @@
 # Vica Domino Project Memory
-**Last Updated**: July 9, 2026 — **Math-creator UX round, card-edit guard, parametric Catch phase 1, notes fixed in Find/Catch play** (see the July 9 section + STATUS_NOTES). Prior: July 7–8 two parallel streams (Par per-rule + Math saved games), both deployed.
+**Last Updated**: July 10, 2026 — **PLAYER-SIDE SECRECY PRINCIPLE decided** (see below — binds all parametric-play work) + parametric Find-board spec agreed. Prior: July 9 Math-creator round + parametric Catch phase 1; July 7–8 Par per-rule streams.
+
+---
+
+## 🔒 July 10, 2026 — STANDING PRINCIPLE: the player never gets the game's program
+
+**The user's concern (drives ALL future architecture):** a player may be a
+hacker trying to crack a game and recreate it. The program behind a game —
+the authored parameter rules — must not be stealable from the player side.
+
+- Anything delivered to the player's browser is readable (cleartext JS,
+  localStorage in DevTools). Shipping the generation engine + a game's rule
+  definitions to the player = handing over the recipe verbatim. Shipping only
+  BAKED instances = the copycat sees samples (a printed worksheet) and can
+  only approximate the rules, never be sure of them.
+- **Therefore:** parametric games ship ONLY baked outputs (concrete
+  instances / frozen faces) to `index.html`/`js/game.js`. The `_mp*`/`_pm*`
+  engine and the authored stores (`cardMathParams_v1`, `cardMathFormula_v1`,
+  `cardMathRel_v1`) STAY in the Studio and must never join the sync payload
+  for player devices.
+- **REJECTED:** "phase 2 = live in-game generation" from the July 9
+  parametric-Catch plan. Phase 2 must be a bake-refresh, not a live engine.
+- Published games already follow this philosophy (`?playPublished` ships a
+  frozen bundle) — baked instance pools extend the same idea.
+
+**Agreed parametric FIND-board spec (option 1, July 10):** when a game's cards
+carry parameters, (1) the STUDIO bakes a generous instance pool at game
+save/launch — all instances (capped for huge spaces), digit-diverse (each digit
+randomized separately), answers computed — stored WITH the game; (2) the player
+only substitutes baked values into faces and deals them; (3) NO repeated answer
+within one board page (the red-column cards); (4) two (ideally three)
+consecutive plays of a game must show different problems — per-game history on
+the play side — unless the author's "Repeats OK" override allows repetition
+(mirrors the worksheet's existing Repeats rule).
 
 ---
 

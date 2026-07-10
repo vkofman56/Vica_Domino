@@ -184,8 +184,21 @@ set how often each kind/range of problem appears; falling answers are DISTINCT.
 
 **The plan:** (1) explicit problem↔answer link (not inferred from line position);
 (2) phase 1 = PRE-BAKED instance pairs — static faces the existing Catch player
-can use as ordinary paired cards, zero game.js changes; (3) phase 2 (later) =
-live in-game generation. Recommended maker = the Math setup + Catch options.
+can use as ordinary paired cards, zero game.js changes; (3) ~~phase 2 (later) =
+live in-game generation~~ **SUPERSEDED July 10 — see the SECRECY PRINCIPLE
+below: phase 2 must be a bake-REFRESH (new pool baked in the Studio), never a
+live engine in the player.** Recommended maker = the Math setup + Catch options.
+
+### 🔒 SECRECY PRINCIPLE (July 10 — binds every parametric-play decision)
+The user's explicit concern: a player may be a hacker trying to crack the game
+and recreate it. **The player side must NEVER receive a game's generating
+program** — only BAKED outputs (concrete instances / frozen faces). The
+`_mp*`/`_pm*` engine and the authored math stores (`cardMathParams_v1`,
+`cardMathFormula_v1`, `cardMathRel_v1`) stay in the Studio; they must never
+ship to `index.html`/`js/game.js` nor join the sync payload for player devices.
+Rationale + the agreed FIND-board spec (bake-at-save pool, per-page distinct
+answers, 2–3-game no-repeat history, author-side "Repeats OK" override) are in
+`docs/MEMORY.md` §July 10.
 
 **Phase 1 SHIPPED pieces:**
 - **＋ Answer card** (i-panel, next to ＋ Info card): drops the linked answer

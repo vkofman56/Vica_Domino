@@ -26,6 +26,18 @@
         /* Shift-click multi-select for bulk drag. Cyan dashed outline so
            it's visually distinct from M-mode's solid-white selection. */
         .gv-drag-selected { outline: 3px dashed #00BFFF !important; outline-offset: 2px; border-radius: 8px; }
+        /* Dragging a NOTE card over a normal card = ATTACH target: gold glow;
+           dropping puts the note right after this card. */
+        .note-attach-target { outline: 3px solid #FFD700 !important; outline-offset: 2px; border-radius: 8px; box-shadow: 0 0 12px rgba(255,215,0,0.55); }
+        /* An ATTACHED note (sits right after its card in the row): dashed-gold
+           note outline + a small gold bridge across the 8px row gap to its
+           card — the same visual language as the Math setup's note tags. */
+        .library-card.note-attached { outline: 2px dashed rgba(245,197,24,0.65); outline-offset: 2px; border-radius: 8px; position: relative; }
+        .library-card.note-attached::before {
+            content: ''; position: absolute; left: -12px; top: 50%; width: 12px; height: 3px;
+            background: #f5c518; border-radius: 2px; transform: translateY(-50%);
+            box-shadow: 0 0 3px rgba(245,197,24,0.7); pointer-events: none; z-index: 2;
+        }
         /* Stage 3: group/probability popup */
         .group-edit-overlay {
             position: fixed; top:0; left:0; right:0; bottom:0;
@@ -203,6 +215,16 @@
         .gn-param-btns button { font: inherit; border: 0; border-radius: 7px; padding: 6px 16px; cursor: pointer; }
         .gn-param-ok { background: #FFD700; color: #222; font-weight: 700; }
         .gn-param-cancel { background: rgba(255,255,255,0.15); color: #ccc; }
+
+        /* === Note-card ↔ host-card CHAINS (cardNoteLinks_v1) ===
+           A note attached to a card shows a clickable ⛓ in the gap when adjacent,
+           or a 🔗 badge naming its host when placed elsewhere; hovering either
+           side glows the whole family. Clicking ⛓/🔗 detaches (with Undo). */
+        .cnl-chain { align-self: center; flex: 0 0 auto; cursor: pointer; font-size: 17px; line-height: 1; padding: 6px 1px; margin: 0 -13px; z-index: 3; color: #e0c060; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45)); user-select: none; transition: transform 0.12s, color 0.12s; }
+        .cnl-chain:hover { color: #ff6b6b; transform: scale(1.25); }
+        .cnl-badge { position: absolute; top: -9px; left: -7px; z-index: 6; background: #2c2c44; border: 1px solid #e0c060; color: #e0c060; font-size: 10px; font-weight: 700; border-radius: 9px; padding: 1px 7px; cursor: pointer; white-space: nowrap; line-height: 1.5; }
+        .cnl-badge:hover { background: #3a3a55; color: #ff6b6b; border-color: #ff6b6b; }
+        .cnl-glow { outline: 3px solid rgba(224,192,96,0.9); outline-offset: 2px; border-radius: 8px; }
 
         /* === Game-type cards (Library) + directory screen === */
         /* Game-type cards match the left column's card-set buttons (color/height). */
@@ -1145,7 +1167,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:09 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1163,7 +1185,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:09 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1405,7 +1427,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:14 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -6251,7 +6273,12 @@
             }
             if (typeof addCardDeleteButton === 'function') addCardDeleteButton(card);
             if (typeof addCopyButton === 'function') addCopyButton(card);
+            // A freshly generated note card is ATTACHED to the card it was made
+            // from (the chain shows the bond; click ⛓ to detach). Answer cards
+            // detach again right after — they use cardAnswerLinks_v1 instead.
+            _cnlAttach(card.dataset.uid, loupeSourceCard.dataset.uid);
             if (typeof saveCustomCards === 'function') saveCustomCards();
+            _cnlDecorateGrid();
             return { label: label };
         }
         // ===== ANSWER cards (parametric Catch, phase 1) =====
@@ -6276,6 +6303,115 @@
             for (var k in s) if (s[k] === problemUid) return k;
             return null;
         }
+        // ===== NOTE-card ↔ host-card LINKS ("chains") =====
+        // A note card (data-info) can be ATTACHED to a real card: cardNoteLinks_v1
+        // maps noteUid → hostUid (ONE host per note; a host may have many notes) —
+        // same uid-keyed-store pattern as cardAnswerLinks_v1. Note content is
+        // STATIC (user, July 10): attaching / detaching / copying / moving never
+        // regenerates anything — only the user edits a note after it's made.
+        var _CNL_KEY = 'cardNoteLinks_v1';
+        function _cnlLinks() { try { return JSON.parse(localStorage.getItem(_CNL_KEY) || '{}') || {}; } catch (e) { return {}; } }
+        function _cnlSaveLinks(m) { try { localStorage.setItem(_CNL_KEY, JSON.stringify(m)); } catch (e) {} }
+        function _cnlAttach(noteUid, hostUid) {
+            if (!noteUid || !hostUid || noteUid === hostUid) return;
+            var m = _cnlLinks(); m[noteUid] = hostUid; _cnlSaveLinks(m);
+        }
+        function _cnlDetach(noteUid) {
+            var m = _cnlLinks();
+            if (m[noteUid] == null) return null;
+            var host = m[noteUid]; delete m[noteUid]; _cnlSaveLinks(m);
+            return host;
+        }
+        function _cnlHostOf(noteUid) { return _cnlLinks()[noteUid] || null; }
+        function _cnlCardLabel(card) { var l = card && card.querySelector('.library-label'); return l ? l.textContent : '?'; }
+        // Decorate the visible grid: ⛓ in the gap for a note sitting right after its
+        // host (or after a sibling note of the same host — a chain run); a 🔗 badge
+        // naming the host when the note is placed elsewhere. Idempotent — clears and
+        // re-adds, safe to call after any grid change.
+        function _cnlDecorateGrid() {
+            var root = document.getElementById('domino-library-screen');
+            if (!root) return;
+            root.querySelectorAll('.cnl-chain, .cnl-badge').forEach(function (el) { el.remove(); });
+            var links = _cnlLinks();
+            var noteUids = Object.keys(links);
+            if (!noteUids.length) return;
+            var byUid = {};
+            root.querySelectorAll('.library-card[data-uid]').forEach(function (c) { byUid[c.dataset.uid] = c; });
+            noteUids.forEach(function (nu) {
+                var note = byUid[nu]; if (!note) return;
+                var host = byUid[links[nu]]; if (!host) return; // other set / deleted → silent
+                var prev = note.previousElementSibling;
+                while (prev && !(prev.classList && prev.classList.contains('library-card'))) prev = prev.previousElementSibling;
+                var sameRow = note.closest('.library-row') === host.closest('.library-row');
+                var adjacent = sameRow && prev && (prev === host || (prev.dataset && links[prev.dataset.uid] === links[nu]));
+                var el;
+                if (adjacent) {
+                    el = document.createElement('div');
+                    el.className = 'cnl-chain';
+                    el.textContent = '⛓';
+                    note.parentNode.insertBefore(el, note);
+                } else {
+                    el = document.createElement('button');
+                    el.type = 'button';
+                    el.className = 'cnl-badge';
+                    el.textContent = '🔗 ' + _cnlCardLabel(host);
+                    note.appendChild(el);
+                }
+                el.title = 'Attached to card ' + _cnlCardLabel(host) + ' — click to detach';
+                el.dataset.noteUid = nu;
+                el.addEventListener('click', _cnlChainClick);
+                _cnlWireGlow(note, nu);
+                _cnlWireGlow(host, nu);
+            });
+        }
+        // Hover on a note or its host glows the whole family. Listeners verify the
+        // link still exists at fire time, so stale wiring from earlier passes (the
+        // cards persist across decorations) can never glow a detached pair.
+        function _cnlWireGlow(card, noteUid) {
+            if (!card._cnlWired) card._cnlWired = {};
+            if (card._cnlWired[noteUid]) return;
+            card._cnlWired[noteUid] = true;
+            function family() {
+                var host = _cnlHostOf(noteUid);
+                if (!host) return [];
+                var links = _cnlLinks(), fam = [];
+                var root = document.getElementById('domino-library-screen');
+                if (!root) return [];
+                root.querySelectorAll('.library-card[data-uid]').forEach(function (c) {
+                    if (c.dataset.uid === host || links[c.dataset.uid] === host) fam.push(c);
+                });
+                return fam;
+            }
+            card.addEventListener('mouseenter', function () { family().forEach(function (c) { c.classList.add('cnl-glow'); }); });
+            card.addEventListener('mouseleave', function () {
+                var root = document.getElementById('domino-library-screen');
+                if (root) root.querySelectorAll('.cnl-glow').forEach(function (c) { c.classList.remove('cnl-glow'); });
+            });
+        }
+        function _cnlChainClick(e) {
+            e.stopPropagation(); e.preventDefault();
+            var nu = e.currentTarget.dataset.noteUid;
+            var host = _cnlDetach(nu);
+            _cnlDecorateGrid();
+            _cnlToastUndo('Note detached.', host ? function () { _cnlAttach(nu, host); _cnlDecorateGrid(); } : null);
+        }
+        function _cnlToastUndo(msg, undoFn) {
+            var old = document.getElementById('cnl-toast'); if (old) old.remove();
+            var t = document.createElement('div');
+            t.id = 'cnl-toast';
+            t.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:22000;display:flex;gap:12px;align-items:center;background:rgba(25,28,48,0.96);border:1px solid rgba(255,215,0,0.6);color:#f2e9c8;font:600 13px "Segoe UI",sans-serif;padding:9px 16px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.5);';
+            var span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
+            if (undoFn) {
+                var u = document.createElement('button');
+                u.textContent = 'Undo';
+                u.style.cssText = 'background:none;border:1px solid rgba(255,215,0,0.7);color:#ffd54f;border-radius:8px;padding:3px 12px;cursor:pointer;font:700 12px "Segoe UI",sans-serif;';
+                u.onclick = function () { t.remove(); try { undoFn(); } catch (e2) {} };
+                t.appendChild(u);
+            }
+            document.body.appendChild(t);
+            setTimeout(function () { t.style.opacity = '0'; t.style.transition = 'opacity 0.4s'; }, 6000);
+            setTimeout(function () { t.remove(); }, 6600);
+        }
         // "＋ Answer card" (i-panel): drop the linked answer card on the line.
         function _pmMakeAnswerCard() {
             if (!loupeSourceCard) return;
@@ -6290,8 +6426,10 @@
             if (res.error) { warn(res.error); return; }
             var card = loupeSourceCard.nextSibling; // _pmDropRefCard inserts right after
             if (!card || !card.dataset) return;
-            // A real playable card, NOT a note: undo the reference-card marks.
+            // A real playable card, NOT a note: undo the reference-card marks
+            // (including the note-chain — answer links have their own store).
             delete card.dataset.info;
+            _cnlDetach(card.dataset.uid);
             card.dataset.origin = 'answer';
             // Same instance space as the problem card…
             _pmCopyCardMathData(loupeSourceCard.dataset.uid, card.dataset.uid);
@@ -7611,6 +7749,8 @@
             // contenteditable label…) would swallow Delete/arrows until some
             // other click happened to blur it — keys must work immediately.
             if (typeof _loupeBlurTextField === 'function') _loupeBlurTextField();
+            // Paste placement starts fresh per card: no click yet → legacy nudge.
+            _loupeLastClickPt = null;
             _loupePanelMoved = false; // each editor session starts with no-overlap on
             document.body.classList.add('loupe-active'); // editing: show only the two relevant left-toolbar tools
             // Relocate the EXISTING border (▣) button out of the zoom panel and
@@ -10143,7 +10283,30 @@
         }
         if (typeof window !== 'undefined') window._roleColor = _roleColor;
 
+        // Visual note↔card CONNECTION in the Card Maker (user request July 10):
+        // a note card sitting right AFTER a normal card (the attach rule) gets
+        // the dashed-gold note outline + a gold link-bridge to its card — the
+        // same visual language the Math setup uses for attached notes. A chain
+        // of notes after one card all read as attached to it.
+        function _pmApplyNoteLinks() {
+            var content = document.querySelector('#domino-library-screen .domino-library-content');
+            if (!content) return;
+            content.querySelectorAll('.library-card.note-attached').forEach(function (c) {
+                c.classList.remove('note-attached');
+            });
+            content.querySelectorAll('.library-row').forEach(function (row) {
+                var cards = row.querySelectorAll(':scope > .library-card');
+                for (var i = 1; i < cards.length; i++) {
+                    if (cards[i].dataset.info !== 'true') continue;
+                    var prev = cards[i - 1];
+                    if (prev.dataset.info !== 'true' || prev.classList.contains('note-attached')) {
+                        cards[i].classList.add('note-attached');
+                    }
+                }
+            });
+        }
         function _applyRoleBadges() {
+            try { _pmApplyNoteLinks(); } catch (e) {}
             try {
                 var setName = (typeof getCurrentCardSetName === 'function') ? getCurrentCardSetName() : '';
                 if (!setName) return; // setName still used below for line-role tints
@@ -12168,10 +12331,27 @@
         // Holds cloned SVG elements until next paste. Lives across loupe sessions
         // so the user can copy on one card and paste on another.
         var _loupeElementClipboard = [];
+        // Combined bbox of the copied group (source-card SVG units) — the paste
+        // centers this box on the user's click point on the target card.
+        var _loupeElementClipboardBBox = null;
+        // The last place the user pressed on the loupe card (SVG units). Paste
+        // lands there; null (no click yet this session) → legacy +5/+5 nudge.
+        var _loupeLastClickPt = null;
 
         function loupeCopyElement() {
             var sel = (typeof getAllSelectedElements === 'function') ? getAllSelectedElements() : [];
             if (!sel || sel.length === 0) return;
+            _loupeElementClipboardBBox = null;
+            sel.forEach(function(el) {
+                var b; try { b = getSvgSpaceBBox(el); } catch (e) { return; }
+                if (!b || !isFinite(b.width)) return;
+                var bb = _loupeElementClipboardBBox;
+                if (!bb) { _loupeElementClipboardBBox = { x: b.x, y: b.y, x2: b.x + b.width, y2: b.y + b.height }; }
+                else {
+                    bb.x = Math.min(bb.x, b.x); bb.y = Math.min(bb.y, b.y);
+                    bb.x2 = Math.max(bb.x2, b.x + b.width); bb.y2 = Math.max(bb.y2, b.y + b.height);
+                }
+            });
             _loupeElementClipboard = sel.map(function(el) {
                 var clone = el.cloneNode(true);
                 if (clone.classList) {
@@ -12200,10 +12380,29 @@
             if (typeof deselectElement === 'function') deselectElement();
 
             var anchor = drawHistory.length;
-            // Small offset in SVG units (cards are ~60×80) so the paste is
-            // visibly nudged off the source rather than perfectly stacked.
+            // WHERE the paste lands (user rule, July 10): centered on the LAST
+            // CLICKED point on this card, clamped so the whole group stays on
+            // the card — the group's internal layout is preserved. With no
+            // click yet this session, the legacy +5/+5 nudge applies (a paste
+            // onto the same card doesn't stack invisibly on the original).
             var dx = 5, dy = 5;
+            var bb = _loupeElementClipboardBBox;
+            if (_loupeLastClickPt && bb) {
+                var bw = bb.x2 - bb.x, bh = bb.y2 - bb.y;
+                dx = _loupeLastClickPt.x - (bb.x + bw / 2);
+                dy = _loupeLastClickPt.y - (bb.y + bh / 2);
+                var vb = _loupeCardVB();
+                // Clamp the pasted bbox inside the card (right/bottom first, so
+                // an oversized group pins to the top-left rather than clipping).
+                dx = Math.min(dx, (vb.x + vb.w) - bb.x2);
+                dy = Math.min(dy, (vb.y + vb.h) - bb.y2);
+                dx = Math.max(dx, vb.x - bb.x);
+                dy = Math.max(dy, vb.y - bb.y);
+                // Repeat pastes at the same click cascade instead of stacking.
+                _loupeLastClickPt = { x: _loupeLastClickPt.x + 4, y: _loupeLastClickPt.y + 4 };
+            }
 
+            var _pasted = [];
             _loupeElementClipboard.forEach(function(el) {
                 var fresh = el.cloneNode(true);
                 // Strip ids on the new copy and any descendants — duplicate ids
@@ -12235,6 +12434,7 @@
                 svg.appendChild(fresh);
                 drawRedoStack.length = 0;
                 drawHistory.push(fresh);
+                _pasted.push(fresh);
             });
 
             // Coalesce multi-element pastes into a single undo entry so one
@@ -12243,6 +12443,11 @@
                 _coalesceLoupeHistory(anchor);
             }
             hasEditedExisting = true;
+            // The pasted group arrives SELECTED as a whole (user rule): drag or
+            // arrow-nudge moves it together; a click on empty space deselects.
+            _pasted.forEach(function(el, i) {
+                try { selectElement(el, i > 0); } catch (e) {}
+            });
         }
 
         var drawMouseDownHandler = null;
@@ -12384,6 +12589,8 @@
                 if (!drawModeActive) return;
                 _endLiveType(); // any new press ends a live-typing session
                 _loupeBlurTextField(); // focus leaves text fields — keys belong to the card now
+                // Remember where the user pressed — a later paste centers there.
+                try { _loupeLastClickPt = _loupePointerToSvg(e.clientX, e.clientY, container); } catch (er) {}
 
                 var target = e.target;
                 // A drawing tool + click inside a label box → let the click DRAW content
@@ -16976,6 +17183,7 @@
             var dropIndicator = null; // vertical line between cards
             var dropRefCard = null;   // card before which we'll insert
             var dropAtEnd = false;    // insert at end of row
+            var dropAttachCard = null; // NOTE drag hovering a normal card → attach AFTER it
             var DRAG_THRESHOLD = 8;
 
             // Create the drop indicator element (vertical line)
@@ -17009,6 +17217,11 @@
                 dropIndicator.style.display = 'none';
                 dropRefCard = null;
                 dropAtEnd = false;
+                _clearAttachTarget();
+            }
+            function _clearAttachTarget() {
+                if (dropAttachCard) dropAttachCard.classList.remove('note-attach-target');
+                dropAttachCard = null;
             }
 
             function findInsertPosition(row, pointerX) {
@@ -17120,6 +17333,28 @@
                         dragOverRow.classList.add('drag-over');
                     }
                 }
+                // NOTE card over a NORMAL card = ATTACH mode (user request July
+                // 10): the target card highlights and the drop puts the note
+                // right AFTER it — no left/right-half ambiguity, so the note
+                // always FOLLOWS the card it explains (the order the Math
+                // setup's grouping and the games read).
+                var _newAttach = null;
+                if (dragCard && dragCard.dataset && dragCard.dataset.info === 'true' && !dragMulti) {
+                    var _overEl = document.elementFromPoint(e.clientX, e.clientY);
+                    var _overCard = _overEl && _overEl.closest ? _overEl.closest('.library-card') : null;
+                    if (_overCard && _overCard !== dragCard && _overCard.dataset.info !== 'true' &&
+                        (dragCardSet || contentEl).contains(_overCard)) _newAttach = _overCard;
+                }
+                if (_newAttach !== dropAttachCard) {
+                    _clearAttachTarget();
+                    if (_newAttach) { dropAttachCard = _newAttach; dropAttachCard.classList.add('note-attach-target'); }
+                }
+                if (dropAttachCard) {
+                    dropIndicator.style.display = 'none';
+                    dropRefCard = null;
+                    dropAtEnd = false;
+                    return;
+                }
                 // Show drop indicator for within-row reorder or cross-row insert position
                 if (dragOverRow) {
                     var pos = findInsertPosition(dragOverRow, e.clientX);
@@ -17152,6 +17387,22 @@
                             function() { try { _ctxMoveCardOrSelectionToRow(_dCard, _dRow); } catch (ex) {} },
                             function() { try { _ctxCopyCardOrSelectionToRow(_dCard, _dRow); } catch (ex) {} });
                         return;
+                    }
+                    // ATTACH drop (note card released on a highlighted normal
+                    // card): the note lands right AFTER that card — reuses the
+                    // ordinary insert/renumber/save flow below.
+                    if (dropAttachCard) {
+                        dragOverRow = dropAttachCard.closest('.library-row');
+                        var _an = dropAttachCard.nextElementSibling;
+                        while (_an && !(_an.classList && _an.classList.contains('library-card'))) _an = _an.nextElementSibling;
+                        dropRefCard = _an; // null → append at the row's end
+                        var _attachedTo = (dropAttachCard.querySelector('.library-label') || {}).textContent || 'the card';
+                        if (typeof _geFlash === 'function') setTimeout(function () { _geFlash('Note attached after ' + _attachedTo); }, 0);
+                        // The drop also records the EXPLICIT bond (cardNoteLinks_v1):
+                        // the ⛓ chain / 🔗 badge and click-to-detach live on this
+                        // link, independent of where the note is later moved.
+                        // Dropping on another card re-attaches (one host per note).
+                        try { _cnlAttach(dragCard.dataset.uid, dropAttachCard.dataset.uid); } catch (ex) {}
                     }
                     var moved = false;
                     var crossRowMove = false;
@@ -17188,6 +17439,8 @@
                         if (crossRowMove) {
                             if (typeof saveVariations === 'function') saveVariations();
                         }
+                        // The note↔card link visuals follow the new order right away.
+                        if (typeof _pmApplyNoteLinks === 'function') { try { _pmApplyNoteLinks(); } catch (ex2) {} }
                     }
                     // Prevent the click handler from firing
                     cardDragJustEnded = true;
@@ -19121,6 +19374,8 @@
             container.querySelectorAll('.library-row').forEach(function(row) {
                 updateRowEmptyState(row);
             });
+            // Grid (re)built or reordered — re-draw the note↔card chains.
+            try { _cnlDecorateGrid(); } catch (e) {}
         }
 
         function deleteCard(card) {
@@ -21226,6 +21481,9 @@
             // "intentional duplicate" pair no longer identical — prune the stale tags
             // now so the badge disappears immediately, not only on set re-entry.
             if (!_inDupRefresh && typeof _dupTagRefresh === 'function') _dupTagRefresh();
+            // Re-draw the note↔card chains — any grid change funnels through here
+            // (copies, deletes, moves), and decoration is idempotent.
+            try { _cnlDecorateGrid(); } catch (e) {}
         }
 
         function buildNumbersCardSet() {

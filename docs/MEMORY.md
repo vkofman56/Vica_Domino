@@ -1,5 +1,52 @@
 # Vica Domino Project Memory
-**Last Updated**: July 10, 2026 — **PLAYER-SIDE SECRECY PRINCIPLE decided** (see below — binds all parametric-play work) + parametric Find-board spec agreed. Prior: July 9 Math-creator round + parametric Catch phase 1; July 7–8 Par per-rule streams.
+**Last Updated**: July 10, 2026 (night) — **parametric FIND + CATCH play SHIPPED under the secrecy principle**, note↔card links, paste-at-click (see the sections below + STATUS_NOTES). Prior: July 9 Math-creator round + parametric Catch phase 1; July 7–8 Par per-rule streams.
+
+---
+
+## 🎯 July 10, 2026 (night) — parametric play shipped; note links; paste rules
+
+- **Parametric FIND + CATCH both play from Studio-baked pools** (commits
+  `f1908c8` + `8da5f16`). One baker (`_pfBakeFindGame`, game-type-agnostic)
+  writes `game.paramBake` = per-problem-card pools of 60 digit-diverse
+  instances as VALUE MAPS ({k, a, p: problem face / hidden→'', s: answer
+  face}) + answer links; refreshed on every Library ▶
+  (`_pfRefreshFindBake`/`_pfRefreshCatchBake`). The player
+  (`_paramChooseInstances`) deals **3 instances per problem card** (min 2 —
+  never a one-domino deck), answers DISTINCT across the deal,
+  `paramPlayHistory_v1` avoids the last 2–3 plays (relax 3→2→1), author-side
+  "Repeats OK" checkbox in both game views. **Match value = the instance's
+  ANSWER** → Find: the double = a problem over its true answer, Level 2/3/4
+  drives the board count; Catch: problem slot FROZEN, answer slot FLOATING —
+  the native round logic then freezes the problem and drops its answer among
+  the other instances' answers.
+- **Problem↔answer links INFER at bake** when missing (manual answer cards):
+  same formula text, one card HIDES the answer symbol (the problem), the
+  other SHOWS it. Explicit `cardAnswerLinks_v1` wins; 2+-problem groups stay
+  untouched. Without a link both baked independent pools → values never met
+  → NO DOUBLES on the board (the July 10 user report).
+- **Play faces are author-chrome-free**: `_stripCardLabelsMarkup` (both the
+  Find pool and now `_catchBuildCardSVG`) removes label/note boxes, the
+  baked `g.pm-param-boxes`, AND loose note text — text over a note box is
+  geometrically inside but structurally a loose svg child (the label-zone
+  rule is geometric), so box-group removal alone orphaned the note lines.
+- **Note↔card connection lives in the Card Maker** (the games inherit it):
+  drop a NOTE (data-info) card ON a normal card → gold attach glow → the
+  note lands right AFTER it (adjacency = the association the Math setup and
+  games read; dashed-gold outline + gold bridge render via
+  `_pmApplyNoteLinks`, re-applied by `_applyRoleBadges`). The parallel
+  stream added the EXPLICIT store **`cardNoteLinks_v1`** on the same drop
+  (`_cnl*`: loupe attach, detach + undo toast, glow/chain) — an attach
+  records BOTH.
+- **Loupe paste rules (user spec)**: paste centers the copied group's bbox
+  on the LAST CLICKED point (tracked on card mousedown, reset per loupe
+  session), CLAMPED fully on-card; the group arrives SELECTED as a whole
+  (group-drag/arrows move it; empty-space click deselects); repeat pastes
+  cascade +4; no click yet → the legacy +5/+5 nudge. The old rule ignored
+  the click entirely — bottom-right groups pasted too low/right, off-edge.
+- The visibility-EYE edit guard, the `_svShowGameUsageDialog` onProceed
+  callback, and the eye-toggle Safe-Haven freeze semantics are in the July
+  10 STATUS entry — any future write-through edit to a game-used card's
+  MEANING must run the same guard.
 
 ---
 

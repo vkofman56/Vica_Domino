@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:11 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">09:11 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -1189,10 +1189,44 @@
         // Author-only label boxes (g.card-label) appear in Card Maker / Game Maker but
         // never in the game — strip them from card markup before rendering in play.
         function _stripCardLabelsMarkup(markup) {
-            if (!markup || markup.indexOf('card-label') < 0) return markup;
+            if (!markup) return markup;
+            if (markup.indexOf('card-label') < 0 && markup.indexOf('pm-param-boxes') < 0) return markup;
             var t = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             t.innerHTML = markup;
+            // The label (note) BOX rects — remembered BEFORE removing the groups,
+            // so the author's note TEXT can be dropped too: text written over the
+            // box is geometrically in the label but structurally a loose svg
+            // child (the Studio's label-zone rule is geometric as well). Without
+            // this, stripping the group leaves orphan note lines on the face.
+            var boxes = [];
+            t.querySelectorAll('rect.card-label-box').forEach(function (r) {
+                var x = +r.getAttribute('x'), y = +r.getAttribute('y');
+                var w = +r.getAttribute('width'), h = +r.getAttribute('height');
+                if (isFinite(x) && isFinite(y) && w > 0 && h > 0) boxes.push({ x: x, y: y, w: w, h: h });
+            });
             t.querySelectorAll('.card-label, [data-card-label]').forEach(function (n) { n.remove(); });
+            // Author-only parameter boxes (the colored rounded rects baked by the
+            // Card Maker) never print in play.
+            t.querySelectorAll('g.pm-param-boxes').forEach(function (n) { n.remove(); });
+            if (boxes.length) {
+                function anchor(el) {
+                    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+                    var ax = null, ay = null;
+                    if (tag === 'text' || tag === 'rect' || tag === 'image' || tag === 'use') { ax = +el.getAttribute('x'); ay = +el.getAttribute('y'); }
+                    else if (tag === 'circle' || tag === 'ellipse') { ax = +el.getAttribute('cx'); ay = +el.getAttribute('cy'); }
+                    else if (tag === 'line') { ax = +el.getAttribute('x1'); ay = +el.getAttribute('y1'); }
+                    return (isFinite(ax) && isFinite(ay)) ? { x: ax, y: ay } : null;
+                }
+                Array.prototype.slice.call(t.querySelectorAll('text, rect, circle, ellipse, line, image, use')).forEach(function (el) {
+                    if (el.closest && el.closest('g.pm-param-boxes')) return; // already gone
+                    var a = anchor(el);
+                    if (!a) return;
+                    for (var i = 0; i < boxes.length; i++) {
+                        var b = boxes[i];
+                        if (a.x >= b.x && a.x <= b.x + b.w && a.y >= b.y && a.y <= b.y + b.h) { el.remove(); break; }
+                    }
+                });
+            }
             return t.innerHTML;
         }
         function getGameCardSVG(cardInfo) {
@@ -4705,6 +4739,7 @@
         //    the author's "Repeats OK" override is on,
         //  - a linked answer card shows the SAME instance as its problem card.
         var _PARAM_HIST_KEY = 'paramPlayHistory_v1';
+        var _PARAM_DEAL_K = 3; // instances per problem card per play (min 2 — never one domino)
         function _paramChooseInstances(game) {
             var bake = game && game.paramBake;
             if (!bake || bake.v !== 1 || !bake.cards) return null;
@@ -4719,11 +4754,14 @@
                 if (!pool.length) return;
                 // Instance keys this card used in the last N plays (3 → 2 → 1 → 0:
                 // avoid three plays back when the pool allows, degrade gracefully).
+                // Old history entries stored one key; new ones store an array.
                 function pickAvoiding(depth) {
                     var avoid = {};
                     if (!bake.repeatsOK && depth > 0) {
                         gh.slice(-depth).forEach(function (h) {
-                            if (h && h.used && h.used[uid]) avoid[h.used[uid]] = 1;
+                            var u = h && h.used && h.used[uid];
+                            if (!u) return;
+                            (Array.isArray(u) ? u : [u]).forEach(function (k) { avoid[k] = 1; });
                         });
                     }
                     var cands = pool.filter(function (inst) {
@@ -4731,31 +4769,47 @@
                     });
                     return cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
                 }
-                var inst = pickAvoiding(3) || pickAvoiding(2) || pickAvoiding(1) || pickAvoiding(0);
-                // Distinct answers are the hard rule; only a degenerate pool
-                // (every instance's answer already taken) falls back to any.
-                if (!inst) inst = pool[Math.floor(Math.random() * pool.length)];
-                byUid[uid] = inst;
-                usedAnswers[inst.a] = 1;
+                // SEVERAL instances per problem card — the board must hold
+                // several dominos (2–3), never one. Distinct answers are the
+                // hard rule (so K shrinks when the pool can't offer more).
+                var picks = [];
+                for (var n = 0; n < _PARAM_DEAL_K; n++) {
+                    var inst = pickAvoiding(3) || pickAvoiding(2) || pickAvoiding(1) || pickAvoiding(0);
+                    if (!inst && !picks.length) {
+                        // Degenerate pool (every answer taken by other cards):
+                        // still deal SOMETHING rather than an empty card.
+                        inst = pool[Math.floor(Math.random() * pool.length)];
+                    }
+                    if (!inst) break;
+                    picks.push(inst);
+                    usedAnswers[inst.a] = 1;
+                }
+                if (picks.length) byUid[uid] = picks;
             });
             if (!Object.keys(byUid).length) return null;
             // Record this play in the per-game history (keep the last 3).
             var used = {};
-            Object.keys(byUid).forEach(function (uid) { used[uid] = byUid[uid].k; });
+            Object.keys(byUid).forEach(function (uid) {
+                used[uid] = byUid[uid].map(function (inst) { return inst.k; });
+            });
             gh.push({ t: Date.now(), used: used });
             while (gh.length > 3) gh.shift();
             hist[game.name] = gh;
             try { localStorage.setItem(_PARAM_HIST_KEY, JSON.stringify(hist)); } catch (e) {}
             return { byUid: byUid, links: bake.links || {} };
         }
-        // The instance (and which face map) for a card uid: a problem card uses
-        // its own instance's problem map; a linked ANSWER card uses its
-        // problem's instance with everything visible.
-        function _paramInstFor(deal, uid) {
+        // The instances (and which face map) for a card uid: a problem card uses
+        // its own instances' problem maps; a linked ANSWER card uses its
+        // problem's instances with everything visible. Returns [{inst, map}].
+        function _paramInstancesFor(deal, uid) {
             if (!deal || !uid) return null;
-            if (deal.byUid[uid]) return { inst: deal.byUid[uid], map: deal.byUid[uid].p };
+            if (deal.byUid[uid]) {
+                return deal.byUid[uid].map(function (inst) { return { inst: inst, map: inst.p }; });
+            }
             var probUid = deal.links[uid];
-            if (probUid && deal.byUid[probUid]) return { inst: deal.byUid[probUid], map: deal.byUid[probUid].s };
+            if (probUid && deal.byUid[probUid]) {
+                return deal.byUid[probUid].map(function (inst) { return { inst: inst, map: inst.s }; });
+            }
             return null;
         }
         // Substitute baked display strings into a face's placed-letter texts.
@@ -4764,10 +4818,27 @@
             if (!svgEl || !map) return svgEl;
             var el = svgEl.cloneNode(true);
             var texts = el.querySelectorAll ? el.querySelectorAll('text[data-param]') : [];
+            var FIG = ' '; // figure space = one digit width (the space-box unit)
+            function fig(n) { return n > 0 ? new Array(n + 1).join(FIG) : ''; }
             Array.prototype.forEach.call(texts, function (t) {
                 var sym = t.getAttribute('data-param');
-                if (map[sym] == null) return;
-                t.textContent = map[sym];
+                var entry = map[sym];
+                if (entry == null) return;
+                var str;
+                if (typeof entry === 'object') {
+                    // New bake format {v, w}: pad per THIS element's alignment —
+                    // which edge of the reserved slot stays fixed (data-align,
+                    // the editor's per-parameter L/C/R toggle). Left = pad right,
+                    // right = pad left, center = split the padding.
+                    var v = String(entry.v), pad = Math.max(0, (+entry.w || 0) - v.length);
+                    var align = t.getAttribute('data-align') || 'left';
+                    if (align === 'right') str = fig(pad) + v;
+                    else if (align === 'center') { var l = Math.floor(pad / 2); str = fig(l) + v + fig(pad - l); }
+                    else str = v + fig(pad);
+                } else {
+                    str = entry; // legacy pre-padded string, or '' for a hidden (answer) slot
+                }
+                t.textContent = str;
                 t.style.opacity = '';
                 t.removeAttribute('opacity');
             });
@@ -4893,10 +4964,25 @@
 
             var effective = []; // each: { label, _gameValue, cards: [...] }
             origCards.forEach(function(c) {
-                var _pi = _paramDeal ? _paramInstFor(_paramDeal, c.uid) : null;
+                var _pis = _paramDeal ? _paramInstancesFor(_paramDeal, c.uid) : null;
+                if (_pis && _pis.length) {
+                    // One deck slot PER INSTANCE — the board holds several
+                    // different problems from one authored card (never one
+                    // domino). Labels get a ·N suffix so the per-label pools
+                    // and deck keys stay unique per instance.
+                    _pis.forEach(function(pi, k) {
+                        effective.push({
+                            label: c.label + '·' + (k + 1),
+                            _gameValue: String(pi.inst.a),
+                            cards: [c],
+                            _paramInst: pi
+                        });
+                    });
+                    return;
+                }
                 effective.push({
                     label: c.label,
-                    _gameValue: _pi ? String(_pi.inst.a) : (c._gameValue || c.label.charAt(0)),
+                    _gameValue: c._gameValue || c.label.charAt(0),
                     cards: [c]
                 });
             });
@@ -4948,10 +5034,9 @@
                 eff.cards.forEach(function(c) {
                     var svg = getGameCardSVG(c);
                     if (!svg) return;
-                    // Parametric card: fill this play's baked instance into the
-                    // face (a clone — the resolved art may be shared/cached).
-                    var _pi = _paramDeal ? _paramInstFor(_paramDeal, c.uid) : null;
-                    if (_pi) svg = _paramApplyFace(svg, _pi.map);
+                    // Parametric slot: fill ITS instance into the face (a clone —
+                    // the resolved art may be shared/cached across slots).
+                    if (eff._paramInst) svg = _paramApplyFace(svg, eff._paramInst.map);
                     allPool.push(svg);
                     if (c._freezeState !== 'floating') topPool.push(svg);
                     if (c._freezeState !== 'frozen')   bottomPool.push(svg);
@@ -7172,14 +7257,32 @@
             // so the spawn weights below read Prob-correct zones/probs.
             // No-op when the game has no probOptions.
             try { _gpApplySelectedProb(game, catchIndex, window._gpSelectedProbId); } catch(e) {}
+            // Parametric cards: deal this play's instances from the Studio-baked
+            // pool (same machinery as Find — distinct answers, 2–3-game history).
+            // The agreed Catch concept: the PROBLEM freezes on the left, its
+            // ANSWER falls — so problem slots bake as frozen, answer slots as
+            // floating; the other instances' answers are the natural distractors.
+            var _paramDeal = (typeof _paramChooseInstances === 'function') ? _paramChooseInstances(game) : null;
             var origCards = [];
             var seenLabels = {};
             game.cards.forEach(function(c) {
                 if (c.isNote) return; // note cards are author-only — never in play
-                if (!c.isVariation && !seenLabels[c.label]) {
-                    seenLabels[c.label] = true;
-                    origCards.push(c);
+                if (c.isVariation || seenLabels[c.label]) return;
+                seenLabels[c.label] = true;
+                var _pis = _paramDeal ? _paramInstancesFor(_paramDeal, c.uid) : null;
+                if (_pis && _pis.length) {
+                    var _isProblem = !!_paramDeal.byUid[c.uid]; // else: a linked answer view
+                    _pis.forEach(function(pi, k) {
+                        var copy = Object.assign({}, c);
+                        copy.label = c.label + '·' + (k + 1); // unique per instance
+                        copy._gameValue = String(pi.inst.a);   // match by the ANSWER
+                        copy._paramMap = pi.map;               // face substitution
+                        copy._freezeState = _isProblem ? 'frozen' : 'floating';
+                        origCards.push(copy);
+                    });
+                    return;
                 }
+                origCards.push(c);
             });
             var valueGroups = {};
             origCards.forEach(function(c) {
@@ -8304,6 +8407,17 @@
         }
 
         function _catchBuildCardSVG(cardInfo) {
+            // Faces are AUTHOR-CHROME-FREE in play (label/note boxes + the note
+            // text over them + baked param boxes stripped, same as the Find
+            // pool), and a parametric slot's baked instance values substitute
+            // into the placed letters (cardInfo._paramMap, set by the deal).
+            var _face = _catchBuildCardSVGCore(cardInfo);
+            if (_face && cardInfo._paramMap && typeof _paramApplyFace === 'function') {
+                _face = _paramApplyFace(_face, cardInfo._paramMap);
+            }
+            return _face;
+        }
+        function _catchBuildCardSVGCore(cardInfo) {
             // PRIMARY: resolve by stableId against card-set storage so the
             // round renders the LIVE card content, not a stale svgMarkup
             // snapshot frozen onto the game record. Without this, a card's
@@ -8317,7 +8431,7 @@
                 if (stored && typeof stored.svgContent === 'string') {
                     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     svg.setAttribute('viewBox', '0 0 60 60');
-                    svg.innerHTML = stored.svgContent;
+                    svg.innerHTML = _stripCardLabelsMarkup(stored.svgContent);
                     if (cardInfo.isVariation && cardInfo.transform) {
                         var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                         g.setAttribute('transform', cardInfo.transform);
@@ -8333,7 +8447,7 @@
             if (cardInfo.svgMarkup !== undefined) {
                 var svg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svg2.setAttribute('viewBox', '0 0 60 60');
-                svg2.innerHTML = cardInfo.svgMarkup || '';
+                svg2.innerHTML = _stripCardLabelsMarkup(cardInfo.svgMarkup || '');
                 if (cardInfo.isVariation && cardInfo.transform) {
                     var g2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g2.setAttribute('transform', cardInfo.transform);

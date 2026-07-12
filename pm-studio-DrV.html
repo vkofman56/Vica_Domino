@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@400;700&family=Comic+Neue:wght@400;700&family=EB+Garamond:wght@400;700&family=Indie+Flower&family=Libre+Baskerville:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Patrick+Hand&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto:wght@400;700&family=Roboto+Mono:wght@400;700&family=Source+Sans+3:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-110">
+    <link rel="stylesheet" href="css/style.css?v=dgx-redesign-112">
     <style>
         /* M-mode selection ring. White on the purple page background reads
            clearly and is visually distinct from any of the M-group palette
@@ -1167,7 +1167,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:45 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1185,7 +1185,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">08:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:45 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1427,7 +1427,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">08:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:45 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8625,6 +8625,12 @@
         var drawOverScale = 1; // Over-scale multiplier (default 1)
         var drawOverScaleMax = 1; // Current max for the overscale slider
         var overscaleMaxOptions = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        // GROUP-scaling baseline: effective size × overscale when the current
+        // selection was mirrored into the sliders. A later slider change with
+        // 2+ elements selected scales the whole picture HOMOGENEOUSLY — the
+        // anchors move around the group's center by newValue/thisBaseline, so
+        // the distances grow with the elements (user rule, July 10).
+        var _grpScaleBase = 0;
 
         // Card shape state
         var currentCardShape = 'square'; // 'square', 'rect', 'circle'
@@ -10354,9 +10360,129 @@
                     try { _applyRoleBadges(); } catch(e) {}
                     try { _dupTagRefresh(); } catch(e) {} // render t1/t2 badges + prune/compact tags
                     try { _pmApplyParamCards(); } catch(e) {} // parametric formula + "123" tag on the thumbnail
+                    try { window._cmColnumRefresh && window._cmColnumRefresh(); } catch(e) {} // column-number titles toggle
                     return r;
                 };
             });
+        })();
+
+        // ── Card Maker column-number titles (placeholder) ──────────────────
+        // A small "column" toggle above row A drops a strip of numbers over the
+        // cards — number N sits above the Nth card of line A, and the numbering
+        // continues to cover the longest line. Numbers are placeholders for now
+        // (plain 1..N); their meaning gets wired up later. Toggling off removes
+        // the strip and the extra vertical space it added. The strip is rebuilt
+        // after every Card Maker (re)build via the wrapper above, so it survives
+        // set switches, undo and edits.
+        (function() {
+            var _cmColnumOn = false;
+
+            // The one visible card-set container (numbers / abc / a custom set).
+            function _cmActiveCardContent() {
+                var list = document.querySelectorAll('#domino-library-screen .card-set-content');
+                for (var i = 0; i < list.length; i++) {
+                    if (getComputedStyle(list[i]).display !== 'none') return list[i];
+                }
+                return null;
+            }
+
+            // An "ancient column" sits at the bottom (its capital bar + central
+            // shaft form the T-shape); a glyph rides just above it — a down-arrow
+            // (off → "reveal the numbers") or a cross (on → "hide"). The column is
+            // sized to sit within the width of the "A" letter beneath it.
+            function _cmColnumIcon(on) {
+                var top = on
+                    ? '<path d="M9 2.5 L15 8.5 M15 2.5 L9 8.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+                    : '<path d="M12 2 V8 M9 5.3 L12 8.3 L15 5.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>';
+                var column =
+                    '<path d="M5.5 11.5 H18.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +          // capital = top bar of the T
+                    '<path d="M8.5 12.6 V24 M12 12.6 V24 M15.5 12.6 V24" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' + // fluted shaft (centre = stem of the T)
+                    '<path d="M5 24.6 H19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>';             // base
+                return '<svg width="19" height="24" viewBox="0 0 24 28" fill="none" style="display:block;">' + top + column + '</svg>';
+            }
+
+            function _cmMakeButton() {
+                var btn = document.createElement('button');
+                btn.className = 'cm-colnum-btn';
+                btn.type = 'button';
+                btn.innerHTML = _cmColnumIcon(_cmColnumOn);
+                btn.title = _cmColnumOn
+                    ? 'Hide the column numbers above the cards.'
+                    : 'Show numbered column titles above the cards.';
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                    _cmColnumOn = !_cmColnumOn;
+                    _cmColnumRefresh();
+                });
+                return btn;
+            }
+
+            function _cmRowsWithCards(content) {
+                return Array.prototype.slice
+                    .call(content.querySelectorAll(':scope > .library-row[data-row-letter]'))
+                    .filter(function(r) { return r.querySelector(':scope > .library-card'); });
+            }
+
+            function _cmColnumRefresh() {
+                var content = _cmActiveCardContent();
+                if (!content) return;
+                var old = content.querySelector(':scope > .cm-colnum-bar');
+                if (old) old.remove();
+                content.classList.toggle('cm-colnums-on', _cmColnumOn);
+
+                var rows = _cmRowsWithCards(content);
+                if (!rows.length) return; // no cards yet → nothing to number
+
+                var firstRow = rows[0];
+                var cardsA = Array.prototype.slice.call(firstRow.querySelectorAll(':scope > .library-card'));
+                var rowBox = firstRow.getBoundingClientRect();
+                // Left edge of the first card = width of the letter column; the
+                // toggle sits in that same column, directly above the "A".
+                var firstCardLeft = cardsA.length
+                    ? (cardsA[0].getBoundingClientRect().left - rowBox.left) : 30;
+                var gap = parseFloat(getComputedStyle(firstRow).columnGap
+                    || getComputedStyle(firstRow).gap) || 8;
+
+                var bar = document.createElement('div');
+                bar.className = 'cm-colnum-bar' + (_cmColnumOn ? ' is-on' : '');
+
+                var slot = document.createElement('div');
+                slot.className = 'cm-colnum-btn-slot';
+                // On: the slot spans the letter column so the numbers strip starts
+                // exactly over the first card. Off: leave it auto so the icon just
+                // sizes to itself and sits centred over the "A" below it.
+                if (_cmColnumOn) slot.style.width = firstCardLeft + 'px';
+                slot.appendChild(_cmMakeButton());
+                bar.appendChild(slot);
+
+                if (_cmColnumOn) {
+                    var maxCols = 0;
+                    rows.forEach(function(r) {
+                        var n = r.querySelectorAll(':scope > .library-card').length;
+                        if (n > maxCols) maxCols = n;
+                    });
+                    var widthsA = cardsA.map(function(cd) { return cd.getBoundingClientRect().width; });
+                    var defW = widthsA.length ? widthsA[widthsA.length - 1] : 70;
+
+                    var strip = document.createElement('div');
+                    strip.className = 'cm-colnum-strip';
+                    strip.style.gap = gap + 'px';
+                    for (var i = 0; i < maxCols; i++) {
+                        var cell = document.createElement('div');
+                        cell.className = 'cm-colnum';
+                        // Match line-A card widths so number N lands over card N;
+                        // extra columns (longer lines) fall back to a default width.
+                        cell.style.flexBasis = (i < widthsA.length ? widthsA[i] : defW) + 'px';
+                        cell.textContent = (i + 1);
+                        strip.appendChild(cell);
+                    }
+                    bar.appendChild(strip);
+                }
+
+                firstRow.parentNode.insertBefore(bar, firstRow);
+            }
+
+            window._cmColnumRefresh = _cmColnumRefresh;
         })();
 
         // Trajectory ("Folder ▸ Sub ▸ Set") from the set's folder field. Built-in
@@ -11930,6 +12056,9 @@
             drawOverScale = savedScale;
             var overscaleSlider = document.getElementById('draw-overscale-slider');
             if (overscaleSlider) overscaleSlider.value = savedScale;
+            // Group-scaling baseline = the slider state just mirrored. A later
+            // change scales a multi-selection homogeneously from THIS value.
+            _grpScaleBase = getEffectiveSize() * drawOverScale;
             // Show crop button when element's scale > 1
         }
 
@@ -12072,12 +12201,44 @@
                     'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2',
                     'font-size', 'stroke-width', 'transform',
                     'data-draw-size', 'data-over-scale', 'data-over-scale-max',
-                    'data-user-scale', 'data-scale-cx', 'data-scale-cy', 'data-base-transform'
+                    'data-user-scale', 'data-scale-cx', 'data-scale-cy', 'data-base-transform',
+                    'data-pos-x', 'data-pos-y'
                 ]);
             }
+            // HOMOGENEOUS group scaling (user rule, July 10): with 2+ elements
+            // selected, the DISTANCES scale with the elements — each anchor
+            // moves around the group's bbox center by the same factor the
+            // slider changed, so the whole picture ("A + B") grows
+            // proportionally instead of the letters growing into fixed gaps.
+            var f = 0, gcx = 0, gcy = 0;
+            if (all.length > 1 && _grpScaleBase > 0) {
+                var target = sz * drawOverScale;
+                if (target > 0 && Math.abs(target - _grpScaleBase) > 1e-9) {
+                    var bb = null;
+                    for (var b = 0; b < all.length; b++) {
+                        var r; try { r = getSvgSpaceBBox(all[b]); } catch (e2) { r = null; }
+                        if (!r || !isFinite(r.width)) continue;
+                        if (!bb) bb = { x: r.x, y: r.y, x2: r.x + r.width, y2: r.y + r.height };
+                        else {
+                            bb.x = Math.min(bb.x, r.x); bb.y = Math.min(bb.y, r.y);
+                            bb.x2 = Math.max(bb.x2, r.x + r.width); bb.y2 = Math.max(bb.y2, r.y + r.height);
+                        }
+                    }
+                    if (bb) {
+                        f = target / _grpScaleBase;
+                        gcx = (bb.x + bb.x2) / 2;
+                        gcy = (bb.y + bb.y2) / 2;
+                    }
+                }
+            }
             for (var i = 0; i < all.length; i++) {
+                if (f) {
+                    var p = getElementPos(all[i]);
+                    setElementPos(all[i], gcx + (p.x - gcx) * f, gcy + (p.y - gcy) * f);
+                }
                 applySizeToElement(all[i], sz);
             }
+            if (all.length > 1) _grpScaleBase = sz * drawOverScale;
             updateSelectionRing();
         }
         function onDrawFontFamilyChange(val) {
@@ -25539,10 +25700,12 @@
                     try { env[ansSym] = _mpEvalToks(_mpExprToks(lhs), env); } catch (e) { return; }
                     var a = env[ansSym];
                     if (a == null || !isFinite(a)) return;
+                    // Ship the RAW value + reserved width — the PLAYER pads per
+                    // the face element's own data-align (left / center / right),
+                    // so the editor's alignment survives into play (a pre-padded
+                    // string here could only ever be left-aligned).
                     function disp(sym) {
-                        var v = String(env[sym]), w = widths[sym];
-                        while (w > v.length) v += FIG;
-                        return v;
+                        return { v: String(env[sym]), w: widths[sym] || 0 };
                     }
                     var p = {}, s = {};
                     var syms = params.map(function (par) { return par.sym; }).filter(Boolean);

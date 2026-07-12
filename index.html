@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:45 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">05:14 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:45 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4818,10 +4818,27 @@
             if (!svgEl || !map) return svgEl;
             var el = svgEl.cloneNode(true);
             var texts = el.querySelectorAll ? el.querySelectorAll('text[data-param]') : [];
+            var FIG = ' '; // figure space = one digit width (the space-box unit)
+            function fig(n) { return n > 0 ? new Array(n + 1).join(FIG) : ''; }
             Array.prototype.forEach.call(texts, function (t) {
                 var sym = t.getAttribute('data-param');
-                if (map[sym] == null) return;
-                t.textContent = map[sym];
+                var entry = map[sym];
+                if (entry == null) return;
+                var str;
+                if (typeof entry === 'object') {
+                    // New bake format {v, w}: pad per THIS element's alignment —
+                    // which edge of the reserved slot stays fixed (data-align,
+                    // the editor's per-parameter L/C/R toggle). Left = pad right,
+                    // right = pad left, center = split the padding.
+                    var v = String(entry.v), pad = Math.max(0, (+entry.w || 0) - v.length);
+                    var align = t.getAttribute('data-align') || 'left';
+                    if (align === 'right') str = fig(pad) + v;
+                    else if (align === 'center') { var l = Math.floor(pad / 2); str = fig(l) + v + fig(pad - l); }
+                    else str = v + fig(pad);
+                } else {
+                    str = entry; // legacy pre-padded string, or '' for a hidden (answer) slot
+                }
+                t.textContent = str;
                 t.style.opacity = '';
                 t.removeAttribute('opacity');
             });

@@ -1,5 +1,5 @@
 # Vica Domino Project Memory
-**Last Updated**: July 10, 2026 (night) — **parametric FIND + CATCH play SHIPPED under the secrecy principle**, note↔card links, paste-at-click (see the sections below + STATUS_NOTES). Prior: July 9 Math-creator round + parametric Catch phase 1; July 7–8 Par per-rule streams.
+**Last Updated**: July 11, 2026 — **`docs/GAME_INVARIANTS.md` created** (the standing contract: everything auto-applied to ALL games + required of future ones — READ IT before any game-related work; extend it when an always-on behavior ships) + per-parameter ALIGNMENT now survives into play (bake ships raw value+width, the player pads per `data-align`). Prior: July 10 parametric FIND+CATCH play shipped, note↔card links, paste-at-click; July 9 Math-creator round.
 
 ---
 

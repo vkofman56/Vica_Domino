@@ -59,7 +59,18 @@ Created July 11, 2026 (user request). Maintained alongside `docs/MEMORY.md`
   the bake ships raw value + reserved width; the player pads figure-spaces
   per each face element's `data-align` — left = pad right, right = pad
   left, center = split. The editor's L/C/R toggle is the single source of
-  truth for how a value sits in its slot, everywhere.
+  truth for how a value sits in its slot, everywhere. For FREE-WIDTH
+  parameters (no space-box) the toggle is the value's GROWTH DIRECTION —
+  the play side repositions the value per align (x/text-anchor) using
+  canvas-measured advance widths.
+- **ADJUST groups survive into play** (July 11, opt-in): statics grouped
+  with a free-width parameter (the "adjust" chip on a selection of one
+  parameter + statics) FOLLOW the value's nearest edge — e.g. "kg" stays
+  right after the number whatever its length. Stored as plain SVG
+  attributes (`data-adjust-id` / `-follow` / `-side`) so the grouping rides
+  svgContent, card copies, and play faces automatically. Ungrouped statics
+  stay PINNED (the default); reserved-slot parameters never move their
+  neighbors (fixed edges by design).
 
 ## 4. Board / deal invariants
 

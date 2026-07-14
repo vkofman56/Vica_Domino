@@ -1,5 +1,41 @@
 # Vica Domino Project Memory
-**Last Updated**: July 11, 2026 — **`docs/GAME_INVARIANTS.md` created** (the standing contract: everything auto-applied to ALL games + required of future ones — READ IT before any game-related work; extend it when an always-on behavior ships) + per-parameter ALIGNMENT now survives into play (bake ships raw value+width, the player pads per `data-align`). Prior: July 10 parametric FIND+CATCH play shipped, note↔card links, paste-at-click; July 9 Math-creator round.
+**Last Updated**: July 13, 2026 — **alignment finale + ADJUST groups + the banner lesson** (see §July 13 + STATUS_NOTES, incl. the OPEN free-width-toggle question). Prior: July 11 GAME_INVARIANTS + alignment-in-play; July 10 parametric play shipped.
+
+---
+
+## 🎯 July 13, 2026 — alignment finale, ADJUST groups, verification lessons
+
+- **ALL parameter-slot geometry uses ADVANCE widths** (`getComputedTextLength`
+  in the editor, canvas `measureText` in play) — NEVER ink bboxes. Mixing the
+  two nudges positions by the glyph side-bearings on every toggle (visible at
+  large fonts). The slot = advance of an n-digit run (digits are tabular).
+- **The slot reference is recomputed on EVERY 123 show** from the stored
+  template identity (`data-param-orig`/`data-orig-x`/`-anchor`). Cards saved
+  by older builds carry stale baked `data-ref-*` in svgContent — trusting
+  them froze a too-narrow slot: full-width values moved under the align
+  toggle, OPPOSITE the arrows. Never trust instance-state attrs across
+  sessions.
+- **ADJUST groups** (opt-in): select ONE parameter + statics → the "adjust"
+  chip; statics follow the value's NEAREST edge. **DELTA model** — members
+  track only the currently-applied shift (`data-adjust-dx`), never an
+  absolute home, so user drags survive any show/clear/toggle order. The
+  group SHOWS itself: dashed-green tether + member underline, drawn live by
+  the param-boxes rAF loop (ephemeral: stripped from saves + play faces).
+  Reserved-slot params never move their neighbors (fixed edges by design).
+- **The align toggle**: drawn SVG icons (font glyphs sit low in their em box
+  — box-centering can't fix them); left/right segments 24px; toggling
+  updates the selection ring and re-follows adjust members.
+- **OPEN (next chat)**: free-width params — the toggle pins a template-letter
+  EDGE, so wider values move opposite the arrow; candidate designs in
+  STATUS_NOTES (hide toggle / growth-direction icons / auto-reserve).
+- **Verification-loop lesson**: the deploy banner bumps ONLY on commit —
+  uncommitted fixes are invisible to it and "stale vs fresh tab" becomes
+  undecidable. COMMIT CHECKPOINTS EAGERLY while the user live-tests, and
+  announce the expected stamp each time.
+
+---
+
+**Prior — July 11, 2026** — **`docs/GAME_INVARIANTS.md` created** (the standing contract: everything auto-applied to ALL games + required of future ones — READ IT before any game-related work; extend it when an always-on behavior ships) + per-parameter ALIGNMENT now survives into play (bake ships raw value+width, the player pads per `data-align`). Prior: July 10 parametric FIND+CATCH play shipped, note↔card links, paste-at-click; July 9 Math-creator round.
 
 ---
 

@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:20 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:14 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:20 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:14 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:20 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7110,6 +7110,130 @@
         function _pmParamTexts(svg) {
             return svg ? Array.prototype.slice.call(svg.querySelectorAll('text[data-param]')) : [];
         }
+        // ===== SLOT GEOMETRY (user model, July 15) ===========================
+        // A parameter shows TWO boxes on the template:
+        //   · DOTTED = the MAXIMUM width the number can ever take (its widest
+        //     value) — the SLOT the value will be placed into.
+        //   · SOLID  = where the SHORTEST value sits inside that slot.
+        // data-align picks which end of the slot short values sit at, so the
+        // solid box slides left / middle / right inside the dotted one. When the
+        // two coincide (the number is always the same width) there is no freedom,
+        // so no toggle is offered.
+        //
+        // This supersedes the "growth direction" reading of July 15 morning. That
+        // one pinned an edge of the TEMPLATE LETTER — but the letter is not the
+        // number, so three parameters stacked in a column pinned three DIFFERENT
+        // edges and never lined up (user report). The slot is the real reference:
+        // stack A/B/C with the same home x and set each to "right", and every
+        // value's units land on the same line.
+        function _pmParamsBySym(card) {
+            var by = {};
+            try {
+                var pc = card || (typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
+                ((typeof _mpReadParams === 'function' && pc) ? _mpReadParams(pc) : []).forEach(function (p) {
+                    if (p && p.sym) by[p.sym] = p;
+                });
+            } catch (e) {}
+            return by;
+        }
+        // Shortest / longest value a parameter can take, as STRINGS. Enumerating a
+        // domain is far too expensive for the box rAF loop, so the answer is cached
+        // against the parameter's definition and only recomputed when that changes.
+        // Digit COUNT is the proxy for width here; that is exact in a tabular font,
+        // which is what the picker now steers to (see _fontDigitsTabular).
+        var _pmDomainStrCache = {};
+        function _pmDomainStrRange(p) {
+            if (!p || !p.sym) return null;
+            var key;
+            try { key = JSON.stringify([p.sym, p.parts, p.def, p.constructs, p.restrictions, p.lo, p.hi]); }
+            catch (e) { return null; }
+            if (key in _pmDomainStrCache) return _pmDomainStrCache[key];
+            var out = null;
+            try {
+                var r = _mpValueSet(p);
+                if (r && !r.error && !r.capped && r.vals && r.vals.length) {
+                    var lo = null, hi = null;
+                    r.vals.forEach(function (v) {
+                        var s = String(v);
+                        if (lo === null || s.length < lo.length) lo = s;
+                        if (hi === null || s.length > hi.length) hi = s;
+                    });
+                    if (lo !== null) out = { min: lo, max: hi };
+                }
+            } catch (e) {}
+            _pmDomainStrCache[key] = out;   // cache misses too — don't retry every frame
+            return out;
+        }
+        // Measure a string in a placed letter's own font (it may differ from the
+        // current draw font). Off-screen probe — never touches the live letter.
+        // CACHED: this runs inside the box rAF loop, and each call inserts a node
+        // and forces layout via getComputedTextLength; uncached, a handful of
+        // parameters would thrash layout every frame. Keyed by string + the font
+        // attributes that affect advance, so scaling a letter re-measures.
+        var _PM_FONT_ATTRS = ['font-size', 'font-family', 'font-weight', 'font-style', 'letter-spacing'];
+        var _pmMeasCache = {};
+        function _pmMeasureInFont(svg, t, str) {
+            if (!svg || !str) return 0;
+            var sig = _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|');
+            var key = str + ' ' + sig;
+            if (key in _pmMeasCache) return _pmMeasCache[key];
+            var m = document.createElementNS(_PM_BOX_NS, 'text');
+            m.setAttribute('x', -99999); m.setAttribute('y', -99999);
+            _PM_FONT_ATTRS.forEach(function (a) {
+                var v = t.getAttribute(a); if (v != null) m.setAttribute(a, v);
+            });
+            m.textContent = str;
+            svg.appendChild(m);
+            var w = 0; try { w = m.getComputedTextLength(); } catch (e) {}
+            if (m.parentNode) m.parentNode.removeChild(m);
+            if (w > 0) _pmMeasCache[key] = w;   // don't cache a failed/zero measure
+            return w;
+        }
+        // A webfont arriving late changes every advance, so anything measured
+        // against the fallback is now wrong. (Same trap as _fontDigitsTabular:
+        // measuring before the face loads silently reports Arial's metrics.)
+        try {
+            if (document.fonts && document.fonts.addEventListener) {
+                document.fonts.addEventListener('loadingdone', function () { _pmMeasCache = {}; });
+            }
+        } catch (e) {}
+        // The slot + shortest-value geometry for one placed letter. Returns null
+        // when the letter can't be measured (e.g. it sits in a display:none tree).
+        function _pmSlotGeom(svg, t, p) {
+            var b; try { b = getSvgSpaceBBox(t); } catch (e) { return null; }
+            if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return null;
+            var dom = _pmDomainStrRange(p);
+            var maxW = dom ? _pmMeasureInFont(svg, t, dom.max) : 0;
+            var minW = dom ? _pmMeasureInFont(svg, t, dom.min) : 0;
+            // A reserve can only ever WIDEN the slot beyond what the domain needs.
+            var resW = (p && p.width > 0) ? _pmMeasureInFont(svg, t, new Array(p.width + 1).join('0')) : 0;
+            var slotW = Math.max(maxW, resW);
+            if (!(slotW > 0)) slotW = b.width;   // domain unknown → fall back to the letter
+            if (!(minW > 0)) minW = slotW;       // …and then there is no choice to offer
+            if (minW > slotW) minW = slotW;
+            var eps = Math.max(0.5, b.height * 0.05);
+            return {
+                x: b.x, y: b.y, h: b.height,
+                slotW: slotW, minW: minW,
+                hasChoice: (slotW - minW) > eps
+            };
+        }
+        // Where the SHORT value's box sits inside the slot, per data-align.
+        function _pmSolidLeft(geo, align) {
+            var slack = geo.slotW - geo.minW;
+            if (align === 'right') return geo.x + slack;
+            if (align === 'center') return geo.x + slack / 2;
+            return geo.x;
+        }
+        // A darker shade of the parameter's colour, for the dotted max-extent box.
+        function _pmDarken(hex, f) {
+            var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '').trim());
+            if (!m) return hex;
+            return '#' + [1, 2, 3].map(function (i) {
+                var v = Math.max(0, Math.min(255, Math.round(parseInt(m[i], 16) * f)));
+                return ('0' + v.toString(16)).slice(-2);
+            }).join('');
+        }
         // Measured ratio of a digit's advance width ÷ a glyph's bbox height for the
         // draw font (cached). The space-box reservation = N × this × the letter's
         // bbox height. Measuring beats estimating: getBBox height here is ≈1.1em
@@ -7140,16 +7264,7 @@
             if (old) old.parentNode.removeChild(old);
             var texts = _pmParamTexts(svg);
             if (!texts.length) return;  // no placed params -> leave the SVG clean
-            // sym -> reserved digit-width (the SPACE-BOX): the box must be wide
-            // enough for the parameter's largest instance, so the user sees how
-            // much room it takes (e.g. A reserves 2 digits, C reserves 3).
-            var widths = {};
-            try {
-                var pcard = card || (typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
-                (typeof _mpReadParams === 'function' && pcard ? _mpReadParams(pcard) : []).forEach(function (p) {
-                    if (p.sym && p.width > 0) widths[p.sym] = p.width;
-                });
-            } catch (e) {}
+            var byS = _pmParamsBySym(card);
             var g = document.createElementNS(_PM_BOX_NS, 'g');
             g.setAttribute('class', groupCls);
             g.style.pointerEvents = 'none';
@@ -7157,29 +7272,41 @@
                 // Skip a letter currently showing a concrete instance value — the box
                 // belongs to the template view, not the generated problem.
                 if (t.getAttribute('data-param-orig') != null) return;
-                var b; try { b = getSvgSpaceBBox(t); } catch (e) { return; }
-                // Skip degenerate bboxes — a letter in a display:none subtree measures
-                // as 0×0; baking a box from that would stamp a stray magenta speck.
-                if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return;
-                // Reserved width = N digit-slots. One digit advance ≈ 0.78 × the
-                // glyph cap-height (Arial 0/■ ≈ 0.556em, cap-height ≈ 0.716em). The
-                // box keeps its left edge at the letter and grows RIGHT (the slot
-                // the instance fills), matching the left-anchored instance growth.
                 var sym = t.getAttribute('data-param');
-                var n = (sym && widths[sym]) ? widths[sym] : 0;
-                var boxW = b.width;
-                if (n > 0) { var reserved = n * _pmDigitRatio(svg) * b.height; if (reserved > boxW) boxW = reserved; }
-                var pad = Math.max(0.6, b.height * 0.14);
-                var rect = document.createElementNS(_PM_BOX_NS, 'rect');
-                rect.setAttribute('x', (b.x - pad).toFixed(2));
-                rect.setAttribute('y', (b.y - pad).toFixed(2));
-                rect.setAttribute('width', (boxW + 2 * pad).toFixed(2));
-                rect.setAttribute('height', (b.height + 2 * pad).toFixed(2));
-                rect.setAttribute('rx', Math.max(0.4, b.height * 0.1).toFixed(2));
-                rect.setAttribute('fill', 'none');
-                rect.setAttribute('stroke', _pmParamColor(sym));
-                rect.setAttribute('stroke-width', Math.max(0.25, b.height * 0.06).toFixed(2));
-                g.appendChild(rect);
+                var geo = _pmSlotGeom(svg, t, byS[sym]);
+                if (!geo) return;   // unmeasurable (e.g. display:none) — draw nothing
+                var pad = Math.max(0.6, geo.h * 0.14);
+                var sw = Math.max(0.25, geo.h * 0.06);
+                var rx = Math.max(0.4, geo.h * 0.1);
+                var col = _pmParamColor(sym);
+                function mkRect(x, w) {
+                    var r = document.createElementNS(_PM_BOX_NS, 'rect');
+                    r.setAttribute('x', (x - pad).toFixed(2));
+                    r.setAttribute('y', (geo.y - pad).toFixed(2));
+                    r.setAttribute('width', (w + 2 * pad).toFixed(2));
+                    r.setAttribute('height', (geo.h + 2 * pad).toFixed(2));
+                    r.setAttribute('rx', rx.toFixed(2));
+                    r.setAttribute('fill', 'none');
+                    return r;
+                }
+                // SOLID box — where the SHORTEST value lands, i.e. what the align
+                // choice actually decides. It slides inside the dotted box.
+                var solid = mkRect(_pmSolidLeft(geo, t.getAttribute('data-align') || 'left'), geo.minW);
+                solid.setAttribute('stroke', col);
+                solid.setAttribute('stroke-width', sw.toFixed(2));
+                g.appendChild(solid);
+                // DOTTED box — the widest value's extent (the slot). Drawn even when
+                // it coincides with the solid box: the dots then sit ON the solid
+                // border, which is exactly how "this number is always this wide"
+                // should read. Dots = zero-length dashes with round caps, so the
+                // diameter IS the stroke width (80% of the solid border's).
+                var dotDia = sw * 0.8;
+                var dotted = mkRect(geo.x, geo.slotW);
+                dotted.setAttribute('stroke', _pmDarken(col, 0.62));
+                dotted.setAttribute('stroke-width', dotDia.toFixed(2));
+                dotted.setAttribute('stroke-linecap', 'round');
+                dotted.setAttribute('stroke-dasharray', '0 ' + (dotDia * 2.4).toFixed(2));
+                g.appendChild(dotted);
             });
             if (g.childNodes.length) svg.appendChild(g);
         }
@@ -7397,33 +7524,56 @@
         // buttons are ordered by the DIRECTION drawn, not by the data-align value.
         var _PM_GROW_ORDER = ['right', 'center', 'left'];
         var _pmAlignSeq = 0;
-        // Show a left/center/right toggle at the upper-left of each placed param /
-        // formula WHILE an instance is displayed; hidden otherwise.
+        // Where a SHORT value sits inside the slot — the choice the dotted/solid
+        // boxes make visible.
+        var _PM_TMPL_TITLES = {
+            left: 'Short numbers sit at the LEFT of the dotted box',
+            center: 'Short numbers sit in the MIDDLE of the dotted box',
+            right: 'Short numbers sit at the RIGHT of the dotted box — this is what stacks a column on its units'
+        };
+        // Show the left/center/right toggle above each placed parameter. It appears
+        // for the TEMPLATE letters too (user request July 15) — that's the whole
+        // point: you set up a column of A/B/C and align them BEFORE any number
+        // exists. On a template it appears only when the slot is wider than the
+        // shortest value (dotted ≠ solid); identical boxes mean no freedom, so no
+        // toggle.
         function _pmSyncAlignToggles(svg) {
             var overlay = document.getElementById('loupe-overlay');
             if (!overlay) return;
             var host = document.getElementById('pm-align-toggles');
-            var showing = svg && _pmHasPlacedInstance(svg);
-            if (!showing) { if (host) host.innerHTML = ''; return; }
+            if (!svg) { if (host) host.innerHTML = ''; return; }
             if (!host) { host = document.createElement('div'); host.id = 'pm-align-toggles'; overlay.appendChild(host); }
+            var byS = _pmParamsBySym(typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
             var texts = _pmParamTexts(svg), keep = {};
             texts.forEach(function (t) {
+                // Three questions, three presentations:
+                //   tmpl → where do SHORT numbers sit in the dotted box? (letters)
+                //   slot → which edge of the reserved slot holds the value?
+                //   grow → free-width instance: which way does the number grow?
+                // (grow still uses the template LETTER as its reference — numbers
+                // are the next step; see _pmSlotGeom's note.)
+                var isInst = t.getAttribute('data-param-orig') != null;
+                var mode, anchor = null;
+                if (isInst) {
+                    mode = (+(t.getAttribute('data-ref-reserve')) > 0) ? 'slot' : 'grow';
+                    var refL = parseFloat(t.getAttribute('data-ref-left')), refT = parseFloat(t.getAttribute('data-ref-top'));
+                    if (isFinite(refL) && isFinite(refT)) anchor = { x: refL, y: refT };
+                } else {
+                    var geo = _pmSlotGeom(svg, t, byS[t.getAttribute('data-param')]);
+                    if (!geo || !geo.hasChoice) return;   // dotted == solid → nothing to choose
+                    mode = 'tmpl';
+                    anchor = { x: geo.x, y: geo.y };
+                }
                 if (!t.__alignKey) t.__alignKey = 'ak' + (++_pmAlignSeq);
                 var key = t.__alignKey; keep[key] = 1;
-                // A reserved slot asks "which edge of the SLOT holds the value?";
-                // free width asks "which way does the number GROW?". Same three
-                // values, different question — so different icons, wording and
-                // button order. Ticking / un-ticking "digit space" flips the
-                // question, so the toggle is rebuilt when the mode changes.
-                var mode = (+(t.getAttribute('data-ref-reserve')) > 0) ? 'slot' : 'grow';
                 var tog = host.querySelector('[data-ak="' + key + '"]');
                 if (tog && tog.getAttribute('data-mode') !== mode) { tog.remove(); tog = null; }
                 if (!tog) {
                     tog = document.createElement('div'); tog.className = 'pm-align-toggle';
                     tog.setAttribute('data-ak', key); tog.setAttribute('data-mode', mode);
-                    var ICONS = (mode === 'slot') ? _PM_ALIGN_ICONS : _PM_GROW_ICONS;
-                    var TITLES = (mode === 'slot') ? _PM_ALIGN_TITLES : _PM_GROW_TITLES;
-                    var ORDER = (mode === 'slot') ? ['left', 'center', 'right'] : _PM_GROW_ORDER;
+                    var ICONS = (mode === 'grow') ? _PM_GROW_ICONS : _PM_ALIGN_ICONS;
+                    var TITLES = (mode === 'grow') ? _PM_GROW_TITLES : (mode === 'tmpl') ? _PM_TMPL_TITLES : _PM_ALIGN_TITLES;
+                    var ORDER = (mode === 'grow') ? _PM_GROW_ORDER : ['left', 'center', 'right'];
                     ORDER.forEach(function (a) {
                         var b = document.createElement('button'); b.className = 'pm-align-btn'; b.dataset.align = a;
                         b.innerHTML = ICONS[a]; b.title = TITLES[a];
@@ -7433,14 +7583,12 @@
                     });
                     host.appendChild(tog);
                 }
-                // Pin the toggle to the TEMPLATE box's upper-left (its fixed home), NOT
-                // the moving instance — so it stays put and stays clickable as the
-                // instance shifts. Convert the stored template box (SVG units) to screen.
+                // Pin the toggle to the SLOT's upper-left (a fixed home) — never the
+                // moving value — so it stays put and stays clickable.
                 var sx = null, sy = null;
-                var refL = parseFloat(t.getAttribute('data-ref-left')), refT = parseFloat(t.getAttribute('data-ref-top'));
                 var svgEl = t.ownerSVGElement, ctm = svgEl && svgEl.getScreenCTM && svgEl.getScreenCTM();
-                if (isFinite(refL) && isFinite(refT) && ctm && svgEl.createSVGPoint) {
-                    var pt = svgEl.createSVGPoint(); pt.x = refL; pt.y = refT;
+                if (anchor && ctm && svgEl.createSVGPoint) {
+                    var pt = svgEl.createSVGPoint(); pt.x = anchor.x; pt.y = anchor.y;
                     var sp = pt.matrixTransform(ctm); sx = sp.x; sy = sp.y;
                 }
                 if (sx == null) { var r; try { r = t.getBoundingClientRect(); } catch (e) { return; } sx = r.left; sy = r.top; }

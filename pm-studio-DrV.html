@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:20 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:38 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:20 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:38 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:20 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:38 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3208,10 +3208,11 @@
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
                 +   '</label>'
                 +   '<span class="par-help" style="margin-left:12px;text-transform:none;letter-spacing:0;">Off = free width</span>'
-                // A reserved slot promises columns that line up — a promise the
-                // FONT can break. Warn right where the reserve is set, not after
-                // the card looks wrong.
-                +   '<span id="mp-box-digitwarn" style="display:none;margin-left:10px;font-size:11px;color:#ffc454;cursor:help;"></span>'
+                // The boxes promise sizes the FONT can break. Say it right where
+                // the sizing is set, not after the card looks wrong. flex-basis
+                // 100% drops it onto its own full-width line inside the flex row,
+                // so the advice can be read rather than truncated.
+                +   '<div id="mp-box-digitwarn" style="display:none;flex-basis:100%;margin:5px 0 0 0;font-size:11px;line-height:1.45;color:#ffc454;"></div>'
                 + '</div>'
                 // Values: a list of PARTS — one or more ranges and/or sets, each
                 // add/deletable. The parameter's domain is the UNION of them all.
@@ -3371,16 +3372,16 @@
                 if (isFinite(dx) && dx > 0.5) res.style.marginLeft = dx + 'px';
             }, 0);
         }
-        // A reserved space-box only lines numbers up if the FONT gives every digit
-        // the same advance. Check the faces actually placed on this card (each
-        // <text data-param> carries its own font-family — the card may not use the
-        // current draw font) and warn on the reserve row when one of them is
-        // proportional. Reserve OFF = free width = no column promise, so no warning.
-        function _mpSyncDigitWarn() {
-            var warn = document.getElementById('mp-box-digitwarn');
-            if (!warn) return;
-            var on = document.getElementById('mp-box-on');
-            if (!on || !on.checked) { warn.style.display = 'none'; return; }
+        // Everything works in ANY font — the boxes just can't be exact in one whose
+        // glyphs vary in width, so say so and name the fonts that fix it (user
+        // request, July 15). TWO independent questions, because a parameter's box
+        // is sized from its VALUES (digits) once it has a domain, and from the
+        // LETTER itself until then:
+        //   · digits vary  → the boxes are approximate AND columns won't line up.
+        //   · letters vary → only matters while a box is still letter-sized.
+        // Each <text data-param> carries its own font-family (the card may not use
+        // the current draw font), so the faces are read off the card.
+        function _mpCardParamFaces() {
             var container = document.getElementById('loupe-card-container');
             var svg = container && container.querySelector('svg:not(.loupe-grid)');
             var faces = {};
@@ -3389,17 +3390,53 @@
                 if (ff) faces[ff] = 1;
             });
             if (!Object.keys(faces).length && typeof drawFontFamily !== 'undefined') faces[drawFontFamily] = 1;
-            var list = Object.keys(faces);
-            if (!list.length) { warn.style.display = 'none'; return; }
-            Promise.all(list.map(_fontDigitsProbe)).then(function (res) {
-                var bad = list.filter(function (ff, i) { return res[i] === false; });
-                if (!bad.length) { warn.style.display = 'none'; return; }
-                var names = bad.map(function (ff) { return ff.replace(/['"]/g, '').split(',')[0].trim(); });
+            return Object.keys(faces);
+        }
+        function _fontShort(ff) { return ff.replace(/['"]/g, '').split(',')[0].trim(); }
+        function _mpSyncDigitWarn() {
+            var warn = document.getElementById('mp-box-digitwarn');
+            if (!warn) return;
+            var faces = _mpCardParamFaces();
+            if (!faces.length) { warn.style.display = 'none'; return; }
+            // Does any parameter still have NO domain? Its box is sized from the
+            // letter, so letter widths are what matter for it.
+            var anyLetterSized = false, anyValued = false;
+            try {
+                _mpReadParams(loupeSourceCard).forEach(function (p) {
+                    var v = _pmDomainVals(p);
+                    if (v && v.length) anyValued = true; else anyLetterSized = true;
+                });
+            } catch (e) { anyValued = true; }
+            Promise.all([
+                Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_DIGIT_CHARS); })),
+                Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_LETTER_CHARS); })),
+                _fontsUniformList(_PM_DIGIT_CHARS),
+                _fontsUniformList(_PM_LETTER_CHARS)
+            ]).then(function (r) {
+                var digitBad = faces.filter(function (f, i) { return r[0][i] === false; });
+                var letterBad = faces.filter(function (f, i) { return r[1][i] === false; });
+                var msgs = [];
+                if (anyValued && digitBad.length) {
+                    msgs.push('⚠ Since in ' + digitBad.map(_fontShort).join(', ')
+                        + ' the digits have various widths, the boxes provide only approximate sizes'
+                        + ' (and columns of numbers will not line up). To have the same width for each digit,'
+                        + ' choose the font from the following list: ' + (r[2].join(', ') || '—') + '.');
+                }
+                if (anyLetterSized && letterBad.length) {
+                    msgs.push('⚠ Since in ' + letterBad.map(_fontShort).join(', ')
+                        + ' the letters have various widths, a parameter with no values yet is boxed from its'
+                        + ' letter, so that box is approximate too. To have the same width for each letter,'
+                        + ' choose the font from the following list: ' + (r[3].join(', ') || '—') + '.');
+                }
+                if (!msgs.length) { warn.style.display = 'none'; return; }
+                warn.innerHTML = '';
+                msgs.forEach(function (m) {
+                    var d = document.createElement('div');
+                    d.style.cssText = 'margin-top:3px;';
+                    d.textContent = m;
+                    warn.appendChild(d);
+                });
                 warn.style.display = '';
-                warn.textContent = '⚠ ' + names.join(', ') + ': digits differ in width — columns won’t line up';
-                warn.title = 'A reserved space-box keeps the SLOT a fixed width, but ' + names.join(', ')
-                    + ' draws a “1” narrower than a “0”, so the digits inside the slot still drift out of column. '
-                    + 'Pick a font marked “123” in the font picker for column arithmetic.';
             });
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
@@ -7136,32 +7173,79 @@
             } catch (e) {}
             return by;
         }
-        // Shortest / longest value a parameter can take, as STRINGS. Enumerating a
-        // domain is far too expensive for the box rAF loop, so the answer is cached
-        // against the parameter's definition and only recomputed when that changes.
-        // Digit COUNT is the proxy for width here; that is exact in a tabular font,
-        // which is what the picker now steers to (see _fontDigitsTabular).
-        var _pmDomainStrCache = {};
-        function _pmDomainStrRange(p) {
-            if (!p || !p.sym) return null;
-            var key;
-            try { key = JSON.stringify([p.sym, p.parts, p.def, p.constructs, p.restrictions, p.lo, p.hi]); }
+        // Every value a parameter can take, as STRINGS. Enumerating a domain is far
+        // too expensive for the box rAF loop, so it is cached against the
+        // parameter's definition and only recomputed when that changes.
+        var _pmDomainValsCache = {};
+        function _pmDomainKey(p) {
+            try { return JSON.stringify([p.sym, p.parts, p.def, p.constructs, p.restrictions, p.lo, p.hi]); }
             catch (e) { return null; }
-            if (key in _pmDomainStrCache) return _pmDomainStrCache[key];
+        }
+        function _pmDomainVals(p) {
+            if (!p || !p.sym) return null;
+            var key = _pmDomainKey(p);
+            if (key == null) return null;
+            if (key in _pmDomainValsCache) return _pmDomainValsCache[key];
             var out = null;
             try {
                 var r = _mpValueSet(p);
                 if (r && !r.error && !r.capped && r.vals && r.vals.length) {
-                    var lo = null, hi = null;
-                    r.vals.forEach(function (v) {
-                        var s = String(v);
-                        if (lo === null || s.length < lo.length) lo = s;
-                        if (hi === null || s.length > hi.length) hi = s;
-                    });
-                    if (lo !== null) out = { min: lo, max: hi };
+                    out = r.vals.map(function (v) { return String(v); });
                 }
             } catch (e) {}
-            _pmDomainStrCache[key] = out;   // cache misses too — don't retry every frame
+            _pmDomainValsCache[key] = out;   // cache misses too — don't retry every frame
+            return out;
+        }
+        // The NARROWEST and WIDEST value a parameter can take.
+        //
+        // In a font whose digits all share a width, character count IS the width
+        // order, so picking by length is both exact and free. In a PROPORTIONAL
+        // font it is simply wrong — in Anton "888" (3×49) is WIDER than "1111"
+        // (4×33) — so there we measure instead, and the boxes stay honest in any
+        // font. Measuring is capped: a huge domain would stall the box loop, and
+        // the length-extremes are always included so a capped answer degrades to
+        // roughly the length-based one rather than to nonsense.
+        var _PM_MEASURE_CAP = 240;
+        var _pmRangeCache = {};
+        function _pmDomainStrRange(p, svg, t) {
+            var vals = _pmDomainVals(p);
+            if (!vals || !vals.length) return null;
+            var fsig = t ? _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|') : '';
+            var rk = _pmDomainKey(p) + ' ' + fsig;
+            if (rk in _pmRangeCache) return _pmRangeCache[rk];
+            var byLen = function () {
+                var lo = null, hi = null;
+                vals.forEach(function (s) {
+                    if (lo === null || s.length < lo.length) lo = s;
+                    if (hi === null || s.length > hi.length) hi = s;
+                });
+                return lo === null ? null : { min: lo, max: hi, approx: false };
+            };
+            var out;
+            var ff = t && t.getAttribute('font-family');
+            var uniform = ff ? _fontDigitsTabular(ff) : null;
+            if (uniform === false && svg && t) {
+                var cands = vals;
+                if (cands.length > _PM_MEASURE_CAP) {
+                    var step = Math.ceil(cands.length / _PM_MEASURE_CAP);
+                    var pick = [];
+                    for (var i = 0; i < cands.length; i += step) pick.push(cands[i]);
+                    var ext = byLen();
+                    if (ext) { pick.push(ext.min); pick.push(ext.max); }
+                    cands = pick;
+                }
+                var lo = null, hi = null, loW = Infinity, hiW = -Infinity;
+                cands.forEach(function (s) {
+                    var w = _pmMeasureInFont(svg, t, s);
+                    if (!(w > 0)) return;
+                    if (w < loW) { loW = w; lo = s; }
+                    if (w > hiW) { hiW = w; hi = s; }
+                });
+                out = (lo === null) ? byLen() : { min: lo, max: hi, approx: true };
+            } else {
+                out = byLen();
+            }
+            _pmRangeCache[rk] = out;
             return out;
         }
         // Measure a string in a placed letter's own font (it may differ from the
@@ -7197,16 +7281,34 @@
                 document.fonts.addEventListener('loadingdone', function () { _pmMeasCache = {}; });
             }
         } catch (e) {}
+        // The font's widest digit. In a uniform font this is just "0"; in a
+        // proportional one it is whichever glyph is fattest, and a reserve has to
+        // be measured against THAT or "reserve 3" won't actually fit 3 digits.
+        var _pmWidestDigitCache = {};
+        function _pmWidestDigit(svg, t) {
+            var sig = t ? _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|') : '';
+            if (sig in _pmWidestDigitCache) return _pmWidestDigitCache[sig];
+            var best = '0', bw = -1;
+            _PM_DIGIT_CHARS.split('').forEach(function (d) {
+                var w = _pmMeasureInFont(svg, t, d);
+                if (w > bw) { bw = w; best = d; }
+            });
+            if (bw > 0) _pmWidestDigitCache[sig] = best;
+            return best;
+        }
         // The slot + shortest-value geometry for one placed letter. Returns null
         // when the letter can't be measured (e.g. it sits in a display:none tree).
         function _pmSlotGeom(svg, t, p) {
             var b; try { b = getSvgSpaceBBox(t); } catch (e) { return null; }
             if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return null;
-            var dom = _pmDomainStrRange(p);
+            var dom = _pmDomainStrRange(p, svg, t);
             var maxW = dom ? _pmMeasureInFont(svg, t, dom.max) : 0;
             var minW = dom ? _pmMeasureInFont(svg, t, dom.min) : 0;
             // A reserve can only ever WIDEN the slot beyond what the domain needs.
-            var resW = (p && p.width > 0) ? _pmMeasureInFont(svg, t, new Array(p.width + 1).join('0')) : 0;
+            // Measured as a run of the font's WIDEST digit, so "reserve 3" really
+            // does fit any 3 digits — "000" is only the widest run in a font whose
+            // digits are uniform anyway.
+            var resW = (p && p.width > 0) ? _pmMeasureInFont(svg, t, new Array(p.width + 1).join(_pmWidestDigit(svg, t))) : 0;
             var slotW = Math.max(maxW, resW);
             if (!(slotW > 0)) slotW = b.width;   // domain unknown → fall back to the letter
             if (!(minW > 0)) minW = slotW;       // …and then there is no choice to offer
@@ -7215,6 +7317,11 @@
             return {
                 x: b.x, y: b.y, h: b.height,
                 slotW: slotW, minW: minW,
+                // Only an ESTIMATE when the font's digits vary in width: the box
+                // edges are real, but which value is widest was sampled, and the
+                // digits inside will not stack into columns regardless.
+                approx: !!(dom && dom.approx),
+                fromLetter: !dom,   // no domain yet → box sized by the LETTER
                 hasChoice: (slotW - minW) > eps
             };
         }
@@ -12780,9 +12887,16 @@
         // proportional faces in this picker (Anton, Oswald, Comic Neue, Patrick
         // Hand, Permanent Marker, Lobster, Georgia, Playfair, Libre Baskerville)
         // ship NO 'tnum' feature — only Merriweather and Lora respond to it.
-        var _fontDigitsTabularCache = {};
-        function _fontDigitsTabular(ff) {
-            if (_fontDigitsTabularCache[ff] != null) return _fontDigitsTabularCache[ff];
+        // Do ALL of these characters share ONE advance width in this font? Asked
+        // of two different character sets, because they are two different
+        // questions: uniform DIGITS (numbers stack into columns) and uniform
+        // LETTERS (in practice only the monospace faces).
+        var _PM_DIGIT_CHARS = '0123456789';
+        var _PM_LETTER_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        var _fontUniformCache = {};
+        function _fontUniformWidth(ff, chars) {
+            var ck = ff + ' ' + chars;
+            if (_fontUniformCache[ck] != null) return _fontUniformCache[ck];
             var NS = 'http://www.w3.org/2000/svg';
             var svg = document.createElementNS(NS, 'svg');
             svg.setAttribute('width', 1); svg.setAttribute('height', 1);
@@ -12790,7 +12904,7 @@
             document.body.appendChild(svg);
             var res = null;
             try {
-                var w = ['0', '1', '4', '7'].map(function (d) {
+                var w = chars.split('').map(function (d) {
                     var t = document.createElementNS(NS, 'text');
                     t.setAttribute('font-size', 100);
                     t.setAttribute('font-family', ff);
@@ -12806,18 +12920,31 @@
             svg.remove();
             // Cache only a REAL answer: a webfont that hasn't downloaded yet
             // measures as its fallback, which made every face look like Arial.
-            if (res != null) _fontDigitsTabularCache[ff] = res;
+            if (res != null) _fontUniformCache[ck] = res;
             return res;
         }
+        function _fontDigitsTabular(ff) { return _fontUniformWidth(ff, _PM_DIGIT_CHARS); }
+        function _fontLettersUniform(ff) { return _fontUniformWidth(ff, _PM_LETTER_CHARS); }
         // Probe after forcing the face to download. document.fonts.ready does NOT
         // fetch a webfont that nothing has rendered yet, so probing straight away
-        // measures the fallback and reports every font as tabular.
-        function _fontDigitsProbe(ff) {
-            try {
-                return document.fonts.load('500 100px ' + ff, '0123456789')
-                    .then(function () { return _fontDigitsTabular(ff); })
-                    .catch(function () { return _fontDigitsTabular(ff); });
-            } catch (e) { return Promise.resolve(_fontDigitsTabular(ff)); }
+        // measures the fallback and reports every font as uniform.
+        function _fontProbe(ff, chars) {
+            var fn = function () { return _fontUniformWidth(ff, chars); };
+            try { return document.fonts.load('500 100px ' + ff, chars).then(fn).catch(fn); }
+            catch (e) { return Promise.resolve(fn()); }
+        }
+        function _fontDigitsProbe(ff) { return _fontProbe(ff, _PM_DIGIT_CHARS); }
+        // Every face in the picker whose digits (or letters) all share one width —
+        // i.e. the concrete "use one of these instead" advice. Cached per set.
+        var _fontsUniformListCache = {};
+        function _fontsUniformList(chars) {
+            if (_fontsUniformListCache[chars]) return _fontsUniformListCache[chars];
+            var all = [].concat(fontData.sans, fontData.serif, fontData.display, fontData.hand, fontData.mono);
+            var pr = Promise.all(all.map(function (f) {
+                return _fontProbe(f.value, chars).then(function (u) { return u === true ? f.label : null; });
+            })).then(function (r) { return r.filter(Boolean); });
+            _fontsUniformListCache[chars] = pr;
+            return pr;
         }
         var fontData = {
             sans: [

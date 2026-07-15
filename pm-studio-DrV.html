@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:38 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:38 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:38 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:48 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3374,11 +3374,14 @@
         }
         // Everything works in ANY font — the boxes just can't be exact in one whose
         // glyphs vary in width, so say so and name the fonts that fix it (user
-        // request, July 15). TWO independent questions, because a parameter's box
-        // is sized from its VALUES (digits) once it has a domain, and from the
-        // LETTER itself until then:
-        //   · digits vary  → the boxes are approximate AND columns won't line up.
-        //   · letters vary → only matters while a box is still letter-sized.
+        // request, July 15). TWO independent questions, and BOTH bite in a normal
+        // font:
+        //   · digits vary  → every box is digit-count × the AVERAGE digit width,
+        //     so the sizes are estimates, and the digits won't stack into columns.
+        //   · letters vary → the boxes are anchored to the LETTER's edge, so A, B
+        //     and C anchor at three slightly different places and their boxes miss
+        //     each other. Measured in Arial: A and B end at 172.7, C at 174.6.
+        //     Only Courier / Roboto Mono give every letter one width.
         // Each <text data-param> carries its own font-family (the card may not use
         // the current draw font), so the faces are read off the card.
         function _mpCardParamFaces() {
@@ -3398,15 +3401,20 @@
             if (!warn) return;
             var faces = _mpCardParamFaces();
             if (!faces.length) { warn.style.display = 'none'; return; }
-            // Does any parameter still have NO domain? Its box is sized from the
-            // letter, so letter widths are what matter for it.
-            var anyLetterSized = false, anyValued = false;
+            // Digit advice applies once any parameter has values to size a box
+            // from. Letter advice applies whenever there are 2+ placed parameter
+            // letters to anchor against each other — that's when unequal letter
+            // widths actually push their boxes out of line.
+            var anyValued = false;
             try {
                 _mpReadParams(loupeSourceCard).forEach(function (p) {
                     var v = _pmDomainVals(p);
-                    if (v && v.length) anyValued = true; else anyLetterSized = true;
+                    if (v && v.length) anyValued = true;
                 });
             } catch (e) { anyValued = true; }
+            var container = document.getElementById('loupe-card-container');
+            var csvg = container && container.querySelector('svg:not(.loupe-grid)');
+            var anyLetterSized = _pmParamTexts(csvg).length > 1;
             Promise.all([
                 Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_DIGIT_CHARS); })),
                 Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_LETTER_CHARS); })),
@@ -3424,9 +3432,10 @@
                 }
                 if (anyLetterSized && letterBad.length) {
                     msgs.push('⚠ Since in ' + letterBad.map(_fontShort).join(', ')
-                        + ' the letters have various widths, a parameter with no values yet is boxed from its'
-                        + ' letter, so that box is approximate too. To have the same width for each letter,'
-                        + ' choose the font from the following list: ' + (r[3].join(', ') || '—') + '.');
+                        + ' the letters have various widths, each box is anchored to a letter of a different'
+                        + ' width, so boxes stacked in a column will not line up exactly. To have the same'
+                        + ' width for each letter, choose the font from the following list: '
+                        + (r[3].join(', ') || '—') + '.');
                 }
                 if (!msgs.length) { warn.style.display = 'none'; return; }
                 warn.innerHTML = '';
@@ -7196,56 +7205,25 @@
             _pmDomainValsCache[key] = out;   // cache misses too — don't retry every frame
             return out;
         }
-        // The NARROWEST and WIDEST value a parameter can take.
-        //
-        // In a font whose digits all share a width, character count IS the width
-        // order, so picking by length is both exact and free. In a PROPORTIONAL
-        // font it is simply wrong — in Anton "888" (3×49) is WIDER than "1111"
-        // (4×33) — so there we measure instead, and the boxes stay honest in any
-        // font. Measuring is capped: a huge domain would stall the box loop, and
-        // the length-extremes are always included so a capped answer degrades to
-        // roughly the length-based one rather than to nonsense.
-        var _PM_MEASURE_CAP = 240;
-        var _pmRangeCache = {};
-        function _pmDomainStrRange(p, svg, t) {
+        // How many DIGITS the shortest and longest value have. Deliberately a
+        // COUNT, not a measured width: the box model is digit-count x the font's
+        // AVERAGE digit width (user spec, July 15). That is exact in a font whose
+        // digits share an advance, and a stated approximation in one where they
+        // don't — which is precisely what the font warning says.
+        var _pmDigitsCache = {};
+        function _pmDomainDigits(p) {
             var vals = _pmDomainVals(p);
             if (!vals || !vals.length) return null;
-            var fsig = t ? _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|') : '';
-            var rk = _pmDomainKey(p) + ' ' + fsig;
-            if (rk in _pmRangeCache) return _pmRangeCache[rk];
-            var byLen = function () {
-                var lo = null, hi = null;
-                vals.forEach(function (s) {
-                    if (lo === null || s.length < lo.length) lo = s;
-                    if (hi === null || s.length > hi.length) hi = s;
-                });
-                return lo === null ? null : { min: lo, max: hi, approx: false };
-            };
-            var out;
-            var ff = t && t.getAttribute('font-family');
-            var uniform = ff ? _fontDigitsTabular(ff) : null;
-            if (uniform === false && svg && t) {
-                var cands = vals;
-                if (cands.length > _PM_MEASURE_CAP) {
-                    var step = Math.ceil(cands.length / _PM_MEASURE_CAP);
-                    var pick = [];
-                    for (var i = 0; i < cands.length; i += step) pick.push(cands[i]);
-                    var ext = byLen();
-                    if (ext) { pick.push(ext.min); pick.push(ext.max); }
-                    cands = pick;
-                }
-                var lo = null, hi = null, loW = Infinity, hiW = -Infinity;
-                cands.forEach(function (s) {
-                    var w = _pmMeasureInFont(svg, t, s);
-                    if (!(w > 0)) return;
-                    if (w < loW) { loW = w; lo = s; }
-                    if (w > hiW) { hiW = w; hi = s; }
-                });
-                out = (lo === null) ? byLen() : { min: lo, max: hi, approx: true };
-            } else {
-                out = byLen();
-            }
-            _pmRangeCache[rk] = out;
+            var key = _pmDomainKey(p);
+            if (key in _pmDigitsCache) return _pmDigitsCache[key];
+            var mn = Infinity, mx = 0;
+            vals.forEach(function (s) {
+                var n = s.replace(/[^0-9]/g, '').length || s.length;
+                if (n < mn) mn = n;
+                if (n > mx) mx = n;
+            });
+            var out = (mx > 0) ? { min: mn, max: mx } : null;
+            _pmDigitsCache[key] = out;
             return out;
         }
         // Measure a string in a placed letter's own font (it may differ from the
@@ -7281,56 +7259,72 @@
                 document.fonts.addEventListener('loadingdone', function () { _pmMeasCache = {}; });
             }
         } catch (e) {}
-        // The font's widest digit. In a uniform font this is just "0"; in a
-        // proportional one it is whichever glyph is fattest, and a reserve has to
-        // be measured against THAT or "reserve 3" won't actually fit 3 digits.
-        var _pmWidestDigitCache = {};
-        function _pmWidestDigit(svg, t) {
+        // THE unit of the whole box model: the AVERAGE advance of 0–9 in this
+        // letter's font. Every box is a whole number of these (user spec). In a
+        // uniform font the average IS each digit's width, so the boxes are exact;
+        // in a proportional one it is a genuine estimate — hence the warning that
+        // the boxes "provide only approximate sizes".
+        var _pmAvgDigitCache = {};
+        function _pmAvgDigitWidth(svg, t) {
             var sig = t ? _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|') : '';
-            if (sig in _pmWidestDigitCache) return _pmWidestDigitCache[sig];
-            var best = '0', bw = -1;
+            if (sig in _pmAvgDigitCache) return _pmAvgDigitCache[sig];
+            var tot = 0, n = 0;
             _PM_DIGIT_CHARS.split('').forEach(function (d) {
                 var w = _pmMeasureInFont(svg, t, d);
-                if (w > bw) { bw = w; best = d; }
+                if (w > 0) { tot += w; n++; }
             });
-            if (bw > 0) _pmWidestDigitCache[sig] = best;
-            return best;
+            var avg = n ? tot / n : 0;
+            if (avg > 0) _pmAvgDigitCache[sig] = avg;
+            return avg;
         }
-        // The slot + shortest-value geometry for one placed letter. Returns null
-        // when the letter can't be measured (e.g. it sits in a display:none tree).
+        // Both boxes for one placed letter (user spec, July 15):
+        //   NORMAL (solid) = minDigits × avgDigitWidth — the shortest value.
+        //   DOTTED         = maxDigits × avgDigitWidth — the longest it can get.
+        // Both are ANCHORED TO THE LETTER on the side data-align names, so the
+        // letter touches that border of the normal box: 'right' puts both boxes'
+        // right edges on the letter's right edge and grows them LEFTWARD. That is
+        // what makes a column work — stack A/B/C at the same x, set each to
+        // 'right', and every box (and later every value) shares one right edge,
+        // no matter how many digits each parameter can reach.
+        // Returns null when the letter can't be measured (e.g. display:none).
         function _pmSlotGeom(svg, t, p) {
             var b; try { b = getSvgSpaceBBox(t); } catch (e) { return null; }
-            if (!b || !isFinite(b.width) || !isFinite(b.height) || b.width <= 0 || b.height <= 0) return null;
-            var dom = _pmDomainStrRange(p, svg, t);
-            var maxW = dom ? _pmMeasureInFont(svg, t, dom.max) : 0;
-            var minW = dom ? _pmMeasureInFont(svg, t, dom.min) : 0;
-            // A reserve can only ever WIDEN the slot beyond what the domain needs.
-            // Measured as a run of the font's WIDEST digit, so "reserve 3" really
-            // does fit any 3 digits — "000" is only the widest run in a font whose
-            // digits are uniform anyway.
-            var resW = (p && p.width > 0) ? _pmMeasureInFont(svg, t, new Array(p.width + 1).join(_pmWidestDigit(svg, t))) : 0;
-            var slotW = Math.max(maxW, resW);
-            if (!(slotW > 0)) slotW = b.width;   // domain unknown → fall back to the letter
-            if (!(minW > 0)) minW = slotW;       // …and then there is no choice to offer
-            if (minW > slotW) minW = slotW;
-            var eps = Math.max(0.5, b.height * 0.05);
+            if (!b || !isFinite(b.height) || b.height <= 0) return null;
+            // Horizontal reference = the letter's ADVANCE box; ink bboxes wobble
+            // by side-bearings, which made boxes twitch as values changed.
+            var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
+            if (!(adv > 0)) adv = b.width;
+            if (!(adv > 0)) return null;
+            var x0 = parseFloat(t.getAttribute('x')); if (!isFinite(x0)) x0 = b.x;
+            var a0 = t.getAttribute('text-anchor') || 'start';
+            var lLeft = (a0 === 'middle') ? x0 - adv / 2 : (a0 === 'end') ? x0 - adv : x0;
+            var lRight = lLeft + adv;
+
+            var dig = _pmDomainDigits(p);
+            var resN = (p && p.width > 0) ? p.width : 0;
+            var maxN = Math.max(dig ? dig.max : 0, resN);   // a reserve only WIDENS
+            var minN = dig ? dig.min : 0;
+            var aw = _pmAvgDigitWidth(svg, t);
+            var dottedW = (maxN > 0 && aw > 0) ? maxN * aw : adv;   // no domain → the letter
+            var normalW = (minN > 0 && aw > 0) ? minN * aw : dottedW;
+            if (normalW > dottedW) normalW = dottedW;
+
+            var align = t.getAttribute('data-align') || 'left';
+            function leftFor(w) {
+                if (align === 'right') return lRight - w;
+                if (align === 'center') return (lLeft + lRight) / 2 - w / 2;
+                return lLeft;
+            }
             return {
-                x: b.x, y: b.y, h: b.height,
-                slotW: slotW, minW: minW,
-                // Only an ESTIMATE when the font's digits vary in width: the box
-                // edges are real, but which value is widest was sampled, and the
-                // digits inside will not stack into columns regardless.
-                approx: !!(dom && dom.approx),
-                fromLetter: !dom,   // no domain yet → box sized by the LETTER
-                hasChoice: (slotW - minW) > eps
+                y: b.y, h: b.height,
+                dottedLeft: leftFor(dottedW), dottedW: dottedW,
+                normalLeft: leftFor(normalW), normalW: normalW,
+                minDigits: minN, maxDigits: maxN,
+                fromLetter: !dig && !resN,      // no values yet → box sized by the LETTER
+                // Same digit count either way = one possible width = nothing to
+                // choose, so no toggle (user spec).
+                hasChoice: (maxN > minN && minN > 0)
             };
-        }
-        // Where the SHORT value's box sits inside the slot, per data-align.
-        function _pmSolidLeft(geo, align) {
-            var slack = geo.slotW - geo.minW;
-            if (align === 'right') return geo.x + slack;
-            if (align === 'center') return geo.x + slack / 2;
-            return geo.x;
         }
         // A darker shade of the parameter's colour, for the dotted max-extent box.
         function _pmDarken(hex, f) {
@@ -7382,33 +7376,35 @@
                 var sym = t.getAttribute('data-param');
                 var geo = _pmSlotGeom(svg, t, byS[sym]);
                 if (!geo) return;   // unmeasurable (e.g. display:none) — draw nothing
-                var pad = Math.max(0.6, geo.h * 0.14);
+                var pad = Math.max(0.4, geo.h * 0.08);
                 var sw = Math.max(0.25, geo.h * 0.06);
                 var rx = Math.max(0.4, geo.h * 0.1);
                 var col = _pmParamColor(sym);
                 function mkRect(x, w) {
                     var r = document.createElementNS(_PM_BOX_NS, 'rect');
-                    r.setAttribute('x', (x - pad).toFixed(2));
+                    r.setAttribute('x', x.toFixed(2));
                     r.setAttribute('y', (geo.y - pad).toFixed(2));
-                    r.setAttribute('width', (w + 2 * pad).toFixed(2));
+                    r.setAttribute('width', w.toFixed(2));
                     r.setAttribute('height', (geo.h + 2 * pad).toFixed(2));
                     r.setAttribute('rx', rx.toFixed(2));
                     r.setAttribute('fill', 'none');
                     return r;
                 }
-                // SOLID box — where the SHORTEST value lands, i.e. what the align
-                // choice actually decides. It slides inside the dotted box.
-                var solid = mkRect(_pmSolidLeft(geo, t.getAttribute('data-align') || 'left'), geo.minW);
+                // NORMAL box — the shortest value, n digits wide, anchored so the
+                // letter touches the aligned border. No horizontal padding: the
+                // box IS the digit run, and padding it would stop the letter
+                // touching the border and stop a column lining up.
+                var solid = mkRect(geo.normalLeft, geo.normalW);
                 solid.setAttribute('stroke', col);
                 solid.setAttribute('stroke-width', sw.toFixed(2));
                 g.appendChild(solid);
-                // DOTTED box — the widest value's extent (the slot). Drawn even when
-                // it coincides with the solid box: the dots then sit ON the solid
+                // DOTTED box — the longest value's extent. Drawn even when it
+                // coincides with the normal box: the dots then sit ON the solid
                 // border, which is exactly how "this number is always this wide"
                 // should read. Dots = zero-length dashes with round caps, so the
                 // diameter IS the stroke width (80% of the solid border's).
                 var dotDia = sw * 0.8;
-                var dotted = mkRect(geo.x, geo.slotW);
+                var dotted = mkRect(geo.dottedLeft, geo.dottedW);
                 dotted.setAttribute('stroke', _pmDarken(col, 0.62));
                 dotted.setAttribute('stroke-width', dotDia.toFixed(2));
                 dotted.setAttribute('stroke-linecap', 'round');
@@ -7667,9 +7663,9 @@
                     if (isFinite(refL) && isFinite(refT)) anchor = { x: refL, y: refT };
                 } else {
                     var geo = _pmSlotGeom(svg, t, byS[t.getAttribute('data-param')]);
-                    if (!geo || !geo.hasChoice) return;   // dotted == solid → nothing to choose
+                    if (!geo || !geo.hasChoice) return;   // dotted == normal → nothing to choose
                     mode = 'tmpl';
-                    anchor = { x: geo.x, y: geo.y };
+                    anchor = { x: geo.dottedLeft, y: geo.y };
                 }
                 if (!t.__alignKey) t.__alignKey = 'ak' + (++_pmAlignSeq);
                 var key = t.__alignKey; keep[key] = 1;

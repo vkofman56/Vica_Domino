@@ -425,7 +425,27 @@
                     // its work. A FRESH device (empty local) still pulls cloud
                     // normally. Trade-off: edits to these keys don't propagate
                     // device→device (acceptable for single-superuser editing).
-                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'savedBigGames', 'savedMathGames', 'vica_global_players'];
+                    // The Studio-authored CARD-SIDE stores (uid-keyed objects) belong
+                    // here too. They were protected by NOTHING: not card keys (the
+                    // name doesn't start with customDrawnCards), not local-wins — so
+                    // the wipe+restore above rolled every one of them back to the
+                    // cloud snapshot on each login. Symptom (user report July 14): a
+                    // parameter's space-box "digit space" reserve un-checked ITSELF
+                    // after Save — the older cloud copy still had B with its value
+                    // set but no width, so the set survived and only the newest edit
+                    // vanished. Anything not yet pushed (push denied for a non-authed
+                    // session, or simply still inside the 350 ms debounce when the
+                    // page reloads) was silently lost. Same trade-off as the game
+                    // stores: device-local-authoritative, so edits don't propagate
+                    // device→device; a fresh/empty device still pulls cloud normally.
+                    var _localWinsKeys = ['pageNameLabels_gp2', 'savedCustomGames', 'savedCatchGames', 'savedCombinedGames', 'savedBigGames', 'savedMathGames', 'vica_global_players',
+                        'cardMathParams_v1',   // Par: parameters, rules + space-box widths
+                        'cardMathFormula_v1',  // f-formula per card
+                        'cardMathRel_v1',      // card↔card relations
+                        'cardAnswerLinks_v1',  // problem↔answer card links
+                        'cardNoteLinks_v1',    // note↔card bonds
+                        'gameNoteLegends_v1'   // per-game note legends
+                    ];
                     _localWinsKeys.forEach(function (lk) {
                         var lv = _origGetItem(lk);
                         if (!lv) return;

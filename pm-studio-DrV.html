@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:01 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:14 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:01 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:14 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:01 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:14 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3208,6 +3208,10 @@
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
                 +   '</label>'
                 +   '<span class="par-help" style="margin-left:12px;text-transform:none;letter-spacing:0;">Off = free width</span>'
+                // A reserved slot promises columns that line up — a promise the
+                // FONT can break. Warn right where the reserve is set, not after
+                // the card looks wrong.
+                +   '<span id="mp-box-digitwarn" style="display:none;margin-left:10px;font-size:11px;color:#ffc454;cursor:help;"></span>'
                 + '</div>'
                 // Values: a list of PARTS — one or more ranges and/or sets, each
                 // add/deletable. The parameter's domain is the UNION of them all.
@@ -3341,8 +3345,12 @@
             (function () {
                 var on = document.getElementById('mp-box-on'), nIn = document.getElementById('mp-box-n');
                 if (!on || !nIn) return;
-                on.addEventListener('change', function () { if (on.checked && !nIn.value) nIn.value = _mpProposeBoxDigits(); });
+                on.addEventListener('change', function () {
+                    if (on.checked && !nIn.value) nIn.value = _mpProposeBoxDigits();
+                    _mpSyncDigitWarn();
+                });
             })();
+            _mpSyncDigitWarn();
             _mpRenderRestrList();
             // Reset / restore the place-value helper for this parameter.
             _pvActive = false; _pvDigits = null; _mpRuleDraft = '';
@@ -3362,6 +3370,37 @@
                 var dx = symEl.getBoundingClientRect().left - res.getBoundingClientRect().left;
                 if (isFinite(dx) && dx > 0.5) res.style.marginLeft = dx + 'px';
             }, 0);
+        }
+        // A reserved space-box only lines numbers up if the FONT gives every digit
+        // the same advance. Check the faces actually placed on this card (each
+        // <text data-param> carries its own font-family — the card may not use the
+        // current draw font) and warn on the reserve row when one of them is
+        // proportional. Reserve OFF = free width = no column promise, so no warning.
+        function _mpSyncDigitWarn() {
+            var warn = document.getElementById('mp-box-digitwarn');
+            if (!warn) return;
+            var on = document.getElementById('mp-box-on');
+            if (!on || !on.checked) { warn.style.display = 'none'; return; }
+            var container = document.getElementById('loupe-card-container');
+            var svg = container && container.querySelector('svg:not(.loupe-grid)');
+            var faces = {};
+            _pmParamTexts(svg).forEach(function (t) {
+                var ff = t.getAttribute('font-family');
+                if (ff) faces[ff] = 1;
+            });
+            if (!Object.keys(faces).length && typeof drawFontFamily !== 'undefined') faces[drawFontFamily] = 1;
+            var list = Object.keys(faces);
+            if (!list.length) { warn.style.display = 'none'; return; }
+            Promise.all(list.map(_fontDigitsProbe)).then(function (res) {
+                var bad = list.filter(function (ff, i) { return res[i] === false; });
+                if (!bad.length) { warn.style.display = 'none'; return; }
+                var names = bad.map(function (ff) { return ff.replace(/['"]/g, '').split(',')[0].trim(); });
+                warn.style.display = '';
+                warn.textContent = '⚠ ' + names.join(', ') + ': digits differ in width — columns won’t line up';
+                warn.title = 'A reserved space-box keeps the SLOT a fixed width, but ' + names.join(', ')
+                    + ' draws a “1” narrower than a “0”, so the digits inside the slot still drift out of column. '
+                    + 'Pick a font marked “123” in the font picker for column arithmetic.';
+            });
         }
         // Show the construction's micro-parameters (the hidden helpers, e.g. a, b, k)
         // as chips coloured by THIS Big parameter — so each micro-param's connection
@@ -7265,6 +7304,19 @@
             if (!isFinite(left)) return;
             var width = parseFloat(t.getAttribute('data-ref-width')); if (!isFinite(width)) width = 0;
             var align = t.getAttribute('data-align') || 'left';
+            // ONE geometry, TWO meanings — which is why a single set of arrows
+            // couldn't express it (user report July 14, resolved July 15):
+            //   reserved slot → data-align = WHICH EDGE OF THE SLOT holds the
+            //     value still. The slot outlives any one value, so this is
+            //     alignment in the ordinary sense.
+            //   free width    → there is no slot; "width" here is just the
+            //     template letter's own advance, so pinning an edge of it reads
+            //     as a GROWTH DIRECTION: 'left' pins the left edge (digits run
+            //     rightward), 'right' pins the right edge (digits run leftward —
+            //     which is what stacks a column of numbers on their units),
+            //     'center' grows both ways.
+            // The maths is identical; only the ICONS and wording differ, and
+            // that difference is what _pmSyncAlignToggles renders.
             if (align === 'center') { t.setAttribute('x', (left + width / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
             else if (align === 'right') { t.setAttribute('x', (left + width).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
             else { t.setAttribute('x', left.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
@@ -7303,6 +7355,47 @@
                 + '<line x1="2" y1="6" x2="9" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
                 + '<path d="M6 3 9 6l-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
         };
+        // FREE-WIDTH icons: the same three data-align values, but drawn as what
+        // they MEAN with no slot — a PIN (the bar, the edge that never moves) and
+        // an arrow showing which way the digits run as the value grows. Note the
+        // arrow points AWAY from the bar, the exact opposite of the align icons
+        // above, where it points INTO the bar. That inversion is the whole bug
+        // report: with free width, pressing the arrow that looked like "move
+        // right" pinned the right edge and sent "200" leftward. Same geometry,
+        // honestly drawn.
+        var _PM_GROW_ICONS = {
+            // data-align 'left' = left edge pinned → digits run RIGHT
+            left: '<svg viewBox="0 0 14 12" width="14" height="12" aria-hidden="true">'
+                + '<line x1="2" y1="1.5" x2="2" y2="10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<line x1="3.5" y1="6" x2="10.5" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<path d="M8 3 11 6l-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            // 'center' = centre pinned → digits run BOTH ways
+            center: '<svg viewBox="0 0 14 12" width="14" height="12" aria-hidden="true">'
+                + '<line x1="7" y1="2.5" x2="7" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<line x1="7" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<path d="M9 4 11.5 6L9 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+                + '<line x1="7" y1="6" x2="3" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<path d="M5 4 2.5 6 5 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            // 'right' = right edge pinned → digits run LEFT (this is the one that
+            // stacks a column of numbers on their units)
+            right: '<svg viewBox="0 0 14 12" width="14" height="12" aria-hidden="true">'
+                + '<line x1="12" y1="1.5" x2="12" y2="10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<line x1="10.5" y1="6" x2="3.5" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+                + '<path d="M6 3 3 6l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        };
+        var _PM_ALIGN_TITLES = {
+            left: 'Left-align in the reserved slot',
+            center: 'Centre in the reserved slot',
+            right: 'Right-align in the reserved slot — stacks numbers on their units'
+        };
+        var _PM_GROW_TITLES = {
+            left: 'Grows RIGHT — the left edge stays put, extra digits run to the right',
+            center: 'Grows BOTH WAYS — the centre stays put',
+            right: 'Grows LEFT — the right edge stays put, extra digits run to the left (stacks numbers on their units)'
+        };
+        // Free width reads left→right as ← ↔ → ("which way does it go?"), so the
+        // buttons are ordered by the DIRECTION drawn, not by the data-align value.
+        var _PM_GROW_ORDER = ['right', 'center', 'left'];
         var _pmAlignSeq = 0;
         // Show a left/center/right toggle at the upper-left of each placed param /
         // formula WHILE an instance is displayed; hidden otherwise.
@@ -7317,12 +7410,23 @@
             texts.forEach(function (t) {
                 if (!t.__alignKey) t.__alignKey = 'ak' + (++_pmAlignSeq);
                 var key = t.__alignKey; keep[key] = 1;
+                // A reserved slot asks "which edge of the SLOT holds the value?";
+                // free width asks "which way does the number GROW?". Same three
+                // values, different question — so different icons, wording and
+                // button order. Ticking / un-ticking "digit space" flips the
+                // question, so the toggle is rebuilt when the mode changes.
+                var mode = (+(t.getAttribute('data-ref-reserve')) > 0) ? 'slot' : 'grow';
                 var tog = host.querySelector('[data-ak="' + key + '"]');
+                if (tog && tog.getAttribute('data-mode') !== mode) { tog.remove(); tog = null; }
                 if (!tog) {
-                    tog = document.createElement('div'); tog.className = 'pm-align-toggle'; tog.setAttribute('data-ak', key);
-                    ['left', 'center', 'right'].forEach(function (a) {
+                    tog = document.createElement('div'); tog.className = 'pm-align-toggle';
+                    tog.setAttribute('data-ak', key); tog.setAttribute('data-mode', mode);
+                    var ICONS = (mode === 'slot') ? _PM_ALIGN_ICONS : _PM_GROW_ICONS;
+                    var TITLES = (mode === 'slot') ? _PM_ALIGN_TITLES : _PM_GROW_TITLES;
+                    var ORDER = (mode === 'slot') ? ['left', 'center', 'right'] : _PM_GROW_ORDER;
+                    ORDER.forEach(function (a) {
                         var b = document.createElement('button'); b.className = 'pm-align-btn'; b.dataset.align = a;
-                        b.innerHTML = _PM_ALIGN_ICONS[a]; b.title = a + '-align';
+                        b.innerHTML = ICONS[a]; b.title = TITLES[a];
                         b.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
                         b.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _pmApplyAlign(t, a); });
                         tog.appendChild(b);
@@ -7431,6 +7535,12 @@
                     var refLeft = (a0 === 'middle') ? x0 - adv / 2 : (a0 === 'end') ? x0 - adv : x0;
                     t.setAttribute('data-ref-left', refLeft);
                     t.setAttribute('data-ref-width', slotW);
+                    // Reserve count drives the whole model downstream: >0 = a real
+                    // SLOT (column mode — the align toggle picks which edge of it
+                    // holds still); 0 = FREE WIDTH (flow mode — there is no slot,
+                    // the "width" above is merely the template letter's own advance,
+                    // so alignment is meaningless and the toggle stays hidden).
+                    t.setAttribute('data-ref-reserve', nres);
                     if (tb) t.setAttribute('data-ref-top', tb.y);
                 })();
                 var newText;
@@ -12511,6 +12621,56 @@
         }
 
         // --- Font picker (two-level: categories → fonts) ---
+        // ===== Digit-advance probe (tabular vs proportional) ==================
+        // Does this font give every digit the SAME advance width? Numbers only
+        // stack into columns (units under units) when it does. MEASURED, never
+        // assumed: the space-box code took "digits are tabular" on faith and
+        // sized every reserve off a run of "000" — the WIDEST digits — so in a
+        // proportional face like Anton (a "1" is two-thirds of a "0") the slot
+        // fits 200 but leaves 111 swimming, and no column ever lines up.
+        // font-variant-numeric cannot rescue these: measured July 14, the
+        // proportional faces in this picker (Anton, Oswald, Comic Neue, Patrick
+        // Hand, Permanent Marker, Lobster, Georgia, Playfair, Libre Baskerville)
+        // ship NO 'tnum' feature — only Merriweather and Lora respond to it.
+        var _fontDigitsTabularCache = {};
+        function _fontDigitsTabular(ff) {
+            if (_fontDigitsTabularCache[ff] != null) return _fontDigitsTabularCache[ff];
+            var NS = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('width', 1); svg.setAttribute('height', 1);
+            svg.style.cssText = 'position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none';
+            document.body.appendChild(svg);
+            var res = null;
+            try {
+                var w = ['0', '1', '4', '7'].map(function (d) {
+                    var t = document.createElementNS(NS, 'text');
+                    t.setAttribute('font-size', 100);
+                    t.setAttribute('font-family', ff);
+                    t.setAttribute('font-weight', '500');
+                    t.textContent = d; svg.appendChild(t);
+                    var a = 0; try { a = t.getComputedTextLength(); } catch (e) {}
+                    t.remove(); return a;
+                });
+                if (w.every(function (x) { return x > 0; })) {
+                    res = (Math.max.apply(null, w) - Math.min.apply(null, w)) <= 0.5;
+                }
+            } catch (e) {}
+            svg.remove();
+            // Cache only a REAL answer: a webfont that hasn't downloaded yet
+            // measures as its fallback, which made every face look like Arial.
+            if (res != null) _fontDigitsTabularCache[ff] = res;
+            return res;
+        }
+        // Probe after forcing the face to download. document.fonts.ready does NOT
+        // fetch a webfont that nothing has rendered yet, so probing straight away
+        // measures the fallback and reports every font as tabular.
+        function _fontDigitsProbe(ff) {
+            try {
+                return document.fonts.load('500 100px ' + ff, '0123456789')
+                    .then(function () { return _fontDigitsTabular(ff); })
+                    .catch(function () { return _fontDigitsTabular(ff); });
+            } catch (e) { return Promise.resolve(_fontDigitsTabular(ff)); }
+        }
         var fontData = {
             sans: [
                 { value: "Arial, sans-serif", label: "Arial", preview: "Arial, sans-serif" },
@@ -12643,8 +12803,23 @@
                 var item = document.createElement('div');
                 item.className = 'font-list-item';
                 if (f.value === drawFontFamily) item.classList.add('selected');
-                item.textContent = f.label;
-                item.style.fontFamily = f.preview;
+                // The name previews in its own face; the digit marker must NOT
+                // inherit it (it has to stay legible in Lobster / Marker).
+                var name = document.createElement('span');
+                name.textContent = f.label;
+                name.style.fontFamily = f.preview;
+                item.appendChild(name);
+                var dig = document.createElement('span');
+                dig.className = 'fli-dig';
+                item.appendChild(dig);
+                _fontDigitsProbe(f.value).then(function (tab) {
+                    if (tab == null) return;   // couldn't measure — say nothing
+                    dig.classList.add(tab ? 'tab' : 'prop');
+                    dig.textContent = tab ? '123' : '1≠0';
+                    dig.title = tab
+                        ? 'Every digit is the same width — numbers stack into columns.'
+                        : 'Digits are different widths here (a “1” is narrower than a “0”), so columns of numbers will NOT line up. Pick a “123” font for column arithmetic.';
+                });
                 item.onclick = function(e) {
                     e.stopPropagation();
                     selectFont(f.value, f.label);

@@ -1009,6 +1009,9 @@
         }
         .loupe-instance-tag:hover { background: rgba(60,60,100,0.96); }
         .loupe-instance-tag.showing { background: rgba(20,87,31,0.96); border-color: #7eff7e; color: #eaffea; }
+        /* Card-level ▷ — beside the 123 tag, only when the card has 2+ adjusted
+           structures. Click = the next COMBINATION of widths across all of them. */
+        #loupe-cardplay-tag { left: 62px; font-size: 15px; }
         /* Per-element alignment toggle (left/center/right), shown on each placed
            parameter / formula while an instance is displayed. */
         #pm-align-toggles { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
@@ -1036,6 +1039,11 @@
             border-radius: 6px; padding: 3px 9px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
         .pm-adjust-chip.on { background: rgba(126,255,126,0.9); }
+        /* Standing per-group "adjusted ✓" chips — one on each tether while the
+           boxes/connections are visible, so a group can be un-adjusted without
+           re-selecting its members (user, July 16). */
+        #pm-adjust-chips { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
+        #pm-adjust-chips .pm-adjust-chip { pointer-events: auto; font-size: 10px; padding: 2px 7px; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -1182,7 +1190,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1208,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1450,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:18 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7098,8 +7106,9 @@
         // per parameter (incl. the f-derived result). Click a button to place that
         // parameter on the card as a movable letter. Hidden when the card has none.
         function _loupeRenderParamsBar(card) {
-            // Keep the "123" instance tag in sync with the parameter set too.
+            // Keep the "123" instance tag (and the card-level ▷) in sync too.
             if (typeof _loupeUpdateInstanceTag === 'function') { try { _loupeUpdateInstanceTag(); } catch (e) {} }
+            if (typeof _loupeSyncCardPlayTag === 'function') { try { _loupeSyncCardPlayTag(); } catch (e) {} }
             var bar = document.getElementById('loupe-params-bar');
             if (!bar) return;
             bar.innerHTML = '';
@@ -7208,6 +7217,109 @@
                 tag.title = 'Show an example (one instance)';
                 tag.addEventListener('mousedown', function (e) { e.stopPropagation(); });
                 tag.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _loupeToggleInstance(); });
+                lc.style.position = 'relative';
+                lc.appendChild(tag);
+            }
+            tag.style.display = 'flex';
+        }
+        // ===== Card-level ▷ (user spec, July 16) ==============================
+        // With TWO OR MORE adjusted structures on the card, one button beside the
+        // 123 tag plays them ALL: each press shows the next COMBINATION of widths
+        // (group1-width × group2-width × …), every one a real sampled problem. A
+        // single group is served by the chip-side ▷; this button is about how the
+        // structures interact.
+        function _pmAdjustedSyms(svg) {
+            var out = [];
+            if (!svg) return out;
+            _pmParamTexts(svg).forEach(function (t) {
+                var gid = t.getAttribute('data-adjust-id');
+                if (!gid) return;
+                // A gid with no followers is a dissolved group, not a structure.
+                if (!svg.querySelector('[data-adjust-follow="' + gid + '"]')) return;
+                var sym = t.getAttribute('data-param');
+                if (sym && out.indexOf(sym) < 0) out.push(sym);
+            });
+            return out.sort();
+        }
+        var _cardPlayState = null;   // { key, list:[{env,widths}], idx }
+        function _cardPlayBuildList(card, syms) {
+            // Sample whole-card envs (answers included — the 123 generator) and
+            // keep the FIRST example per distinct width COMBINATION. Sampling, not
+            // enumeration: every example is a valid problem by construction, and a
+            // combination the constraints never produce simply doesn't appear.
+            // Early stop once every arithmetically possible combination is found.
+            var want = 1;
+            var byS = _pmParamsBySym(card);
+            syms.forEach(function (s) {
+                var d = _pmWithCard(card, function () { return _pmDomainDigits(byS[s]); });
+                want *= (d && d.max >= d.min) ? (d.max - d.min + 1) : 1;
+            });
+            var found = {}, order = [];
+            for (var tries = 0; tries < 300 && order.length < want; tries++) {
+                var g = _pmGenEnvForCard(card);
+                if (!g || g.error || !g.env) break;
+                var key = syms.map(function (s) {
+                    var v = g.env[s];
+                    return v == null ? '?' : String(v).replace(/[^0-9]/g, '').length;
+                }).join('|');
+                if (!found[key]) { found[key] = g; order.push(key); }
+            }
+            // Lexicographic by the width vector — the story reads (1,1) (1,2) (2,1)…
+            order.sort(function (a, b) {
+                var A = a.split('|'), B = b.split('|');
+                for (var i = 0; i < A.length; i++) { var d = (+A[i] || 0) - (+B[i] || 0); if (d) return d; }
+                return 0;
+            });
+            return order.map(function (k) { return found[k]; });
+        }
+        function _cardPlayStep() {
+            var lc = document.getElementById('loupe-card-container');
+            var lsvg = lc && lc.querySelector('svg:not(.loupe-grid)');
+            var card = (typeof loupeSourceCard !== 'undefined') ? loupeSourceCard : null;
+            if (!lsvg || !card) return;
+            var syms = _pmAdjustedSyms(lsvg);
+            if (syms.length < 2) return;
+            var key = (card.dataset ? card.dataset.uid : '') + '|' + syms.join(',');
+            if (!_cardPlayState || _cardPlayState.key !== key) {
+                var list = _cardPlayBuildList(card, syms);
+                if (!list.length) { try { _geFlash('No examples could be generated — check the parameters’ values.'); } catch (e) {} return; }
+                _cardPlayState = { key: key, list: list, idx: -1 };
+                // Once per run: the measured-truth caveat, if ANY adjusted
+                // parameter lacks equidistant digits in a font whose digits vary.
+                var byS = _pmParamsBySym(card), warn = false;
+                _pmParamTexts(lsvg).forEach(function (t) {
+                    var sym = t.getAttribute('data-param');
+                    if (syms.indexOf(sym) < 0 || warn) return;
+                    var p = byS[sym], ff = t.getAttribute('font-family');
+                    if (!(p && p.equiNum) && ff && _fontDigitsTabular(ff) === false) warn = true;
+                });
+                if (warn) { try { _geFlash('The digits have various widths so the geometry will be further refined.'); } catch (e2) {} }
+            }
+            _cardPlayState.idx = (_cardPlayState.idx + 1) % _cardPlayState.list.length;
+            var g = _cardPlayState.list[_cardPlayState.idx];
+            if (_pmHasPlacedInstance(lsvg)) _pmClearPlacedInstance(lsvg);
+            _pmShowPlacedInstance(lsvg, g.env, g.widths);
+            var tag = document.getElementById('loupe-instance-tag');
+            if (tag) { tag.classList.add('showing'); tag.title = 'Showing an example — click to return to the parameters'; }
+        }
+        // Show/hide the ▷ beside the 123 tag. Piggybacks the same call sites as
+        // the 123 tag PLUS the box rAF loop, because adjust groups form and
+        // dissolve without a params-bar re-render (the chip has no such hook).
+        function _loupeSyncCardPlayTag() {
+            var lc = document.getElementById('loupe-card-container');
+            if (!lc) return;
+            var lsvg = lc.querySelector('svg:not(.loupe-grid)');
+            var tag = document.getElementById('loupe-cardplay-tag');
+            var n = _pmAdjustedSyms(lsvg).length;
+            if (n < 2) { if (tag) tag.style.display = 'none'; return; }
+            if (!tag || tag.parentNode !== lc) {
+                tag = document.createElement('div');
+                tag.id = 'loupe-cardplay-tag';
+                tag.className = 'loupe-instance-tag';
+                tag.textContent = '▷';
+                tag.title = 'Play ALL adjusted structures — every combination of their widths, one valid example each.';
+                tag.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+                tag.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _cardPlayStep(); });
                 lc.style.position = 'relative';
                 lc.appendChild(tag);
             }
@@ -7669,7 +7781,7 @@
             (function tick() {
                 var container = document.getElementById('loupe-card-container');
                 var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
-                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes', loupeSourceCard); _pmSyncAlignToggles(svg); _pmDrawAdjustLinks(svg); }
+                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes', loupeSourceCard); _pmSyncAlignToggles(svg); _pmDrawAdjustLinks(svg); _pmSyncAdjustGroupChips(svg); _loupeSyncCardPlayTag(); }
                 _pmLiveBoxRAF = requestAnimationFrame(tick);
             })();
         }
@@ -7682,6 +7794,7 @@
             var al = svg && svg.querySelector('g.pm-adjust-links');
             if (al) al.parentNode.removeChild(al);
             var host = document.getElementById('pm-align-toggles'); if (host) host.innerHTML = '';
+            var ac = document.getElementById('pm-adjust-chips'); if (ac) ac.innerHTML = '';
         }
         // The VISIBLE mark of an adjust group (user request July 13): a dashed
         // green tether from the parameter to each grouped static + a dashed
@@ -7722,11 +7835,83 @@
                     var side = (m.getAttribute('data-adjust-side') === 'left') ? 'left' : 'right';
                     var x1 = (side === 'right') ? pb.x + pb.width : pb.x;
                     var x2 = (side === 'right') ? mb.x : mb.x + mb.width;
+                    // ONE tether per member, nothing else. A July 13 "member
+                    // underline" (a horizontal dash under each follower) was
+                    // drawn here too — with the boxes in place it read as two
+                    // mystery connectors, not as a marker (user, July 16).
                     g.appendChild(dash(x1, pb.y + pb.height / 2, x2, mb.y + mb.height / 2)); // tether
-                    g.appendChild(dash(mb.x, mb.y + mb.height + 1, mb.x + mb.width, mb.y + mb.height + 1)); // member underline
                 });
             });
             if (g) svg.appendChild(g);
+        }
+        // Standing "adjusted ✓" chip on each group's tether (user, July 16): the
+        // selection-time chip only exists while the members are selected, so a
+        // card with visible tethers offered no way to UN-adjust. One chip per
+        // group now rides its first tether's midpoint whenever the connections
+        // are on screen; clicking it dissolves that group (and undoes any
+        // instance shift currently applied to its members).
+        function _pmUnadjustGroup(svg, gid) {
+            svg.querySelectorAll('[data-adjust-follow="' + gid + '"]').forEach(function (m) {
+                var applied = parseFloat(m.getAttribute('data-adjust-dx')) || 0;
+                if (applied) { var p = getElementPos(m); setElementPos(m, p.x - applied, p.y); }
+                m.removeAttribute('data-adjust-dx');
+                m.removeAttribute('data-adjust-follow');
+                m.removeAttribute('data-adjust-side');
+            });
+            hasEditedExisting = true;   // the grouping lives in the SVG → saves with the card
+            try { _geFlash('Adjust group removed — the statics are pinned again.'); } catch (e) {}
+            if (typeof _adjSyncChip === 'function') { try { _adjSyncChip(); } catch (e2) {} }
+        }
+        function _pmSyncAdjustGroupChips(svg) {
+            var overlay = document.getElementById('loupe-overlay');
+            if (!overlay) return;
+            var host = document.getElementById('pm-adjust-chips');
+            if (!svg) { if (host) host.innerHTML = ''; return; }
+            if (!host) { host = document.createElement('div'); host.id = 'pm-adjust-chips'; overlay.appendChild(host); }
+            var keep = {};
+            var svgEl = svg, ctm = svgEl.getScreenCTM && svgEl.getScreenCTM();
+            svg.querySelectorAll('text[data-param][data-adjust-id]').forEach(function (t) {
+                var gid = t.getAttribute('data-adjust-id');
+                var m = svg.querySelector('[data-adjust-follow="' + gid + '"]');
+                if (!m) return;                                  // dissolved group
+                var pb, mb;
+                try { pb = getSvgSpaceBBox(t); mb = getSvgSpaceBBox(m); } catch (e) { return; }
+                if (!pb || !mb || !(pb.width > 0) || !(mb.width > 0)) return;
+                keep[gid] = 1;
+                var chip = host.querySelector('[data-gid="' + gid + '"]');
+                if (!chip) {
+                    chip = document.createElement('button');
+                    chip.className = 'pm-adjust-chip on';
+                    chip.setAttribute('data-gid', gid);
+                    chip.textContent = 'adjusted ✓';
+                    chip.title = 'This group’s statics follow the value’s length. Click to un-adjust (pin them again).';
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    chip.addEventListener('click', function (e) {
+                        e.stopPropagation(); e.preventDefault();
+                        _pmUnadjustGroup(svg, gid);
+                        chip.remove();
+                    });
+                    host.appendChild(chip);
+                }
+                // Ride the FIRST tether's midpoint (the same geometry the dashes
+                // use), converted to screen space; sit just above the line.
+                var side = (m.getAttribute('data-adjust-side') === 'left') ? 'left' : 'right';
+                var x1 = (side === 'right') ? pb.x + pb.width : pb.x;
+                var x2 = (side === 'right') ? mb.x : mb.x + mb.width;
+                var mx = (x1 + x2) / 2, my = (pb.y + pb.height / 2 + mb.y + mb.height / 2) / 2;
+                var sx = null, sy = null;
+                if (ctm && svgEl.createSVGPoint) {
+                    var pt = svgEl.createSVGPoint(); pt.x = mx; pt.y = my;
+                    var sp = pt.matrixTransform(ctm); sx = sp.x; sy = sp.y;
+                }
+                if (sx == null) return;
+                chip.style.position = 'fixed';
+                chip.style.left = Math.round(sx - chip.offsetWidth / 2) + 'px';
+                chip.style.top = Math.round(sy - 26) + 'px';
+            });
+            Array.prototype.slice.call(host.children).forEach(function (c) {
+                if (!keep[c.getAttribute('data-gid')]) c.remove();
+            });
         }
         // ----- Placing a concrete VALUE into the parameter's slot -----
         // The single positioning routine for instances — the 123 view, the align

@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:38 AM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">09:38 AM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">09:38 AM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3208,6 +3208,12 @@
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
                 +   '</label>'
                 +   '<span class="par-help" style="margin-left:12px;text-transform:none;letter-spacing:0;">Off = free width</span>'
+                // The reserve is a FLOOR, and the author can't see whether the
+                // domain fits inside it — so say it, right where the number is
+                // typed: "spill N digits" (some values run past the reserve →
+                // still variable-width) or "extra space N digits" (reserve
+                // exceeds every value → truly fixed). Silent on an exact fit.
+                +   '<span id="mp-box-spill" style="display:none;margin-left:10px;font-size:11px;"></span>'
                 // Give every digit the SAME width whatever the font does — the fix
                 // for stacking numbers into a column, without giving up the font.
                 // Per-parameter, because only the ones you actually stack need it.
@@ -3359,8 +3365,16 @@
                 on.addEventListener('change', function () {
                     if (on.checked && !nIn.value) nIn.value = _mpProposeBoxDigits();
                     _mpSyncDigitWarn();
+                    _mpSyncSpillInfo();
                 });
+                nIn.addEventListener('input', _mpSyncSpillInfo);
+                // Domain edits move the spill too: one DELEGATED listener on the
+                // parts host survives every _mpRenderParts rebuild (the rows are
+                // re-created wholesale, so per-input listeners would be lost).
+                var partsHost = document.getElementById('mp-parts');
+                if (partsHost) partsHost.addEventListener('input', _mpSyncSpillInfo);
             })();
+            _mpSyncSpillInfo();
             // "equidistant numbers" changes the digit UNIT, so every box re-sizes —
             // show that the moment it's ticked, not on Save.
             (function () {
@@ -3457,6 +3471,33 @@
                 }
             }
             return out;
+        }
+        // "spill N digits" / "extra space N digits" — how the DRAFT domain sits
+        // against the check-marked reserve. Computed from the editor's current
+        // state (not the saved param), so it answers while the author is typing.
+        function _mpSyncSpillInfo() {
+            var el = document.getElementById('mp-box-spill');
+            if (!el) return;
+            var on = document.getElementById('mp-box-on');
+            var nIn = document.getElementById('mp-box-n');
+            var resN = (on && on.checked) ? parseInt((nIn && (nIn.value || nIn.placeholder)) || '0', 10) : 0;
+            if (!(resN > 0)) { el.style.display = 'none'; return; }
+            var dig = null;
+            try { dig = _pmDomainDigits(_mpReadEditor()); } catch (e) {}
+            if (!dig || !(dig.max > 0)) { el.style.display = 'none'; return; }
+            var d = dig.max - resN;
+            if (d > 0) {
+                el.textContent = 'spill ' + d + ' digit' + (d === 1 ? '' : 's');
+                el.style.color = '#ffc454';
+                el.title = 'The longest value is ' + dig.max + ' digits — it runs ' + d + ' past the reserve. '
+                    + 'The parameter stays VARIABLE width: minimum = the reserved ' + resN + ', maximum = ' + dig.max + '.';
+            } else if (d < 0) {
+                el.textContent = 'extra space ' + (-d) + ' digit' + (d === -1 ? '' : 's');
+                el.style.color = '#9fdcb0';
+                el.title = 'Every value fits: the longest is ' + dig.max + ' digits inside a reserve of ' + resN + '. '
+                    + 'The width never changes — the parameter behaves as a static.';
+            } else { el.style.display = 'none'; return; }   // exact fit — nothing to say
+            el.style.display = '';
         }
         function _mpSyncDigitWarn() {
             var warn = document.getElementById('mp-box-digitwarn');
@@ -7438,8 +7479,16 @@
 
             var dig = _pmDomainDigits(p);
             var resN = (p && p.width > 0) ? p.width : 0;
-            var maxN = Math.max(dig ? dig.max : 0, resN);   // a reserve only WIDENS
-            var minN = dig ? dig.min : 0;
+            // The reserve is a FLOOR, not a clamp (user decision, July 16): short
+            // values pad up to it, so the NORMAL box can never be narrower than
+            // the check-marked width — but values the domain makes longer still
+            // SPILL past it, and the dotted box tells the truth about that. So:
+            //   reserve ≥ domain max → min == max → quasi-static, no toggle;
+            //   reserve < domain max → variable width whose MINIMUM the author
+            //     chose by hand (min = reserve, max = domain) — toggle stays.
+            // The editor's spill/extra readout shows which case you are in.
+            var maxN = Math.max(dig ? dig.max : 0, resN);
+            var minN = Math.max(dig ? dig.min : 0, resN ? Math.min(resN, maxN) : 0);
             var aw = _pmDigitUnit(svg, t, p);
             var dottedW = (maxN > 0 && aw > 0) ? maxN * aw : adv;   // no domain → the letter
             var normalW = (minN > 0 && aw > 0) ? minN * aw : dottedW;

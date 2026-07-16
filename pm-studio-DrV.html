@@ -1190,7 +1190,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1208,7 +1208,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1450,7 +1450,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:06 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:45 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8045,11 +8045,33 @@
             var align = (anchorEl && anchorEl.getAttribute('data-row-align')) || 'left';
             var f = _pmAlignFrac(align);
             var normW = R - L, dottedW = normW + grow;
+            // THE ROW'S EXTENT IS STORED (data-row-left), exactly like a
+            // parameter's slot — because it must HOLD STILL while the toggle
+            // moves the CONTENT inside it (user, July 16: "the dot-box moves
+            // left RELATIVE to the line while the line moves to the outmost
+            // right"). Deriving it from the members would drag it along with
+            // every toggle, the same bug the parameter slot already fixed.
+            // Same maintenance rules: a width change (domain edit) keeps the
+            // ALIGNED edge; members not where slot+align puts them were
+            // dragged, so the extent follows by the same delta.
+            var slotLeft = anchorEl ? parseFloat(anchorEl.getAttribute('data-row-left')) : NaN;
+            if (!isFinite(slotLeft)) {
+                slotLeft = L - (dottedW - normW) * f;
+            } else {
+                var prevW = anchorEl ? parseFloat(anchorEl.getAttribute('data-row-w')) : NaN;
+                if (isFinite(prevW) && Math.abs(prevW - dottedW) > 0.01) slotLeft += (prevW - dottedW) * f;
+                var want = slotLeft + (dottedW - normW) * f;
+                if (Math.abs(L - want) > 0.01) slotLeft += (L - want);
+            }
+            if (anchorEl) {
+                anchorEl.setAttribute('data-row-left', slotLeft.toFixed(2));
+                anchorEl.setAttribute('data-row-w', dottedW.toFixed(2));
+            }
             return {
                 rid: rid, anchor: anchorEl, align: align,
                 y: T, h: B - T,
                 normLeft: L, normW: normW,
-                dottedLeft: L - (dottedW - normW) * f, dottedW: dottedW,
+                dottedLeft: slotLeft, dottedW: dottedW,
                 grow: grow
             };
         }
@@ -8106,7 +8128,9 @@
             svg.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
                 m.removeAttribute('data-row-follow');
                 m.removeAttribute('data-row-ord');
-                if (m.getAttribute('data-row-id') === rid) { m.removeAttribute('data-row-id'); m.removeAttribute('data-row-align'); }
+                if (m.getAttribute('data-row-id') === rid) {
+                    ['data-row-id', 'data-row-align', 'data-row-left', 'data-row-w'].forEach(function (a) { m.removeAttribute(a); });
+                }
             });
             hasEditedExisting = true;
             try { _geFlash('Row removed — the structures are independent again.'); } catch (e) {}
@@ -8360,7 +8384,29 @@
                         b.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
                         b.addEventListener('click', function (e) {
                             e.stopPropagation(); e.preventDefault();
-                            rg.anchor.setAttribute('data-row-align', a);
+                            // The extent HOLDS STILL; the LINE moves inside it
+                            // (user, July 16 — same contract as the parameter
+                            // toggle). Order is load-bearing, same as there:
+                            // read the geometry under the OLD align so the
+                            // stored extent settles untouched, THEN flip the
+                            // align and move every member to where the new
+                            // align puts the line.
+                            var cur = _rowGeom(svg, rid);
+                            if (!cur || !cur.anchor) return;
+                            cur.anchor.setAttribute('data-row-align', a);
+                            var want = cur.dottedLeft + (cur.dottedW - cur.normW) * _pmAlignFrac(a);
+                            var delta = want - cur.normLeft;
+                            if (Math.abs(delta) > 0.001) {
+                                svg.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
+                                    var p = getElementPos(m);
+                                    setElementPos(m, p.x + delta, p.y);
+                                    // A parameter's own slot travels with it —
+                                    // shifted NOW, not left to the drag-detect
+                                    // pass, so the same frame stays consistent.
+                                    var sl = parseFloat(m.getAttribute('data-slot-left'));
+                                    if (isFinite(sl)) m.setAttribute('data-slot-left', (sl + delta).toFixed(2));
+                                });
+                            }
                             hasEditedExisting = true;   // rides the SVG like data-align
                         });
                         tog.appendChild(b);

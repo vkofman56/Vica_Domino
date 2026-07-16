@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:01 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">06:01 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4833,27 +4833,31 @@
             var tr = m.getAttribute('transform') || '';
             m.setAttribute('transform', ('translate(' + d + ',0) ' + tr).trim());
         }
-        // FREE-WIDTH value (no reserve): the value starts at the template
-        // letter's home and grows rightward, and the ADJUST-grouped statics
-        // shift with its edges — "kg" stays right after the number whatever its
-        // length. Must run BEFORE the substitution (the template letter still
-        // in textContent is what defines the reference width).
+        // FREE-WIDTH value (no reserve): position by GROWTH DIRECTION (data-align
+        // = the edge pinned at the letter's home) and shift the ADJUST-grouped
+        // statics with the value's edges — "kg" stays right after the number
+        // whatever its length, and a "+" left of a right-growing column keeps its
+        // gap to the widest number. Must run BEFORE the substitution (the template
+        // letter still in textContent is what defines the reference width).
         function _paramFreeAlign(root, t, v) {
             var slotW = _paramTextWidth(t.textContent || '', t);
             var instW = _paramTextWidth(v, t);
             var x0 = parseFloat(t.getAttribute('x')) || 0;
             var a0 = t.getAttribute('text-anchor') || 'start';
             var slotLeft = (a0 === 'middle') ? x0 - slotW / 2 : (a0 === 'end') ? x0 - slotW : x0;
-            // FREE WIDTH: this path only runs when NO digit space is reserved, so
-            // "slotW" above is just the template letter's own advance — not a slot.
-            // Aligning to it pinned a letter edge and grew the value the other way
-            // (press right → "200" ran left). Editor and player must agree, so both
-            // now start the value at home and grow rightward; the author's
-            // data-align is kept for when a reserve is switched back on.
-            // See _pmPositionInstance in pm-studio-DrV.html.
-            t.setAttribute('x', slotLeft);
-            t.setAttribute('text-anchor', 'start');
-            var instLeft = slotLeft;
+            // FREE WIDTH: no slot — "slotW" is just the template letter's own
+            // advance, so data-align here means GROWTH DIRECTION: which edge of
+            // the letter's home the value is pinned to, and therefore which way
+            // the digits run as it grows. 'right' pins the right edge (digits run
+            // leftward) — that's what stacks a column of numbers on their units.
+            // Must stay identical to _pmPositionInstance in pm-studio-DrV.html:
+            // if these two disagree, a card lays out differently in the game than
+            // it did in the editor.
+            var align = t.getAttribute('data-align') || 'left';
+            var instLeft;
+            if (align === 'right') { t.setAttribute('x', slotLeft + slotW); t.setAttribute('text-anchor', 'end'); instLeft = slotLeft + slotW - instW; }
+            else if (align === 'center') { t.setAttribute('x', slotLeft + slotW / 2); t.setAttribute('text-anchor', 'middle'); instLeft = slotLeft + (slotW - instW) / 2; }
+            else { t.setAttribute('x', slotLeft); t.setAttribute('text-anchor', 'start'); instLeft = slotLeft; }
             var gid = t.getAttribute('data-adjust-id');
             if (!gid || !root.querySelectorAll) return;
             var dL = instLeft - slotLeft;
@@ -4862,6 +4866,66 @@
                 var d = (m.getAttribute('data-adjust-side') === 'left') ? dL : dR;
                 if (d) _paramShiftEl(m, d);
             });
+        }
+        // SLOT MODEL (July 16) — the mirror of _pmPlaceValueInSlot in the Studio.
+        // A face saved by the current Studio carries the slot on each parameter
+        // <text>: data-slot-left/-w (the reserved extent), data-cell (one digit's
+        // width), data-equi ("1" = every character in its own cell), data-norm-w
+        // (the authored minimum-width box) and data-align. The player just replays
+        // that geometry — if it computed its own, editor and game would disagree,
+        // which is exactly the class of bug the July fixes were about.
+        // Returns false when the face predates the slot attributes -> caller falls
+        // back to the legacy figure-space / free-align paths.
+        function _paramSlotPlace(root, t, v) {
+            var slotL = parseFloat(t.getAttribute('data-slot-left'));
+            var slotW = parseFloat(t.getAttribute('data-slot-w'));
+            if (!isFinite(slotL) || !isFinite(slotW)) return false;
+            var align = t.getAttribute('data-align') || 'left';
+            var f = (align === 'right') ? 1 : (align === 'center') ? 0.5 : 0;
+            var cell = parseFloat(t.getAttribute('data-cell'));
+            var equi = t.getAttribute('data-equi') === '1' && isFinite(cell) && cell > 0;
+            var instL, instW;
+            if (equi && v) {
+                // One tspan per character, each centred in its own cell — this is
+                // what stacks dealt numbers on their units in any font.
+                instW = v.length * cell;
+                instL = slotL + (slotW - instW) * f;
+                t.textContent = '';
+                var NS = 'http://www.w3.org/2000/svg';
+                for (var i = 0; i < v.length; i++) {
+                    var ts = document.createElementNS(NS, 'tspan');
+                    ts.setAttribute('x', (instL + i * cell + cell / 2).toFixed(2));
+                    ts.setAttribute('text-anchor', 'middle');
+                    ts.textContent = v.charAt(i);
+                    t.appendChild(ts);
+                }
+                t.setAttribute('x', instL.toFixed(2));
+                t.setAttribute('text-anchor', 'start');
+            } else {
+                t.textContent = v;
+                instW = v ? _paramTextWidth(v, t) : 0;
+                instL = slotL + (slotW - instW) * f;
+                if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
+                else if (align === 'right') { t.setAttribute('x', (slotL + slotW).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
+                else { t.setAttribute('x', slotL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
+            }
+            // ADJUST followers: shift = the value's actual edge minus the authored
+            // minimum-width (normal box) edge — SIGNED, so a narrow value pulls its
+            // neighbours slightly in (user spec July 16). The face is a fresh clone
+            // per deal, so shifts are applied once, no delta bookkeeping needed.
+            var gid = t.getAttribute('data-adjust-id');
+            if (gid && root.querySelectorAll) {
+                var normW = parseFloat(t.getAttribute('data-norm-w'));
+                if (!isFinite(normW)) normW = slotW;
+                var refL = slotL + (slotW - normW) * f;
+                var dL = instL - refL;
+                var dR = (instL + instW) - (refL + normW);
+                Array.prototype.forEach.call(root.querySelectorAll('[data-adjust-follow="' + gid + '"]'), function (m) {
+                    var d = (m.getAttribute('data-adjust-side') === 'left') ? dL : dR;
+                    if (d) _paramShiftEl(m, d);
+                });
+            }
+            return true;
         }
         function _paramApplyFace(svgEl, map) {
             if (!svgEl || !map) return svgEl;
@@ -4876,11 +4940,16 @@
                 var str;
                 if (typeof entry === 'object') {
                     var v = String(entry.v), w = +entry.w || 0;
+                    if (_paramSlotPlace(el, t, v)) {
+                        // Slot geometry replayed (content already set) — only the
+                        // visibility cleanup still applies.
+                        t.style.opacity = '';
+                        t.removeAttribute('opacity');
+                        return;
+                    }
                     if (w > 0) {
-                        // Reserved slot: pad per THIS element's alignment — which
-                        // edge of the slot stays fixed (data-align, the editor's
-                        // L/C/R toggle). The slot's edges never move, so adjust-
-                        // grouped statics stay pinned here by design.
+                        // LEGACY face (predates the slot attributes): pad per this
+                        // element's alignment with figure spaces, as old builds did.
                         var pad = Math.max(0, w - v.length);
                         var align = t.getAttribute('data-align') || 'left';
                         if (align === 'right') str = fig(pad) + v;

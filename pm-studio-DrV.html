@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:55 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:22 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:55 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:22 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:55 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3200,7 +3200,7 @@
                 // the header — ONE line: Space-box · reserve [n] digit space ☑ with
                 // "Off = free width" last (user layout, July 7). Reserves a fixed
                 // digit width for EVERY instance so short values keep the slot padded.
-                + '<div class="par-range-row" id="mp-box-row" style="margin-top:2px;">'
+                + '<div class="par-range-row" id="mp-box-row" style="margin-top:2px;flex-wrap:wrap;">'
                 +   '<span class="par-section-label" id="mp-box-label" style="margin:0;">Space-box</span>'
                 +   '<label for="mp-box-on" id="mp-box-reserve" style="display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;">reserve'
                 +     '<input class="par-input par-num" id="mp-box-n" type="number" min="1" max="9" value="' + (p.width || '') + '" style="width:46px;">'
@@ -3208,6 +3208,16 @@
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
                 +   '</label>'
                 +   '<span class="par-help" style="margin-left:12px;text-transform:none;letter-spacing:0;">Off = free width</span>'
+                // Give every digit the SAME width whatever the font does — the fix
+                // for stacking numbers into a column, without giving up the font.
+                // Per-parameter, because only the ones you actually stack need it.
+                // ("equidistant letters" joins it here when words/sentences land;
+                // same mechanism, different character set.)
+                +   '<label for="mp-equi-num" id="mp-equi-wrap" style="flex-basis:100%;display:flex;align-items:center;gap:5px;font-size:12px;color:#cfeede;cursor:pointer;margin:4px 0 0 0;">'
+                +     '<input type="checkbox" id="mp-equi-num"' + (p.equiNum ? ' checked' : '') + '>'
+                +     '<span>equidistant numbers</span>'
+                +     '<span class="par-help" style="margin-left:6px;text-transform:none;letter-spacing:0;">every digit takes the same width — needed to stack numbers in a column</span>'
+                +   '</label>'
                 // The boxes promise sizes the FONT can break. Say it right where
                 // the sizing is set, not after the card looks wrong. flex-basis
                 // 100% drops it onto its own full-width line inside the flex row,
@@ -3351,6 +3361,24 @@
                     _mpSyncDigitWarn();
                 });
             })();
+            // "equidistant numbers" changes the digit UNIT, so every box re-sizes —
+            // show that the moment it's ticked, not on Save.
+            (function () {
+                var eq = document.getElementById('mp-equi-num');
+                if (!eq) return;
+                eq.addEventListener('change', function () {
+                    // The live box loop reads the SAVED param, so mirror the tick
+                    // through immediately; Save persists it either way.
+                    try {
+                        var arr = _mpReadParams(loupeSourceCard);
+                        var sym = (document.getElementById('mp-sym') || {}).value;
+                        for (var i = 0; i < arr.length; i++) {
+                            if (arr[i].sym === sym) { arr[i].equiNum = !!eq.checked; _mpWriteParams(loupeSourceCard, arr); break; }
+                        }
+                    } catch (e) {}
+                    _mpSyncDigitWarn();
+                });
+            })();
             _mpSyncDigitWarn();
             _mpRenderRestrList();
             // Reset / restore the place-value helper for this parameter.
@@ -3396,55 +3424,75 @@
             return Object.keys(faces);
         }
         function _fontShort(ff) { return ff.replace(/['"]/g, '').split(',')[0].trim(); }
+        // Are 2+ parameters STACKED — one under another rather than side by side?
+        // That is the only moment digit widths start to matter, so it's the only
+        // moment we bring them up (user, July 15: "a new user would not care about
+        // the width until the user faces a 'make column' problem"). Two letters
+        // count as stacked when their horizontal spans overlap and their vertical
+        // spans don't.
+        function _pmStackedParams(svg) {
+            var items = [];
+            _pmParamTexts(svg).forEach(function (t) {
+                var b; try { b = getSvgSpaceBBox(t); } catch (e) { return; }
+                if (!b || !(b.width > 0)) return;
+                var y = parseFloat(t.getAttribute('y'));
+                var fs = parseFloat(t.getAttribute('font-size')) || b.height || 10;
+                if (!isFinite(y)) y = b.y + b.height;
+                items.push({ t: t, b: b, y: y, fs: fs });
+            });
+            var out = [];
+            for (var i = 0; i < items.length; i++) {
+                for (var j = i + 1; j < items.length; j++) {
+                    var A = items[i], B = items[j];
+                    var xOverlap = Math.min(A.b.x + A.b.width, B.b.x + B.b.width) - Math.max(A.b.x, B.b.x);
+                    // Different LINES = different BASELINES. Do NOT compare bboxes:
+                    // an SVG text bbox is ~1.5em tall (51 units for a 34px font), so
+                    // two obviously stacked rows still overlap vertically and a
+                    // bbox test can never fire.
+                    var apart = Math.abs(A.y - B.y) > Math.min(A.fs, B.fs) * 0.5;
+                    if (xOverlap > 0 && apart) {
+                        if (out.indexOf(A.t) < 0) out.push(A.t);
+                        if (out.indexOf(B.t) < 0) out.push(B.t);
+                    }
+                }
+            }
+            return out;
+        }
         function _mpSyncDigitWarn() {
             var warn = document.getElementById('mp-box-digitwarn');
             if (!warn) return;
-            var faces = _mpCardParamFaces();
-            if (!faces.length) { warn.style.display = 'none'; return; }
-            // Digit advice applies once any parameter has values to size a box
-            // from. Letter advice applies whenever there are 2+ placed parameter
-            // letters to anchor against each other — that's when unequal letter
-            // widths actually push their boxes out of line.
-            var anyValued = false;
-            try {
-                _mpReadParams(loupeSourceCard).forEach(function (p) {
-                    var v = _pmDomainVals(p);
-                    if (v && v.length) anyValued = true;
-                });
-            } catch (e) { anyValued = true; }
             var container = document.getElementById('loupe-card-container');
             var csvg = container && container.querySelector('svg:not(.loupe-grid)');
-            var anyLetterSized = _pmParamTexts(csvg).length > 1;
+            // Nothing stacked → the user is laying out a row, and digit widths
+            // change nothing they can see. Say nothing.
+            var stacked = _pmStackedParams(csvg);
+            if (stacked.length < 2) { warn.style.display = 'none'; return; }
+            // Only the stacked parameters matter, and only those NOT already fixed
+            // by their own "equidistant numbers" tick.
+            var byS = _pmParamsBySym(loupeSourceCard);
+            var faces = {};
+            stacked.forEach(function (t) {
+                var p = byS[t.getAttribute('data-param')];
+                if (p && p.equiNum) return;              // already equidistant → fine
+                var ff = t.getAttribute('font-family');
+                if (ff) faces[ff] = 1;
+            });
+            var list = Object.keys(faces);
+            if (!list.length) { warn.style.display = 'none'; return; }
             Promise.all([
-                Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_DIGIT_CHARS); })),
-                Promise.all(faces.map(function (f) { return _fontProbe(f, _PM_LETTER_CHARS); })),
-                _fontsUniformList(_PM_DIGIT_CHARS),
-                _fontsUniformList(_PM_LETTER_CHARS)
+                Promise.all(list.map(function (f) { return _fontProbe(f, _PM_DIGIT_CHARS); })),
+                _fontsUniformList(_PM_DIGIT_CHARS)
             ]).then(function (r) {
-                var digitBad = faces.filter(function (f, i) { return r[0][i] === false; });
-                var letterBad = faces.filter(function (f, i) { return r[1][i] === false; });
-                var msgs = [];
-                if (anyValued && digitBad.length) {
-                    msgs.push('⚠ Since in ' + digitBad.map(_fontShort).join(', ')
-                        + ' the digits have various widths, the boxes provide only approximate sizes'
-                        + ' (and columns of numbers will not line up). To have the same width for each digit,'
-                        + ' choose the font from the following list: ' + (r[2].join(', ') || '—') + '.');
-                }
-                if (anyLetterSized && letterBad.length) {
-                    msgs.push('⚠ Since in ' + letterBad.map(_fontShort).join(', ')
-                        + ' the letters have various widths, each box is anchored to a letter of a different'
-                        + ' width, so boxes stacked in a column will not line up exactly. To have the same'
-                        + ' width for each letter, choose the font from the following list: '
-                        + (r[3].join(', ') || '—') + '.');
-                }
-                if (!msgs.length) { warn.style.display = 'none'; return; }
+                var bad = list.filter(function (f, i) { return r[0][i] === false; });
+                if (!bad.length) { warn.style.display = 'none'; return; }
                 warn.innerHTML = '';
-                msgs.forEach(function (m) {
-                    var d = document.createElement('div');
-                    d.style.cssText = 'margin-top:3px;';
-                    d.textContent = m;
-                    warn.appendChild(d);
-                });
+                var d = document.createElement('div');
+                d.textContent = '⚠ These parameters are stacked one under another, but '
+                    + bad.map(_fontShort).join(', ') + ' does not give every digit the same width.'
+                    + ' To reach vertical alignment, tick “equidistant numbers” for each parameter you'
+                    + ' want to use that way — or choose a font that has the property naturally: '
+                    + (r[1].join(', ') || '—') + '.';
+                warn.appendChild(d);
                 warn.style.display = '';
             });
         }
@@ -4366,7 +4414,11 @@
                 lo: { val: (isNaN(loN) ? null : loN), op: (firstR ? firstR.loOp : 'le') },
                 hi: { val: (isNaN(hiN) ? null : hiN), op: (firstR ? firstR.hiOp : 'le') },
                 restrictions: restrictions,
-                width: width
+                width: width,
+                // Force every digit of this parameter's values onto one fixed cell
+                // width, whatever the font's own advances are. Per-parameter: only
+                // the ones you stack into a column need it.
+                equiNum: !!((document.getElementById('mp-equi-num') || {}).checked)
             };
         }
 
@@ -7316,6 +7368,33 @@
             if (avg > 0) _pmAvgDigitCache[sig] = avg;
             return avg;
         }
+        // The font's WIDEST digit — the cell every digit gets under "equidistant
+        // numbers". It has to be the widest, not the average, or the fat glyphs
+        // would spill out of their own cells.
+        var _pmMaxDigitCache = {};
+        function _pmMaxDigitWidth(svg, t) {
+            var sig = t ? _PM_FONT_ATTRS.map(function (a) { return t.getAttribute(a) || ''; }).join('|') : '';
+            if (sig in _pmMaxDigitCache) return _pmMaxDigitCache[sig];
+            var mx = 0;
+            _PM_DIGIT_CHARS.split('').forEach(function (d) {
+                var w = _pmMeasureInFont(svg, t, d);
+                if (w > mx) mx = w;
+            });
+            if (mx > 0) _pmMaxDigitCache[sig] = mx;
+            return mx;
+        }
+        // ONE digit's width for this parameter — the unit every box is built from.
+        // "equidistant numbers" ON  → the fixed cell (the widest digit). Every digit
+        //   really is this wide, so the boxes stop being estimates and become EXACT,
+        //   in any font. The checkbox and the "approximate sizes" warning are the
+        //   same fact seen from two sides, which is why ticking it silences the
+        //   warning for this parameter.
+        // OFF → the AVERAGE digit, which is an estimate whenever the font's digits
+        //   differ (and exactly right when they don't).
+        function _pmDigitUnit(svg, t, p) {
+            return (p && p.equiNum) ? (_pmMaxDigitWidth(svg, t) || _pmAvgDigitWidth(svg, t))
+                                    : _pmAvgDigitWidth(svg, t);
+        }
         // How far into the slot the aligned content sits: 0 = left, ½ = centre,
         // 1 = right. The one place the three-way choice turns into a number.
         function _pmAlignFrac(align) { return align === 'right' ? 1 : align === 'center' ? 0.5 : 0; }
@@ -7361,7 +7440,7 @@
             var resN = (p && p.width > 0) ? p.width : 0;
             var maxN = Math.max(dig ? dig.max : 0, resN);   // a reserve only WIDENS
             var minN = dig ? dig.min : 0;
-            var aw = _pmAvgDigitWidth(svg, t);
+            var aw = _pmDigitUnit(svg, t, p);
             var dottedW = (maxN > 0 && aw > 0) ? maxN * aw : adv;   // no domain → the letter
             var normalW = (minN > 0 && aw > 0) ? minN * aw : dottedW;
             if (normalW > dottedW) normalW = dottedW;

@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">12:18 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">11:26 AM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">12:18 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -8102,7 +8102,7 @@
         // The floating "adjust" chip: appears when the selection is exactly ONE
         // parameter letter + one or more static elements. Click toggles the
         // group (grouped selections show "adjusted ✓" and unpin on click).
-        var _adjChipEl = null;
+        var _adjChipEl = null, _adjPlayEl = null;
         function _adjSelectionParts() {
             var sel = (typeof getAllSelectedElements === 'function') ? getAllSelectedElements() : [];
             if (sel.length < 2) return null;
@@ -8117,7 +8117,11 @@
         function _adjSyncChip() {
             var overlay = document.getElementById('loupe-overlay');
             var parts = (overlay && overlay.style.display !== 'none') ? _adjSelectionParts() : null;
-            if (!parts) { if (_adjChipEl) { _adjChipEl.remove(); _adjChipEl = null; } return; }
+            if (!parts) {
+                if (_adjChipEl) { _adjChipEl.remove(); _adjChipEl = null; }
+                if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+                return;
+            }
             if (!_adjChipEl) {
                 _adjChipEl = document.createElement('button');
                 _adjChipEl.className = 'pm-adjust-chip';
@@ -8137,6 +8141,79 @@
                 _adjChipEl.style.left = Math.round(r.left) + 'px';
                 _adjChipEl.style.top = Math.round(r.top - 26) + 'px';
             }
+            // ▷ PLAY (user spec July 16): once the group is adjusted, step through
+            // one VALID example per width the parameter can take — real values,
+            // followers at their shifted positions — so the author sees each
+            // width-instance before any game deals one. Only on an adjusted group:
+            // un-adjusted selections have nothing to demonstrate.
+            if (allIn) {
+                if (!_adjPlayEl) {
+                    _adjPlayEl = document.createElement('button');
+                    _adjPlayEl.className = 'pm-adjust-chip';
+                    _adjPlayEl.textContent = '▷';
+                    _adjPlayEl.title = 'Step through one example per width this parameter can take — watch the adjusted statics follow.';
+                    _adjPlayEl.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    _adjPlayEl.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _adjPlayStep(); });
+                    overlay.appendChild(_adjPlayEl);
+                }
+                var cr; try { cr = _adjChipEl.getBoundingClientRect(); } catch (e) { cr = null; }
+                if (cr) {
+                    _adjPlayEl.style.left = Math.round(cr.right + 4) + 'px';
+                    _adjPlayEl.style.top = Math.round(cr.top) + 'px';
+                }
+            } else if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+        }
+        // One valid example per digit-width of the parameter: sample whole-card
+        // envs (answers included — same generator as the 123 tag) and keep the
+        // first hit per width. Sampling, not enumeration: a valid EXAMPLE is what
+        // the user asked to see, and any joint sample is one by construction.
+        var _adjPlayState = null;   // { t, list:[{env,widths}], idx }
+        function _adjBuildPlayList(t) {
+            var card = (typeof loupeSourceCard !== 'undefined') ? loupeSourceCard : null;
+            var sym = t.getAttribute('data-param');
+            var p = _pmParamsBySym(card)[sym];
+            var dig = _pmWithCard(card, function () { return _pmDomainDigits(p); });
+            if (!dig || !(dig.max > 0)) return [];
+            var found = {}, want = 0, w;
+            for (w = dig.min; w <= dig.max; w++) want++;
+            for (var tries = 0; tries < 150 && Object.keys(found).length < want; tries++) {
+                var g = _pmGenEnvForCard(card);
+                if (!g || g.error || !g.env || g.env[sym] == null) break;
+                var n = String(g.env[sym]).replace(/[^0-9]/g, '').length;
+                if (n >= dig.min && n <= dig.max && !found[n]) found[n] = g;
+            }
+            // Widths in order: the story reads "1 digit, 2 digits, 3…". A width the
+            // constraints never produce is simply absent — every shown example is
+            // a VALID problem (user spec: no synthetic values).
+            return Object.keys(found).map(Number).sort(function (a, b) { return a - b; })
+                .map(function (k) { return found[k]; });
+        }
+        function _adjPlayStep() {
+            var parts = _adjSelectionParts();
+            if (!parts) return;
+            var t = parts.p, svg = t.ownerSVGElement;
+            if (!svg) return;
+            if (!_adjPlayState || _adjPlayState.t !== t) {
+                var list = _adjBuildPlayList(t);
+                if (!list.length) { try { _geFlash('No examples could be generated — check the parameter’s values.'); } catch (e) {} return; }
+                _adjPlayState = { t: t, list: list, idx: -1 };
+                // The examples are measured truth for THESE values; other numbers
+                // of the same width can land slightly differently when the font's
+                // digits vary — say so once per run (user spec July 16). Equi
+                // digits (or a uniform font) make widths exact → no caveat.
+                // try/catch, not typeof: _geFlash exists but dereferences the
+                // group-edit status element without a null check, and the warning
+                // must never break the stepping itself.
+                var p = _pmParamsBySym(typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null)[t.getAttribute('data-param')];
+                var ff = t.getAttribute('font-family');
+                if (!(p && p.equiNum) && ff && _fontDigitsTabular(ff) === false) {
+                    try { _geFlash('The digits have various widths so the geometry will be further refined.'); } catch (e2) {}
+                }
+            }
+            _adjPlayState.idx = (_adjPlayState.idx + 1) % _adjPlayState.list.length;
+            var g = _adjPlayState.list[_adjPlayState.idx];
+            if (_pmHasPlacedInstance(svg)) _pmClearPlacedInstance(svg);
+            _pmShowPlacedInstance(svg, g.env, g.widths);
         }
         function _adjToggleGroup() {
             var parts = _adjSelectionParts();

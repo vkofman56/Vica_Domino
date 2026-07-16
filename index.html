@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:06 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">11:26 AM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:06 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4876,12 +4876,13 @@
         // which is exactly the class of bug the July fixes were about.
         // Returns false when the face predates the slot attributes -> caller falls
         // back to the legacy figure-space / free-align paths.
-        function _paramSlotPlace(root, t, v) {
+        function _paramSlotPlace(root, t, v, forceLeft) {
             var slotL = parseFloat(t.getAttribute('data-slot-left'));
             var slotW = parseFloat(t.getAttribute('data-slot-w'));
             if (!isFinite(slotL) || !isFinite(slotW)) return false;
             var align = t.getAttribute('data-align') || 'left';
             var f = (align === 'right') ? 1 : (align === 'center') ? 0.5 : 0;
+            var forced = (forceLeft != null && isFinite(forceLeft));
             var cell = parseFloat(t.getAttribute('data-cell'));
             var equi = t.getAttribute('data-equi') === '1' && isFinite(cell) && cell > 0;
             var instL, instW;
@@ -4889,7 +4890,7 @@
                 // One tspan per character, each centred in its own cell — this is
                 // what stacks dealt numbers on their units in any font.
                 instW = v.length * cell;
-                instL = slotL + (slotW - instW) * f;
+                instL = forced ? forceLeft : slotL + (slotW - instW) * f;
                 t.textContent = '';
                 var NS = 'http://www.w3.org/2000/svg';
                 for (var i = 0; i < v.length; i++) {
@@ -4904,11 +4905,15 @@
             } else {
                 t.textContent = v;
                 instW = v ? _paramTextWidth(v, t) : 0;
-                instL = slotL + (slotW - instW) * f;
-                if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
+                instL = forced ? forceLeft : slotL + (slotW - instW) * f;
+                if (forced) { t.setAttribute('x', instL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
+                else if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
                 else if (align === 'right') { t.setAttribute('x', (slotL + slotW).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
                 else { t.setAttribute('x', slotL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
             }
+            // Recorded for the ROW packing walk (and mirrors the Studio).
+            t.setAttribute('data-inst-left', instL.toFixed(2));
+            t.setAttribute('data-inst-right', (instL + instW).toFixed(2));
             // ADJUST followers: shift = the value's actual edge minus the authored
             // minimum-width (normal box) edge — SIGNED, so a narrow value pulls its
             // neighbours slightly in (user spec July 16). The face is a fresh clone
@@ -4921,11 +4926,95 @@
                 var dL = instL - refL;
                 var dR = (instL + instW) - (refL + normW);
                 Array.prototype.forEach.call(root.querySelectorAll('[data-adjust-follow="' + gid + '"]'), function (m) {
+                    // A ROW member's position comes from the packing walk, which
+                    // reads AUTHORED geometry — shifting it here first (with no
+                    // record, unlike the Studio's dx bookkeeping) corrupted the
+                    // walk's gap math and flung statics off the card (measured:
+                    // "+" landed at −126.8). The pack supersedes inner shifts.
+                    if (m.hasAttribute('data-row-follow')) return;
                     var d = (m.getAttribute('data-adjust-side') === 'left') ? dL : dR;
                     if (d) _paramShiftEl(m, d);
                 });
             }
             return true;
+        }
+        // THE PACKING ENGINE, player side — the mirror of _pmRowPack in the
+        // Studio. After every parameter has its dealt value, each row's members
+        // are laid against the row's pinned edge (data-row-left/-w/-align on the
+        // anchor) with their authored gaps: parameters at their measured dealt
+        // widths, statics unchanged. The face is a fresh clone, so positions are
+        // set once — no delta bookkeeping. Detached clones have no layout, so
+        // static text is measured via canvas (_paramTextWidth); non-text row
+        // members (shapes) can't be measured here and leave their row unpacked
+        // rather than mispacked.
+        function _rowPackFace(el) {
+            if (!el || !el.querySelectorAll) return;
+            var ids = [];
+            el.querySelectorAll('[data-row-follow]').forEach(function (m) {
+                var rid = m.getAttribute('data-row-follow');
+                if (rid && ids.indexOf(rid) < 0) ids.push(rid);
+            });
+            ids.forEach(function (rid) {
+                var anchor = el.querySelector('[data-row-id="' + rid + '"]');
+                if (!anchor) return;
+                var rowLeft = parseFloat(anchor.getAttribute('data-row-left'));
+                var rowW = parseFloat(anchor.getAttribute('data-row-w'));
+                if (!isFinite(rowLeft) || !isFinite(rowW)) return;
+                var align = anchor.getAttribute('data-row-align') || 'left';
+                var f = (align === 'right') ? 1 : (align === 'center') ? 0.5 : 0;
+                var bricks = [], bad = false;
+                el.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
+                    if (bad) return;
+                    var isParam = m.hasAttribute('data-param');
+                    var aL, aW, dW;
+                    if (isParam) {
+                        var sL = parseFloat(m.getAttribute('data-slot-left'));
+                        var sW = parseFloat(m.getAttribute('data-slot-w'));
+                        var nW = parseFloat(m.getAttribute('data-norm-w'));
+                        if (!isFinite(sL) || !isFinite(sW)) { bad = true; return; }
+                        if (!isFinite(nW)) nW = sW;
+                        var pa = m.getAttribute('data-align') || 'left';
+                        var pf = (pa === 'right') ? 1 : (pa === 'center') ? 0.5 : 0;
+                        aL = sL + (sW - nW) * pf;
+                        aW = nW;
+                        var iL = parseFloat(m.getAttribute('data-inst-left'));
+                        var iR = parseFloat(m.getAttribute('data-inst-right'));
+                        dW = (isFinite(iL) && isFinite(iR)) ? (iR - iL) : nW;
+                    } else if (m.tagName && m.tagName.toLowerCase() === 'text') {
+                        var w = _paramTextWidth(m.textContent || '', m);
+                        if (!(w > 0)) { bad = true; return; }
+                        var x = parseFloat(m.getAttribute('x')) || 0;
+                        var a0 = m.getAttribute('text-anchor') || 'start';
+                        aL = (a0 === 'middle') ? x - w / 2 : (a0 === 'end') ? x - w : x;
+                        aW = w; dW = w;
+                    } else { bad = true; return; }
+                    bricks.push({ m: m, isParam: isParam, aL: aL, aW: aW, dW: dW });
+                });
+                if (bad || bricks.length < 2) return;
+                bricks.sort(function (a, b) { return a.aL - b.aL; });
+                var packedW = 0, gaps = [];
+                bricks.forEach(function (br, i) {
+                    packedW += br.dW;
+                    if (i < bricks.length - 1) {
+                        var gp = Math.max(0, bricks[i + 1].aL - (br.aL + br.aW));
+                        gaps.push(gp);
+                        packedW += gp;
+                    }
+                });
+                var cursor = rowLeft + (rowW - packedW) * f;
+                bricks.forEach(function (br, i) {
+                    if (br.isParam) {
+                        _paramSlotPlace(el, br.m, br.m.textContent, cursor);
+                    } else {
+                        var x0 = parseFloat(br.m.getAttribute('x')) || 0;
+                        var a1 = br.m.getAttribute('text-anchor') || 'start';
+                        var curL = (a1 === 'middle') ? x0 - br.aW / 2 : (a1 === 'end') ? x0 - br.aW : x0;
+                        var d = cursor - curL;
+                        if (Math.abs(d) > 0.001) _paramShiftEl(br.m, d);
+                    }
+                    cursor += br.dW + (i < gaps.length ? gaps[i] : 0);
+                });
+            });
         }
         function _paramApplyFace(svgEl, map) {
             if (!svgEl || !map) return svgEl;
@@ -4966,6 +5055,9 @@
                 t.style.opacity = '';
                 t.removeAttribute('opacity');
             });
+            // ROWS pack last, over the individual placements — same order as the
+            // Studio's _pmShowPlacedInstance, so a card packs identically in play.
+            _rowPackFace(el);
             return el;
         }
 

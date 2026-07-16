@@ -1182,7 +1182,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:22 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1200,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">04:48 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">05:22 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1442,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">04:48 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">05:22 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7210,10 +7210,49 @@
         // AVERAGE digit width (user spec, July 15). That is exact in a font whose
         // digits share an advance, and a stated approximation in one where they
         // don't — which is precisely what the font warning says.
+        // The ANSWER parameter (C in "A + B = C") has NO domain of its own — it is
+        // COMPUTED, and its own range is only an optional NARROWING. _mpValueSet
+        // therefore errors on it ("set a range or a set of values"), so C fell
+        // through to "no domain" and got a letter-width dotted box while A and B
+        // sized properly (user report, July 15). Its digits must come from the
+        // FORMULA: evaluate it across the joint space and take the extremes.
+        var _pmAnswerDigitsCache = {};
+        function _pmAnswerDigits(sym) {
+            var cfg = (typeof _fxLoad === 'function') ? _fxLoad(loupeSourceCard) : null;
+            if (!cfg || !cfg.text) return null;
+            var eq = cfg.text.indexOf('=');
+            if (eq < 0 || cfg.text.slice(eq + 1).trim() !== sym) return null;  // not the answer
+            var key;
+            try { key = cfg.text + '|' + JSON.stringify(_mpReadParams(loupeSourceCard)); }
+            catch (e) { return null; }
+            if (key in _pmAnswerDigitsCache) return _pmAnswerDigitsCache[key];
+            var out = null;
+            try {
+                var toks = _mpExprToks(cfg.text.slice(0, eq).trim());
+                var sp = _mpJointSpace();
+                // Enumerated → exact extremes. Too big to enumerate → estimate
+                // from a diverse sample (the boxes are an estimate anyway).
+                var envs = (sp && !sp.error && !sp.capped && sp.envs) ? sp.envs : null;
+                if (!envs) { var d = _pmDistinctEnvs(200); envs = (d && d.envs) ? d.envs : null; }
+                if (envs && envs.length) {
+                    var mn = Infinity, mx = 0;
+                    envs.forEach(function (env) {
+                        var v; try { v = _mpEvalToks(toks, env); } catch (e2) { return; }
+                        if (v == null || !isFinite(v)) return;
+                        var n = String(v).replace(/[^0-9]/g, '').length;
+                        if (n) { if (n < mn) mn = n; if (n > mx) mx = n; }
+                    });
+                    if (mx > 0) out = { min: (mn === Infinity ? mx : mn), max: mx };
+                }
+            } catch (e) {}
+            _pmAnswerDigitsCache[key] = out;
+            return out;
+        }
         var _pmDigitsCache = {};
         function _pmDomainDigits(p) {
+            if (!p || !p.sym) return null;
             var vals = _pmDomainVals(p);
-            if (!vals || !vals.length) return null;
+            if (!vals || !vals.length) return _pmAnswerDigits(p.sym);   // computed answer
             var key = _pmDomainKey(p);
             if (key in _pmDigitsCache) return _pmDigitsCache[key];
             var mn = Infinity, mx = 0;
@@ -7277,15 +7316,34 @@
             if (avg > 0) _pmAvgDigitCache[sig] = avg;
             return avg;
         }
+        // How far into the slot the aligned content sits: 0 = left, ½ = centre,
+        // 1 = right. The one place the three-way choice turns into a number.
+        function _pmAlignFrac(align) { return align === 'right' ? 1 : align === 'center' ? 0.5 : 0; }
+        // Where the LETTER's left edge belongs for a given slot: inside the normal
+        // box, touching the border data-align names.
+        function _pmLetterLeftIn(slotLeft, dottedW, normalW, adv, align) {
+            var f = _pmAlignFrac(align);
+            return slotLeft + (dottedW - normalW) * f + (normalW - adv) * f;
+        }
+        function _pmSetLetterLeft(t, left, adv) {
+            var a0 = t.getAttribute('text-anchor') || 'start';
+            var x = (a0 === 'middle') ? left + adv / 2 : (a0 === 'end') ? left + adv : left;
+            t.setAttribute('x', x.toFixed(2));
+        }
         // Both boxes for one placed letter (user spec, July 15):
         //   NORMAL (solid) = minDigits × avgDigitWidth — the shortest value.
-        //   DOTTED         = maxDigits × avgDigitWidth — the longest it can get.
-        // Both are ANCHORED TO THE LETTER on the side data-align names, so the
-        // letter touches that border of the normal box: 'right' puts both boxes'
-        // right edges on the letter's right edge and grows them LEFTWARD. That is
-        // what makes a column work — stack A/B/C at the same x, set each to
-        // 'right', and every box (and later every value) shares one right edge,
-        // no matter how many digits each parameter can reach.
+        //   DOTTED         = maxDigits × avgDigitWidth — the longest it can reach.
+        //
+        // THE SLOT'S POSITION IS STORED (data-slot-left), NOT derived from the
+        // letter. Toggling moves the LETTER and its normal box INSIDE the slot
+        // while the dotted box holds still — that is the whole point of the dotted
+        // box: it is the maximum extent the layout reserves, and alignment is a
+        // statement about what happens INSIDE it. Deriving the slot from the letter
+        // (as this did until now) dragged the slot along on every toggle and
+        // flipped the dotted box from one side of the letter to the other, so the
+        // "largest size" never held still.
+        // The letter is still the drag handle: if it is NOT where slot+align puts
+        // it, the user moved it, so the slot follows by the same delta.
         // Returns null when the letter can't be measured (e.g. display:none).
         function _pmSlotGeom(svg, t, p) {
             var b; try { b = getSvgSpaceBBox(t); } catch (e) { return null; }
@@ -7298,7 +7356,6 @@
             var x0 = parseFloat(t.getAttribute('x')); if (!isFinite(x0)) x0 = b.x;
             var a0 = t.getAttribute('text-anchor') || 'start';
             var lLeft = (a0 === 'middle') ? x0 - adv / 2 : (a0 === 'end') ? x0 - adv : x0;
-            var lRight = lLeft + adv;
 
             var dig = _pmDomainDigits(p);
             var resN = (p && p.width > 0) ? p.width : 0;
@@ -7310,15 +7367,27 @@
             if (normalW > dottedW) normalW = dottedW;
 
             var align = t.getAttribute('data-align') || 'left';
-            function leftFor(w) {
-                if (align === 'right') return lRight - w;
-                if (align === 'center') return (lLeft + lRight) / 2 - w / 2;
-                return lLeft;
+            var f = _pmAlignFrac(align);
+            var slotLeft = parseFloat(t.getAttribute('data-slot-left'));
+            if (!isFinite(slotLeft)) {
+                // First sight of this letter: adopt the slot from where it stands.
+                slotLeft = lLeft - (dottedW - normalW) * f - (normalW - adv) * f;
+            } else {
+                // The dotted box changed width (a domain or reserve edit): keep the
+                // ALIGNED edge still, so a right-aligned column survives the edit.
+                var prevW = parseFloat(t.getAttribute('data-slot-w'));
+                if (isFinite(prevW) && Math.abs(prevW - dottedW) > 0.01) slotLeft += (prevW - dottedW) * f;
+                // Letter not where the slot puts it → it was dragged; bring the slot.
+                var want = _pmLetterLeftIn(slotLeft, dottedW, normalW, adv, align);
+                if (Math.abs(lLeft - want) > 0.01) slotLeft += (lLeft - want);
             }
+            t.setAttribute('data-slot-left', slotLeft.toFixed(2));
+            t.setAttribute('data-slot-w', dottedW.toFixed(2));
             return {
                 y: b.y, h: b.height,
-                dottedLeft: leftFor(dottedW), dottedW: dottedW,
-                normalLeft: leftFor(normalW), normalW: normalW,
+                dottedLeft: slotLeft, dottedW: dottedW,
+                normalLeft: slotLeft + (dottedW - normalW) * f, normalW: normalW,
+                adv: adv, align: align,
                 minDigits: minN, maxDigits: maxN,
                 fromLetter: !dig && !resN,      // no values yet → box sized by the LETTER
                 // Same digit count either way = one possible width = nothing to
@@ -7554,6 +7623,25 @@
         function _pmApplyAlign(el, align) {
             if (!el) return;
             align = (align === 'center' || align === 'right') ? align : 'left';
+            // TEMPLATE: the dotted box HOLDS STILL and the LETTER (with its normal
+            // box) moves to the newly aligned position inside it.
+            // ORDER IS LOad-BEARING: read the slot while data-align is still the OLD
+            // value, so _pmSlotGeom sees the letter exactly where that align puts it
+            // and persists data-slot-left untouched. Only then flip the attribute and
+            // move the letter. Setting data-align first would make the very next geom
+            // pass read the toggle as a DRAG and haul the slot along — the dotted box
+            // would follow the letter, which is what this change exists to stop.
+            if (el.getAttribute('data-param-orig') == null) {
+                var tsvg = el.ownerSVGElement;
+                var p = _pmParamsBySym(typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null)[el.getAttribute('data-param')];
+                var g0 = tsvg ? _pmSlotGeom(tsvg, el, p) : null;
+                el.setAttribute('data-align', align);
+                if (g0) {
+                    _pmSetLetterLeft(el, _pmLetterLeftIn(g0.dottedLeft, g0.dottedW, g0.normalW, g0.adv, align), g0.adv);
+                    if (typeof updateSelectionRing === 'function') { try { updateSelectionRing(); } catch (e3) {} }
+                }
+                return;
+            }
             el.setAttribute('data-align', align);
             // Move only the showing instance to the chosen position; the template
             // (parameter) keeps its home position. Persisted via data-align.

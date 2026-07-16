@@ -1009,6 +1009,9 @@
         }
         .loupe-instance-tag:hover { background: rgba(60,60,100,0.96); }
         .loupe-instance-tag.showing { background: rgba(20,87,31,0.96); border-color: #7eff7e; color: #eaffea; }
+        /* Card-level ▷ — beside the 123 tag, only when the card has 2+ adjusted
+           structures. Click = the next COMBINATION of widths across all of them. */
+        #loupe-cardplay-tag { left: 62px; font-size: 15px; }
         /* Per-element alignment toggle (left/center/right), shown on each placed
            parameter / formula while an instance is displayed. */
         #pm-align-toggles { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
@@ -1036,6 +1039,11 @@
             border-radius: 6px; padding: 3px 9px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
         .pm-adjust-chip.on { background: rgba(126,255,126,0.9); }
+        /* Standing per-group "adjusted ✓" chips — one on each tether while the
+           boxes/connections are visible, so a group can be un-adjusted without
+           re-selecting its members (user, July 16). */
+        #pm-adjust-chips { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
+        #pm-adjust-chips .pm-adjust-chip { pointer-events: auto; font-size: 10px; padding: 2px 7px; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -1182,7 +1190,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1200,7 +1208,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1442,7 +1450,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:09 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -3208,6 +3216,12 @@
                 +     '<input type="checkbox" id="mp-box-on"' + (p.width ? ' checked' : '') + '>'
                 +   '</label>'
                 +   '<span class="par-help" style="margin-left:12px;text-transform:none;letter-spacing:0;">Off = free width</span>'
+                // The reserve is a FLOOR, and the author can't see whether the
+                // domain fits inside it — so say it, right where the number is
+                // typed: "spill N digits" (some values run past the reserve →
+                // still variable-width) or "extra space N digits" (reserve
+                // exceeds every value → truly fixed). Silent on an exact fit.
+                +   '<span id="mp-box-spill" style="display:none;margin-left:10px;font-size:11px;"></span>'
                 // Give every digit the SAME width whatever the font does — the fix
                 // for stacking numbers into a column, without giving up the font.
                 // Per-parameter, because only the ones you actually stack need it.
@@ -3359,8 +3373,16 @@
                 on.addEventListener('change', function () {
                     if (on.checked && !nIn.value) nIn.value = _mpProposeBoxDigits();
                     _mpSyncDigitWarn();
+                    _mpSyncSpillInfo();
                 });
+                nIn.addEventListener('input', _mpSyncSpillInfo);
+                // Domain edits move the spill too: one DELEGATED listener on the
+                // parts host survives every _mpRenderParts rebuild (the rows are
+                // re-created wholesale, so per-input listeners would be lost).
+                var partsHost = document.getElementById('mp-parts');
+                if (partsHost) partsHost.addEventListener('input', _mpSyncSpillInfo);
             })();
+            _mpSyncSpillInfo();
             // "equidistant numbers" changes the digit UNIT, so every box re-sizes —
             // show that the moment it's ticked, not on Save.
             (function () {
@@ -3457,6 +3479,33 @@
                 }
             }
             return out;
+        }
+        // "spill N digits" / "extra space N digits" — how the DRAFT domain sits
+        // against the check-marked reserve. Computed from the editor's current
+        // state (not the saved param), so it answers while the author is typing.
+        function _mpSyncSpillInfo() {
+            var el = document.getElementById('mp-box-spill');
+            if (!el) return;
+            var on = document.getElementById('mp-box-on');
+            var nIn = document.getElementById('mp-box-n');
+            var resN = (on && on.checked) ? parseInt((nIn && (nIn.value || nIn.placeholder)) || '0', 10) : 0;
+            if (!(resN > 0)) { el.style.display = 'none'; return; }
+            var dig = null;
+            try { dig = _pmDomainDigits(_mpReadEditor()); } catch (e) {}
+            if (!dig || !(dig.max > 0)) { el.style.display = 'none'; return; }
+            var d = dig.max - resN;
+            if (d > 0) {
+                el.textContent = 'spill ' + d + ' digit' + (d === 1 ? '' : 's');
+                el.style.color = '#ffc454';
+                el.title = 'The longest value is ' + dig.max + ' digits — it runs ' + d + ' past the reserve. '
+                    + 'The parameter stays VARIABLE width: minimum = the reserved ' + resN + ', maximum = ' + dig.max + '.';
+            } else if (d < 0) {
+                el.textContent = 'extra space ' + (-d) + ' digit' + (d === -1 ? '' : 's');
+                el.style.color = '#9fdcb0';
+                el.title = 'Every value fits: the longest is ' + dig.max + ' digits inside a reserve of ' + resN + '. '
+                    + 'The width never changes — the parameter behaves as a static.';
+            } else { el.style.display = 'none'; return; }   // exact fit — nothing to say
+            el.style.display = '';
         }
         function _mpSyncDigitWarn() {
             var warn = document.getElementById('mp-box-digitwarn');
@@ -7057,8 +7106,9 @@
         // per parameter (incl. the f-derived result). Click a button to place that
         // parameter on the card as a movable letter. Hidden when the card has none.
         function _loupeRenderParamsBar(card) {
-            // Keep the "123" instance tag in sync with the parameter set too.
+            // Keep the "123" instance tag (and the card-level ▷) in sync too.
             if (typeof _loupeUpdateInstanceTag === 'function') { try { _loupeUpdateInstanceTag(); } catch (e) {} }
+            if (typeof _loupeSyncCardPlayTag === 'function') { try { _loupeSyncCardPlayTag(); } catch (e) {} }
             var bar = document.getElementById('loupe-params-bar');
             if (!bar) return;
             bar.innerHTML = '';
@@ -7167,6 +7217,109 @@
                 tag.title = 'Show an example (one instance)';
                 tag.addEventListener('mousedown', function (e) { e.stopPropagation(); });
                 tag.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _loupeToggleInstance(); });
+                lc.style.position = 'relative';
+                lc.appendChild(tag);
+            }
+            tag.style.display = 'flex';
+        }
+        // ===== Card-level ▷ (user spec, July 16) ==============================
+        // With TWO OR MORE adjusted structures on the card, one button beside the
+        // 123 tag plays them ALL: each press shows the next COMBINATION of widths
+        // (group1-width × group2-width × …), every one a real sampled problem. A
+        // single group is served by the chip-side ▷; this button is about how the
+        // structures interact.
+        function _pmAdjustedSyms(svg) {
+            var out = [];
+            if (!svg) return out;
+            _pmParamTexts(svg).forEach(function (t) {
+                var gid = t.getAttribute('data-adjust-id');
+                if (!gid) return;
+                // A gid with no followers is a dissolved group, not a structure.
+                if (!svg.querySelector('[data-adjust-follow="' + gid + '"]')) return;
+                var sym = t.getAttribute('data-param');
+                if (sym && out.indexOf(sym) < 0) out.push(sym);
+            });
+            return out.sort();
+        }
+        var _cardPlayState = null;   // { key, list:[{env,widths}], idx }
+        function _cardPlayBuildList(card, syms) {
+            // Sample whole-card envs (answers included — the 123 generator) and
+            // keep the FIRST example per distinct width COMBINATION. Sampling, not
+            // enumeration: every example is a valid problem by construction, and a
+            // combination the constraints never produce simply doesn't appear.
+            // Early stop once every arithmetically possible combination is found.
+            var want = 1;
+            var byS = _pmParamsBySym(card);
+            syms.forEach(function (s) {
+                var d = _pmWithCard(card, function () { return _pmDomainDigits(byS[s]); });
+                want *= (d && d.max >= d.min) ? (d.max - d.min + 1) : 1;
+            });
+            var found = {}, order = [];
+            for (var tries = 0; tries < 300 && order.length < want; tries++) {
+                var g = _pmGenEnvForCard(card);
+                if (!g || g.error || !g.env) break;
+                var key = syms.map(function (s) {
+                    var v = g.env[s];
+                    return v == null ? '?' : String(v).replace(/[^0-9]/g, '').length;
+                }).join('|');
+                if (!found[key]) { found[key] = g; order.push(key); }
+            }
+            // Lexicographic by the width vector — the story reads (1,1) (1,2) (2,1)…
+            order.sort(function (a, b) {
+                var A = a.split('|'), B = b.split('|');
+                for (var i = 0; i < A.length; i++) { var d = (+A[i] || 0) - (+B[i] || 0); if (d) return d; }
+                return 0;
+            });
+            return order.map(function (k) { return found[k]; });
+        }
+        function _cardPlayStep() {
+            var lc = document.getElementById('loupe-card-container');
+            var lsvg = lc && lc.querySelector('svg:not(.loupe-grid)');
+            var card = (typeof loupeSourceCard !== 'undefined') ? loupeSourceCard : null;
+            if (!lsvg || !card) return;
+            var syms = _pmAdjustedSyms(lsvg);
+            if (syms.length < 2) return;
+            var key = (card.dataset ? card.dataset.uid : '') + '|' + syms.join(',');
+            if (!_cardPlayState || _cardPlayState.key !== key) {
+                var list = _cardPlayBuildList(card, syms);
+                if (!list.length) { try { _geFlash('No examples could be generated — check the parameters’ values.'); } catch (e) {} return; }
+                _cardPlayState = { key: key, list: list, idx: -1 };
+                // Once per run: the measured-truth caveat, if ANY adjusted
+                // parameter lacks equidistant digits in a font whose digits vary.
+                var byS = _pmParamsBySym(card), warn = false;
+                _pmParamTexts(lsvg).forEach(function (t) {
+                    var sym = t.getAttribute('data-param');
+                    if (syms.indexOf(sym) < 0 || warn) return;
+                    var p = byS[sym], ff = t.getAttribute('font-family');
+                    if (!(p && p.equiNum) && ff && _fontDigitsTabular(ff) === false) warn = true;
+                });
+                if (warn) { try { _geFlash('The digits have various widths so the geometry will be further refined.'); } catch (e2) {} }
+            }
+            _cardPlayState.idx = (_cardPlayState.idx + 1) % _cardPlayState.list.length;
+            var g = _cardPlayState.list[_cardPlayState.idx];
+            if (_pmHasPlacedInstance(lsvg)) _pmClearPlacedInstance(lsvg);
+            _pmShowPlacedInstance(lsvg, g.env, g.widths);
+            var tag = document.getElementById('loupe-instance-tag');
+            if (tag) { tag.classList.add('showing'); tag.title = 'Showing an example — click to return to the parameters'; }
+        }
+        // Show/hide the ▷ beside the 123 tag. Piggybacks the same call sites as
+        // the 123 tag PLUS the box rAF loop, because adjust groups form and
+        // dissolve without a params-bar re-render (the chip has no such hook).
+        function _loupeSyncCardPlayTag() {
+            var lc = document.getElementById('loupe-card-container');
+            if (!lc) return;
+            var lsvg = lc.querySelector('svg:not(.loupe-grid)');
+            var tag = document.getElementById('loupe-cardplay-tag');
+            var n = _pmAdjustedSyms(lsvg).length;
+            if (n < 2) { if (tag) tag.style.display = 'none'; return; }
+            if (!tag || tag.parentNode !== lc) {
+                tag = document.createElement('div');
+                tag.id = 'loupe-cardplay-tag';
+                tag.className = 'loupe-instance-tag';
+                tag.textContent = '▷';
+                tag.title = 'Play ALL adjusted structures — every combination of their widths, one valid example each.';
+                tag.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+                tag.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _cardPlayStep(); });
                 lc.style.position = 'relative';
                 lc.appendChild(tag);
             }
@@ -7438,8 +7591,16 @@
 
             var dig = _pmDomainDigits(p);
             var resN = (p && p.width > 0) ? p.width : 0;
-            var maxN = Math.max(dig ? dig.max : 0, resN);   // a reserve only WIDENS
-            var minN = dig ? dig.min : 0;
+            // The reserve is a FLOOR, not a clamp (user decision, July 16): short
+            // values pad up to it, so the NORMAL box can never be narrower than
+            // the check-marked width — but values the domain makes longer still
+            // SPILL past it, and the dotted box tells the truth about that. So:
+            //   reserve ≥ domain max → min == max → quasi-static, no toggle;
+            //   reserve < domain max → variable width whose MINIMUM the author
+            //     chose by hand (min = reserve, max = domain) — toggle stays.
+            // The editor's spill/extra readout shows which case you are in.
+            var maxN = Math.max(dig ? dig.max : 0, resN);
+            var minN = Math.max(dig ? dig.min : 0, resN ? Math.min(resN, maxN) : 0);
             var aw = _pmDigitUnit(svg, t, p);
             var dottedW = (maxN > 0 && aw > 0) ? maxN * aw : adv;   // no domain → the letter
             var normalW = (minN > 0 && aw > 0) ? minN * aw : dottedW;
@@ -7462,6 +7623,15 @@
             }
             t.setAttribute('data-slot-left', slotLeft.toFixed(2));
             t.setAttribute('data-slot-w', dottedW.toFixed(2));
+            // Everything a VALUE needs to land in this slot later — at 123 time in
+            // the editor and in the player, where the domain engine doesn't exist.
+            // These persist in svgContent (they're design-derived layout, refreshed
+            // by this loop every time the card is edited).
+            if (aw > 0) t.setAttribute('data-cell', aw.toFixed(3));
+            t.setAttribute('data-norm-w', normalW.toFixed(2));
+            if (p && p.equiNum) t.setAttribute('data-equi', '1'); else t.removeAttribute('data-equi');
+            var hasChoice = (maxN > minN && minN > 0);
+            if (hasChoice) t.setAttribute('data-ref-choice', '1'); else t.removeAttribute('data-ref-choice');
             return {
                 y: b.y, h: b.height,
                 dottedLeft: slotLeft, dottedW: dottedW,
@@ -7471,7 +7641,7 @@
                 fromLetter: !dig && !resN,      // no values yet → box sized by the LETTER
                 // Same digit count either way = one possible width = nothing to
                 // choose, so no toggle (user spec).
-                hasChoice: (maxN > minN && minN > 0)
+                hasChoice: hasChoice
             };
         }
         // A darker shade of the parameter's colour, for the dotted max-extent box.
@@ -7611,7 +7781,7 @@
             (function tick() {
                 var container = document.getElementById('loupe-card-container');
                 var svg = container ? container.querySelector('svg:not(.loupe-grid)') : null;
-                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes', loupeSourceCard); _pmSyncAlignToggles(svg); _pmDrawAdjustLinks(svg); }
+                if (svg) { _pmDrawParamBoxes(svg, 'pm-param-live-boxes', loupeSourceCard); _pmSyncAlignToggles(svg); _pmDrawAdjustLinks(svg); _pmSyncAdjustGroupChips(svg); _loupeSyncCardPlayTag(); }
                 _pmLiveBoxRAF = requestAnimationFrame(tick);
             })();
         }
@@ -7624,6 +7794,7 @@
             var al = svg && svg.querySelector('g.pm-adjust-links');
             if (al) al.parentNode.removeChild(al);
             var host = document.getElementById('pm-align-toggles'); if (host) host.innerHTML = '';
+            var ac = document.getElementById('pm-adjust-chips'); if (ac) ac.innerHTML = '';
         }
         // The VISIBLE mark of an adjust group (user request July 13): a dashed
         // green tether from the parameter to each grouped static + a dashed
@@ -7664,40 +7835,144 @@
                     var side = (m.getAttribute('data-adjust-side') === 'left') ? 'left' : 'right';
                     var x1 = (side === 'right') ? pb.x + pb.width : pb.x;
                     var x2 = (side === 'right') ? mb.x : mb.x + mb.width;
+                    // ONE tether per member, nothing else. A July 13 "member
+                    // underline" (a horizontal dash under each follower) was
+                    // drawn here too — with the boxes in place it read as two
+                    // mystery connectors, not as a marker (user, July 16).
                     g.appendChild(dash(x1, pb.y + pb.height / 2, x2, mb.y + mb.height / 2)); // tether
-                    g.appendChild(dash(mb.x, mb.y + mb.height + 1, mb.x + mb.width, mb.y + mb.height + 1)); // member underline
                 });
             });
             if (g) svg.appendChild(g);
         }
-        // ----- Per-element alignment (left / center / right) -----
-        // Which edge of a placed parameter / printed formula stays fixed as the
-        // instance value's length changes. Stored in data-align (persisted in the
-        // SVG) → text-anchor. Toggling keeps the element visually in place.
-        // Position the SHOWING instance relative to the (fixed) template box —
-        // data-ref-left/width captured when the instance was shown. The template
-        // itself never moves; only the instance shifts to left/center/right.
-        function _pmPositionInstance(t) {
-            var left = parseFloat(t.getAttribute('data-ref-left'));
-            if (!isFinite(left)) return;
-            var width = parseFloat(t.getAttribute('data-ref-width')); if (!isFinite(width)) width = 0;
+        // Standing "adjusted ✓" chip on each group's tether (user, July 16): the
+        // selection-time chip only exists while the members are selected, so a
+        // card with visible tethers offered no way to UN-adjust. One chip per
+        // group now rides its first tether's midpoint whenever the connections
+        // are on screen; clicking it dissolves that group (and undoes any
+        // instance shift currently applied to its members).
+        function _pmUnadjustGroup(svg, gid) {
+            svg.querySelectorAll('[data-adjust-follow="' + gid + '"]').forEach(function (m) {
+                var applied = parseFloat(m.getAttribute('data-adjust-dx')) || 0;
+                if (applied) { var p = getElementPos(m); setElementPos(m, p.x - applied, p.y); }
+                m.removeAttribute('data-adjust-dx');
+                m.removeAttribute('data-adjust-follow');
+                m.removeAttribute('data-adjust-side');
+            });
+            hasEditedExisting = true;   // the grouping lives in the SVG → saves with the card
+            try { _geFlash('Adjust group removed — the statics are pinned again.'); } catch (e) {}
+            if (typeof _adjSyncChip === 'function') { try { _adjSyncChip(); } catch (e2) {} }
+        }
+        function _pmSyncAdjustGroupChips(svg) {
+            var overlay = document.getElementById('loupe-overlay');
+            if (!overlay) return;
+            var host = document.getElementById('pm-adjust-chips');
+            if (!svg) { if (host) host.innerHTML = ''; return; }
+            if (!host) { host = document.createElement('div'); host.id = 'pm-adjust-chips'; overlay.appendChild(host); }
+            var keep = {};
+            var svgEl = svg, ctm = svgEl.getScreenCTM && svgEl.getScreenCTM();
+            svg.querySelectorAll('text[data-param][data-adjust-id]').forEach(function (t) {
+                var gid = t.getAttribute('data-adjust-id');
+                var m = svg.querySelector('[data-adjust-follow="' + gid + '"]');
+                if (!m) return;                                  // dissolved group
+                var pb, mb;
+                try { pb = getSvgSpaceBBox(t); mb = getSvgSpaceBBox(m); } catch (e) { return; }
+                if (!pb || !mb || !(pb.width > 0) || !(mb.width > 0)) return;
+                keep[gid] = 1;
+                var chip = host.querySelector('[data-gid="' + gid + '"]');
+                if (!chip) {
+                    chip = document.createElement('button');
+                    chip.className = 'pm-adjust-chip on';
+                    chip.setAttribute('data-gid', gid);
+                    chip.textContent = 'adjusted ✓';
+                    chip.title = 'This group’s statics follow the value’s length. Click to un-adjust (pin them again).';
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    chip.addEventListener('click', function (e) {
+                        e.stopPropagation(); e.preventDefault();
+                        _pmUnadjustGroup(svg, gid);
+                        chip.remove();
+                    });
+                    host.appendChild(chip);
+                }
+                // Ride the FIRST tether's midpoint (the same geometry the dashes
+                // use), converted to screen space; sit just above the line.
+                var side = (m.getAttribute('data-adjust-side') === 'left') ? 'left' : 'right';
+                var x1 = (side === 'right') ? pb.x + pb.width : pb.x;
+                var x2 = (side === 'right') ? mb.x : mb.x + mb.width;
+                var mx = (x1 + x2) / 2, my = (pb.y + pb.height / 2 + mb.y + mb.height / 2) / 2;
+                var sx = null, sy = null;
+                if (ctm && svgEl.createSVGPoint) {
+                    var pt = svgEl.createSVGPoint(); pt.x = mx; pt.y = my;
+                    var sp = pt.matrixTransform(ctm); sx = sp.x; sy = sp.y;
+                }
+                if (sx == null) return;
+                chip.style.position = 'fixed';
+                chip.style.left = Math.round(sx - chip.offsetWidth / 2) + 'px';
+                chip.style.top = Math.round(sy - 26) + 'px';
+            });
+            Array.prototype.slice.call(host.children).forEach(function (c) {
+                if (!keep[c.getAttribute('data-gid')]) c.remove();
+            });
+        }
+        // ----- Placing a concrete VALUE into the parameter's slot -----
+        // The single positioning routine for instances — the 123 view, the align
+        // toggle while a value shows, and (mirrored in index.html) the player all
+        // land values through this same geometry, read from the slot attributes
+        // the box loop persists (data-slot-left/-w, data-cell, data-equi,
+        // data-align). NOT recomputed from the live element: while a value shows,
+        // the element's text IS the value, so measuring it would corrupt the slot
+        // (the letter-drag detection would read the value's width as a drag).
+        //
+        //   equidistant → one <tspan> per character, each CENTRED in its own
+        //     cell (the font's widest digit), the run of cells aligned in the
+        //     slot. This is what stacks numbers on their units in any font.
+        //   otherwise   → a plain text run, its natural width aligned in the
+        //     slot via x + text-anchor.
+        //
+        // Writes data-inst-left/-right (the value's actual edges) for the ADJUST
+        // followers: with tspans, getComputedTextLength returns the SUM of glyph
+        // advances, not the spanned width, so edges must be recorded, not measured.
+        function _pmPlaceValueInSlot(t, str) {
+            str = String(str == null ? '' : str);
+            var slotL = parseFloat(t.getAttribute('data-slot-left'));
+            var slotW = parseFloat(t.getAttribute('data-slot-w'));
+            if (!isFinite(slotL) || !isFinite(slotW)) return null;   // no slot captured — leave as-is
             var align = t.getAttribute('data-align') || 'left';
-            // ONE geometry, TWO meanings — which is why a single set of arrows
-            // couldn't express it (user report July 14, resolved July 15):
-            //   reserved slot → data-align = WHICH EDGE OF THE SLOT holds the
-            //     value still. The slot outlives any one value, so this is
-            //     alignment in the ordinary sense.
-            //   free width    → there is no slot; "width" here is just the
-            //     template letter's own advance, so pinning an edge of it reads
-            //     as a GROWTH DIRECTION: 'left' pins the left edge (digits run
-            //     rightward), 'right' pins the right edge (digits run leftward —
-            //     which is what stacks a column of numbers on their units),
-            //     'center' grows both ways.
-            // The maths is identical; only the ICONS and wording differ, and
-            // that difference is what _pmSyncAlignToggles renders.
-            if (align === 'center') { t.setAttribute('x', (left + width / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
-            else if (align === 'right') { t.setAttribute('x', (left + width).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
-            else { t.setAttribute('x', left.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
+            var f = _pmAlignFrac(align);
+            var cell = parseFloat(t.getAttribute('data-cell'));
+            var equi = t.getAttribute('data-equi') === '1' && isFinite(cell) && cell > 0;
+            var instL, instW;
+            if (equi) {
+                instW = str.length * cell;
+                instL = slotL + (slotW - instW) * f;
+                t.textContent = '';
+                for (var i = 0; i < str.length; i++) {
+                    var ts = document.createElementNS(_PM_BOX_NS, 'tspan');
+                    ts.setAttribute('x', (instL + i * cell + cell / 2).toFixed(2));
+                    ts.setAttribute('text-anchor', 'middle');
+                    ts.textContent = str.charAt(i);
+                    t.appendChild(ts);
+                }
+                // Keep the element's own anchor sane for anything that reads it.
+                t.setAttribute('x', instL.toFixed(2));
+                t.setAttribute('text-anchor', 'start');
+            } else {
+                t.textContent = str;
+                var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
+                instW = adv;
+                instL = slotL + (slotW - instW) * f;
+                if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
+                else if (align === 'right') { t.setAttribute('x', (slotL + slotW).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
+                else { t.setAttribute('x', slotL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
+            }
+            t.setAttribute('data-inst-left', instL.toFixed(2));
+            t.setAttribute('data-inst-right', (instL + instW).toFixed(2));
+            return { left: instL, right: instL + instW };
+        }
+        // Legacy entry point (the align toggle while a value is showing): re-place
+        // the CURRENT value under the new align. textContent flattens tspans back
+        // to the plain string, so this is safe in both rendering modes.
+        function _pmPositionInstance(t) {
+            _pmPlaceValueInSlot(t, t.textContent);
         }
         function _pmApplyAlign(el, align) {
             if (!el) return;
@@ -7816,22 +8091,22 @@
             var byS = _pmParamsBySym(typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
             var texts = _pmParamTexts(svg), keep = {};
             texts.forEach(function (t) {
-                // Three questions, three presentations:
-                //   tmpl → where do SHORT numbers sit in the dotted box? (letters)
-                //   slot → which edge of the reserved slot holds the value?
-                //   grow → free-width instance: which way does the number grow?
-                // (grow still uses the template LETTER as its reference — numbers
-                // are the next step; see _pmSlotGeom's note.)
+                // ONE question everywhere now: where does the value sit inside the
+                // slot? Templates and showing instances share the align icons and
+                // the min<max gate. The only difference is where the numbers come
+                // from — a template may run _pmSlotGeom (the letter is the letter),
+                // a showing instance must NOT (its text is the VALUE, and the
+                // geom's drag-detection would read the value's width as a drag),
+                // so it reads the attributes the show captured.
                 var isInst = t.getAttribute('data-param-orig') != null;
-                var mode, anchor = null;
+                var mode = 'tmpl', anchor = null;
                 if (isInst) {
-                    mode = (+(t.getAttribute('data-ref-reserve')) > 0) ? 'slot' : 'grow';
-                    var refL = parseFloat(t.getAttribute('data-ref-left')), refT = parseFloat(t.getAttribute('data-ref-top'));
+                    if (t.getAttribute('data-ref-choice') !== '1') return;  // fixed width → nothing to choose
+                    var refL = parseFloat(t.getAttribute('data-slot-left')), refT = parseFloat(t.getAttribute('data-ref-top'));
                     if (isFinite(refL) && isFinite(refT)) anchor = { x: refL, y: refT };
                 } else {
                     var geo = _pmSlotGeom(svg, t, byS[t.getAttribute('data-param')]);
                     if (!geo || !geo.hasChoice) return;   // dotted == normal → nothing to choose
-                    mode = 'tmpl';
                     anchor = { x: geo.dottedLeft, y: geo.y };
                 }
                 if (!t.__alignKey) t.__alignKey = 'ak' + (++_pmAlignSeq);
@@ -7912,6 +8187,17 @@
         function _pmShowPlacedInstance(svg, env, widths) {
             if (!svg) return;
             widths = widths || {};
+            // The slot attributes may be missing on a card saved by an older build
+            // (the box loop is what writes them). Refresh them ONCE per show, while
+            // the letters still show TEMPLATE text — _pmSlotGeom must never run
+            // against a value (its drag-detection would read the value's width as
+            // a letter drag and haul the slot).
+            var card = (svg.closest && svg.closest('.library-card')) || (typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null);
+            var byS = _pmParamsBySym(card);
+            _pmParamTexts(svg).forEach(function (t) {
+                if (t.getAttribute('data-param-orig') != null) return;   // value already showing
+                try { _pmSlotGeom(svg, t, byS[t.getAttribute('data-param')]); } catch (e) {}
+            });
             _pmParamTexts(svg).forEach(function (t) {
                 var isFormula = t.hasAttribute('data-formula');
                 var sym = t.getAttribute('data-param');
@@ -7923,56 +8209,29 @@
                     t.setAttribute('data-orig-x', t.getAttribute('x') || '');
                     t.setAttribute('data-orig-anchor', t.getAttribute('text-anchor') || 'start');
                 }
-                // The alignment REFERENCE (the RESERVED SLOT) is recomputed on
-                // EVERY show from the stored template identity — never trusted
-                // from a previous capture: cards saved by older builds carried
-                // stale baked refs, freezing a too-narrow slot (a full-width
-                // value then MOVED under the toggle, opposite the arrows —
-                // user report July 13). All geometry uses ADVANCE widths.
-                (function () {
-                    var origStr = t.getAttribute('data-param-orig') || '';
-                    var a0 = t.getAttribute('data-orig-anchor') || 'start';
-                    var x0 = parseFloat(t.getAttribute('data-orig-x'));
-                    if (!isFinite(x0)) x0 = parseFloat(t.getAttribute('x')) || 0;
-                    var _save = t.textContent;
-                    var adv = 0, reserved = 0;
-                    t.textContent = origStr;
-                    try { adv = t.getComputedTextLength(); } catch (e) {}
-                    var nres = +(widths[sym]) || 0; // numeric — a string width made Array(n+1) misbehave
-                    if (nres > 0) {
-                        // The reserve = the advance width of an n-digit run in
-                        // this font/size (digits are tabular).
-                        t.textContent = new Array(nres + 1).join('0');
-                        try { reserved = t.getComputedTextLength(); } catch (e) {}
-                    }
-                    t.textContent = _save;
-                    var tb; try { tb = t.getBBox(); } catch (e) { tb = null; }
-                    if (!adv && tb) adv = tb.width;
-                    if (nres > 0 && !reserved && tb) reserved = nres * _pmDigitRatio(svg) * tb.height;
-                    var slotW = Math.max(adv, reserved);
-                    var refLeft = (a0 === 'middle') ? x0 - adv / 2 : (a0 === 'end') ? x0 - adv : x0;
-                    t.setAttribute('data-ref-left', refLeft);
-                    t.setAttribute('data-ref-width', slotW);
-                    // Reserve count drives the whole model downstream: >0 = a real
-                    // SLOT (column mode — the align toggle picks which edge of it
-                    // holds still); 0 = FREE WIDTH (flow mode — there is no slot,
-                    // the "width" above is merely the template letter's own advance,
-                    // so alignment is meaningless and the toggle stays hidden).
-                    t.setAttribute('data-ref-reserve', nres);
-                    if (tb) t.setAttribute('data-ref-top', tb.y);
-                })();
-                var newText;
-                if (isFormula) {
-                    newText = _pmSubstIdentifiers(t.getAttribute('data-param-orig'), env, widths);
-                } else {
-                    // RAW value — no figure-space padding. _pmPositionInstance
-                    // aligns it against the slot via x/text-anchor; pre-padding
-                    // to full width would make every alignment look the same
-                    // (the padded string always fills the slot).
-                    newText = String(env[sym]);
+                if (isFormula) {   // retired whole-formula path — substitute only
+                    t.textContent = _pmSubstIdentifiers(t.getAttribute('data-param-orig'), env, widths);
+                    return;
                 }
-                t.textContent = newText;
-                _pmPositionInstance(t);   // align the instance against the template box
+                // Follower reference = the NORMAL box (the authored minimum-width
+                // layout, user spec July 16): an SE's shift is the value's actual
+                // edge minus the authored-min edge — signed, so in a proportional
+                // font a narrow min-width value pulls its neighbours slightly IN.
+                var slotL = parseFloat(t.getAttribute('data-slot-left'));
+                var slotW = parseFloat(t.getAttribute('data-slot-w'));
+                var normW = parseFloat(t.getAttribute('data-norm-w'));
+                if (isFinite(slotL) && isFinite(slotW)) {
+                    if (!isFinite(normW)) normW = slotW;
+                    var f = _pmAlignFrac(t.getAttribute('data-align') || 'left');
+                    t.setAttribute('data-ref-left', (slotL + (slotW - normW) * f).toFixed(2));
+                    t.setAttribute('data-ref-width', normW.toFixed(2));
+                    var tb; try { tb = t.getBBox(); } catch (e) { tb = null; }
+                    if (tb) t.setAttribute('data-ref-top', tb.y);
+                }
+                // RAW value — never pre-padded: _pmPlaceValueInSlot aligns it in
+                // the slot (padding to full width would make every alignment look
+                // the same, since a padded string always fills the slot).
+                _pmPlaceValueInSlot(t, String(env[sym]));
                 _pmAdjustFollowers(svg, t); // ADJUST-grouped statics follow the value's edges
             });
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = 'none';
@@ -7990,20 +8249,27 @@
         function _pmAdjustFollowers(svg, t) {
             var gid = t.getAttribute('data-adjust-id');
             if (!gid) return;
+            // Reference = the NORMAL box (the authored minimum-width layout);
+            // instance edges = what _pmPlaceValueInSlot recorded. Recorded, not
+            // measured: with equidistant tspans, getComputedTextLength returns the
+            // SUM of glyph advances, not the spanned cell run.
             var refL = parseFloat(t.getAttribute('data-ref-left'));
             var refW = parseFloat(t.getAttribute('data-ref-width'));
             if (!isFinite(refL)) return;
             if (!isFinite(refW)) refW = 0;
-            // Instance edges from ADVANCE width + anchor (matches how the slot
-            // was measured and how _pmPositionInstance placed the value) — ink
-            // bboxes wobbled by the glyph side-bearings on every toggle.
-            var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
-            if (!adv) { var _b; try { _b = t.getBBox(); adv = _b ? _b.width : 0; } catch (e2) { return; } }
-            var _ix = parseFloat(t.getAttribute('x')) || 0;
-            var _ia = t.getAttribute('text-anchor') || 'start';
-            var instLeft = (_ia === 'middle') ? _ix - adv / 2 : (_ia === 'end') ? _ix - adv : _ix;
-            var dL = instLeft - refL;                       // how far the value's LEFT edge moved
-            var dR = (instLeft + adv) - (refL + refW);      // how far its RIGHT edge moved
+            var instLeft = parseFloat(t.getAttribute('data-inst-left'));
+            var instRight = parseFloat(t.getAttribute('data-inst-right'));
+            if (!isFinite(instLeft) || !isFinite(instRight)) {
+                // Fallback (no recorded edges): advance width + anchor.
+                var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
+                if (!adv) { var _b; try { _b = t.getBBox(); adv = _b ? _b.width : 0; } catch (e2) { return; } }
+                var _ix = parseFloat(t.getAttribute('x')) || 0;
+                var _ia = t.getAttribute('text-anchor') || 'start';
+                instLeft = (_ia === 'middle') ? _ix - adv / 2 : (_ia === 'end') ? _ix - adv : _ix;
+                instRight = instLeft + adv;
+            }
+            var dL = instLeft - refL;                 // how far the value's LEFT edge moved
+            var dR = instRight - (refL + refW);       // how far its RIGHT edge moved
             // DELTA model: track only the shift currently APPLIED to a member
             // (data-adjust-dx) and move it by the difference. Never remember an
             // absolute "home" — the user may drag the member at any time, with
@@ -8021,7 +8287,7 @@
         // The floating "adjust" chip: appears when the selection is exactly ONE
         // parameter letter + one or more static elements. Click toggles the
         // group (grouped selections show "adjusted ✓" and unpin on click).
-        var _adjChipEl = null;
+        var _adjChipEl = null, _adjPlayEl = null;
         function _adjSelectionParts() {
             var sel = (typeof getAllSelectedElements === 'function') ? getAllSelectedElements() : [];
             if (sel.length < 2) return null;
@@ -8036,7 +8302,11 @@
         function _adjSyncChip() {
             var overlay = document.getElementById('loupe-overlay');
             var parts = (overlay && overlay.style.display !== 'none') ? _adjSelectionParts() : null;
-            if (!parts) { if (_adjChipEl) { _adjChipEl.remove(); _adjChipEl = null; } return; }
+            if (!parts) {
+                if (_adjChipEl) { _adjChipEl.remove(); _adjChipEl = null; }
+                if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+                return;
+            }
             if (!_adjChipEl) {
                 _adjChipEl = document.createElement('button');
                 _adjChipEl.className = 'pm-adjust-chip';
@@ -8056,6 +8326,79 @@
                 _adjChipEl.style.left = Math.round(r.left) + 'px';
                 _adjChipEl.style.top = Math.round(r.top - 26) + 'px';
             }
+            // ▷ PLAY (user spec July 16): once the group is adjusted, step through
+            // one VALID example per width the parameter can take — real values,
+            // followers at their shifted positions — so the author sees each
+            // width-instance before any game deals one. Only on an adjusted group:
+            // un-adjusted selections have nothing to demonstrate.
+            if (allIn) {
+                if (!_adjPlayEl) {
+                    _adjPlayEl = document.createElement('button');
+                    _adjPlayEl.className = 'pm-adjust-chip';
+                    _adjPlayEl.textContent = '▷';
+                    _adjPlayEl.title = 'Step through one example per width this parameter can take — watch the adjusted statics follow.';
+                    _adjPlayEl.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    _adjPlayEl.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _adjPlayStep(); });
+                    overlay.appendChild(_adjPlayEl);
+                }
+                var cr; try { cr = _adjChipEl.getBoundingClientRect(); } catch (e) { cr = null; }
+                if (cr) {
+                    _adjPlayEl.style.left = Math.round(cr.right + 4) + 'px';
+                    _adjPlayEl.style.top = Math.round(cr.top) + 'px';
+                }
+            } else if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+        }
+        // One valid example per digit-width of the parameter: sample whole-card
+        // envs (answers included — same generator as the 123 tag) and keep the
+        // first hit per width. Sampling, not enumeration: a valid EXAMPLE is what
+        // the user asked to see, and any joint sample is one by construction.
+        var _adjPlayState = null;   // { t, list:[{env,widths}], idx }
+        function _adjBuildPlayList(t) {
+            var card = (typeof loupeSourceCard !== 'undefined') ? loupeSourceCard : null;
+            var sym = t.getAttribute('data-param');
+            var p = _pmParamsBySym(card)[sym];
+            var dig = _pmWithCard(card, function () { return _pmDomainDigits(p); });
+            if (!dig || !(dig.max > 0)) return [];
+            var found = {}, want = 0, w;
+            for (w = dig.min; w <= dig.max; w++) want++;
+            for (var tries = 0; tries < 150 && Object.keys(found).length < want; tries++) {
+                var g = _pmGenEnvForCard(card);
+                if (!g || g.error || !g.env || g.env[sym] == null) break;
+                var n = String(g.env[sym]).replace(/[^0-9]/g, '').length;
+                if (n >= dig.min && n <= dig.max && !found[n]) found[n] = g;
+            }
+            // Widths in order: the story reads "1 digit, 2 digits, 3…". A width the
+            // constraints never produce is simply absent — every shown example is
+            // a VALID problem (user spec: no synthetic values).
+            return Object.keys(found).map(Number).sort(function (a, b) { return a - b; })
+                .map(function (k) { return found[k]; });
+        }
+        function _adjPlayStep() {
+            var parts = _adjSelectionParts();
+            if (!parts) return;
+            var t = parts.p, svg = t.ownerSVGElement;
+            if (!svg) return;
+            if (!_adjPlayState || _adjPlayState.t !== t) {
+                var list = _adjBuildPlayList(t);
+                if (!list.length) { try { _geFlash('No examples could be generated — check the parameter’s values.'); } catch (e) {} return; }
+                _adjPlayState = { t: t, list: list, idx: -1 };
+                // The examples are measured truth for THESE values; other numbers
+                // of the same width can land slightly differently when the font's
+                // digits vary — say so once per run (user spec July 16). Equi
+                // digits (or a uniform font) make widths exact → no caveat.
+                // try/catch, not typeof: _geFlash exists but dereferences the
+                // group-edit status element without a null check, and the warning
+                // must never break the stepping itself.
+                var p = _pmParamsBySym(typeof loupeSourceCard !== 'undefined' ? loupeSourceCard : null)[t.getAttribute('data-param')];
+                var ff = t.getAttribute('font-family');
+                if (!(p && p.equiNum) && ff && _fontDigitsTabular(ff) === false) {
+                    try { _geFlash('The digits have various widths so the geometry will be further refined.'); } catch (e2) {}
+                }
+            }
+            _adjPlayState.idx = (_adjPlayState.idx + 1) % _adjPlayState.list.length;
+            var g = _adjPlayState.list[_adjPlayState.idx];
+            if (_pmHasPlacedInstance(svg)) _pmClearPlacedInstance(svg);
+            _pmShowPlacedInstance(svg, g.env, g.widths);
         }
         function _adjToggleGroup() {
             var parts = _adjSelectionParts();
@@ -8085,10 +8428,26 @@
         // an instance). Safe to call when no instance is showing. Used before any SVG
         // serialization so concrete values never get persisted into svgContent.
         function _pmRestoreTemplate(t) {
-            t.textContent = t.getAttribute('data-param-orig');
+            t.textContent = t.getAttribute('data-param-orig');   // also flattens equi tspans away
             var ox = t.getAttribute('data-orig-x'); if (ox != null && ox !== '') t.setAttribute('x', ox);
             var oa = t.getAttribute('data-orig-anchor'); if (oa != null) t.setAttribute('text-anchor', oa);
-            ['data-param-orig', 'data-orig-x', 'data-orig-anchor', 'data-ref-left', 'data-ref-width', 'data-ref-top'].forEach(function (a) { t.removeAttribute(a); });
+            // If the align toggled WHILE the value showed, the stored orig-x is the
+            // OLD aligned home — the letter must land at the position the CURRENT
+            // align gives inside the (unchanged) slot, or the next box pass reads
+            // the mismatch as a drag and hauls the slot.
+            (function () {
+                var slotL = parseFloat(t.getAttribute('data-slot-left'));
+                var slotW = parseFloat(t.getAttribute('data-slot-w'));
+                var normW = parseFloat(t.getAttribute('data-norm-w'));
+                if (!isFinite(slotL) || !isFinite(slotW)) return;
+                if (!isFinite(normW)) normW = slotW;
+                var svg = t.ownerSVGElement; if (!svg) return;
+                var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
+                if (!(adv > 0)) return;
+                _pmSetLetterLeft(t, _pmLetterLeftIn(slotL, slotW, normW, adv, t.getAttribute('data-align') || 'left'), adv);
+            })();
+            ['data-param-orig', 'data-orig-x', 'data-orig-anchor', 'data-ref-left', 'data-ref-width', 'data-ref-top',
+             'data-inst-left', 'data-inst-right'].forEach(function (a) { t.removeAttribute(a); });
         }
         function _pmClearPlacedInstance(svg) {
             if (!svg) return;

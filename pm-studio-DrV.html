@@ -1190,7 +1190,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1208,7 +1208,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">01:09 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1450,7 +1450,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">01:09 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:45 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7729,6 +7729,39 @@
                 dotted.setAttribute('stroke-dasharray', '0 ' + (dotDia * 2.4).toFixed(2));
                 g.appendChild(dotted);
             });
+            // ROW boxes — the composite gets the same two boxes as any element,
+            // in the adjust GREEN so they read as structure, not as a parameter:
+            // solid = the authored all-minimum span; dotted = that plus every
+            // member's growth, anchored per the row's own align. Padded a touch
+            // wider than the parameter boxes so the nesting is visible.
+            _rowIds(svg).forEach(function (rid) {
+                var rg = _rowGeom(svg, rid);
+                if (!rg || !(rg.h > 0)) return;
+                var pad = Math.max(1.2, rg.h * 0.16);
+                var sw = Math.max(0.3, rg.h * 0.045);
+                var rx = Math.max(0.6, rg.h * 0.08);
+                function rowRect(x, w) {
+                    var r = document.createElementNS(_PM_BOX_NS, 'rect');
+                    r.setAttribute('x', (x - pad).toFixed(2));
+                    r.setAttribute('y', (rg.y - pad).toFixed(2));
+                    r.setAttribute('width', (w + 2 * pad).toFixed(2));
+                    r.setAttribute('height', (rg.h + 2 * pad).toFixed(2));
+                    r.setAttribute('rx', rx.toFixed(2));
+                    r.setAttribute('fill', 'none');
+                    return r;
+                }
+                var solid = rowRect(rg.normLeft, rg.normW);
+                solid.setAttribute('stroke', '#2f9e57');
+                solid.setAttribute('stroke-width', sw.toFixed(2));
+                g.appendChild(solid);
+                var dotDia2 = sw * 0.8;
+                var dotted2 = rowRect(rg.dottedLeft, rg.dottedW);
+                dotted2.setAttribute('stroke', _pmDarken('#2f9e57', 0.62));
+                dotted2.setAttribute('stroke-width', dotDia2.toFixed(2));
+                dotted2.setAttribute('stroke-linecap', 'round');
+                dotted2.setAttribute('stroke-dasharray', '0 ' + (dotDia2 * 2.4).toFixed(2));
+                g.appendChild(dotted2);
+            });
             if (g.childNodes.length) svg.appendChild(g);
         }
         // Static bake into a source card's SVG (persists in svgContent).
@@ -7909,9 +7942,199 @@
                 chip.style.left = Math.round(sx - chip.offsetWidth / 2) + 'px';
                 chip.style.top = Math.round(sy - 26) + 'px';
             });
+            // Standing "row ✓" chips — one per row, BELOW the row's box (the
+            // tether chips live above; two levels, two bands). Click dissolves
+            // the row; the inner adjust groups survive it untouched.
+            _rowIds(svg).forEach(function (rid) {
+                var rg = _rowGeom(svg, rid);
+                if (!rg) return;
+                var key = 'row-' + rid; keep[key] = 1;
+                var chip = host.querySelector('[data-gid="' + key + '"]');
+                if (!chip) {
+                    chip = document.createElement('button');
+                    chip.className = 'pm-adjust-chip on';
+                    chip.setAttribute('data-gid', key);
+                    chip.textContent = 'row ✓';
+                    chip.title = 'These structures pack as ONE row around the dealt values. Click to separate them again.';
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    chip.addEventListener('click', function (e) {
+                        e.stopPropagation(); e.preventDefault();
+                        _pmUnrowGroup(svg, rid);
+                        chip.remove();
+                    });
+                    host.appendChild(chip);
+                }
+                var sx2 = null, sy2 = null;
+                var ctm3 = svg.getScreenCTM && svg.getScreenCTM();
+                if (ctm3 && svg.createSVGPoint) {
+                    var pt3 = svg.createSVGPoint();
+                    pt3.x = rg.dottedLeft + rg.dottedW / 2; pt3.y = rg.y + rg.h;
+                    var sp3 = pt3.matrixTransform(ctm3); sx2 = sp3.x; sy2 = sp3.y;
+                }
+                if (sx2 == null) return;
+                chip.style.position = 'fixed';
+                chip.style.left = Math.round(sx2 - chip.offsetWidth / 2) + 'px';
+                chip.style.top = Math.round(sy2 + 8) + 'px';
+            });
             Array.prototype.slice.call(host.children).forEach(function (c) {
                 if (!keep[c.getAttribute('data-gid')]) c.remove();
             });
+        }
+        // ===== ROW groups (user spec, July 16) =================================
+        // TWO OR MORE variable-width elements + statics combined in ONE ROW. The
+        // recursion that makes this cheap: an adjusted structure IS a variable-
+        // width element (its min = the authored all-minimum span, its max = that
+        // plus every member's growth), so the row gets the same three tools any
+        // element gets — a solid box (all-min), a dotted box (all-max, anchored
+        // per the row's own align), a toggle, and an adjust gesture. Members
+        // carry data-row-follow/-ord; the leftmost parameter carries data-row-id
+        // + data-row-align — plain SVG attributes, so rows ride copies and saves.
+        // V1 = authoring layer (creation, boxes, toggle, dissolve chip). The
+        // packing engine (values dealt → bricks re-pack) is the next step, one
+        // editor+player commit like the slot work.
+        // PLANNED (user, July 16, deliberately deferred): multiple rows sharing a
+        // common static — the static follows whichever member row/element is
+        // WIDEST at each particular instance set (max over members, per deal).
+        function _rowIds(svg) {
+            var ids = [];
+            if (!svg) return ids;
+            svg.querySelectorAll('[data-row-follow]').forEach(function (m) {
+                var rid = m.getAttribute('data-row-follow');
+                if (rid && ids.indexOf(rid) < 0) ids.push(rid);
+            });
+            return ids.filter(function (rid) {
+                return svg.querySelectorAll('[data-row-follow="' + rid + '"]').length >= 2;
+            });
+        }
+        // The row's composite geometry, derived live from its members:
+        //   solid  = union of member extents (params contribute their NORMAL box,
+        //            statics their bbox) — the authored all-minimum layout;
+        //   dotted = solid + Σ member growth (slotW − normW per parameter),
+        //            anchored to the union per data-row-align.
+        function _rowGeom(svg, rid) {
+            var members = svg.querySelectorAll('[data-row-follow="' + rid + '"]');
+            if (members.length < 2) return null;
+            var L = Infinity, R = -Infinity, T = Infinity, B = -Infinity;
+            var grow = 0, anchorEl = null, firstParam = null;
+            members.forEach(function (m) {
+                var l = null, r = null;
+                var isParam = m.tagName && m.tagName.toLowerCase() === 'text' && m.hasAttribute('data-param');
+                if (isParam) {
+                    if (!firstParam) firstParam = m;
+                    if (m.getAttribute('data-row-id') === rid) anchorEl = m;
+                    var sL = parseFloat(m.getAttribute('data-slot-left'));
+                    var sW = parseFloat(m.getAttribute('data-slot-w'));
+                    var nW = parseFloat(m.getAttribute('data-norm-w'));
+                    if (isFinite(sL) && isFinite(sW)) {
+                        if (!isFinite(nW)) nW = sW;
+                        var pf = _pmAlignFrac(m.getAttribute('data-align') || 'left');
+                        l = sL + (sW - nW) * pf; r = l + nW;
+                        grow += Math.max(0, sW - nW);
+                    }
+                }
+                var b; try { b = getSvgSpaceBBox(m); } catch (e) { b = null; }
+                if (l == null) {
+                    if (!b || !(b.width > 0)) return;
+                    l = b.x; r = b.x + b.width;
+                }
+                if (b && b.height > 0) { if (b.y < T) T = b.y; if (b.y + b.height > B) B = b.y + b.height; }
+                if (l < L) L = l; if (r > R) R = r;
+            });
+            if (!(R > L) || !isFinite(T)) return null;
+            if (!anchorEl) anchorEl = firstParam;   // rows saved before the anchor attr
+            var align = (anchorEl && anchorEl.getAttribute('data-row-align')) || 'left';
+            var f = _pmAlignFrac(align);
+            var normW = R - L, dottedW = normW + grow;
+            // THE ROW'S EXTENT IS STORED (data-row-left), exactly like a
+            // parameter's slot — because it must HOLD STILL while the toggle
+            // moves the CONTENT inside it (user, July 16: "the dot-box moves
+            // left RELATIVE to the line while the line moves to the outmost
+            // right"). Deriving it from the members would drag it along with
+            // every toggle, the same bug the parameter slot already fixed.
+            // Same maintenance rules: a width change (domain edit) keeps the
+            // ALIGNED edge; members not where slot+align puts them were
+            // dragged, so the extent follows by the same delta.
+            var slotLeft = anchorEl ? parseFloat(anchorEl.getAttribute('data-row-left')) : NaN;
+            if (!isFinite(slotLeft)) {
+                slotLeft = L - (dottedW - normW) * f;
+            } else {
+                var prevW = anchorEl ? parseFloat(anchorEl.getAttribute('data-row-w')) : NaN;
+                if (isFinite(prevW) && Math.abs(prevW - dottedW) > 0.01) slotLeft += (prevW - dottedW) * f;
+                var want = slotLeft + (dottedW - normW) * f;
+                if (Math.abs(L - want) > 0.01) slotLeft += (L - want);
+            }
+            if (anchorEl) {
+                anchorEl.setAttribute('data-row-left', slotLeft.toFixed(2));
+                anchorEl.setAttribute('data-row-w', dottedW.toFixed(2));
+            }
+            return {
+                rid: rid, anchor: anchorEl, align: align,
+                y: T, h: B - T,
+                normLeft: L, normW: normW,
+                dottedLeft: slotLeft, dottedW: dottedW,
+                grow: grow
+            };
+        }
+        // Selection of 2+ parameters (statics welcome) → the row gesture. Each
+        // selected parameter brings its WHOLE structure: its adjust followers
+        // join the row implicitly, so "+A kg" travels as one brick.
+        function _rowSelectionParts() {
+            var sel = (typeof getAllSelectedElements === 'function') ? getAllSelectedElements() : [];
+            if (sel.length < 2) return null;
+            var params = sel.filter(function (e) {
+                return e.tagName && e.tagName.toLowerCase() === 'text' && e.hasAttribute('data-param') && !e.hasAttribute('data-formula');
+            });
+            if (params.length < 2) return null;
+            return { params: params, all: sel };
+        }
+        function _rowToggleGroup() {
+            var parts = _rowSelectionParts();
+            if (!parts) return;
+            var svg = parts.params[0].ownerSVGElement;
+            if (!svg) return;
+            var rid0 = parts.all[0].getAttribute && parts.all[0].getAttribute('data-row-follow');
+            var allIn = !!rid0 && parts.all.every(function (e) { return e.getAttribute && e.getAttribute('data-row-follow') === rid0; });
+            if (allIn) { _pmUnrowGroup(svg, rid0); return; }
+            var rid = 'rw' + Date.now().toString(36);
+            var members = parts.all.slice();
+            parts.params.forEach(function (p) {
+                var gid = p.getAttribute('data-adjust-id');
+                if (!gid) return;
+                svg.querySelectorAll('[data-adjust-follow="' + gid + '"]').forEach(function (m) {
+                    if (members.indexOf(m) < 0) members.push(m);
+                });
+            });
+            // Order = authored left→right; it IS the packing order later.
+            var withX = members.map(function (m) {
+                var b; try { b = getSvgSpaceBBox(m); } catch (e) { b = null; }
+                return { m: m, x: b ? b.x + b.width / 2 : 0 };
+            });
+            withX.sort(function (a, b) { return a.x - b.x; });
+            withX.forEach(function (it, i) {
+                it.m.setAttribute('data-row-follow', rid);
+                it.m.setAttribute('data-row-ord', i);
+            });
+            var anchor = null;
+            for (var i = 0; i < withX.length && !anchor; i++) {
+                var m = withX[i].m;
+                if (m.hasAttribute && m.hasAttribute('data-param')) anchor = m;
+            }
+            if (anchor) { anchor.setAttribute('data-row-id', rid); anchor.setAttribute('data-row-align', 'left'); }
+            hasEditedExisting = true;   // the row lives in the SVG → saves with the card
+            try { _geFlash('ROW created — its elements will pack around the dealt values as one line.'); } catch (e) {}
+            _adjSyncChip();
+        }
+        function _pmUnrowGroup(svg, rid) {
+            svg.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
+                m.removeAttribute('data-row-follow');
+                m.removeAttribute('data-row-ord');
+                if (m.getAttribute('data-row-id') === rid) {
+                    ['data-row-id', 'data-row-align', 'data-row-left', 'data-row-w'].forEach(function (a) { m.removeAttribute(a); });
+                }
+            });
+            hasEditedExisting = true;
+            try { _geFlash('Row removed — the structures are independent again.'); } catch (e) {}
+            if (typeof _adjSyncChip === 'function') { try { _adjSyncChip(); } catch (e2) {} }
         }
         // ----- Placing a concrete VALUE into the parameter's slot -----
         // The single positioning routine for instances — the 123 view, the align
@@ -8142,6 +8365,66 @@
                 var cur = t.getAttribute('data-align') || 'left';
                 Array.prototype.forEach.call(tog.querySelectorAll('.pm-align-btn'), function (b) { b.classList.toggle('on', b.dataset.align === cur); });
             });
+            // ROW toggles — the composite's own L/C/R, pinning an edge of the row's
+            // dotted extent. Same icons, same min<max gate (a row with no growth
+            // has nothing to choose). Sits ABOVE the parameter toggles' band so
+            // the two levels don't overlap.
+            _rowIds(svg).forEach(function (rid) {
+                var rg = _rowGeom(svg, rid);
+                if (!rg || !(rg.grow > 0.5) || !rg.anchor) return;
+                var key = 'row-' + rid; keep[key] = 1;
+                var tog = host.querySelector('[data-ak="' + key + '"]');
+                if (!tog) {
+                    tog = document.createElement('div'); tog.className = 'pm-align-toggle';
+                    tog.setAttribute('data-ak', key); tog.setAttribute('data-mode', 'row');
+                    ['left', 'center', 'right'].forEach(function (a) {
+                        var b = document.createElement('button'); b.className = 'pm-align-btn'; b.dataset.align = a;
+                        b.innerHTML = _PM_ALIGN_ICONS[a];
+                        b.title = 'Row pinned ' + a.toUpperCase() + (a === 'left' ? ' — grows rightward' : a === 'right' ? ' — grows leftward' : ' — grows both ways');
+                        b.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                        b.addEventListener('click', function (e) {
+                            e.stopPropagation(); e.preventDefault();
+                            // The extent HOLDS STILL; the LINE moves inside it
+                            // (user, July 16 — same contract as the parameter
+                            // toggle). Order is load-bearing, same as there:
+                            // read the geometry under the OLD align so the
+                            // stored extent settles untouched, THEN flip the
+                            // align and move every member to where the new
+                            // align puts the line.
+                            var cur = _rowGeom(svg, rid);
+                            if (!cur || !cur.anchor) return;
+                            cur.anchor.setAttribute('data-row-align', a);
+                            var want = cur.dottedLeft + (cur.dottedW - cur.normW) * _pmAlignFrac(a);
+                            var delta = want - cur.normLeft;
+                            if (Math.abs(delta) > 0.001) {
+                                svg.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
+                                    var p = getElementPos(m);
+                                    setElementPos(m, p.x + delta, p.y);
+                                    // A parameter's own slot travels with it —
+                                    // shifted NOW, not left to the drag-detect
+                                    // pass, so the same frame stays consistent.
+                                    var sl = parseFloat(m.getAttribute('data-slot-left'));
+                                    if (isFinite(sl)) m.setAttribute('data-slot-left', (sl + delta).toFixed(2));
+                                });
+                            }
+                            hasEditedExisting = true;   // rides the SVG like data-align
+                        });
+                        tog.appendChild(b);
+                    });
+                    host.appendChild(tog);
+                }
+                var sx = null, sy = null;
+                var ctm2 = svg.getScreenCTM && svg.getScreenCTM();
+                if (ctm2 && svg.createSVGPoint) {
+                    var pt2 = svg.createSVGPoint(); pt2.x = rg.dottedLeft; pt2.y = rg.y;
+                    var sp2 = pt2.matrixTransform(ctm2); sx = sp2.x; sy = sp2.y;
+                }
+                if (sx == null) return;
+                tog.style.left = Math.round(sx) + 'px';
+                tog.style.top = Math.round(sy - 48) + 'px';
+                var curA = rg.align;
+                Array.prototype.forEach.call(tog.querySelectorAll('.pm-align-btn'), function (b) { b.classList.toggle('on', b.dataset.align === curA); });
+            });
             Array.prototype.slice.call(host.children).forEach(function (c) { if (!keep[c.getAttribute('data-ak')]) c.remove(); });
         }
 
@@ -8301,8 +8584,12 @@
         }
         function _adjSyncChip() {
             var overlay = document.getElementById('loupe-overlay');
-            var parts = (overlay && overlay.style.display !== 'none') ? _adjSelectionParts() : null;
-            if (!parts) {
+            var vis = overlay && overlay.style.display !== 'none';
+            var parts = vis ? _adjSelectionParts() : null;
+            // 1 parameter + statics → the classic adjust. 2+ parameters → the
+            // SAME gesture one level up: bind the structures into a ROW.
+            var rowParts = (!parts && vis) ? _rowSelectionParts() : null;
+            if (!parts && !rowParts) {
                 if (_adjChipEl) { _adjChipEl.remove(); _adjChipEl = null; }
                 if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
                 return;
@@ -8311,9 +8598,34 @@
                 _adjChipEl = document.createElement('button');
                 _adjChipEl.className = 'pm-adjust-chip';
                 _adjChipEl.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
-                _adjChipEl.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); _adjToggleGroup(); });
+                // One chip, two modes — dispatch on what the sync pass last saw.
+                _adjChipEl.addEventListener('click', function (e) {
+                    e.stopPropagation(); e.preventDefault();
+                    if (_adjChipEl && _adjChipEl.getAttribute('data-mode') === 'row') _rowToggleGroup();
+                    else _adjToggleGroup();
+                });
                 overlay.appendChild(_adjChipEl);
             }
+            if (rowParts) {
+                var rid0 = rowParts.all[0].getAttribute && rowParts.all[0].getAttribute('data-row-follow');
+                var rowIn = !!rid0 && rowParts.all.every(function (e2) { return e2.getAttribute && e2.getAttribute('data-row-follow') === rid0; });
+                _adjChipEl.setAttribute('data-mode', 'row');
+                _adjChipEl.classList.toggle('on', rowIn);
+                _adjChipEl.textContent = rowIn ? 'row ✓' : 'adjust row';
+                _adjChipEl.title = rowIn
+                    ? 'These structures pack as ONE row around the dealt values. Click to separate them again.'
+                    : 'Combine the selected structures into ONE ROW: as any value grows, everything beside it moves over. Each parameter brings its adjusted statics along.';
+                var rr; try { rr = rowParts.params[0].getBoundingClientRect(); } catch (e3) { rr = null; }
+                if (rr) {
+                    _adjChipEl.style.left = Math.round(rr.left) + 'px';
+                    _adjChipEl.style.top = Math.round(rr.top - 26) + 'px';
+                }
+                // The card-level ▷ (all-combinations) is the row's player — no
+                // per-selection ▷ here.
+                if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+                return;
+            }
+            _adjChipEl.setAttribute('data-mode', 'single');
             var gid = parts.p.getAttribute('data-adjust-id');
             var allIn = !!gid && parts.statics.every(function (s) { return s.getAttribute('data-adjust-follow') === gid; });
             _adjChipEl.classList.toggle('on', allIn);

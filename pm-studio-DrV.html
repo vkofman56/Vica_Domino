@@ -1044,6 +1044,36 @@
            re-selecting its members (user, July 16). */
         #pm-adjust-chips { position: fixed; left: 0; top: 0; z-index: 2350; pointer-events: none; }
         #pm-adjust-chips .pm-adjust-chip { pointer-events: auto; font-size: 10px; padding: 2px 7px; }
+        /* ROW controls wear the row's own green as a border (user, July 16: the
+           row toggle and its chips were hard to find among the per-parameter
+           ones). Same hue as the row's box, so the border says WHOSE they are. */
+        .pm-align-toggle[data-mode="row"] {
+            border: 3px solid #2f9e57; border-radius: 8px;
+            box-shadow: 0 0 0 1px rgba(47,158,87,0.3);
+            padding: 3px 4px;
+        }
+        /* The row toggle's ARROWS are exactly the parameter toggles' arrows —
+           no size overrides (a custom 17px icon rule rendered them SMALLER
+           inside the fixed button box; user report July 16). The row toggle's
+           extra presence comes from the green border + padding, never from
+           restyling its buttons. */
+        .pm-adjust-chip[data-mode="row"],
+        #pm-adjust-chips .pm-adjust-chip[data-gid^="row-"] {
+            border: 3px solid #2f9e57;
+            box-shadow: 0 0 0 1px rgba(47,158,87,0.3);
+            font-size: 12px; padding: 3px 9px;
+        }
+        /* The OFFER ("adjust row N", no .on yet) PULSES — size breathes and the
+           green halo swells — so the moment it appears it can't be missed; once
+           pressed ("row N ✓") it settles down (user, July 16). Animates the
+           standalone `scale` property, NOT transform: the drag feature stores
+           its offset as an inline transform, and a keyframe on transform would
+           override it and snap a dragged chip back while pulsing. */
+        @keyframes pm-row-offer {
+            0%, 100% { scale: 1;    box-shadow: 0 0 0 1px rgba(47,158,87,0.35); }
+            50%      { scale: 1.18; box-shadow: 0 0 0 6px rgba(47,158,87,0.65); }
+        }
+        .pm-adjust-chip[data-mode="row"]:not(.on) { animation: pm-row-offer 1s ease-in-out infinite; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -1190,7 +1220,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1208,7 +1238,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">02:45 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1450,7 +1480,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">02:45 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:56 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7734,6 +7764,11 @@
             // solid = the authored all-minimum span; dotted = that plus every
             // member's growth, anchored per the row's own align. Padded a touch
             // wider than the parameter boxes so the nesting is visible.
+            // NEVER while a value shows: _rowGeom derives the authored union from
+            // live members, and during a deal the members are packed/shifted —
+            // its drag-detection would read the packing as a drag and corrupt
+            // data-row-left (the same trap the parameter slot dodges).
+            if (_pmHasPlacedInstance(svg)) { if (g.childNodes.length) svg.appendChild(g); return; }
             _rowIds(svg).forEach(function (rid) {
                 var rg = _rowGeom(svg, rid);
                 if (!rg || !(rg.h > 0)) return;
@@ -7916,16 +7951,19 @@
                     chip = document.createElement('button');
                     chip.className = 'pm-adjust-chip on';
                     chip.setAttribute('data-gid', gid);
-                    chip.textContent = 'adjusted ✓';
                     chip.title = 'This group’s statics follow the value’s length. Click to un-adjust (pin them again).';
-                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
                     chip.addEventListener('click', function (e) {
                         e.stopPropagation(); e.preventDefault();
+                        if (_pmCtrlSquelch()) return;   // that click ended a drag
                         _pmUnadjustGroup(svg, gid);
                         chip.remove();
                     });
                     host.appendChild(chip);
                 }
+                // Re-labelled every pass: dissolving group #1 renumbers the rest.
+                chip.textContent = 'adjusted #' + _pmAdjNum(svg, gid) + ' ✓';
+                _pmMakeMovable(chip, 'chip-' + gid);
                 // Ride the FIRST tether's midpoint (the same geometry the dashes
                 // use), converted to screen space; sit just above the line.
                 var side = (m.getAttribute('data-adjust-side') === 'left') ? 'left' : 'right';
@@ -7944,8 +7982,10 @@
             });
             // Standing "row ✓" chips — one per row, BELOW the row's box (the
             // tether chips live above; two levels, two bands). Click dissolves
-            // the row; the inner adjust groups survive it untouched.
-            _rowIds(svg).forEach(function (rid) {
+            // the row; the inner adjust groups survive it untouched. Hidden
+            // while a value shows — _rowGeom must never run against packed
+            // members (see the row-boxes guard).
+            (_pmHasPlacedInstance(svg) ? [] : _rowIds(svg)).forEach(function (rid) {
                 var rg = _rowGeom(svg, rid);
                 if (!rg) return;
                 var key = 'row-' + rid; keep[key] = 1;
@@ -7954,16 +7994,18 @@
                     chip = document.createElement('button');
                     chip.className = 'pm-adjust-chip on';
                     chip.setAttribute('data-gid', key);
-                    chip.textContent = 'row ✓';
                     chip.title = 'These structures pack as ONE row around the dealt values. Click to separate them again.';
-                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
                     chip.addEventListener('click', function (e) {
                         e.stopPropagation(); e.preventDefault();
+                        if (_pmCtrlSquelch()) return;   // that click ended a drag
                         _pmUnrowGroup(svg, rid);
                         chip.remove();
                     });
                     host.appendChild(chip);
                 }
+                chip.textContent = 'row ' + _pmRowNum(svg, rid) + ' ✓';
+                _pmMakeMovable(chip, 'chip-row-' + rid);
                 var sx2 = null, sy2 = null;
                 var ctm3 = svg.getScreenCTM && svg.getScreenCTM();
                 if (ctm3 && svg.createSVGPoint) {
@@ -7995,6 +8037,65 @@
         // PLANNED (user, July 16, deliberately deferred): multiple rows sharing a
         // common static — the static follows whichever member row/element is
         // WIDEST at each particular instance set (max over members, per deal).
+        // ===== Movable controls + numbering (user, July 16) ===================
+        // The floating chips/toggles are repositioned every rAF frame from SVG
+        // coordinates, so a drag can't just set left/top — the next frame would
+        // snap it back. Instead a user drag stores a per-control OFFSET, applied
+        // as a CSS transform on top of whatever the sync pass computes. Offsets
+        // are session-local (keyed by control identity), survive the control
+        // being rebuilt, and a drag suppresses the click it would otherwise fire.
+        var _pmCtrlOff = {};
+        var _pmCtrlDragEndAt = 0;
+        function _pmCtrlSquelch() { return (Date.now() - _pmCtrlDragEndAt) < 250; }
+        function _pmApplyCtrlOff(el, key) {
+            var o = _pmCtrlOff[key];
+            el.style.transform = o ? ('translate(' + o.x + 'px,' + o.y + 'px)') : '';
+        }
+        function _pmMakeMovable(el, key) {
+            if (el.__movKey === key) return;
+            el.__movKey = key;
+            el.style.cursor = 'move';
+            _pmApplyCtrlOff(el, key);
+            el.addEventListener('mousedown', function (e) {
+                var sx = e.clientX, sy = e.clientY;
+                var o = _pmCtrlOff[key] || { x: 0, y: 0 };
+                var bx = o.x, by = o.y, moved = false;
+                function mv(ev) {
+                    var dx = ev.clientX - sx, dy = ev.clientY - sy;
+                    if (!moved && Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+                    if (moved) {
+                        _pmCtrlOff[key] = { x: bx + dx, y: by + dy };
+                        _pmApplyCtrlOff(el, key);
+                        ev.preventDefault();
+                    }
+                }
+                function up() {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                    if (moved) _pmCtrlDragEndAt = Date.now();
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
+        }
+        // Stable per-card numbering: gids/rids embed a base36 creation timestamp,
+        // so a plain sort IS chronological — "#1" is the first group ever made on
+        // the card, whatever order the DOM holds them in.
+        function _pmAdjNum(svg, gid) {
+            var ids = [];
+            svg.querySelectorAll('text[data-param][data-adjust-id]').forEach(function (t) {
+                var g = t.getAttribute('data-adjust-id');
+                if (g && ids.indexOf(g) < 0) ids.push(g);
+            });
+            ids.sort();
+            var i = ids.indexOf(gid);
+            return i < 0 ? ids.length + 1 : i + 1;
+        }
+        function _pmRowNum(svg, rid) {
+            var ids = _rowIds(svg).slice().sort();
+            var i = ids.indexOf(rid);
+            return i < 0 ? ids.length + 1 : i + 1;
+        }
         function _rowIds(svg) {
             var ids = [];
             if (!svg) return ids;
@@ -8124,6 +8225,104 @@
             try { _geFlash('ROW created — its elements will pack around the dealt values as one line.'); } catch (e) {}
             _adjSyncChip();
         }
+        // ===== THE PACKING ENGINE (user spec, July 16) =========================
+        // The row's boxes are the lease; this is the tenant moving in. On every
+        // deal, each member's ACTUAL width for these values is measured, and the
+        // members are laid against the row's pinned edge like books against a
+        // bookend — authored gaps preserved (the template IS the all-minimum
+        // layout), everything downstream sliding by the accumulated extra width.
+        // Runs AFTER the individual placements: parameters already hold their
+        // dealt values (data-inst-left/-right recorded), so the walk just
+        // re-seats every brick at its packed position. Statics get the DELTA
+        // model (data-rowpack-dx) so a user drag between deals survives, exactly
+        // like the adjust followers' data-adjust-dx.
+        function _pmRowPack(svg) {
+            if (!svg) return;
+            _rowIds(svg).forEach(function (rid) {
+                var anchor = svg.querySelector('[data-row-id="' + rid + '"]');
+                if (!anchor) return;
+                var rowLeft = parseFloat(anchor.getAttribute('data-row-left'));
+                var rowW = parseFloat(anchor.getAttribute('data-row-w'));
+                if (!isFinite(rowLeft) || !isFinite(rowW)) return;
+                var f = _pmAlignFrac(anchor.getAttribute('data-row-align') || 'left');
+                var members = Array.prototype.slice.call(svg.querySelectorAll('[data-row-follow="' + rid + '"]'));
+                // Authored geometry per member. Parameters: the NORMAL box from
+                // their stored slot (stable during a deal). Statics: live bbox
+                // minus every shift currently applied to them.
+                var bricks = [], partial = false;
+                members.forEach(function (m) {
+                    var isParam = m.hasAttribute('data-param') && !m.hasAttribute('data-formula');
+                    var aL, aW, dW;
+                    if (isParam) {
+                        if (m.getAttribute('data-param-orig') == null) { partial = true; return; }
+                        var sL = parseFloat(m.getAttribute('data-slot-left'));
+                        var sW = parseFloat(m.getAttribute('data-slot-w'));
+                        var nW = parseFloat(m.getAttribute('data-norm-w'));
+                        if (!isFinite(sL) || !isFinite(sW)) { partial = true; return; }
+                        if (!isFinite(nW)) nW = sW;
+                        aL = sL + (sW - nW) * _pmAlignFrac(m.getAttribute('data-align') || 'left');
+                        aW = nW;
+                        var iL = parseFloat(m.getAttribute('data-inst-left'));
+                        var iR = parseFloat(m.getAttribute('data-inst-right'));
+                        dW = (isFinite(iL) && isFinite(iR)) ? (iR - iL) : nW;
+                    } else {
+                        var b; try { b = getSvgSpaceBBox(m); } catch (e) { return; }
+                        if (!b || !(b.width > 0)) return;
+                        var applied = (parseFloat(m.getAttribute('data-adjust-dx')) || 0)
+                                    + (parseFloat(m.getAttribute('data-rowpack-dx')) || 0);
+                        aL = b.x - applied; aW = b.width; dW = b.width;
+                    }
+                    bricks.push({ m: m, isParam: isParam, aL: aL, aW: aW, dW: dW });
+                });
+                // A row with an un-dealt parameter (e.g. a hidden answer with no
+                // value) can't pack honestly — leave it authored.
+                if (partial || bricks.length < 2) return;
+                bricks.sort(function (a, b) { return a.aL - b.aL; });
+                var packedW = 0, gaps = [];
+                bricks.forEach(function (br, i) {
+                    packedW += br.dW;
+                    if (i < bricks.length - 1) {
+                        var gp = Math.max(0, bricks[i + 1].aL - (br.aL + br.aW));
+                        gaps.push(gp);
+                        packedW += gp;
+                    }
+                });
+                var cursor = rowLeft + (rowW - packedW) * f;
+                bricks.forEach(function (br, i) {
+                    if (br.isParam) {
+                        // Re-seat the dealt value with its left edge AT the cursor.
+                        _pmPlaceValueInSlot(br.m, br.m.textContent, cursor);
+                    } else {
+                        var live; try { live = getSvgSpaceBBox(br.m); } catch (e) { live = null; }
+                        if (live) {
+                            var delta = cursor - live.x;
+                            if (Math.abs(delta) > 0.001) {
+                                var p = getElementPos(br.m);
+                                setElementPos(br.m, p.x + delta, p.y);
+                                var rp = parseFloat(br.m.getAttribute('data-rowpack-dx')) || 0;
+                                // FULL precision — rounding here leaks ~0.0025/deal
+                                // into the authored position, forever (measured).
+                                br.m.setAttribute('data-rowpack-dx', String(rp + delta));
+                            }
+                        }
+                    }
+                    cursor += br.dW + (i < gaps.length ? gaps[i] : 0);
+                });
+            });
+        }
+        // Undo exactly the packing shift each static currently carries — the
+        // mirror of _pmUnshiftAdjustFollowers, same delta model, same reason:
+        // a member the user dragged meanwhile keeps its new place.
+        function _pmUnshiftRowPack(root) {
+            (root || document).querySelectorAll('[data-rowpack-dx]').forEach(function (m) {
+                var applied = parseFloat(m.getAttribute('data-rowpack-dx')) || 0;
+                if (applied) {
+                    var p = getElementPos(m);
+                    setElementPos(m, p.x - applied, p.y);
+                }
+                m.removeAttribute('data-rowpack-dx');
+            });
+        }
         function _pmUnrowGroup(svg, rid) {
             svg.querySelectorAll('[data-row-follow="' + rid + '"]').forEach(function (m) {
                 m.removeAttribute('data-row-follow');
@@ -8154,19 +8353,23 @@
         // Writes data-inst-left/-right (the value's actual edges) for the ADJUST
         // followers: with tspans, getComputedTextLength returns the SUM of glyph
         // advances, not the spanned width, so edges must be recorded, not measured.
-        function _pmPlaceValueInSlot(t, str) {
+        function _pmPlaceValueInSlot(t, str, forceLeft) {
+            // forceLeft: a ROW packing overrides the slot alignment — the value's
+            // left edge lands exactly there (the row walk decides positions, the
+            // parameter's own align has no slack left to distribute).
             str = String(str == null ? '' : str);
             var slotL = parseFloat(t.getAttribute('data-slot-left'));
             var slotW = parseFloat(t.getAttribute('data-slot-w'));
             if (!isFinite(slotL) || !isFinite(slotW)) return null;   // no slot captured — leave as-is
             var align = t.getAttribute('data-align') || 'left';
             var f = _pmAlignFrac(align);
+            var forced = (forceLeft != null && isFinite(forceLeft));
             var cell = parseFloat(t.getAttribute('data-cell'));
             var equi = t.getAttribute('data-equi') === '1' && isFinite(cell) && cell > 0;
             var instL, instW;
             if (equi) {
                 instW = str.length * cell;
-                instL = slotL + (slotW - instW) * f;
+                instL = forced ? forceLeft : slotL + (slotW - instW) * f;
                 t.textContent = '';
                 for (var i = 0; i < str.length; i++) {
                     var ts = document.createElementNS(_PM_BOX_NS, 'tspan');
@@ -8182,8 +8385,9 @@
                 t.textContent = str;
                 var adv = 0; try { adv = t.getComputedTextLength(); } catch (e) {}
                 instW = adv;
-                instL = slotL + (slotW - instW) * f;
-                if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
+                instL = forced ? forceLeft : slotL + (slotW - instW) * f;
+                if (forced) { t.setAttribute('x', instL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
+                else if (align === 'center') { t.setAttribute('x', (slotL + slotW / 2).toFixed(2)); t.setAttribute('text-anchor', 'middle'); }
                 else if (align === 'right') { t.setAttribute('x', (slotL + slotW).toFixed(2)); t.setAttribute('text-anchor', 'end'); }
                 else { t.setAttribute('x', slotL.toFixed(2)); t.setAttribute('text-anchor', 'start'); }
             }
@@ -8368,8 +8572,9 @@
             // ROW toggles — the composite's own L/C/R, pinning an edge of the row's
             // dotted extent. Same icons, same min<max gate (a row with no growth
             // has nothing to choose). Sits ABOVE the parameter toggles' band so
-            // the two levels don't overlap.
-            _rowIds(svg).forEach(function (rid) {
+            // the two levels don't overlap. Hidden while a value shows — _rowGeom
+            // must never run against packed members (see the row-boxes guard).
+            (_pmHasPlacedInstance(svg) ? [] : _rowIds(svg)).forEach(function (rid) {
                 var rg = _rowGeom(svg, rid);
                 if (!rg || !(rg.grow > 0.5) || !rg.anchor) return;
                 var key = 'row-' + rid; keep[key] = 1;
@@ -8381,9 +8586,10 @@
                         var b = document.createElement('button'); b.className = 'pm-align-btn'; b.dataset.align = a;
                         b.innerHTML = _PM_ALIGN_ICONS[a];
                         b.title = 'Row pinned ' + a.toUpperCase() + (a === 'left' ? ' — grows rightward' : a === 'right' ? ' — grows leftward' : ' — grows both ways');
-                        b.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); });
+                        b.addEventListener('mousedown', function (e) { e.stopPropagation(); });
                         b.addEventListener('click', function (e) {
                             e.stopPropagation(); e.preventDefault();
+                            if (_pmCtrlSquelch()) return;   // that click ended a drag
                             // The extent HOLDS STILL; the LINE moves inside it
                             // (user, July 16 — same contract as the parameter
                             // toggle). Order is load-bearing, same as there:
@@ -8422,6 +8628,7 @@
                 if (sx == null) return;
                 tog.style.left = Math.round(sx) + 'px';
                 tog.style.top = Math.round(sy - 48) + 'px';
+                _pmMakeMovable(tog, 'tog-row-' + rid);
                 var curA = rg.align;
                 Array.prototype.forEach.call(tog.querySelectorAll('.pm-align-btn'), function (b) { b.classList.toggle('on', b.dataset.align === curA); });
             });
@@ -8517,6 +8724,10 @@
                 _pmPlaceValueInSlot(t, String(env[sym]));
                 _pmAdjustFollowers(svg, t); // ADJUST-grouped statics follow the value's edges
             });
+            // ROWS pack LAST, over the individual placements: the walk re-seats
+            // every brick (values at forced positions, statics by delta), so the
+            // inner shifts above are simply superseded inside a row.
+            _pmRowPack(svg);
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = 'none';
             var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = 'none';
         }
@@ -8601,17 +8812,21 @@
                 // One chip, two modes — dispatch on what the sync pass last saw.
                 _adjChipEl.addEventListener('click', function (e) {
                     e.stopPropagation(); e.preventDefault();
+                    if (_pmCtrlSquelch()) return;   // that click was the end of a drag
                     if (_adjChipEl && _adjChipEl.getAttribute('data-mode') === 'row') _rowToggleGroup();
                     else _adjToggleGroup();
                 });
                 overlay.appendChild(_adjChipEl);
             }
+            _pmMakeMovable(_adjChipEl, 'selchip');
             if (rowParts) {
                 var rid0 = rowParts.all[0].getAttribute && rowParts.all[0].getAttribute('data-row-follow');
                 var rowIn = !!rid0 && rowParts.all.every(function (e2) { return e2.getAttribute && e2.getAttribute('data-row-follow') === rid0; });
                 _adjChipEl.setAttribute('data-mode', 'row');
                 _adjChipEl.classList.toggle('on', rowIn);
-                _adjChipEl.textContent = rowIn ? 'row ✓' : 'adjust row';
+                var rsvg = rowParts.params[0].ownerSVGElement;
+                var rn = rowIn ? _pmRowNum(rsvg, rid0) : (_rowIds(rsvg).length + 1);
+                _adjChipEl.textContent = rowIn ? ('row ' + rn + ' ✓') : ('adjust row ' + rn);
                 _adjChipEl.title = rowIn
                     ? 'These structures pack as ONE row around the dealt values. Click to separate them again.'
                     : 'Combine the selected structures into ONE ROW: as any value grows, everything beside it moves over. Each parameter brings its adjusted statics along.';
@@ -8629,7 +8844,10 @@
             var gid = parts.p.getAttribute('data-adjust-id');
             var allIn = !!gid && parts.statics.every(function (s) { return s.getAttribute('data-adjust-follow') === gid; });
             _adjChipEl.classList.toggle('on', allIn);
-            _adjChipEl.textContent = allIn ? 'adjusted ✓' : 'adjust';
+            // Numbered per card, in creation order (#1 = the first group ever
+            // made). An unadjusted selection previews the number it would get.
+            var an = _pmAdjNum(parts.p.ownerSVGElement, gid);
+            _adjChipEl.textContent = allIn ? ('adjusted #' + an + ' ✓') : ('adjust #' + an);
             _adjChipEl.title = allIn
                 ? 'These statics follow the value’s length. Click to pin them again.'
                 : 'Make the selected statics FOLLOW this parameter’s instance length (e.g. "kg" stays right after the number). Pinned is the default.';
@@ -8765,6 +8983,7 @@
             if (!svg) return;
             svg.querySelectorAll('text[data-param][data-param-orig]').forEach(_pmRestoreTemplate);
             _pmUnshiftAdjustFollowers(svg);
+            _pmUnshiftRowPack(svg);
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = '';
             var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = '';
         }
@@ -8794,8 +9013,9 @@
         // instance is never written to storage.
         function _pmNormalizePlacedForSave(root) {
             (root || document).querySelectorAll('.library-card svg text[data-param][data-param-orig]').forEach(_pmRestoreTemplate);
-            // Adjust-group member shifts are instance-state too — never persist.
+            // Adjust-group and row-packing shifts are instance-state too — never persist.
             _pmUnshiftAdjustFollowers(root);
+            _pmUnshiftRowPack(root);
         }
 
         function _iInstance() {

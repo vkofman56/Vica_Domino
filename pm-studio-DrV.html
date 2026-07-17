@@ -1058,7 +1058,9 @@
            extra presence comes from the green border + padding, never from
            restyling its buttons. */
         .pm-adjust-chip[data-mode="row"],
-        #pm-adjust-chips .pm-adjust-chip[data-gid^="row-"] {
+        .pm-adjust-chip[data-mode="col"],
+        #pm-adjust-chips .pm-adjust-chip[data-gid^="row-"],
+        #pm-adjust-chips .pm-adjust-chip[data-gid^="col-"] {
             border: 3px solid #2f9e57;
             box-shadow: 0 0 0 1px rgba(47,158,87,0.3);
             font-size: 12px; padding: 3px 9px;
@@ -1073,7 +1075,8 @@
             0%, 100% { scale: 1;    box-shadow: 0 0 0 1px rgba(47,158,87,0.35); }
             50%      { scale: 1.18; box-shadow: 0 0 0 6px rgba(47,158,87,0.65); }
         }
-        .pm-adjust-chip[data-mode="row"]:not(.on) { animation: pm-row-offer 1s ease-in-out infinite; }
+        .pm-adjust-chip[data-mode="row"]:not(.on),
+        .pm-adjust-chip[data-mode="col"]:not(.on) { animation: pm-row-offer 1s ease-in-out infinite; }
         /* Library-grid (A-CM) parametric card: a clickable "123" tag on a card with
            placed-letter params (hover = count, click = one concrete instance). */
         .pm-param-tag {
@@ -1220,7 +1223,7 @@
         <!-- Introductory Page: Choose Game -->
         <div class="screen" id="intro-screen">
             <div class="page-name-label" contenteditable="true" id="a-welcome-label">A Welcome</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
             <p class="intro-tagline"></p>
             <div class="intro-role-panel" id="intro-role-panel">
                 <button class="intro-role-btn" id="intro-admin-btn" onclick="selectRole('admin')">Admin</button>
@@ -1238,7 +1241,7 @@
         <div class="screen" id="start-screen" style="display:none;">
             <button class="back-arrow-btn" id="back-to-intro-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-game-setup-label">A Game Setup</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">06:56 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Studio <span style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
             <p class="subtitle">Game: Find the Double!</p>
             <button class="mpp-start-btn" id="mpp-start-btn" style="display:none;" onclick="openMppFromStart()" title="Edit main page domino pictures">Main Page Pictures</button>
 
@@ -1480,7 +1483,7 @@
             <button class="back-arrow-btn" id="back-from-card-library-btn" title="Go back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 16L7 10L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="a-library-label">A Library</div>
             <div class="card-library-content">
-                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">06:56 PM PDT</span></h1>
+                <h1 class="library-title">Library <span style="font-size:28.8px;color:rgba(255,255,255,0.5);font-weight:normal;">07:44 PM PDT</span></h1>
                 <div class="library-two-columns">
                     <div class="library-col library-col-sets">
                         <h3 class="library-col-heading">Card Sets</h3>
@@ -7797,6 +7800,36 @@
                 dotted2.setAttribute('stroke-dasharray', '0 ' + (dotDia2 * 2.4).toFixed(2));
                 g.appendChild(dotted2);
             });
+            // COLUMN boxes — same green, same two-box story, but the widths are
+            // UNIONS of the members' boxes (they overlap vertically), not sums.
+            _colIds(svg).forEach(function (cid) {
+                var cg = _colGeom(svg, cid);
+                if (!cg || !(cg.h > 0)) return;
+                var pad = Math.max(1.2, Math.min(6, cg.h * 0.06));
+                var sw = Math.max(0.3, Math.min(2.4, cg.h * 0.03));
+                var rx = Math.max(0.6, Math.min(4, cg.h * 0.05));
+                function colRect(x, w) {
+                    var r = document.createElementNS(_PM_BOX_NS, 'rect');
+                    r.setAttribute('x', (x - pad).toFixed(2));
+                    r.setAttribute('y', (cg.y - pad).toFixed(2));
+                    r.setAttribute('width', (w + 2 * pad).toFixed(2));
+                    r.setAttribute('height', (cg.h + 2 * pad).toFixed(2));
+                    r.setAttribute('rx', rx.toFixed(2));
+                    r.setAttribute('fill', 'none');
+                    return r;
+                }
+                var solid = colRect(cg.normLeft, cg.normW);
+                solid.setAttribute('stroke', '#2f9e57');
+                solid.setAttribute('stroke-width', sw.toFixed(2));
+                g.appendChild(solid);
+                var dia = sw * 0.8;
+                var dotted3 = colRect(cg.dottedLeft, cg.dottedW);
+                dotted3.setAttribute('stroke', _pmDarken('#2f9e57', 0.62));
+                dotted3.setAttribute('stroke-width', dia.toFixed(2));
+                dotted3.setAttribute('stroke-linecap', 'round');
+                dotted3.setAttribute('stroke-dasharray', '0 ' + (dia * 2.4).toFixed(2));
+                g.appendChild(dotted3);
+            });
             if (g.childNodes.length) svg.appendChild(g);
         }
         // Static bake into a source card's SVG (persists in svgContent).
@@ -7875,7 +7908,10 @@
             var old = svg.querySelector('g.pm-adjust-links');
             if (old) old.parentNode.removeChild(old);
             var params = svg.querySelectorAll('text[data-param][data-adjust-id]');
-            if (!params.length) return;
+            // Columns tether without any adjust group on the card — the early
+            // return must not fire before their block gets a chance.
+            var colTethers = !_pmHasPlacedInstance(svg) ? _colIds(svg) : [];
+            if (!params.length && !colTethers.length) return;
             var NS = 'http://www.w3.org/2000/svg';
             var g = null;
             function dash(x1, y1, x2, y2) {
@@ -7908,6 +7944,30 @@
                     // drawn here too — with the boxes in place it read as two
                     // mystery connectors, not as a marker (user, July 16).
                     g.appendChild(dash(x1, pb.y + pb.height / 2, x2, mb.y + mb.height / 2)); // tether
+                });
+            });
+            // COLUMN tethers (user, July 17): each column static connects to the
+            // column's SOLID box with the same green dash as the adjust tethers —
+            // the "+" is a follower OF THE BOX, and the line says so. Template
+            // view only (during a deal _colGeom must not run against packed
+            // members).
+            colTethers.forEach(function (cid) {
+                var cg = _colGeom(svg, cid);
+                if (!cg) return;
+                svg.querySelectorAll('[data-col-follow="' + cid + '"]').forEach(function (m) {
+                    if (m.hasAttribute('data-param')) return;
+                    var mb; try { mb = getSvgSpaceBBox(m); } catch (e) { return; }
+                    if (!mb || !(mb.width > 0)) return;
+                    if (!g) {
+                        g = document.createElementNS(NS, 'g');
+                        g.setAttribute('class', 'pm-adjust-links');
+                        g.style.pointerEvents = 'none';
+                    }
+                    var side = (m.getAttribute('data-col-side') === 'right') ? 'right' : 'left';
+                    var x1 = (side === 'left') ? mb.x + mb.width : mb.x;
+                    var x2 = (side === 'left') ? cg.normLeft : cg.normLeft + cg.normW;
+                    var my = mb.y + mb.height / 2;
+                    g.appendChild(dash(x1, my, x2, my));
                 });
             });
             if (g) svg.appendChild(g);
@@ -8017,6 +8077,40 @@
                 chip.style.position = 'fixed';
                 chip.style.left = Math.round(sx2 - chip.offsetWidth / 2) + 'px';
                 chip.style.top = Math.round(sy2 + 8) + 'px';
+            });
+            // Standing "column N ✓" chips — below the column box, like the rows'.
+            (_pmHasPlacedInstance(svg) ? [] : _colIds(svg)).forEach(function (cid) {
+                var cg = _colGeom(svg, cid);
+                if (!cg) return;
+                var key = 'col-' + cid; keep[key] = 1;
+                var chip = host.querySelector('[data-gid="' + key + '"]');
+                if (!chip) {
+                    chip = document.createElement('button');
+                    chip.className = 'pm-adjust-chip on';
+                    chip.setAttribute('data-gid', key);
+                    chip.title = 'These numbers stack as ONE column; its statics keep their distance from every number. Click to separate.';
+                    chip.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+                    chip.addEventListener('click', function (e) {
+                        e.stopPropagation(); e.preventDefault();
+                        if (_pmCtrlSquelch()) return;
+                        _pmUncolGroup(svg, cid);
+                        chip.remove();
+                    });
+                    host.appendChild(chip);
+                }
+                chip.textContent = 'column ' + _pmColNum(svg, cid) + ' ✓';
+                _pmMakeMovable(chip, 'chip-col-' + cid);
+                var sx4 = null, sy4 = null;
+                var ctm4 = svg.getScreenCTM && svg.getScreenCTM();
+                if (ctm4 && svg.createSVGPoint) {
+                    var pt4 = svg.createSVGPoint();
+                    pt4.x = cg.dottedLeft + cg.dottedW / 2; pt4.y = cg.y + cg.h;
+                    var sp4 = pt4.matrixTransform(ctm4); sx4 = sp4.x; sy4 = sp4.y;
+                }
+                if (sx4 == null) return;
+                chip.style.position = 'fixed';
+                chip.style.left = Math.round(sx4 - chip.offsetWidth / 2) + 'px';
+                chip.style.top = Math.round(sy4 + 8) + 'px';
             });
             Array.prototype.slice.call(host.children).forEach(function (c) {
                 if (!keep[c.getAttribute('data-gid')]) c.remove();
@@ -8321,6 +8415,199 @@
                     setElementPos(m, p.x - applied, p.y);
                 }
                 m.removeAttribute('data-rowpack-dx');
+            });
+        }
+        // ===== COLUMN groups (user spec, July 17) ==============================
+        // The vertical sibling of ROW groups: numbers stacked one under another
+        // plus statics (the "+"). Key geometric difference — a row SUMS its
+        // members' growths (bricks push each other sideways); a column takes the
+        // UNION (members overlap vertically): solid box = horizontal union of
+        // member NORMAL boxes, dotted box = union of their DOTTED slots. Both
+        // derive from attributes each parameter already carries — no stored
+        // extent of its own in v1, and no column toggle (each number's own align
+        // stacks the units; the column adds the boxes, the chip and the packing).
+        // A static keeps AT LEAST its authored distance from EVERY member: each
+        // member constrains it, the tightest wins — which makes "the + follows
+        // the widest number" a consequence, not a special case. Statics keep
+        // their vertical position always; a column only slides them sideways.
+        function _colIds(svg) {
+            var ids = [];
+            if (!svg) return ids;
+            svg.querySelectorAll('[data-col-follow]').forEach(function (m) {
+                var cid = m.getAttribute('data-col-follow');
+                if (cid && ids.indexOf(cid) < 0) ids.push(cid);
+            });
+            return ids.filter(function (cid) {
+                return svg.querySelectorAll('[data-col-follow="' + cid + '"]').length >= 2;
+            });
+        }
+        function _pmColNum(svg, cid) {
+            var ids = _colIds(svg).slice().sort();
+            var i = ids.indexOf(cid);
+            return i < 0 ? ids.length + 1 : i + 1;
+        }
+        function _colGeom(svg, cid) {
+            var members = svg.querySelectorAll('[data-col-follow="' + cid + '"]');
+            if (members.length < 2) return null;
+            var nL = Infinity, nR = -Infinity, dL = Infinity, dR = -Infinity, T = Infinity, B = -Infinity;
+            // NUMBERS ONLY (user correction, July 17): the boxes are the union of
+            // the member PARAMETERS — solid = their normal boxes (e.g. 2 digits),
+            // dotted = their dotted slots (3 digits, the longest instance). The
+            // "+" is NOT inside the boxes; it is a FOLLOWER of the box, tethered
+            // to it like any adjust member. Including it made the boxes swallow
+            // the whole arrangement.
+            members.forEach(function (m) {
+                if (!m.hasAttribute('data-param')) return;
+                var b; try { b = getSvgSpaceBBox(m); } catch (e) { b = null; }
+                if (b && b.height > 0) { if (b.y < T) T = b.y; if (b.y + b.height > B) B = b.y + b.height; }
+                var sL = parseFloat(m.getAttribute('data-slot-left'));
+                var sW = parseFloat(m.getAttribute('data-slot-w'));
+                var nW = parseFloat(m.getAttribute('data-norm-w'));
+                if (!isFinite(sL) || !isFinite(sW)) return;
+                if (!isFinite(nW)) nW = sW;
+                var f = _pmAlignFrac(m.getAttribute('data-align') || 'left');
+                var l = sL + (sW - nW) * f;
+                if (l < nL) nL = l; if (l + nW > nR) nR = l + nW;
+                if (sL < dL) dL = sL; if (sL + sW > dR) dR = sL + sW;
+            });
+            if (!(nR > nL) || !(dR > dL) || !isFinite(T)) return null;
+            return { cid: cid, y: T, h: B - T,
+                normLeft: nL, normW: nR - nL,
+                dottedLeft: dL, dottedW: dR - dL };
+        }
+        // Are the selected parameters STACKED (a column) rather than in a row?
+        // Same baseline test as the stacked-fonts advice: horizontal spans
+        // overlap and the baselines sit on different lines.
+        function _colSelectionStacked(params) {
+            for (var i = 0; i < params.length; i++) {
+                for (var j = i + 1; j < params.length; j++) {
+                    var A = params[i], Bp = params[j], ba, bb;
+                    try { ba = getSvgSpaceBBox(A); bb = getSvgSpaceBBox(Bp); } catch (e) { return false; }
+                    if (!ba || !bb) return false;
+                    var xOv = Math.min(ba.x + ba.width, bb.x + bb.width) - Math.max(ba.x, bb.x);
+                    var fs = Math.min(parseFloat(A.getAttribute('font-size')) || 10, parseFloat(Bp.getAttribute('font-size')) || 10);
+                    var apart = Math.abs((parseFloat(A.getAttribute('y')) || 0) - (parseFloat(Bp.getAttribute('y')) || 0)) > fs * 0.5;
+                    if (!(xOv > 0 && apart)) return false;
+                }
+            }
+            return true;
+        }
+        function _colToggleGroup() {
+            var parts = _rowSelectionParts();
+            if (!parts) return;
+            var svg = parts.params[0].ownerSVGElement;
+            if (!svg) return;
+            var cid0 = parts.all[0].getAttribute && parts.all[0].getAttribute('data-col-follow');
+            var allIn = !!cid0 && parts.all.every(function (e) { return e.getAttribute && e.getAttribute('data-col-follow') === cid0; });
+            if (allIn) { _pmUncolGroup(svg, cid0); return; }
+            var cid = 'cl' + Date.now().toString(36);
+            var members = parts.all.slice();
+            parts.params.forEach(function (p) {
+                var gid = p.getAttribute('data-adjust-id');
+                if (!gid) return;
+                svg.querySelectorAll('[data-adjust-follow="' + gid + '"]').forEach(function (m) {
+                    if (members.indexOf(m) < 0) members.push(m);
+                });
+            });
+            // Column side of each STATIC: which side of the members' union its
+            // centre sits on — that decides which edges constrain it forever.
+            var uL = Infinity, uR = -Infinity;
+            members.forEach(function (m) {
+                if (!m.hasAttribute || !m.hasAttribute('data-param')) return;
+                var b; try { b = getSvgSpaceBBox(m); } catch (e) { return; }
+                if (b) { if (b.x < uL) uL = b.x; if (b.x + b.width > uR) uR = b.x + b.width; }
+            });
+            members.forEach(function (m, i) {
+                m.setAttribute('data-col-follow', cid);
+                m.setAttribute('data-col-ord', i);
+                if (!m.hasAttribute('data-param')) {
+                    var b; try { b = getSvgSpaceBBox(m); } catch (e) { b = null; }
+                    var cx = b ? b.x + b.width / 2 : uL;
+                    m.setAttribute('data-col-side', cx <= (uL + uR) / 2 ? 'left' : 'right');
+                }
+            });
+            var anchor = null;
+            for (var i = 0; i < members.length && !anchor; i++) {
+                if (members[i].hasAttribute && members[i].hasAttribute('data-param')) anchor = members[i];
+            }
+            if (anchor) anchor.setAttribute('data-col-id', cid);
+            hasEditedExisting = true;
+            try { _geFlash('COLUMN created — the static keeps its distance from every number, whichever is widest.'); } catch (e) {}
+            _adjSyncChip();
+        }
+        function _pmUncolGroup(svg, cid) {
+            svg.querySelectorAll('[data-col-follow="' + cid + '"]').forEach(function (m) {
+                ['data-col-follow', 'data-col-ord', 'data-col-side'].forEach(function (a) { m.removeAttribute(a); });
+                if (m.getAttribute('data-col-id') === cid) m.removeAttribute('data-col-id');
+            });
+            hasEditedExisting = true;
+            try { _geFlash('Column removed — the elements are independent again.'); } catch (e) {}
+            if (typeof _adjSyncChip === 'function') { try { _adjSyncChip(); } catch (e2) {} }
+        }
+        // COLUMN packing: after values place, each static moves by the tightest
+        // member constraint. delta_i = how far member i's near edge moved from
+        // its authored (all-min) position; a LEFT static takes min(delta_i) over
+        // left edges, a RIGHT one max over right edges. Signed — narrow deals
+        // let the static tuck IN. Delta model via data-colpack-dx, mirror of the
+        // row's, undone on clear/save.
+        function _pmColPack(svg) {
+            if (!svg) return;
+            _colIds(svg).forEach(function (cid) {
+                var params = [], statics = [], partial = false;
+                svg.querySelectorAll('[data-col-follow="' + cid + '"]').forEach(function (m) {
+                    if (m.hasAttribute('data-param')) {
+                        if (m.getAttribute('data-param-orig') == null) { partial = true; return; }
+                        var sL = parseFloat(m.getAttribute('data-slot-left'));
+                        var sW = parseFloat(m.getAttribute('data-slot-w'));
+                        var nW = parseFloat(m.getAttribute('data-norm-w'));
+                        var iL = parseFloat(m.getAttribute('data-inst-left'));
+                        var iR = parseFloat(m.getAttribute('data-inst-right'));
+                        if (!isFinite(sL) || !isFinite(sW) || !isFinite(iL)) { partial = true; return; }
+                        if (!isFinite(nW)) nW = sW;
+                        var f = _pmAlignFrac(m.getAttribute('data-align') || 'left');
+                        var aL = sL + (sW - nW) * f;
+                        params.push({ aL: aL, aR: aL + nW, iL: iL, iR: iR });
+                    } else {
+                        statics.push(m);
+                    }
+                });
+                if (partial || !params.length || !statics.length) return;
+                // UNION rule (user correction, July 17): the static keeps ONE
+                // authored clearance — to the nearest edge of the column — and
+                // follows THAT edge. Per-member gaps were wrong: with C's minimum
+                // narrower than A's and B's, they preserved C's larger authored
+                // gap and pushed the "+" a digit too far even when no number got
+                // wider than the authored union.
+                var aUL = Infinity, aUR = -Infinity, iUL = Infinity, iUR = -Infinity;
+                params.forEach(function (p) {
+                    if (p.aL < aUL) aUL = p.aL; if (p.aR > aUR) aUR = p.aR;
+                    if (p.iL < iUL) iUL = p.iL; if (p.iR > iUR) iUR = p.iR;
+                });
+                var dL = iUL - aUL, dR = iUR - aUR;
+                statics.forEach(function (m) {
+                    var want = (m.getAttribute('data-col-side') === 'right') ? dR : dL;
+                    // The "+" is often ALSO an adjust follower of one member, so
+                    // part of `want` may already be applied as data-adjust-dx —
+                    // the column carries only the remainder, or the static would
+                    // move twice for the same width change.
+                    var adjDx = parseFloat(m.getAttribute('data-adjust-dx')) || 0;
+                    var target = want - adjDx;
+                    var applied = parseFloat(m.getAttribute('data-colpack-dx')) || 0;
+                    if (Math.abs(target - applied) < 1e-9) return;
+                    var p = getElementPos(m);
+                    setElementPos(m, p.x + (target - applied), p.y);
+                    m.setAttribute('data-colpack-dx', String(target));   // full precision
+                });
+            });
+        }
+        function _pmUnshiftColPack(root) {
+            (root || document).querySelectorAll('[data-colpack-dx]').forEach(function (m) {
+                var applied = parseFloat(m.getAttribute('data-colpack-dx')) || 0;
+                if (applied) {
+                    var p = getElementPos(m);
+                    setElementPos(m, p.x - applied, p.y);
+                }
+                m.removeAttribute('data-colpack-dx');
             });
         }
         function _pmUnrowGroup(svg, rid) {
@@ -8728,6 +9015,7 @@
             // every brick (values at forced positions, statics by delta), so the
             // inner shifts above are simply superseded inside a row.
             _pmRowPack(svg);
+            _pmColPack(svg);
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = 'none';
             var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = 'none';
         }
@@ -8813,12 +9101,34 @@
                 _adjChipEl.addEventListener('click', function (e) {
                     e.stopPropagation(); e.preventDefault();
                     if (_pmCtrlSquelch()) return;   // that click was the end of a drag
-                    if (_adjChipEl && _adjChipEl.getAttribute('data-mode') === 'row') _rowToggleGroup();
+                    var mode = _adjChipEl && _adjChipEl.getAttribute('data-mode');
+                    if (mode === 'col') _colToggleGroup();
+                    else if (mode === 'row') _rowToggleGroup();
                     else _adjToggleGroup();
                 });
                 overlay.appendChild(_adjChipEl);
             }
             _pmMakeMovable(_adjChipEl, 'selchip');
+            if (rowParts && _colSelectionStacked(rowParts.params)) {
+                // Parameters one under another → the SAME gesture means COLUMN.
+                var csvg = rowParts.params[0].ownerSVGElement;
+                var cid0 = rowParts.all[0].getAttribute && rowParts.all[0].getAttribute('data-col-follow');
+                var colIn = !!cid0 && rowParts.all.every(function (e4) { return e4.getAttribute && e4.getAttribute('data-col-follow') === cid0; });
+                _adjChipEl.setAttribute('data-mode', 'col');
+                _adjChipEl.classList.toggle('on', colIn);
+                var cn = colIn ? _pmColNum(csvg, cid0) : (_colIds(csvg).length + 1);
+                _adjChipEl.textContent = colIn ? ('column ' + cn + ' ✓') : ('adjust column ' + cn);
+                _adjChipEl.title = colIn
+                    ? 'These numbers stack as ONE column; its statics keep their distance from every number. Click to separate.'
+                    : 'Combine the stacked numbers into ONE COLUMN: the static (e.g. "+") keeps at least its distance from EVERY number — the widest one decides where it sits.';
+                var cr; try { cr = rowParts.params[0].getBoundingClientRect(); } catch (e5) { cr = null; }
+                if (cr) {
+                    _adjChipEl.style.left = Math.round(cr.left) + 'px';
+                    _adjChipEl.style.top = Math.round(cr.top - 26) + 'px';
+                }
+                if (_adjPlayEl) { _adjPlayEl.remove(); _adjPlayEl = null; }
+                return;
+            }
             if (rowParts) {
                 var rid0 = rowParts.all[0].getAttribute && rowParts.all[0].getAttribute('data-row-follow');
                 var rowIn = !!rid0 && rowParts.all.every(function (e2) { return e2.getAttribute && e2.getAttribute('data-row-follow') === rid0; });
@@ -8984,6 +9294,7 @@
             svg.querySelectorAll('text[data-param][data-param-orig]').forEach(_pmRestoreTemplate);
             _pmUnshiftAdjustFollowers(svg);
             _pmUnshiftRowPack(svg);
+            _pmUnshiftColPack(svg);
             var bx = svg.querySelector('g.pm-param-boxes'); if (bx) bx.style.display = '';
             var lb = svg.querySelector('g.pm-param-live-boxes'); if (lb) lb.style.display = '';
         }
@@ -9016,6 +9327,7 @@
             // Adjust-group and row-packing shifts are instance-state too — never persist.
             _pmUnshiftAdjustFollowers(root);
             _pmUnshiftRowPack(root);
+            _pmUnshiftColPack(root);
         }
 
         function _iInstance() {

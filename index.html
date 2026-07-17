@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:06 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">03:06 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -4926,12 +4926,13 @@
                 var dL = instL - refL;
                 var dR = (instL + instW) - (refL + normW);
                 Array.prototype.forEach.call(root.querySelectorAll('[data-adjust-follow="' + gid + '"]'), function (m) {
-                    // A ROW member's position comes from the packing walk, which
-                    // reads AUTHORED geometry — shifting it here first (with no
-                    // record, unlike the Studio's dx bookkeeping) corrupted the
-                    // walk's gap math and flung statics off the card (measured:
-                    // "+" landed at −126.8). The pack supersedes inner shifts.
-                    if (m.hasAttribute('data-row-follow')) return;
+                    // A ROW or COLUMN member's position comes from the packing
+                    // walk, which reads AUTHORED geometry — shifting it here
+                    // first (with no record, unlike the Studio's dx bookkeeping)
+                    // corrupted the walk's math and flung statics off the card
+                    // (measured: "+" landed at −126.8). The pack supersedes
+                    // inner shifts.
+                    if (m.hasAttribute('data-row-follow') || m.hasAttribute('data-col-follow')) return;
                     var d = (m.getAttribute('data-adjust-side') === 'left') ? dL : dR;
                     if (d) _paramShiftEl(m, d);
                 });
@@ -5016,6 +5017,49 @@
                 });
             });
         }
+        // COLUMN packing, player side — mirror of _pmColPack in the Studio. Each
+        // static in a column keeps AT LEAST its authored distance from EVERY
+        // member: delta_i = how far member i's near edge moved from its authored
+        // (all-minimum) position; a left-side static moves by min(delta_i), a
+        // right-side one by max over right edges. Signed — narrow deals tuck in.
+        // Fresh clone per deal: shifts applied once, no bookkeeping.
+        function _colPackFace(el) {
+            if (!el || !el.querySelectorAll) return;
+            var ids = [];
+            el.querySelectorAll('[data-col-follow]').forEach(function (m) {
+                var cid = m.getAttribute('data-col-follow');
+                if (cid && ids.indexOf(cid) < 0) ids.push(cid);
+            });
+            ids.forEach(function (cid) {
+                var aUL = Infinity, aUR = -Infinity, iUL = Infinity, iUR = -Infinity, statics = [], bad = false;
+                el.querySelectorAll('[data-col-follow="' + cid + '"]').forEach(function (m) {
+                    if (m.hasAttribute('data-param')) {
+                        var sL = parseFloat(m.getAttribute('data-slot-left'));
+                        var sW = parseFloat(m.getAttribute('data-slot-w'));
+                        var nW = parseFloat(m.getAttribute('data-norm-w'));
+                        var iL = parseFloat(m.getAttribute('data-inst-left'));
+                        var iR = parseFloat(m.getAttribute('data-inst-right'));
+                        if (!isFinite(sL) || !isFinite(sW) || !isFinite(iL)) { bad = true; return; }
+                        if (!isFinite(nW)) nW = sW;
+                        var pa = m.getAttribute('data-align') || 'left';
+                        var pf = (pa === 'right') ? 1 : (pa === 'center') ? 0.5 : 0;
+                        var aL = sL + (sW - nW) * pf;
+                        // UNION rule — the static follows the COLUMN's edge, not
+                        // the most-moved member (mirror of _pmColPack).
+                        if (aL < aUL) aUL = aL; if (aL + nW > aUR) aUR = aL + nW;
+                        if (iL < iUL) iUL = iL; if (iR > iUR) iUR = iR;
+                    } else {
+                        statics.push(m);
+                    }
+                });
+                if (bad || !isFinite(aUL) || !isFinite(iUL) || !statics.length) return;
+                var dL = iUL - aUL, dR = iUR - aUR;
+                statics.forEach(function (m) {
+                    var d = (m.getAttribute('data-col-side') === 'right') ? dR : dL;
+                    if (d) _paramShiftEl(m, d);
+                });
+            });
+        }
         function _paramApplyFace(svgEl, map) {
             if (!svgEl || !map) return svgEl;
             var el = svgEl.cloneNode(true);
@@ -5055,9 +5099,11 @@
                 t.style.opacity = '';
                 t.removeAttribute('opacity');
             });
-            // ROWS pack last, over the individual placements — same order as the
-            // Studio's _pmShowPlacedInstance, so a card packs identically in play.
+            // ROWS and COLUMNS pack last, over the individual placements — same
+            // order as the Studio's _pmShowPlacedInstance, so a card packs
+            // identically in play.
             _rowPackFace(el);
+            _colPackFace(el);
             return el;
         }
 

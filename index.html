@@ -40,7 +40,7 @@
                  the intro panel's top-left so the panel's header can host
                  the new game-type search input instead. -->
             <div class="intro-title-row">
-                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:24 PM PDT</span></h1>
+                <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
                 <button type="button" class="intro-input-toggle"
                         id="intro-input-toggle"
                         role="switch" aria-checked="true"
@@ -112,7 +112,7 @@
             <button class="back-arrow-btn home-btn" id="home-btn-setup" title="Go to Welcome"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L10 3L17 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9V16.5H8.5V12H11.5V16.5H15V9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="page-name-label" contenteditable="true" id="setup-page-label">GP F Setup</div>
             <div class="page-name-label" contenteditable="true" id="setup2-page-label" style="display:none;">GP S1</div>
-            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:24 PM PDT</span></h1>
+            <h1><span style="color:#FFD54F;">Math</span><span style="color:#4DD0E1;">Grain</span> Game Preview <span style="font-size:28px;color:rgba(255,255,255,0.4);font-weight:normal;">07:44 PM PDT</span></h1>
             <p class="subtitle">Please select a game</p>
             <!-- MPP button removed: player-only page -->
 
@@ -5031,7 +5031,7 @@
                 if (cid && ids.indexOf(cid) < 0) ids.push(cid);
             });
             ids.forEach(function (cid) {
-                var dL = Infinity, dR = -Infinity, statics = [], bad = false;
+                var aUL = Infinity, aUR = -Infinity, iUL = Infinity, iUR = -Infinity, statics = [], bad = false;
                 el.querySelectorAll('[data-col-follow="' + cid + '"]').forEach(function (m) {
                     if (m.hasAttribute('data-param')) {
                         var sL = parseFloat(m.getAttribute('data-slot-left'));
@@ -5044,13 +5044,16 @@
                         var pa = m.getAttribute('data-align') || 'left';
                         var pf = (pa === 'right') ? 1 : (pa === 'center') ? 0.5 : 0;
                         var aL = sL + (sW - nW) * pf;
-                        if (iL - aL < dL) dL = iL - aL;
-                        if (iR - (aL + nW) > dR) dR = iR - (aL + nW);
+                        // UNION rule — the static follows the COLUMN's edge, not
+                        // the most-moved member (mirror of _pmColPack).
+                        if (aL < aUL) aUL = aL; if (aL + nW > aUR) aUR = aL + nW;
+                        if (iL < iUL) iUL = iL; if (iR > iUR) iUR = iR;
                     } else {
                         statics.push(m);
                     }
                 });
-                if (bad || !isFinite(dL) || !statics.length) return;
+                if (bad || !isFinite(aUL) || !isFinite(iUL) || !statics.length) return;
+                var dL = iUL - aUL, dR = iUR - aUR;
                 statics.forEach(function (m) {
                     var d = (m.getAttribute('data-col-side') === 'right') ? dR : dL;
                     if (d) _paramShiftEl(m, d);

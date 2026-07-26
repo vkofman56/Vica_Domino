@@ -1,23 +1,65 @@
-# Vica Domino — Program Guide
+# MathGrain Studio (MGS) — Program Guide
 
-*The complete guide to what the program is and does. Last updated July 17, 2026 (deploy tip `6319a92`+). This is the user-and-architecture reference; for where-we-left-off see `docs/STATUS_NOTES.md`, for durable lessons `docs/MEMORY.md`, and for the parametric internals the auto-memory note `parametric-cards-feature`.*
+*The complete guide to what the program is and does. Last updated July 17, 2026 (deploy tip `6319a92`+). This is the user-and-architecture reference; for where we left off, see `docs/STATUS_NOTES.md`; for durable lessons, `docs/MEMORY.md`; for the parametric internals, the auto-memory note `parametric-cards-feature`.*
+
+> **How to read this guide.** Section 1 describes the full **vision**, which mixes what is built with what is planned. Every capability is tagged:
+> **✅ LIVE** — built and deployed today · **🔭 PLANNED** — designed but not yet built.
+> Sections 2 onward document **only what is LIVE today**, screen by screen.
 
 ---
 
-## 1. What the program is
+## 1. What the program is — the vision
 
-Vica Domino is a **learning-game studio and player** for young children. An adult ("superuser") builds card sets and games in the **Studio**; a child plays them in the **Player**. Everything is plain HTML/JS with no build step, served from the repo root; all state lives in the browser's localStorage and syncs to Firebase for signed-in superusers.
+MathGrain Studio is a full studio for a **Superuser**, who designs **Big Games (BG)** and creates **Tools**. *(**🔭 Tools do not yet exist** as a feature; planned ones include an abacus, ten-frames with counters, boxes with coins, and "money.")* The Superuser designs Big Games for young learners (ages 3–8), who need to internalize basic math concepts through active, hands-on experience and repeated practice — which the studio supports through multiple game formats.
 
-**Two apps, two files:**
+Some BGs will eventually serve as **Big Game Templates (BGT)** — *(**🔭 a feature that does not yet exist**)* — which **Creators** (Educators and Adult Self-Learners) will use to build their own libraries of Big Games.
+
+To create a BG, the Superuser starts by building **mini-games**: in the **Cards Creator ✅**, they design cards; in the **Game Creator ✅**, they set card probabilities, green/neutral/red card appearance, and other game-specific settings. Once the mini-games are built, the Superuser uses the **Game Previewer ✅** to choose the types of transitions between mini-games and assembles a **Big Game ✅**, complete with a game description.
+
+Some Big Games will remain private and be used only by the Superuser. Others will eventually be made available to Educators, either as-is or as BGTs. For each BGT, the Superuser will write a full description and a shortened version — the **BGT Preview** *(🔭 planned)*.
+
+**Creators** (Educators and Adult Self-Learners, or **ASL**) have the next tier of access, one level below Superuser *(**🔭 the Creators tier does not yet exist** — today there is only the Superuser)*. They will be able to browse the library of Big Games the Superuser has created and use them as default structures for new games.
+
+To create games suited to their needs, Creators will build card sets in the **Template Card Creator** *(🔭 planned)* and select a BGT. Educators will then be able to give specific students access to a game, assign a game to students, and track their performance *(🔭 planned)*. ASL will play the games they design on their own.
+
+**All players will be able to play any created game in the Player ✅.**
+
+**Creators' Studio does not yet exist 🔭.** Once built, it will let Creators preview default games on a touch-screen device and select a **Default Big Game (DBG)** to use as a base. They'll then see card-creation options and design their cards using the Template Card Creator on computer, or a simplified version of the Card Creator on a touch-screen device. Finally, they'll preview and publish their **Novel Big Game**, adding it to the private or public library.
+
+### 1.1 Roles
+
+| Role | Access | Status |
+|---|---|---|
+| **Superuser** | Designs Big Games and Tools; the full studio | **✅ live** (the only role today) |
+| **Creator — Educator** | Uses BGTs to build games, assigns to students, tracks performance | 🔭 planned |
+| **Creator — Adult Self-Learner (ASL)** | Uses BGTs to build games, plays them solo | 🔭 planned |
+| **Player** | Plays any created game | **✅ live** |
+
+### 1.2 What is built today vs planned
+
+| Built today (✅) | Planned (🔭) |
+|---|---|
+| Cards Creator, Game Creator, Game Previewer | Tools (abacus, ten-frames, coins, money) |
+| Mini-games: **Find the Double**, **Catch**, **Math Problems** | Big Game **Templates** (BGT) + BGT Preview |
+| Big Game assembly + transitions between mini-games | The **Creators** tier (Educator / ASL access) |
+| The **Player** (plays any game) | **Template Card Creator** |
+| Superuser login, cloud sync, backup | Educator assign-to-students + performance tracking |
+| | **Creators' Studio** (DBG selection, publish Novel Big Games) |
+
+### 1.3 The apps and files (technical, current)
+
+Everything is plain HTML/JS with no build step, served from the repo root; all state lives in the browser's localStorage and syncs to Firebase for signed-in superusers.
 
 | App | File | Who | Opens on |
 |---|---|---|---|
 | **Player / Game Previewer** | `index.html` | the child (and the adult previewing) | game selection → play |
-| **Studio** | `pm-studio-DrV.html` | the adult superuser | login → Library |
+| **Studio** | `pm-studio-DrV.html` | the Superuser | login → Library |
 
 Supporting code: `js/game.js` (gameplay engine), `js/domino.js` (built-in card data), `js/sync.js` (Firebase login + sync + auto-backup), `js/voice.js` (speech answering), `css/style.css` (shared styling).
 
-Deployed via GitHub Pages from `claude/review-project-docs-JOOeh`. See `CLAUDE.md` for the branch/ship rules.
+Deployed via GitHub Pages from `claude/review-project-docs-JOOeh`. See `CLAUDE.md` for the branch/ship rules. *(The repository is still named `Vica_Domino` — the historical project name; the product is MathGrain Studio.)*
+
+**Vision term → today's screen:** *Cards Creator* = the **Card Maker** (§4) + the **Card Editor** loupe (§5); *Game Creator* = **§6**; *Game Previewer* = the **Player** intro/preview (§8); transitions = the **Tickets Box** (§3); Big Game assembly = the **Big Game** composition (§6).
 
 ---
 

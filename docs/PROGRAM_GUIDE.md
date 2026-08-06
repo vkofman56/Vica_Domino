@@ -14,7 +14,7 @@ MathGrain Studio is a full studio for a **Superuser**, who designs **Big Games (
 
 Some BGs will eventually serve as **Big Game Templates (BGT)** — *(**🔭 a feature that does not yet exist**)* — which **Creators** (Educators and Adult Self-Learners) will use to build their own libraries of Big Games.
 
-To create a BG, the Superuser starts by building **mini-games**: in the **Cards Creator ✅**, they design cards; in the **Game Creator ✅**, they set card probabilities, green/neutral/red card appearance, and other game-specific settings. Once the mini-games are built, the Superuser uses the **Game Previewer ✅** to choose the types of transitions between mini-games and assembles a **Big Game ✅**, complete with a game description.
+To create a BG, the Superuser starts by building **mini-games**: in the **Cards Creator ✅**, they design cards; in the **Game Creator ✅**, they set card probabilities, green/neutral/red card appearance, and other game-specific settings. Once the mini-games are built, the Superuser **assembles a Big Game ✅** — stacking the mini-games in order and previewing the result — in the **Composer** (reached from the Game Previewer). **Choosing the *types of transitions* between mini-games is 🔭 not built yet:** today the gap between two mini-games is a fixed "Level Up" step, and the **Tickets Box** is a display-only catalog. The **Big-Game "lego" builder** (§6.1) will add draggable transitions and part-preview.
 
 Some Big Games will remain private and be used only by the Superuser. Others will eventually be made available to Educators, either as-is or as BGTs. For each BGT, the Superuser will write a full description and a shortened version — the **BGT Preview** *(🔭 planned)*.
 
@@ -41,8 +41,8 @@ To create games suited to their needs, Creators will build card sets in the **Te
 |---|---|
 | Cards Creator, Game Creator, Game Previewer | Tools (abacus, ten-frames, coins, money) |
 | Mini-games: **Find the Double**, **Catch**, **Math Problems** | Big Game **Templates** (BGT) + BGT Preview |
-| Big Game assembly + transitions between mini-games | The **Creators** tier (Educator / ASL access) |
-| The **Player** (plays any game) | **Template Card Creator** |
+| Big Game **assembly** (the Composer: stack mini-games, reorder, preview) | **Transitions between mini-games** — the Big-Game "lego" builder (draggable transitions + part-preview) |
+| The **Player** (plays any game) | The **Creators** tier (Educator / ASL access) · **Template Card Creator** |
 | Superuser login, cloud sync, backup | Educator assign-to-students + performance tracking |
 | | **Creators' Studio** (DBG selection, publish Novel Big Games) |
 
@@ -84,7 +84,7 @@ The landing screen after login. Two columns plus two boxes.
 
 **📝 Game Notes box** — defines what to **record** while a game is played: observations (chips carrying parameters P, t, N, K, C) that decide which cards a child gets and when to switch games. *All on / All off* set every note at once; *📄 Reports* holds the documents produced by recorded preview sessions. Legends persist in `gameNoteLegends_v1`.
 
-**🎟 Tickets Box** — the library of **transition rules**: the conditions that move a player from one mini-game to the next (win, loss, score, progress, collection, answer-branch). A game attaches a "ticket" naming its successor.
+**🎟 Tickets Box** — the catalogue of **transition rules**: the conditions that could move a player from one mini-game to the next (win, loss, score, progress, collection, answer-branch). *(🔭 Today this is **display-only** — each ticket is just an icon + name + description, with no condition parameters and no destination. Attaching a ticket between two mini-games is the job of the Big-Game "lego" builder, §6.1.)*
 
 ---
 
@@ -157,8 +157,12 @@ The layout engine that makes multi-part problems line up as values change. Same 
 
 **Compositions** (built in the Player's intro columns, not the type picker):
 
-- **Big Game** — stitches several mini-games into one flow (Composer; stored in `savedBigGames`; played via `?playBig=`).
-- **Combined** — stitches saved games into stages (`saveCombinedGames`).
+- **Big Game** — stitches several mini-games into one flow. Assembled in the **Composer** (`biggame.html`, opened from the Player intro's "Big Games" column); stored in `savedBigGames`; played via `?playBig=`. Today the between-stage step is a fixed "Level Up"; see §6.1.
+- **Combined** — the older, admin-only predecessor of Big Games (`savedCombinedGames`); the Big Game play engine reuses its runtime.
+
+### 6.1 The Big-Game "lego" builder (🔭 planned)
+
+The next feature: turn the Composer's stage column into a true **lego column** where the Superuser drags **mini-game legos** *and* **transition legos** between them. A transition lego is a **ticket** given a real data model (a condition — win / N-correct / timer / gems — plus, for now, *advance to the next lego*; branching deferred). Mini-games are held by **reference** with a **Safe Haven** guard (editing a mini-game warns which Big Games use it; declining forks an "R-prime"). **Math mini-games** join Find + Catch in the palette. Each **part** (a sub-sequence of legos) can be previewed or short-previewed (the seed of the BGT Preview). **Scope for v1: linear only** — no branches until ~5 Big Games are built end-to-end. See the `biggame-builder-plan` memory for the full design record.
 
 **The Game Creator screen** (open a game from the Library):
 
